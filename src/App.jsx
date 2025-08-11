@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse'
 
-// Hooks / Utils / Services
+// Hooks / Utils / Services / Actions
 import useDebouncedEffect from './hooks/useDebouncedEffect'
 import { cx, normalizePlayerName } from './utils/formatting'
 import { parseDraftId } from './utils/parse'
@@ -16,14 +16,21 @@ import {
   formatDraftLabel,
 } from './services/api'
 
+import {
+    resolveUserIdAction,
+    loadLeaguesAction,
+    loadLeagueUsersAction,
+    loadPicksAction,
+    loadDraftOptionsAction,
+    attachDraftByIdOrUrlAction,
+  } from './services/actions'
+
 // Components
-import Topbar from './components/Topbar'
-import TabsNav from './components/TabsNav'
+import AppShell from './components/AppShell'
 import SetupForm from './components/SetupForm'
 import BoardSection from './components/BoardSection'
 import RosterSection from './components/RosterSection'
-
-const CURRENT_YEAR = new Date().getFullYear()
+import { CURRENT_YEAR } from './constants'
 
 export default function App() {
   // Theme
@@ -98,73 +105,56 @@ export default function App() {
 
   // Networking helpers (bleiben hier, greifen auf State zu)
   async function resolveUserId() {
-    if (sleeperUserId) return sleeperUserId
-    if (!sleeperUsername) throw new Error('Bitte Benutzername eingeben')
-    const data = await fetchJson(`${SLEEPER_API_BASE}/user/${encodeURIComponent(sleeperUsername)}`)
-    setSleeperUserId(data.user_id)
-    saveToLocalStorage({ userId: data.user_id })
-    return data.user_id
+    return resolveUserIdAction({
+      sleeperUserId,
+      sleeperUsername,
+      setSleeperUserId,
+      saveToLocalStorage,
+    })
   }
 
   async function loadLeagues() {
-    const userId = await resolveUserId()
-    const leagues = await fetchJson(`${SLEEPER_API_BASE}/user/${userId}/leagues/nfl/${seasonYear}`)
-    setAvailableLeagues(leagues)
-    const preferred = leagues.find(l => l.status === 'drafting' || l.status === 'in_season') || leagues[0]
-    if (preferred) {
-      setSelectedLeagueId(preferred.league_id)
-      saveToLocalStorage({ leagueId: preferred.league_id })
-      await loadDraftOptions(preferred.league_id)
-    } else {
-      await loadDraftOptions('')
-    }
+    return loadLeaguesAction({
+      seasonYear,
+      setAvailableLeagues,
+      setSelectedLeagueId,
+      saveToLocalStorage,
+      resolveUserId,      // als Funktion referenzieren
+      loadDraftOptions,   // als Funktion referenzieren
+    })
   }
 
   async function loadLeagueUsers(leagueId) {
-    if (!leagueId) return
-    const users = await fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
-    setLeagueUsers(users)
+    return loadLeagueUsersAction({ leagueId, setLeagueUsers })
   }
 
   async function loadPicks(draftId) {
-    if (!draftId) return []
-    const ps = await fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks`)
-    setLivePicks(ps)
-    setLastSyncAt(new Date())
-    return ps
-  }
+    return loadPicksAction({ draftId, setLivePicks, setLastSyncAt })
+  }  
 
   async function loadDraftOptions(leagueId) {
-    const userId = await resolveUserId()
-    const [userDrafts, leagueDrafts] = await Promise.all([
-      loadUserDraftsForYear(userId, seasonYear),
-      fetchLeagueDrafts(leagueId),
-    ])
-    const merged = mergeDraftsUnique(userDrafts, leagueDrafts)
-    merged.sort(
-      (a, b) =>
-        (b.start_time || 0) - (a.start_time || 0) ||
-        String(b.draft_id).localeCompare(String(a.draft_id))
-    )
-    setAvailableDrafts(merged)
-    if (!selectedDraftId && merged.length) {
-      setSelectedDraftId(merged[0].draft_id)
-      saveToLocalStorage({ draftId: merged[0].draft_id })
-    }
-  }
+    return loadDraftOptionsAction({
+      leagueId,
+      seasonYear,
+      selectedDraftId,
+      setAvailableDrafts,
+      setSelectedDraftId,
+      saveToLocalStorage,
+      resolveUserId, // Dependency
+    })
+  }  
 
   async function attachDraftByIdOrUrl(input) {
-    const id = parseDraftId(input)
-    if (!id) throw new Error('Bitte gültige Draft-ID oder URL eingeben.')
-    await loadPicks(id)
-    const exists = availableDrafts.some(d => d.draft_id === id)
-    if (!exists) {
-      setAvailableDrafts(prev => [{ draft_id: id, metadata: { name: `Draft ${id}` } }, ...prev])
-    }
-    setSelectedDraftId(id)
-    saveToLocalStorage({ draftId: id })
-    alert('Draft per ID/URL gesetzt.')
-  }
+    return attachDraftByIdOrUrlAction({
+      input,
+      parseDraftId,
+      availableDrafts,
+      setAvailableDrafts,
+      setSelectedDraftId,
+      saveToLocalStorage,
+      loadPicks, // Dependency
+    })
+  }  
 
   // CSV → Live-Picks remap
   useEffect(() => {
@@ -269,19 +259,14 @@ export default function App() {
 
   // Render
   return (
-    <div className="wrap">
-      <Topbar
-        themeMode={themeMode}
-        onToggleTheme={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-      />
-
-      <TabsNav
-        activeTab={activeTab}
-        onSetupClick={() => { setActiveTab('setup'); saveToLocalStorage({ activeTab: 'setup' }) }}
-        onBoardClick={() => { setActiveTab('board'); saveToLocalStorage({ activeTab: 'board' }) }}
-        onRosterClick={() => { setActiveTab('roster'); saveToLocalStorage({ activeTab: 'roster' }) }}
-      />
-
+    <AppShell
+      themeMode={themeMode}
+      onToggleTheme={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+      activeTab={activeTab}
+      onSetupClick={() => { setActiveTab('setup'); saveToLocalStorage({ activeTab: 'setup' }) }}
+      onBoardClick={() => { setActiveTab('board'); saveToLocalStorage({ activeTab: 'board' }) }}
+      onRosterClick={() => { setActiveTab('roster'); saveToLocalStorage({ activeTab: 'roster' }) }}
+    >
       {activeTab === 'setup' && (
         <SetupForm
           sleeperUsername={sleeperUsername}
@@ -312,7 +297,7 @@ export default function App() {
           formatDraftLabel={formatDraftLabel}
         />
       )}
-
+  
       {activeTab === 'board' && (
         <BoardSection
           currentPickNumber={currentPickNumber}
@@ -331,14 +316,10 @@ export default function App() {
           onPositionChange={(e) => setPositionFilter(e.target.value)}
         />
       )}
-
+  
       {activeTab === 'roster' && (
         <RosterSection picks={livePicks} me={sleeperUserId} />
       )}
-
-      <footer className="muted text-xs mt-6">
-        SleeperDarftHelper byZmash
-      </footer>
-    </div>
-  )
+    </AppShell>
+  )  
 }
