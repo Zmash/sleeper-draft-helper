@@ -57,3 +57,10 @@ Dieses Projekt steht unter der MIT-Lizenz – siehe die [LICENSE.md](LICENSE.md)
 ---
 
 Entwickelt mit ❤️ für Fantasy-Football-Fans.
+
+
+## Haftungsausschluss
+
+Dieses Projekt steht in **keiner Verbindung** zu Sleeper oder FantasyPros.  
+Es handelt sich um ein **inoffizielles, von der Community erstelltes Tool**, das lediglich deren öffentliche APIs nutzt.  
+Alle Markennamen, Logos und Produktbezeichnungen sind Eigentum ihrer jeweiligen Inhaber.
