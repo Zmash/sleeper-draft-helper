@@ -39,11 +39,11 @@ import { normalizePlayerName } from '../utils/formatting'
 
 /**
  * @typedef {Object} BuildOptions
- * @property {number} [topNOverall=60]     // wie viele best-available insgesamt
- * @property {number} [topPerPos=20]       // wie viele best-available je Position
+ * @property {number} [topNOverall=30]     // wie viele best-available insgesamt
+ * @property {number} [topPerPos=10]       // wie viele best-available je Position
  * @property {string} [model="gpt-4o-mini"]
  * @property {number} [temperature=0.2]
- * @property {number} [max_output_tokens=600]
+ * @property {number} [max_output_tokens=500]
  */
 
 /**
@@ -59,8 +59,8 @@ function makeContext({
   options = /** @type {BuildOptions} */({})
 }) {
   const {
-    topNOverall = 60,
-    topPerPos = 20,
+    topNOverall = 40,
+    topPerPos = 10,
   } = options
 
   // 1) Bereits gepickte Spieler (per Sleeper live picks) -> normalisierte Namen
@@ -331,7 +331,7 @@ export function buildAIAdviceRequest(params) {
 
   const model = options.model || 'gpt-4o-mini'
   const temperature = options.temperature ?? 0.2
-  const max_output_tokens = options.max_output_tokens ?? 600
+  const max_output_tokens = options.max_output_tokens ?? 500
 
   // Für Chat Completions:
   // client.chat.completions.create({ model, messages, response_format, temperature, max_tokens })

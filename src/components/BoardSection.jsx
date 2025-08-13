@@ -290,6 +290,9 @@ function extractLooseJson(s) {
       return
     }
 
+    // Key dauerhaft speichern
+    setOpenAIKey(savedKey)
+
     setKeyDialogOpen(false)
 
     if (pendingAskAfterKey) {
@@ -312,11 +315,32 @@ function extractLooseJson(s) {
     }
   }
 
+  // --- Abgeleitete Highlights aus der AI-Antwort ---
+const aiHighlights = React.useMemo(() => {
+  if (!advice) return { primary: null, all: new Set(), reasons: {} }
+  const primary = advice?.primary?.player_nname
+    ? String(advice.primary.player_nname).trim().toLowerCase()
+    : null
+
+  const all = new Set()
+  const reasons = {}
+
+  if (primary) {
+    all.add(primary)
+    if (advice.primary.why) reasons[primary] = advice.primary.why
+  }
+  for (const alt of advice?.alternatives || []) {
+    const n = alt?.player_nname ? String(alt.player_nname).trim().toLowerCase() : null
+    if (!n) continue
+    all.add(n)
+    if (alt.why) reasons[n] = alt.why
+  }
+  return { primary, all, reasons }
+}, [advice])
+
   return (
     <section className="card">
       <div className="row between items-center wrap" style={{ gap: 8 }}>
-        <h2>Draft Board</h2>
-
         <BoardToolbar
           currentPickNumber={currentPickNumber}
           autoRefreshEnabled={autoRefreshEnabled}
@@ -328,21 +352,15 @@ function extractLooseJson(s) {
         />
 
         {/* AI-Advice Button neben der Toolbar */}
-        <button
-          onClick={handleAskAI}
-          disabled={disabled}
-          style={{
-            padding: '6px 10px',
-            borderRadius: 8,
-            border: '1px solid #444',
-            background: disabled ? 'rgba(255,255,255,0.06)' : 'transparent',
-            color: 'inherit',
-            cursor: disabled ? 'not-allowed' : 'pointer'
-          }}
-          title={disabled ? 'Board-Daten fehlen' : 'AI-Empfehlung für den nächsten Pick'}
-        >
-          🤖 AI Advice
-        </button>
+        <div className="btn-group-compact">
+  <button onClick={handleAskAI} className="btn-compact" title="AI-Empfehlung für den nächsten Pick">
+    🤖 AI-Advice
+  </button>
+  <button onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
+          className="btn-compact" title="OpenAI API-Key verwalten">
+    🔑 Key
+  </button>
+</div>
       </div>
 
       <FiltersRow
@@ -357,6 +375,9 @@ function extractLooseJson(s) {
         pickedCount={pickedCount}
         totalCount={totalCount}
         filteredPlayers={filteredPlayers}
+        highlightedNnames={[...aiHighlights.all]}
+        primaryNname={aiHighlights.primary}
+        adviceReasons={aiHighlights.reasons}
       />
 
       {/* Advice Modal mit Debug */}

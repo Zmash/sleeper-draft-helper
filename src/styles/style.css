@@ -75,9 +75,20 @@ body {
   border: 1px solid var(--border);
 }
 
-/* Full width on small screens */
 .btn.responsive {
   width: 100%;
+}
+
+.btn-group-compact { display: inline-flex; gap: 8px; margin-left: 8px; }
+.btn-compact {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 /* =============================
@@ -160,7 +171,6 @@ body {
   align-items: center;
 }
 
-/* Einzelne Items in der Toolbar (Label, Input-Gruppe, etc.) */
 .toolbar-item {
   display: inline-flex;
   align-items: center;
@@ -170,12 +180,10 @@ body {
   padding: 0.45rem 0.6rem;
 }
 
-/* Der Sync-Button darf „frei“ bleiben */
 .toolbar .btn {
-  margin-left: auto; /* schiebt ihn ans Ende, wenn Platz ist */
+  margin-left: auto;
 }
 
-/* Bricht auf schmalen Screens in 2 Spalten */
 @media (max-width: 820px) {
   .toolbar > * {
     flex: 1 1 calc(50% - 0.75rem);
@@ -186,14 +194,12 @@ body {
   }
 }
 
-/* Auf ganz schmalen Screens alles einspaltig */
 @media (max-width: 520px) {
   .toolbar > * {
     flex: 1 1 100%;
   }
 }
 
-/* Chip kompakter, damit er zu Inputs/Labels passt */
 .chip.chip--small {
   font-size: 0.875rem;
   padding: 0.35rem 0.65rem;
@@ -212,8 +218,8 @@ textarea {
   padding: 0.7rem 0.9rem;
   color: var(--text);
   outline: none;
-  width: 95%;   /* Full width controls */
-  resize: none;  /* Prevent manual resizing on textarea */
+  width: 95%;
+  resize: none;
 }
 
 input:focus,
@@ -252,12 +258,11 @@ input.w-16 {
 ============================== */
 .table-wrap {
   max-height: 62vh;
-  overflow: auto;        /* horizontal & vertikal scrollen */
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 14px;
 }
 
-/* Kein Zeilenumbruch in Zellen → horizontales Scrollen */
 table.nowrap {
   white-space: nowrap;
 }
@@ -279,7 +284,109 @@ th, td {
   text-align: left;
 }
 
-/* Mindestbreiten je Spalte (bessere Mobile-Lesbarkeit) */
+/* --- Kompaktere Zellen --- */
+.board-table th,
+.board-table td {
+  padding: 0.7rem 0.7rem; /* war ~0.9rem */
+  line-height: 1.5;
+}
+
+/* --- Ruhigere AI-Highlights (statt Outline) --- */
+.board-table tbody tr.row-ai {
+  position: relative;
+  background: linear-gradient(90deg, rgba(124,58,237,0.07), transparent 40%);
+}
+.board-table tbody tr.row-ai::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: rgba(124,58,237,0.6);
+  border-radius: 2px;
+}
+.board-table tbody tr.row-ai-primary {
+  background: linear-gradient(90deg, rgba(124,58,237,0.12), transparent 50%);
+}
+.board-table tbody tr.row-ai-primary::before {
+  width: 4px;
+  background: #7c3aed;
+}
+
+/* --- Kleines, dezentes Badge --- */
+.ai-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(124,58,237,0.4);
+  display: inline-block;
+  vertical-align: middle;
+}
+.ai-badge-primary { border-color: #7c3aed; }
+.ai-badge-alt     { opacity: 0.9; }
+
+/* --- Mobile Optimierung --- */
+.mobile-only { display: none; }
+
+@media (max-width: 768px) {
+  /* Spalten ausblenden, damit Platz für Name bleibt */
+  .board-table .col-team,
+  .board-table .col-pos,
+  .board-table .col-bye,
+  .board-table .col-sos,
+  .board-table .col-ecr,
+  .board-table .col-pick {
+    display: none;
+  }
+
+  .board-table th.col-name,
+  .board-table td.col-name {
+    width: 100%;
+    max-width: 0; /* hilft beim Shrinken */
+  }
+
+  /* Zellen dichter machen */
+  .board-table th, .board-table td {
+    padding: 0.55rem 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  /* Subline unter dem Namen anzeigen */
+  .mobile-only { display: block; }
+  .row-subline {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Pill etwas schmaler, damit mehr Text reinpasst */
+  .col-name .pill {
+    max-width: 100%;
+    display: inline-block;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* --- Kleines AI-Badge --- */
+.ai-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(124,58,237,0.4);
+  display: inline-block;
+  vertical-align: middle;
+}
+.ai-badge-primary { border-color: #7c3aed; }
+.ai-badge-alt     { opacity: 0.9; }
+
+/* Mindestbreiten je Spalte */
 .col-rk   { min-width: 48px; }
 .col-name { min-width: 220px; }
 .col-team { min-width: 80px; }
@@ -296,7 +403,7 @@ th, td {
   border: 1px solid var(--border);
   padding: 0.3rem 0.65rem;
   border-radius: 999px;
-  white-space: nowrap; /* sicherheitshalber */
+  white-space: nowrap;
 }
 
 .pill-me {
@@ -305,7 +412,7 @@ th, td {
 }
 
 .pill-other {
-  background: rgba(220, 38, 38, 0.10);   /* dezenter Rotstich */
+  background: rgba(220, 38, 38, 0.10);
   border-color: rgba(220, 38, 38, 0.35);
   opacity: 0.9;
 }
@@ -315,14 +422,57 @@ th, td {
 }
 
 .row-other td {
-  background: rgba(220, 38, 38, 0.12);   /* leicht rötlicher Schleier */
+  background: rgba(220, 38, 38, 0.12);
   color: #9aa4b2;
 }
 
-/* Dark-mode-spezifische leichte Verstärkung */
 :root:not([data-theme='light']) .row-other td {
   background: rgba(220, 38, 38, 0.15);
   color: #8b94a3;
+}
+
+/* --- Mobile Optimierung --- */
+.mobile-only { display: none; }
+
+@media (max-width: 768px) {
+  .board-table .col-team,
+  .board-table .col-pos,
+  .board-table .col-bye,
+  .board-table .col-sos,
+  .board-table .col-ecr,
+  .board-table .col-pick {
+    display: none;
+  }
+
+  .board-table th.col-name,
+  .board-table td.col-name {
+    width: 100%;
+    max-width: 0;
+  }
+
+  .board-table th, .board-table td {
+    padding: 0.55rem 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  .mobile-only { display: block; }
+  .row-subline {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .col-name .pill {
+    max-width: 100%;
+    display: inline-block;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* Spacing helpers */
@@ -331,3 +481,4 @@ th, td {
 .mt-4 { margin-top: 1rem; }
 .mt-5 { margin-top: 1.25rem; }
 .mt-6 { margin-top: 1.5rem; }
+

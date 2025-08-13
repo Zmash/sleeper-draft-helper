@@ -1,83 +1,123 @@
-import React, { useEffect, useState } from 'react'
+// src/components/ApiKeyDialog.jsx
+import React from 'react'
 import { getOpenAIKey, setOpenAIKey, maskKey } from '../services/key'
 
-export default function ApiKeyDialog({ open, onClose, onSaved, validating = false, validationError = '' }) {
-  const [value, setValue] = useState('')
-  const [error, setError] = useState('')
+export default function ApiKeyDialog({
+  open,
+  onClose,
+  onSaved,            // async (key) -> parent validiert
+  validating = false, // spinner-state von außen
+  validationError = '', // text von außen
+}) {
+  const [value, setValue] = React.useState('')
+  const [show, setShow] = React.useState(false)
+  const [localErr, setLocalErr] = React.useState('')
 
-  useEffect(() => {
-    if (!open) return
-    setValue(getOpenAIKey() || '')
-    setError('')
+  React.useEffect(() => {
+    if (open) {
+      const k = getOpenAIKey() || ''
+      setValue(k)
+      setLocalErr('')
+    }
   }, [open])
 
   if (!open) return null
 
-  function handleSave(e) {
+  function validateFormat(k) {
+    const t = String(k || '').trim()
+    if (!t) return 'Bitte gib einen API-Key ein.'
+    if (t.length < 20) return 'Der Key ist zu kurz.'
+    // akzeptiere neue und alte Formate
+    if (!/^sk-/.test(t)) return 'Ungewöhnliches Format. Beginnt üblicherweise mit "sk-".'
+    return ''
+  }
+
+  async function handleSave(e) {
     e?.preventDefault?.()
-    const v = (value || '').trim()
-    if (!/^sk-[\w-]{10,}/i.test(v)) {
-      setError('Bitte einen gültigen OpenAI API Key eingeben (beginnt meist mit "sk-").')
-      return
-    }
-    const ok = setOpenAIKey(v)
-    if (!ok) {
-      setError('Konnte Schlüssel lokal nicht speichern (LocalStorage?).')
-      return
-    }
-    onSaved?.(v)
+    const err = validateFormat(value)
+    setLocalErr(err)
+    if (err) return
+    // Übergib den Key an den Parent -> der validiert gegen /api/validate-key
+    await onSaved?.(String(value).trim())
+  }
+
+  function handleClear() {
+    setOpenAIKey('')
+    setValue('')
+    setLocalErr('')
+    onClose?.()
   }
 
   return (
-    <div style={backdrop}>
-      <div style={dialog} role="dialog" aria-modal="true" aria-label="OpenAI API Key">
-        <h3 style={{ marginTop: 0 }}>OpenAI API Key</h3>
-        <p style={{ margin: '8px 0 12px 0' }}>
-          Dein Key wird <strong>nur lokal</strong> im Browser gespeichert und für Anfragen an OpenAI verwendet.
-          Kosten laufen über <em>deinen</em> Key.
+    <div style={backdropStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: 0, fontSize: 18 }}>OpenAI API-Key</h3>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Dein Key wird <b>nur lokal</b> im Browser gespeichert (LocalStorage) und bei Aufrufen
+          im Header <code>X-OpenAI-Key</code> an die API geschickt.
         </p>
 
-        <form onSubmit={handleSave}>
-          <label style={{ display: 'block', marginBottom: 6 }}>API Key</label>
-          <input
-            type="password"
-            placeholder="sk-..."
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            autoFocus
-            style={input}
-          />
-          {value ? (
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
-              Vorschau: {maskKey(value)}
-            </div>
-          ) : null}
+        <form onSubmit={handleSave} style={{ marginTop: 12 }}>
+          <label className="muted" style={{ fontSize: 12 }}>Aktueller Key</label>
+          <div style={boxStyle}>
+            <code>{maskKey(value || getOpenAIKey() || '') || '—'}</code>
+          </div>
 
-          {(error || validationError) && (
-            <div style={{ color: 'crimson', marginTop: 8 }}>{error || validationError}</div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} style={btnGhost} disabled={validating}>Abbrechen</button>
-            <button type="submit" style={btnPrimary} disabled={validating}>
-              {validating ? 'Validiere…' : 'Speichern'}
+          <label className="muted" style={{ fontSize: 12, marginTop: 10 }}>Neuen Key eingeben</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type={show ? 'text' : 'password'}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="sk-..."
+              autoFocus
+              spellCheck={false}
+              style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: 'inherit' }}
+            />
+            <button
+              type="button"
+              onClick={() => setShow(s => !s)}
+              style={btnGhost}
+              title={show ? 'Verbergen' : 'Anzeigen'}
+            >
+              {show ? '🙈' : '👁️'}
             </button>
           </div>
-        </form>
 
-        <details style={{ marginTop: 12 }}>
-          <summary>Woher bekomme ich einen Key?</summary>
-          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>
-            Im OpenAI Dashboard unter „API Keys“. Achte auf deine Usage-Limits.
+          {(localErr || validationError) && (
+            <div style={{ color: '#ef4444', marginTop: 8, fontSize: 13 }}>
+              {localErr || validationError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, gap: 8 }}>
+            <button type="button" onClick={onClose} style={btnGhost}>Abbrechen</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={handleClear} style={btnDanger}>Löschen</button>
+              <button type="submit" disabled={validating} style={btnPrimary}>
+                {validating ? 'Prüfe…' : 'Speichern & Prüfen'}
+              </button>
+            </div>
           </div>
-        </details>
+        </form>
       </div>
     </div>
   )
 }
 
-const backdrop = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 1000 }
-const dialog = { background: 'var(--bg,#161616)', color:'var(--fg,#eaeaea)', minWidth: 420, maxWidth: 720, width:'90%', borderRadius: 10, padding: 16, boxShadow: '0 10px 24px rgba(0,0,0,0.4)' }
-const input = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: 'inherit' }
-const btnGhost = { background: 'transparent', border: '1px solid #444', color: 'inherit', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }
-const btnPrimary = { background: '#2c7be5', border: '1px solid #2c7be5', color: '#fff', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }
+const backdropStyle = {
+  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+  display: 'grid', placeItems: 'center', zIndex: 1000
+}
+const modalStyle = {
+  width: 'min(560px, 90vw)', background: '#111', border: '1px solid #333', borderRadius: 12, padding: 16, color: 'inherit', boxShadow: '0 6px 24px rgba(0,0,0,0.4)'
+}
+const boxStyle = {
+  border: '1px solid #333', padding: '8px 10px', borderRadius: 8, marginTop: 4
+}
+const btnBase = {
+  padding: '8px 12px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: 'inherit', cursor: 'pointer'
+}
+const btnPrimary = { ...btnBase, borderColor: '#7c3aed' }
+const btnDanger  = { ...btnBase, borderColor: '#ef4444' }
+const btnGhost   = { ...btnBase }

@@ -1,3 +1,4 @@
+// src/components/BoardTable.jsx
 import { cx } from '../utils/formatting'
 
 export default function BoardTable({
@@ -5,7 +6,14 @@ export default function BoardTable({
   pickedCount,
   totalCount,
   filteredPlayers,
+  highlightedNnames = [],
+  primaryNname = null,
+  adviceReasons = {},
 }) {
+  const toKey = (s) => String(s || '').trim().toLowerCase()
+  const highlightSet = new Set((highlightedNnames || []).map(toKey))
+  const primaryKey = toKey(primaryNname)
+
   return (
     <>
       {/* Progress */}
@@ -18,7 +26,7 @@ export default function BoardTable({
 
       {/* Table */}
       <div className="table-wrap mt-3">
-        <table className="nowrap">
+        <table className="nowrap board-table">
           <thead>
             <tr>
               <th className="col-rk">#</th>
@@ -33,26 +41,58 @@ export default function BoardTable({
           </thead>
 
           <tbody>
-            {filteredPlayers.map((p) => (
-              <tr
-                key={`${p.id}-${p.name}`}
-                className={cx(p.status === 'me' && 'row-me', p.status === 'other' && 'row-other')}
-                style={{ lineHeight: 1.8 }}
-              >
-                <td className="col-rk"   style={{ padding: '0.9rem 0.8rem' }}>{p.rk}</td>
-                <td className="col-name" style={{ padding: '0.9rem 0.8rem' }}>
-                  <span className={cx('pill', p.status === 'me' && 'pill-me', p.status === 'other' && 'pill-other')}>
-                    {p.name}
-                  </span>
-                </td>
-                <td className="col-team" style={{ padding: '0.9rem 0.8rem' }}>{p.team}</td>
-                <td className="col-pos"  style={{ padding: '0.9rem 0.8rem' }}>{p.pos}</td>
-                <td className="col-bye"  style={{ padding: '0.9rem 0.8rem' }}>{p.bye}</td>
-                <td className="col-sos"  style={{ padding: '0.9rem 0.8rem' }}>{p.sos}</td>
-                <td className="col-ecr"  style={{ padding: '0.9rem 0.8rem' }}>{p.ecrVsAdp}</td>
-                <td className="col-pick" style={{ padding: '0.9rem 0.8rem' }}>{p.pick_no || ''}</td>
-              </tr>
-            ))}
+            {filteredPlayers.map((p) => {
+              const keyN = toKey(p.nname || p.name)
+              const isHighlighted = highlightSet.has(keyN)
+              const isPrimary = primaryKey && keyN === primaryKey
+              const reason = adviceReasons[keyN] || ''
+
+              return (
+                <tr
+                  key={`${p.id ?? p.nname ?? p.name}`}
+                  className={cx(
+                    p.status === 'me' && 'row-me',
+                    p.status === 'other' && 'row-other',
+                    isHighlighted && 'row-ai',
+                    isPrimary && 'row-ai-primary'
+                  )}
+                  title={reason || undefined}
+                  data-nname={p.nname || ''}
+                  data-ai={isHighlighted ? (isPrimary ? 'primary' : 'alt') : 'none'}
+                >
+                  <td className="col-rk">{p.rk}</td>
+
+                  <td className="col-name">
+                    <span className={cx('pill', p.status === 'me' && 'pill-me', p.status === 'other' && 'pill-other')}>
+                      {p.name}
+                    </span>
+                    {isHighlighted && (
+                      <span
+                        className={cx('ai-badge', isPrimary ? 'ai-badge-primary' : 'ai-badge-alt')}
+                        title={isPrimary ? 'Primäre AI-Empfehlung' : 'AI-Alternative'}
+                      >
+                        {isPrimary ? 'AI' : 'alt'}
+                      </span>
+                    )}
+
+                    {/* Mobile-Subline: kompakte Zusatzinfos */}
+                    <div className="row-subline mobile-only">
+                      {p.team} · {p.pos}
+                      {p.bye ? ` · Bye ${p.bye}` : ''}
+                      {p.sos ? ` · SOS ${p.sos}` : ''}
+                      {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
+                    </div>
+                  </td>
+
+                  <td className="col-team">{p.team}</td>
+                  <td className="col-pos">{p.pos}</td>
+                  <td className="col-bye">{p.bye}</td>
+                  <td className="col-sos">{p.sos}</td>
+                  <td className="col-ecr">{p.ecrVsAdp}</td>
+                  <td className="col-pick">{p.pick_no || ''}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
