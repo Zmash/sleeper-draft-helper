@@ -191,6 +191,22 @@ export default function App() {
         return m
     }, [availableLeagues])
 
+    const selectedLeague = useMemo(
+  () =>
+    (leaguesById && typeof leaguesById.get === 'function')
+      ? leaguesById.get(selectedLeagueId) || null
+      : null,
+  [leaguesById, selectedLeagueId]
+)
+
+const selectedDraft = useMemo(
+  () =>
+    (Array.isArray(availableDrafts))
+      ? availableDrafts.find(d => d.draft_id === selectedDraftId) || null
+      : null,
+  [availableDrafts, selectedDraftId]
+)
+
   const pickedCount = useMemo(() => boardPlayers.filter(p => p.status).length, [boardPlayers])
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map(p => p.pick_no || 0)) : 0
   const progressPercent = boardPlayers.length ? Math.round((pickedCount / boardPlayers.length) * 100) : 0
@@ -314,6 +330,11 @@ export default function App() {
           onSync={() => selectedDraftId && loadPicks(selectedDraftId)}
           onSearchChange={(e) => setSearchQuery(e.target.value)}
           onPositionChange={(e) => setPositionFilter(e.target.value)}
+          boardPlayers={boardPlayers}
+          livePicks={livePicks}
+          meUserId={sleeperUserId}
+          league={selectedLeague}
+          draft={selectedDraft}
         />
       )}
   
