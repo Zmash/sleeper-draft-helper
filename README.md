@@ -1,11 +1,11 @@
-# Sleeper-Draft-Assistant
+# Sleeper-Draft-Helper
 
 Dieses Repository enthält eine React-Webanwendung, die über die Sleeper API kommuniziert.  
 Sie dient als Draft-Helper für NFL Fantasy Sleeper Drafts und ermöglicht es dir, deinen Draft live zu verfolgen, eigene Rankings zu importieren und dein Team im Blick zu behalten.
 
 ## Über
 
-Der NFL Fantasy Sleeper Draft Assistant ist ein webbasiertes Tool zur Automatisierung und Visualisierung von NFL Fantasy Drafts.  
+Der NFL Fantasy Sleeper Draft Helper ist ein webbasiertes Tool zur Automatisierung und Visualisierung von NFL Fantasy Drafts.  
 Mit einer klaren, modernen Benutzeroberfläche hilft er dir, Picks in Echtzeit zu verfolgen, dein Roster im Blick zu behalten und strategische Entscheidungen schnell zu treffen.
 
 ## Hauptfunktionen
@@ -15,6 +15,22 @@ Mit einer klaren, modernen Benutzeroberfläche hilft er dir, Picks in Echtzeit z
 - **CSV-Import:** Lade deine Rankings z. B. von FantasyPros als CSV-Datei hoch.
 - **Filter & Suche:** Finde Spieler schnell nach Name oder Position.
 - **Roster-Ansicht:** Behalte dein aktuelles Team jederzeit im Blick.
+- **AI Draft Advice:** Empfiehlt auf Knopfdruck den nächsten Pick – basierend auf deinem Board, deiner Liga und deinem aktuellen Roster.
+
+## AI Draft Advice
+
+Die integrierte KI liefert dir im **Board-Tab** eine Empfehlung für deinen nächsten Pick – samt kurzer Begründung und sinnvollen Alternativen.  
+Dabei berücksichtigt sie u. a. dein aktuelles Team, die Ligaeinstellungen (z.B. PPR) sowie die Verfügbarkeit der besten Kandidaten aus deinem Board.
+
+**So funktioniert’s:**  
+1. Importiere dein Ranking (CSV) und wähle Liga & Draft aus.  
+2. Öffne den **Board-Tab** und klicke auf **„🤖 AI Advice“**.  
+3. Beim ersten Mal hinterlegst du deinen **OpenAI API‑Key** (nur lokal im Browser gespeichert).  
+4. Du erhältst eine **Empfehlung**, **Alternativen** und kurze **Strategie‑Hinweise**.
+
+**Hinweise:**  
+- Der API‑Key wird ausschließlich **lokal** gespeichert.  
+- Etwaige Kosten für KI‑Anfragen fallen über dein **eigenes** OpenAI‑Konto an.  
 
 ## Einrichtung
 
@@ -36,13 +52,13 @@ Mit einer klaren, modernen Benutzeroberfläche hilft er dir, Picks in Echtzeit z
    Die App läuft nun lokal, standardmäßig auf `http://localhost:5173/`.
 
 4. **Ranking importieren**  
-   - Navigiere zum CSV-Import in der App.
-   - Lade deine Ranking-Datei hoch oder füge den CSV-Text ein.
+   - Navigiere zum CSV-Import in der App.  
+   - Lade deine Ranking-Datei hoch oder füge den CSV-Text ein.  
    - Die App übernimmt automatisch deine Liste.
 
 5. **Draft verfolgen**  
-   - Wähle deine Liga und Draft-ID aus.
-   - Starte den Auto-Fetch oder aktualisiere manuell.
+   - Wähle deine Liga und Draft-ID aus.  
+   - Starte den Auto-Fetch oder aktualisiere manuell.  
    - Beobachte live, wie deine Picks und die der Gegner markiert werden.
 
 ## Support
@@ -57,7 +73,6 @@ Dieses Projekt steht unter der MIT-Lizenz – siehe die [LICENSE.md](LICENSE.md)
 ---
 
 Entwickelt mit ❤️ für Fantasy-Football-Fans.
-
 
 ## Haftungsausschluss
 
