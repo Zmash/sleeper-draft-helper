@@ -50,6 +50,7 @@ export default function BoardTable({
               return (
                 <tr
                   key={`${p.id ?? p.nname ?? p.name}`}
+                  id={`row-${p.nname}`}
                   className={cx(
                     p.status === 'me' && 'row-me',
                     p.status === 'other' && 'row-other',
@@ -63,9 +64,7 @@ export default function BoardTable({
                   <td className="col-rk">{p.rk}</td>
 
                   <td className="col-name">
-                    <span className={cx('pill', p.status === 'me' && 'pill-me', p.status === 'other' && 'pill-other')}>
-                      {p.name}
-                    </span>
+                    <strong>{p.name}</strong>
                     {isHighlighted && (
                       <span
                         className={cx('ai-badge', isPrimary ? 'ai-badge-primary' : 'ai-badge-alt')}
@@ -77,11 +76,11 @@ export default function BoardTable({
 
                     {/* Mobile-Subline: kompakte Zusatzinfos */}
                     <div className="row-subline mobile-only">
-                      {p.team} · {p.pos}
-                      {p.bye ? ` · Bye ${p.bye}` : ''}
-                      {p.sos ? ` · SOS ${p.sos}` : ''}
-                      {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
-                    </div>
+                    {p.team} · {p.pos}
+                    {p.bye ? ` · Bye ${p.bye}` : ''}
+                    {p.sos ? ` · SOS ${p.sos}` : ''}
+                    {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
+                  </div>
                   </td>
 
                   <td className="col-team">{p.team}</td>

@@ -167,6 +167,12 @@ export default function App() {
         player.status = pick.picked_by === sleeperUserId ? 'me' : 'other'
         player.pick_no = pick.pick_no
         player.picked_by = pick.picked_by
+        const sleeperBye = pick?.metadata?.bye_week
+        if (sleeperBye !== undefined && sleeperBye !== null && String(sleeperBye).trim() !== '') {
+          player.bye = sleeperBye
+        }
+        // sonst: CSV-Bye unverändert lassen
+
       }
     }
     const updated = [...byNormalizedName.values()].sort((a, b) => Number(a.rk) - Number(b.rk))
@@ -339,7 +345,7 @@ const selectedDraft = useMemo(
       )}
   
       {activeTab === 'roster' && (
-        <RosterSection picks={livePicks} me={sleeperUserId} />
+        <RosterSection picks={livePicks} me={sleeperUserId} boardPlayers={boardPlayers} />
       )}
     </AppShell>
   )  

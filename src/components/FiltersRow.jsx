@@ -3,6 +3,7 @@ export default function FiltersRow({
     onSearchChange,
     positionFilter,
     onPositionChange,
+    onJumpToNext,
   }) {
     return (
       <div className="row mt-2 gap">
@@ -20,6 +21,9 @@ export default function FiltersRow({
             </option>
           ))}
         </select>
+        <button type="button" className="btn" onClick={onJumpToNext}>
+        Jump
+      </button>
       </div>
     )
   }

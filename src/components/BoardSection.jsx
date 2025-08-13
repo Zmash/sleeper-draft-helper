@@ -276,6 +276,18 @@ function extractLooseJson(s) {
   try { return JSON.parse(candidate) } catch { return null }
 }
 
+function scrollToNextUndrafted() {
+  const next = (filteredPlayers || []).find(p => !p.status)
+  if (!next) return
+  const id = `row-${next.nname}`   // muss in BoardTable gesetzt werden
+  const el = document.getElementById(id)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('row-flash')
+    setTimeout(() => el.classList.remove('row-flash'), 900)
+  }
+}
+
 
   // Wird aufgerufen, nachdem der Nutzer im ApiKeyDialog "Speichern" gedrückt hat
   async function handleKeySaved(savedKey) {
@@ -368,6 +380,7 @@ const aiHighlights = React.useMemo(() => {
         onSearchChange={onSearchChange}
         positionFilter={positionFilter}
         onPositionChange={onPositionChange}
+        onJumpToNext={scrollToNextUndrafted}
       />
 
       <BoardTable

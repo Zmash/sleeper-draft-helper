@@ -8,6 +8,12 @@
   --text:   #e6edf3;
   --border: #23324a;
   --accent: #60a5fa;
+
+  /* Einheitliche Höhe für Toolbar-Controls */
+  --control-h: 36px;
+
+  /* Bessere Dark-Form-Controls in modernen Browsern */
+  color-scheme: dark light;
 }
 
 :root[data-theme='light'] {
@@ -22,9 +28,7 @@
 /* =============================
    Base Elements
 ============================== */
-html, body, #root {
-  height: 100%;
-}
+html, body, #root { height: 100%; }
 
 body {
   margin: 0;
@@ -57,17 +61,15 @@ body {
   justify-content: center;
   gap: 0.5rem;
   background: var(--accent);
-  color: white;
+  color: #fff;
   border: none;
   border-radius: 14px;
   padding: 0.7rem 1rem;
   cursor: pointer;
-  transition: transform 0.05s ease, opacity 0.2s;
+  transition: transform 0.05s ease, opacity 0.2s, border-color 0.2s;
 }
-
-.btn:active {
-  transform: translateY(1px);
-}
+.btn:hover { opacity: 0.95; }
+.btn:active { transform: translateY(1px); }
 
 .btn.ghost {
   background: transparent;
@@ -75,9 +77,7 @@ body {
   border: 1px solid var(--border);
 }
 
-.btn.responsive {
-  width: 100%;
-}
+.btn.responsive { width: 100%; }
 
 .btn-group-compact { display: inline-flex; gap: 8px; margin-left: 8px; }
 .btn-compact {
@@ -99,7 +99,6 @@ body {
   gap: 0.6rem;
   margin: 0 0 1.2rem;
 }
-
 .tab {
   flex: 1;
   border: 1px solid var(--border);
@@ -109,10 +108,9 @@ body {
   border-radius: 14px;
   cursor: pointer;
 }
-
 .tab.active {
   background: var(--accent);
-  color: white;
+  color: #fff;
   border-color: transparent;
 }
 
@@ -124,7 +122,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
 }
 
 /* =============================
@@ -133,85 +131,95 @@ body {
 .muted { color: var(--muted); }
 .center { text-align: center; }
 
-.row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
+.row { display: flex; gap: 0.75rem; align-items: center; }
 .row.wrap { flex-wrap: wrap; }
 .row.gap  { gap: 1rem; }
 .row.items-center { align-items: center; }
 .row.between { justify-content: space-between; }
 
-.grid3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.grid2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1rem; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; }
 
 @media (max-width: 900px) {
-  .grid3 { grid-template-columns: 1fr; }
-  .grid2 { grid-template-columns: 1fr; }
+  .grid3, .grid2 { grid-template-columns: 1fr; }
   .tab   { flex: unset; }
   .tabs  { gap: 0.5rem; }
 }
 
-/* ===== Board Controls Toolbar ===== */
+/* =============================
+   Board Controls Toolbar
+============================== */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 8px 12px;
   align-items: center;
 }
 
 .toolbar-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 0.45rem 0.6rem;
+  padding: 0 10px;
+  height: var(--control-h);
+  line-height: 1;
 }
 
-.toolbar .btn {
-  margin-left: auto;
-}
+.toolbar .btn { margin-left: auto; }
 
 @media (max-width: 820px) {
-  .toolbar > * {
-    flex: 1 1 calc(50% - 0.75rem);
-  }
-  .toolbar .btn {
-    flex: 1 1 100%;
-    margin-left: 0;
-  }
+  .toolbar > * { flex: 1 1 calc(50% - 0.75rem); }
+  .toolbar .btn { flex: 1 1 100%; margin-left: 0; }
 }
-
 @media (max-width: 520px) {
-  .toolbar > * {
-    flex: 1 1 100%;
-  }
+  .toolbar > * { flex: 1 1 100%; }
 }
 
-.chip.chip--small {
-  font-size: 0.875rem;
-  padding: 0.35rem 0.65rem;
+/* Einheitliche Höhe/Look für Chip, Button in der Toolbar */
+.toolbar .chip,
+.toolbar .btn {
+  height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
   border-radius: 12px;
+  line-height: 1;
 }
+.toolbar .btn { border: 1px solid var(--border); background: transparent; color: var(--text); }
+.toolbar .btn:hover { border-color: var(--accent); }
+
+/* Eingabefelder IN der Toolbar: keine Doppelrahmen */
+.toolbar-item input[type="text"],
+.toolbar-item input[type="number"],
+.toolbar-item select {
+  height: calc(var(--control-h) - 10px);
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  color: var(--text);
+  line-height: 1;
+}
+.toolbar-item input:focus,
+.toolbar-item select:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+/* Checkbox-Größe in der Toolbar */
+.toolbar-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.toolbar-item label { display: inline-flex; align-items: center; gap: 8px; line-height: 1; }
 
 /* =============================
-   Form Controls
+   Form Controls (global)
 ============================== */
-input,
-select,
-textarea {
+input, select, textarea {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -221,16 +229,18 @@ textarea {
   width: 95%;
   resize: none;
 }
-
-input:focus,
-select:focus,
-textarea:focus {
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.35);
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(96,165,250,0.35);
 }
-
-input.w-16 {
+input.w-16 { 
   width: 4.8rem;
+  border: none; 
 }
+
+/* Dark-Dropdown-Liste */
+select { background: var(--card); color: var(--text); }
+select option { background: var(--card); color: var(--text); }
+select option:hover, select option:checked { background: var(--border); color: var(--text); }
 
 /* =============================
    Chips / Progress
@@ -240,21 +250,32 @@ input.w-16 {
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
 }
+.chip.chip--small { font-size: 0.875rem; padding: 0.35rem 0.65rem; border-radius: 12px; }
 
 .progress {
   height: 10px;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255,255,255,0.09);
   border-radius: 999px;
   overflow: hidden;
 }
+.progress > div { height: 100%; background: var(--accent); }
 
-.progress > div {
-  height: 100%;
-  background: var(--accent);
+/* =============================
+   Filters Row (Search | Select | Button)
+============================== */
+.filters-row {
+  display: grid;
+  grid-template-columns: 1fr 180px 200px;
+  gap: 10px;
+  align-items: center;
+}
+@media (max-width: 760px) {
+  .filters-row { grid-template-columns: 1fr 1fr; }
+  .filters-row .btn { grid-column: 1 / -1; }
 }
 
 /* =============================
-   Table
+   Table (Board)
 ============================== */
 .table-wrap {
   max-height: 62vh;
@@ -263,20 +284,10 @@ input.w-16 {
   border-radius: 14px;
 }
 
-table.nowrap {
-  white-space: nowrap;
-}
+table { width: 100%; border-collapse: collapse; }
+table.nowrap { white-space: nowrap; }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-thead {
-  position: sticky;
-  top: 0;
-  background: var(--card);
-}
+thead { position: sticky; top: 0; background: var(--card); }
 
 th, td {
   padding: 0.7rem 0.8rem;
@@ -284,107 +295,25 @@ th, td {
   text-align: left;
 }
 
-/* --- Kompaktere Zellen --- */
-.board-table th,
-.board-table td {
-  padding: 0.7rem 0.7rem; /* war ~0.9rem */
-  line-height: 1.5;
-}
+/* Kompaktere Board-Tabelle */
+.board-table th, .board-table td { padding: 4px 6px; line-height: 1.3; }
+.board-table .col-name { white-space: nowrap; }
+.board-table .col-name strong { font-weight: 600; }
 
-/* --- Ruhigere AI-Highlights (statt Outline) --- */
+/* AI-Highlights (dezent) */
 .board-table tbody tr.row-ai {
   position: relative;
   background: linear-gradient(90deg, rgba(124,58,237,0.07), transparent 40%);
 }
 .board-table tbody tr.row-ai::before {
   content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: rgba(124,58,237,0.6);
-  border-radius: 2px;
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: rgba(124,58,237,0.6); border-radius: 2px;
 }
 .board-table tbody tr.row-ai-primary {
   background: linear-gradient(90deg, rgba(124,58,237,0.12), transparent 50%);
 }
-.board-table tbody tr.row-ai-primary::before {
-  width: 4px;
-  background: #7c3aed;
-}
-
-/* --- Kleines, dezentes Badge --- */
-.ai-badge {
-  margin-left: 8px;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(124,58,237,0.4);
-  display: inline-block;
-  vertical-align: middle;
-}
-.ai-badge-primary { border-color: #7c3aed; }
-.ai-badge-alt     { opacity: 0.9; }
-
-/* --- Mobile Optimierung --- */
-.mobile-only { display: none; }
-
-@media (max-width: 768px) {
-  /* Spalten ausblenden, damit Platz für Name bleibt */
-  .board-table .col-team,
-  .board-table .col-pos,
-  .board-table .col-bye,
-  .board-table .col-sos,
-  .board-table .col-ecr,
-  .board-table .col-pick {
-    display: none;
-  }
-
-  .board-table th.col-name,
-  .board-table td.col-name {
-    width: 100%;
-    max-width: 0; /* hilft beim Shrinken */
-  }
-
-  /* Zellen dichter machen */
-  .board-table th, .board-table td {
-    padding: 0.55rem 0.6rem;
-    font-size: 0.95rem;
-  }
-
-  /* Subline unter dem Namen anzeigen */
-  .mobile-only { display: block; }
-  .row-subline {
-    margin-top: 4px;
-    font-size: 12px;
-    opacity: 0.75;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Pill etwas schmaler, damit mehr Text reinpasst */
-  .col-name .pill {
-    max-width: 100%;
-    display: inline-block;
-    vertical-align: middle;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-/* --- Kleines AI-Badge --- */
-.ai-badge {
-  margin-left: 8px;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(124,58,237,0.4);
-  display: inline-block;
-  vertical-align: middle;
-}
-.ai-badge-primary { border-color: #7c3aed; }
-.ai-badge-alt     { opacity: 0.9; }
+.board-table tbody tr.row-ai-primary::before { width: 4px; background: #7c3aed; }
 
 /* Mindestbreiten je Spalte */
 .col-rk   { min-width: 48px; }
@@ -396,42 +325,20 @@ th, td {
 .col-ecr  { min-width: 96px; }
 .col-pick { min-width: 64px; }
 
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid var(--border);
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.pill-me {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.45);
-}
-
-.pill-other {
-  background: rgba(220, 38, 38, 0.10);
-  border-color: rgba(220, 38, 38, 0.35);
-  opacity: 0.9;
-}
-
+/* Status-Row-Farben */
 .row-me td {
-  background: rgba(34, 197, 94, 0.10);
+  background: rgba(34,197,94,0.10);
 }
-
 .row-other td {
-  background: rgba(220, 38, 38, 0.12);
+  background: rgba(220,38,38,0.12);
   color: #9aa4b2;
 }
-
 :root:not([data-theme='light']) .row-other td {
-  background: rgba(220, 38, 38, 0.15);
+  background: rgba(220,38,38,0.15);
   color: #8b94a3;
 }
 
-/* --- Mobile Optimierung --- */
+/* Mobile Optimierung für Board */
 .mobile-only { display: none; }
 
 @media (max-width: 768px) {
@@ -440,20 +347,12 @@ th, td {
   .board-table .col-bye,
   .board-table .col-sos,
   .board-table .col-ecr,
-  .board-table .col-pick {
-    display: none;
-  }
+  .board-table .col-pick { display: none; }
 
   .board-table th.col-name,
-  .board-table td.col-name {
-    width: 100%;
-    max-width: 0;
-  }
+  .board-table td.col-name { width: 100%; max-width: 0; }
 
-  .board-table th, .board-table td {
-    padding: 0.55rem 0.6rem;
-    font-size: 0.95rem;
-  }
+  .board-table th, .board-table td { padding: 0.55rem 0.6rem; font-size: 0.95rem; }
 
   .mobile-only { display: block; }
   .row-subline {
@@ -464,21 +363,71 @@ th, td {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  .col-name .pill {
-    max-width: 100%;
-    display: inline-block;
-    vertical-align: middle;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
-/* Spacing helpers */
+/* AI-Badge (klein & dezent) */
+.ai-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(124,58,237,0.4);
+  display: inline-block;
+  vertical-align: middle;
+}
+.ai-badge-primary { border-color: #7c3aed; }
+.ai-badge-alt     { opacity: 0.9; }
+
+/* Scroll-Highlight für "Zum nächsten freien" */
+@keyframes rowFlash {
+  0%   { background-color: color-mix(in oklab, var(--accent) 20%, transparent); }
+  100% { background-color: transparent; }
+}
+.row-flash td { animation: rowFlash 0.9s ease-out; }
+
+/* =============================
+   Roster (Fancy Slots)
+============================== */
+.roster-wrapper { display: flex; flex-direction: column; gap: 12px; }
+.roster-slot-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.roster-slot {
+  flex: 1 1 120px;
+  min-width: 100px;
+  background: var(--card);
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.empty-slot { opacity: 0.6; text-align: center; padding: 20px 0; }
+.bye { margin-top: 2px; color: var(--muted); font-style: italic; }
+
+/* =============================
+   (Optional) Legacy Pill Styles
+============================== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.pill-me {
+  background: rgba(34,197,94,0.18);
+  border-color: rgba(34,197,94,0.45);
+}
+.pill-other {
+  background: rgba(220,38,38,0.10);
+  border-color: rgba(220,38,38,0.35);
+  opacity: 0.9;
+}
+
+/* =============================
+   Spacing helpers
+============================== */
 .mt-2 { margin-top: 0.5rem; }
 .mt-3 { margin-top: 0.75rem; }
 .mt-4 { margin-top: 1rem; }
 .mt-5 { margin-top: 1.25rem; }
 .mt-6 { margin-top: 1.5rem; }
-
