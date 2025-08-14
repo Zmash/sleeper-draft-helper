@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Fancy Football – JS only</title>
+    <style>
+      /* Minimal base styles, kept tiny and generic. All visuals are drawn via JS on <canvas>. */
+      html, body { height: 100%; margin: 0; background:#0b1220; overflow:hidden; }
+      .sr-only { position:absolute; left:-9999px; }
+    </style>
+  </head>
+  <body>
+    <div class="sr-only">Interactive JS-only American football animation. Ziehe mit der Maus / dem Finger, um die Wurfrichtung und -stärke zu setzen. Leertaste wechselt Teamfarben.</div>
+    <canvas id="c"></canvas>
+    <script>
+      (() => {
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+
+        // --- HiDPI resize ---
+        let DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        function resize() {
+          DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+          canvas.style.width = window.innerWidth + 'px';
+          canvas.style.height = window.innerHeight + 'px';
+          canvas.width  = Math.floor(window.innerWidth * DPR);
+          canvas.height = Math.floor(window.innerHeight * DPR);
+        }
+        window.addEventListener('resize', resize, { passive: true });
+        resize();
+
+        // --- Utility ---
+        const rand = (a,b) => a + Math.random()*(b-a);
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+        // Safer gradient stop helper (prevents runtime from crashing on invalid colors)
+        function addStop(gradient, offset, color) {
+          try { gradient.addColorStop(offset, color); }
+          catch (e) {
+            console.error('addColorStop failed for', { offset, color }, e);
+            gradient.addColorStop(offset, 'rgba(0,0,0,0)'); // graceful fallback
+          }
+        }
+
+        // Robust color helper: supports #RGB and #RRGGBB
+        function hexWithAlpha(color, alpha) {
+          if (!color || typeof color !== 'string') return `rgba(0,0,0,${alpha})`;
+          if (color[0] === '#') {
+            let hex = color.slice(1);
+            if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('');
+            if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+              const r = parseInt(hex.slice(0,2), 16);
+              const g = parseInt(hex.slice(2,4), 16);
+              const b = parseInt(hex.slice(4,6), 16);
+              return `rgba(${r},${g},${b},${alpha})`;
+            }
+          }
+          return color;
+        }
+
+        // --- Tiny self-tests (run once, log to console) ---
+        (function runColorTests(){
+          const tests = [
+            { c:'#000',      a:0.5, expect:'rgba(0,0,0,0.5)' },
+            { c:'#000000',   a:0.5, expect:'rgba(0,0,0,0.5)' },
+            { c:'#fff',      a:1.0, expect:'rgba(255,255,255,1)' },
+            { c:'#ffffff',   a:0.2, expect:'rgba(255,255,255,0.2)' },
+            { c:'#89a6ff',   a:0.04, expect:'rgba(137,166,255,0.04)' },
+          ];
+          let pass = 0;
+          for (const t of tests) {
+            const got = hexWithAlpha(t.c, t.a);
+            if (got === t.expect) pass++; else console.warn('hexWithAlpha FAIL', t, '=>', got);
+          }
+          try {
+            const g = ctx.createLinearGradient(0,0,1,1);
+            addStop(g, 0, hexWithAlpha('#000', 0.5));
+            addStop(g, 1, hexWithAlpha('#fff', 0.5));
+            console.info('Gradient addColorStop smoke-test OK');
+          } catch (e) {
+            console.error('Gradient smoke-test failed', e);
+          }
+          console.info(`hexWithAlpha tests: ${pass}/${tests.length} passed`);
+        })();
+
+        // --- Scene constants ---
+        const state = {
+          teamIndex: 0,
+          score: 0,
+          lastScoreTime: -9999,
+          mouseDown: false,
+          aimStart: null,
+          aimEnd: null,
+          particles: [],
+          confetti: [],
+          sparks: [],
+          floatingTexts: [],
+          goalPulse: 0,
+        };
+
+        const TEAMS = [
+          { name: 'Vikings', primary: '#4F2683', secondary: '#FFC62F' },
+          { name: 'Chiefs',  primary: '#E31837', secondary: '#FFB81C' },
+          { name: 'Eagles',  primary: '#004C54', secondary: '#A5ACAF' },
+          { name: 'Cowboys', primary: '#041E42', secondary: '#869397' },
+          { name: 'Dolphins',primary: '#008E97', secondary: '#F26A24' },
+        ];
+
+        // Field layout depends on size
+        function field() {
+          const W = canvas.width, H = canvas.height;
+          const groundY = Math.floor(H * 0.78);
+          const postX = Math.floor(W - 120 * DPR);
+          const postHeight = Math.max(160*DPR, H*0.22);
+          const crossY = groundY - Math.floor(postHeight * 0.55);
+          const postWidth = Math.max(100*DPR, Math.min(180*DPR, W*0.12));
+          return { W, H, groundY, postX, crossY, postHeight, postWidth };
+        }
+
+        // --- Football physics ---
+        const ball = {
+          reset() {
+            const f = field();
+            this.pos = { x: Math.floor(60*DPR), y: f.groundY - 30*DPR };
+            this.vel = { x: rand(3, 4)*DPR, y: -rand(7, 9)*DPR };
+            this.rot = 0; // radians
+            this.angVel = rand(0.25, 0.4); // spin
+            this.radius = Math.max(16*DPR, Math.min(28*DPR, Math.hypot(f.W,f.H)*0.015));
+            this.live = true;
+          },
+          throwFrom(start, end) {
+            // Start ab JETZIGER Ballposition, nicht von links neu.
+            if (!this.pos) this.reset();
+            const dv = { x: (end.x - start.x)/130, y: (end.y - start.y)/130 };
+            const speedCap = 18*DPR;
+            const vx = clamp(dv.x, -speedCap, speedCap);
+            const vy = clamp(dv.y, -speedCap, speedCap);
+            this.vel = { x: Math.max(2*DPR, vx), y: vy - 2*DPR };
+            this.angVel = 0.35 + Math.min(0.5, Math.abs(vx)/40 + Math.abs(vy)/60);
+            this.rot = 0;
+            this.live = true;
+          },
+          update(dt) {
+            if (!this.live) return;
+            const f = field();
+            // Gravity & air drag
+            const g = 18 * (DPR/2); // tuned for feel
+            this.vel.y += g * dt;
+            this.vel.x *= (1 - 0.02*dt);
+            this.vel.y *= (1 - 0.01*dt);
+
+            this.pos.x += this.vel.x * (60*dt);
+            this.pos.y += this.vel.y * (60*dt);
+
+            // Spin
+            this.rot += this.angVel * dt * 3.2;
+
+            // Ground bounce
+            if (this.pos.y + this.radius > f.groundY) {
+              this.pos.y = f.groundY - this.radius;
+              this.vel.y *= -0.45; // bouncy
+              this.vel.x *= 0.85;  // friction
+              // little dust puff
+              emitSparks(this.pos.x, f.groundY - 2*DPR, 10);
+              if (Math.abs(this.vel.y) < 1.2 && Math.abs(this.vel.x) < 0.8) {
+                this.live = false;
+                scoredThisFlight = false; // bereit für neuen Score bei nächstem Wurf
+              }
+            }
+
+            // Offscreen reset
+            if (this.pos.x > f.W + 200*DPR || this.pos.x < -200*DPR || this.pos.y > f.H + 200*DPR) {
+              this.reset();
+              scoredThisFlight = false;
+            }
+
+            // Goal detection: cross between uprights & above crossbar
+            const withinX = this.pos.x > (f.postX - f.postWidth/2) && this.pos.x < (f.postX + f.postWidth/2);
+            const aboveBar = this.pos.y < f.crossY - 6*DPR; // allow a bit of clearance
+            if (withinX && aboveBar && this.vel.y > 0 && !scoredThisFlight) {
+              scoredThisFlight = true;
+              scoreTouchdown(this.pos.x, this.pos.y);
+            }
+          },
+          draw() {
+            const r = this.radius;
+            ctx.save();
+            ctx.translate(this.pos.x, this.pos.y);
+            ctx.rotate(this.rot);
+
+            // Body: gradient with safe color stops
+            const grad = ctx.createLinearGradient(-r, -r, r, r);
+            addStop(grad, 0,   '#2a1008');
+            addStop(grad, 0.5, '#7a3e1b');
+            addStop(grad, 1,   '#2a1008');
+
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = '#d2b48c';
+            ctx.lineWidth = 1.4*DPR;
+
+            ctx.beginPath();
+            // football-ish shape via Bezier lobes
+            ctx.moveTo(-r*1.2, 0);
+            ctx.bezierCurveTo(-r*0.9, -r*0.9, r*0.9, -r*0.9, r*1.2, 0);
+            ctx.bezierCurveTo(r*0.9, r*0.9, -r*0.9, r*0.9, -r*1.2, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // White stripes at ends
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3*DPR;
+            ctx.beginPath();
+            ctx.moveTo(-r*0.85, -r*0.6); ctx.lineTo(-r*0.68, -r*0.55);
+            ctx.moveTo(-r*0.85,  r*0.6); ctx.lineTo(-r*0.68,  r*0.55);
+            ctx.moveTo( r*0.85, -r*0.6); ctx.lineTo( r*0.68, -r*0.55);
+            ctx.moveTo( r*0.85,  r*0.6); ctx.lineTo( r*0.68,  r*0.55);
+            ctx.stroke();
+
+            // Laces
+            ctx.lineWidth = 2.2*DPR;
+            ctx.beginPath();
+            ctx.moveTo(-r*0.25, 0); ctx.lineTo(r*0.25, 0);
+            for (let i=-2;i<=2;i++) {
+              const x = i* r*0.12;
+              ctx.moveTo(x, -r*0.12); ctx.lineTo(x, r*0.12);
+            }
+            ctx.stroke();
+
+            ctx.restore();
+          }
+        };
+
+        let scoredThisFlight = false;
+        function scoreTouchdown(x, y) {
+          state.score += 3; // field goal style
+          state.lastScoreTime = performance.now();
+          emitConfetti(x, y, 180);
+          cameraShake(12*DPR, 450);
+          spawnFloatingText(x, y - 20*DPR, '+3', '#ffffff');
+          state.goalPulse = 1; // trigger post glow
+        }
+
+        // --- Particles ---
+        function emitTrail(x, y, colA, colB) {
+          for (let i=0;i<2;i++) {
+            state.particles.push({
+              x, y,
+              vx: rand(-0.8,0.8)*DPR,
+              vy: rand(-0.8,0.8)*DPR,
+              life: rand(0.25, 0.55),
+              t: 0,
+              r: rand(1.5, 3.3)*DPR,
+              c: Math.random() < 0.5 ? colA : colB,
+            });
+          }
+        }
+        function emitSparks(x, y, n=12) {
+          const team = TEAMS[state.teamIndex];
+          for (let i=0;i<n;i++) {
+            const a = rand(0, Math.PI*2);
+            const sp = rand(1,4)*DPR;
+            state.sparks.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, t:0, life: rand(0.25,0.6), c: team.secondary });
+          }
+        }
+        function emitConfetti(x, y, n=140) {
+          const team = TEAMS[state.teamIndex];
+          for (let i=0;i<n;i++) {
+            state.confetti.push({
+              x: x + rand(-40,40)*DPR,
+              y: y + rand(-30,30)*DPR,
+              w: rand(3,6)*DPR,
+              h: rand(6,10)*DPR,
+              vx: rand(-2.2,2.2)*DPR,
+              vy: rand(-5.0,-2.0)*DPR,
+              rot: rand(0,Math.PI*2),
+              vr: rand(-4,4),
+              t:0,
+              life: rand(1.2,2.0),
+              c: Math.random()<0.5? team.primary : team.secondary,
+            });
+          }
+        }
+        function spawnFloatingText(x, y, text, color) {
+          state.floatingTexts.push({ x, y, text, color, t:0, life:1.2 });
+        }
+
+        function updateParticles(dt) {
+          // Trail
+          for (let i=state.particles.length-1;i>=0;i--) {
+            const p = state.particles[i];
+            p.t += dt; if (p.t>p.life) { state.particles.splice(i,1); continue; }
+            p.x += p.vx * 60*dt; p.y += p.vy * 60*dt; p.vy += 0.04*DPR * 60*dt;
+          }
+          // Sparks
+          for (let i=state.sparks.length-1;i>=0;i--) {
+            const s = state.sparks[i];
+            s.t += dt; if (s.t>s.life) { state.sparks.splice(i,1); continue; }
+            s.x += s.vx * 60*dt; s.y += s.vy * 60*dt; s.vy += 0.12*DPR * 60*dt;
+          }
+          // Confetti
+          for (let i=state.confetti.length-1;i>=0;i--) {
+            const c = state.confetti[i];
+            c.t += dt; if (c.t>c.life) { state.confetti.splice(i,1); continue; }
+            c.x += c.vx * 60*dt; c.y += c.vy * 60*dt; c.vy += 0.08*DPR * 60*dt;
+            c.rot += c.vr * dt;
+          }
+          // Floating texts
+          for (let i=state.floatingTexts.length-1;i>=0;i--) {
+            const ft = state.floatingTexts[i];
+            ft.t += dt;
+            if (ft.t>ft.life) { state.floatingTexts.splice(i,1); continue; }
+            ft.y -= 20 * dt * DPR;
+          }
+          // Goal pulse fade
+          if (state.goalPulse > 0) state.goalPulse = Math.max(0, state.goalPulse - dt * 1.2);
+        }
+
+        function drawParticles() {
+          // Trail (soft circles)
+          ctx.globalCompositeOperation = 'lighter';
+          for (const p of state.particles) {
+            const alpha = 1 - (p.t / p.life);
+            ctx.fillStyle = hexWithAlpha(p.c, alpha*0.9);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+            ctx.fill();
+          }
+          // Sparks (thin lines)
+          ctx.lineWidth = 1*DPR;
+          for (const s of state.sparks) {
+            const a = 1 - (s.t / s.life);
+            ctx.strokeStyle = hexWithAlpha(s.c, a);
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(s.x - s.vx*2, s.y - s.vy*2);
+            ctx.stroke();
+          }
+          // Confetti (rects)
+          for (const c of state.confetti) {
+            const a = 1 - (c.t / c.life);
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.rotate(c.rot);
+            ctx.fillStyle = hexWithAlpha(c.c, a);
+            ctx.fillRect(-c.w/2, -c.h/2, c.w, c.h);
+            ctx.restore();
+          }
+          ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // --- Camera shake ---
+        let shake = { mag:0, until:0 };
+        function cameraShake(magnitude, ms) {
+          shake.mag = magnitude; shake.until = performance.now() + ms;
+        }
+        function applyShake() {
+          if (performance.now() < shake.until) {
+            const dx = rand(-shake.mag, shake.mag);
+            const dy = rand(-shake.mag, shake.mag);
+            ctx.translate(dx, dy);
+          }
+        }
+
+        // --- Input ---
+        canvas.addEventListener('pointerdown', (e) => {
+          state.mouseDown = true;
+          const pt = getPointer(e);
+          state.aimStart = pt;
+          state.aimEnd = pt;
+        });
+        canvas.addEventListener('pointermove', (e) => {
+          if (!state.mouseDown) return;
+          state.aimEnd = getPointer(e);
+        });
+        window.addEventListener('pointerup', (e) => {
+          if (!state.mouseDown) return;
+          state.mouseDown = false;
+          state.aimEnd = getPointer(e);
+          const dx = state.aimEnd.x - state.aimStart.x;
+          const dy = state.aimEnd.y - state.aimStart.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 5 * DPR) { // kleiner Schwellenwert, um "Klicks" zu ignorieren
+            ball.throwFrom(state.aimStart, state.aimEnd);
+            scoredThisFlight = false;
+          }
+          state.aimStart = null; state.aimEnd = null;
+        });
+
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            state.teamIndex = (state.teamIndex + 1) % TEAMS.length;
+          }
+          if (e.code === 'KeyR') ball.reset();
+        });
+
+        function getPointer(e) {
+          const rect = canvas.getBoundingClientRect();
+          return {
+            x: (e.clientX - rect.left) * DPR,
+            y: (e.clientY - rect.top)  * DPR,
+          };
+        }
+
+        // --- Draw field & HUD ---
+        function drawBackground() {
+          const f = field();
+          // Sky gradient
+          const sky = ctx.createLinearGradient(0, 0, 0, f.H);
+          addStop(sky, 0,   '#0b1220');
+          addStop(sky, 0.5, '#0b1220');
+          addStop(sky, 1,   '#0f1b33');
+          ctx.fillStyle = sky; ctx.fillRect(0,0,f.W,f.H);
+
+          // Stadium light arcs
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i=0;i<3;i++) {
+            const y = (i+1) * f.H*0.12;
+            ctx.beginPath();
+            ctx.arc(f.W*0.5, y, f.W*0.6, Math.PI, 2*Math.PI);
+            ctx.strokeStyle = hexWithAlpha('#89a6ff', 0.04);
+            ctx.lineWidth = 50*DPR;
+            ctx.stroke();
+          }
+          ctx.globalCompositeOperation = 'source-over';
+
+          // Field
+          const grd = ctx.createLinearGradient(0, f.groundY-200*DPR, 0, f.H);
+          addStop(grd, 0, '#0f3d1f');
+          addStop(grd, 1, '#062a14');
+          ctx.fillStyle = grd;
+          ctx.fillRect(0, f.groundY, f.W, f.H - f.groundY);
+
+          // Goal post glow on score
+          if (state.goalPulse > 0) {
+            const team = TEAMS[state.teamIndex];
+            const glow = ctx.createRadialGradient(f.postX, f.crossY, 10*DPR, f.postX, f.crossY, 220*DPR);
+            addStop(glow, 0, hexWithAlpha(team.secondary, 0.6*state.goalPulse));
+            addStop(glow, 1, hexWithAlpha(team.secondary, 0));
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(f.postX, f.crossY, 220*DPR, 0, Math.PI*2);
+            ctx.fill();
+          }
+
+          // Yard lines
+          ctx.strokeStyle = hexWithAlpha('#ffffff', 0.25);
+          ctx.lineWidth = 1*DPR;
+          const step = 60*DPR;
+          for (let x=0; x<f.W; x+=step) {
+            ctx.beginPath();
+            ctx.moveTo(x, f.groundY);
+            ctx.lineTo(x, f.groundY + 20*DPR);
+            ctx.stroke();
+          }
+          // Hash marks
+          for (let x=0; x<f.W; x+=step/2) {
+            ctx.beginPath();
+            ctx.moveTo(x, f.groundY + 22*DPR);
+            ctx.lineTo(x+10*DPR, f.groundY + 22*DPR);
+            ctx.stroke();
+          }
+
+          // Goal posts
+          const team = TEAMS[state.teamIndex];
+          ctx.strokeStyle = team.secondary;
+          ctx.lineWidth = 6*DPR;
+          // base
+          ctx.beginPath();
+          ctx.moveTo(f.postX, f.groundY);
+          ctx.lineTo(f.postX, f.crossY);
+          ctx.stroke();
+          // crossbar
+          ctx.beginPath();
+          ctx.moveTo(f.postX - f.postWidth/2, f.crossY);
+          ctx.lineTo(f.postX + f.postWidth/2, f.crossY);
+          ctx.stroke();
+          // uprights
+          ctx.beginPath();
+          ctx.moveTo(f.postX - f.postWidth/2, f.crossY);
+          ctx.lineTo(f.postX - f.postWidth/2, f.crossY - (f.postHeight * 0.45));
+          ctx.moveTo(f.postX + f.postWidth/2, f.crossY);
+          ctx.lineTo(f.postX + f.postWidth/2, f.crossY - (f.postHeight * 0.45));
+          ctx.stroke();
+
+          // Subtle crowd noise dots
+          const dotCount = Math.floor(f.W * 0.02);
+          ctx.fillStyle = hexWithAlpha('#cbd5e1', 0.05);
+          for (let i=0;i<dotCount;i++) {
+            const x = (i * 73) % f.W;
+            const y = f.groundY - (i % 40) * 4 * DPR - 10*DPR;
+            ctx.fillRect(x, y, 2*DPR, 2*DPR);
+          }
+        }
+
+        function drawHUD() {
+          const f = field();
+          const team = TEAMS[state.teamIndex];
+          const pad = 14*DPR;
+
+          // Score badge
+          ctx.save();
+          ctx.translate(pad, pad);
+          roundedRect(ctx, 0,0, 160*DPR, 52*DPR, 12*DPR);
+          const g = ctx.createLinearGradient(0,0, 0,52*DPR);
+          addStop(g, 0, hexWithAlpha(team.primary, 0.8));
+          addStop(g, 1, hexWithAlpha('#000', 0.35));
+          ctx.fillStyle = g; ctx.fill();
+          ctx.lineWidth = 1*DPR; ctx.strokeStyle = hexWithAlpha('#ffffff', 0.2); ctx.stroke();
+          ctx.fillStyle = '#fff';
+          ctx.font = `${16*DPR}px ui-sans-serif, system-ui, Segoe UI, Roboto`;
+          ctx.fillText(`Team: ${team.name}`, 12*DPR, 20*DPR);
+          ctx.font = `${24*DPR}px ui-sans-serif, system-ui, Segoe UI, Roboto`;
+          ctx.fillText(`Score: ${state.score}`, 12*DPR, 44*DPR);
+          ctx.restore();
+
+          // Help tip
+          const tip = 'Ziehen = Wurf | Leertaste = Teamfarben | R = Reset';
+          ctx.fillStyle = hexWithAlpha('#ffffff', 0.6);
+          ctx.font = `${12*DPR}px ui-sans-serif, system-ui`;
+          const w = ctx.measureText(tip).width + 20*DPR;
+          roundedRect(ctx, f.W - w - 14*DPR, 14*DPR, w, 24*DPR, 10*DPR);
+          ctx.fill();
+          ctx.fillStyle = '#0b1220';
+          ctx.fillText(tip, f.W - w - 4*DPR, 30*DPR);
+
+          // Aim vector
+          if (state.aimStart && state.aimEnd) {
+            const s = state.aimStart, e = state.aimEnd;
+            ctx.strokeStyle = hexWithAlpha('#ffffff', 0.6);
+            ctx.lineWidth = 2*DPR;
+            ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+            // Arrow head
+            const dx = e.x - s.x, dy = e.y - s.y; const ang = Math.atan2(dy, dx);
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y);
+            ctx.lineTo(e.x - 12*DPR*Math.cos(ang-0.3), e.y - 12*DPR*Math.sin(ang-0.3));
+            ctx.lineTo(e.x - 12*DPR*Math.cos(ang+0.3), e.y - 12*DPR*Math.sin(ang+0.3));
+            ctx.closePath(); ctx.fillStyle = hexWithAlpha('#ffffff', 0.6); ctx.fill();
+          }
+
+          // Floating texts
+          ctx.textAlign = 'center';
+          for (const ft of state.floatingTexts) {
+            const a = 1 - (ft.t/ft.life);
+            ctx.fillStyle = hexWithAlpha('#000000', 0.2*a);
+            ctx.font = `${28*DPR}px ui-sans-serif, system-ui`;
+            ctx.fillText(ft.text, ft.x + 2*DPR, ft.y + 2*DPR);
+            ctx.fillStyle = hexWithAlpha(ft.color || '#ffffff', a);
+            ctx.fillText(ft.text, ft.x, ft.y);
+          }
+          ctx.textAlign = 'left';
+        }
+
+        function roundedRect(ctx, x, y, w, h, r) {
+          ctx.beginPath();
+          ctx.moveTo(x+r, y);
+          ctx.lineTo(x+w-r, y);
+          ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+          ctx.lineTo(x+w, y+h-r);
+          ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+          ctx.lineTo(x+r, y+h);
+          ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+          ctx.lineTo(x, y+r);
+          ctx.quadraticCurveTo(x, y, x+r, y);
+          ctx.closePath();
+        }
+
+        // --- Main loop ---
+        let last = performance.now();
+        ball.reset();
+        function frame(now) {
+          const dt = Math.min(0.033, (now - last)/1000); // cap for stability
+          last = now;
+
+          // Update
+          ball.update(dt);
+          const team = TEAMS[state.teamIndex];
+          emitTrail(ball.pos.x, ball.pos.y, team.primary, team.secondary);
+          updateParticles(dt);
+
+          // Render
+          ctx.clearRect(0,0,canvas.width,canvas.height);
+          ctx.save();
+          applyShake();
+          drawBackground();
+          drawParticles(); // draw glow under ball
+          ball.draw();
+          drawHUD();
+          ctx.restore();
+
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>
