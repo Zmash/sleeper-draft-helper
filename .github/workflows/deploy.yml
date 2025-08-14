@@ -20,8 +20,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install deps
+      - name: Install deps (incl. dev)
         run: npm ci
+        env:
+          NODE_ENV: ""               # überschreibt evtl. gesetztes NODE_ENV
+          NPM_CONFIG_PRODUCTION: "false"
 
       # Falls du Build-ENV aus Secrets brauchst, hier schreiben:
       # - name: Write .env.production
@@ -31,7 +34,10 @@ jobs:
       #     # WEITERE=WERTE
       #     EOF
 
-      - name: Build (Vite)
+      - name: Sanity check vite
+        run: npx vite --version
+        
+      - name: Build (Vite/CRA -> dist)
         run: npm run build
 
       - name: Set release name
