@@ -65,16 +65,14 @@ jobs:
             ./dist/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/
 
-      - name: Activate release (atomic symlink switch + optional SELinux relabel)
+      - name: Activate release (atomic symlink switch)
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '\
-            set -euo pipefail; \
-            ln -sfn /var/www/zmash/releases/${{ steps.rel.outputs.REL }} /var/www/zmash/current; \
-            # Optional: SELinux-Relabel, falls sudo ohne Passwort erlaubt ist – sonst wird's still ignoriert
-            if command -v sudo >/dev/null 2>&1; then sudo restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; \
-            else command -v restorecon >/dev/null 2>&1 && restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; fi \
-          '
-
+          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOSSH'
+          set -euo pipefail
+          ln -sfn /var/www/zmash/releases/${{ steps.rel.outputs.REL }} /var/www/zmash/current
+          # SELinux-Relabel ist optional; wenn nicht als root, einfach weglassen oder separat cronen
+          if command -v restorecon >/dev/null 2>&1; then restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; fi
+          EOSSH
 
       - name: Cleanup old releases (keep last 5)
         run: |
