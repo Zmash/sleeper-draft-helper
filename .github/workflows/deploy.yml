@@ -65,15 +65,16 @@ jobs:
             ./dist/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/
 
-      - name: Activate release (atomic symlink switch + SELinux context)
+      - name: Activate release (atomic symlink switch + optional SELinux relabel)
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '\
             set -euo pipefail; \
             ln -sfn /var/www/zmash/releases/${{ steps.rel.outputs.REL }} /var/www/zmash/current; \
-            chown -h deploy:apache /var/www/zmash/current; \
-            # Für CentOS/SELinux: Kontext sicherstellen
-            command -v restorecon >/dev/null 2>&1 && restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true \
+            # Optional: SELinux-Relabel, falls sudo ohne Passwort erlaubt ist – sonst wird's still ignoriert
+            if command -v sudo >/dev/null 2>&1; then sudo restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; \
+            else command -v restorecon >/dev/null 2>&1 && restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; fi \
           '
+
 
       - name: Cleanup old releases (keep last 5)
         run: |
