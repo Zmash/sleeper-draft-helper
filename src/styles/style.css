@@ -466,20 +466,165 @@ th.col-pick, td.col-pick { width: 64px; }
 .row-flash td { animation: rowFlash 0.9s ease-out; }
 
 /* =============================
-   Roster (Fancy Slots)
+   Roster – Sleeper-like rows
 ============================== */
-.roster-wrapper { display: flex; flex-direction: column; gap: 12px; }
-.roster-slot-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.roster-slot {
-  flex: 1 1 120px;
-  min-width: 100px;
-  background: var(--card);
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.empty-slot { opacity: 0.6; text-align: center; padding: 20px 0; }
-.bye { margin-top: 2px; color: var(--muted); font-style: italic; }
+
+.roster-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+/* Karte: relativ für den Chip */
+.roster-card {
+  position: relative;           /* wichtig: damit der Chip innen rechts sitzen kann */
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 40px minmax(0,1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  overflow: hidden;             /* Chip-Glow clippt sauber */
+}
+
+/* Pick-Chip rechts in der Karte */
+.roster-pick-chip {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  background: rgba(96,165,250,0.15);   /* var(--accent) transparent */
+  border: 1px solid rgba(96,165,250,0.45);
+  color: var(--text);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  pointer-events: none; /* rein informativ */
+}
+
+/* Mobile etwas kleiner */
+@media (max-width: 640px) {
+  .roster-row { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
+  .roster-card { padding: 8px 10px; grid-template-columns: 36px minmax(0,1fr); }
+  .roster-pick-chip { right: 8px; padding: 3px 7px; font-size: 11px; }
+}
+
+/* Position-Pill (links) */
+.slot-pill {
+  height: 40px;
+  border-radius: 10px;
+  color: #0b1220;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25) inset, 0 1px 0 rgba(255,255,255,0.08);
+}
+.slot-pill--QB  { background: #f472b6; } /* pink-400 */
+.slot-pill--RB  { background: #34d399; } /* emerald-400 */
+.slot-pill--WR  { background: #60a5fa; } /* blue-400 */
+.slot-pill--TE  { background: #fbbf24; } /* amber-400 */
+.slot-pill--WRT { background: #38bdf8; } /* sky-400 */
+.slot-pill--DEF { background: #9ca3af; } /* gray-400 */
+.slot-pill--BN  { background: #9ca3af; } /* gray-400 */
+
+/* Mitte: Card */
+.roster-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 40px minmax(0,1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+}
+.roster-card.is-empty {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+.roster-empty { padding-left: 2px; }
+
+.roster-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #1f2937;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.roster-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.roster-avatar span {
+  font-weight: 700;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+.roster-main { min-width: 0; }
+.roster-name {
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.roster-sub {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+/* Rechts: Pick-Box */
+.roster-right {
+  display: flex;
+  justify-content: flex-end;
+}
+.roster-pick {
+  display: grid;
+  place-items: end;
+}
+.roster-pick__num {
+  font-weight: 800;
+  font-size: 14px;
+}
+.roster-pick__label {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Mobile Tweaks */
+@media (max-width: 640px) {
+  .roster-row {
+    grid-template-columns: 56px minmax(0, 1fr) 60px;
+    gap: 10px;
+  }
+  .slot-pill { height: 36px; border-radius: 10px; font-size: 13px; }
+  .roster-card { padding: 8px 10px; grid-template-columns: 36px minmax(0,1fr); }
+  .roster-avatar { width: 36px; height: 36px; }
+  .roster-name { font-size: 14px; }
+  .roster-sub { font-size: 11px; }
+}
 
 /* =============================
    (Optional) Legacy Pill Styles

@@ -1,3 +1,4 @@
+// src/components/RosterList.jsx
 import React from 'react'
 import { normalizePlayerName } from '../utils/formatting'
 
@@ -7,22 +8,38 @@ const normalizePos = (posRaw = '') => {
   if (pos === 'PK') return 'K'
   return pos
 }
+const initials = (name = '') =>
+  name.split(' ').filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase()
 
-export default function RosterList({ picks = [], me, boardPlayers = [] }) {
-  // 1) Primäre Datenquelle: boardPlayers (bereits mit picked_by / pick_no gefüllt)
+// NEU: Hilfen für Runde.Pick
+const formatRoundPick = (pickNo, teamsCount) => {
+  if (!pickNo && pickNo !== 0) return null
+  if (!teamsCount || teamsCount <= 0) return String(pickNo) // Fallback
+  const round = Math.ceil(pickNo / teamsCount)
+  const inRound = ((pickNo - 1) % teamsCount) + 1
+  return `${round}.${inRound}`
+}
+const guessTeamsFromPicks = (picks = []) => {
+  // Simple Heuristik: Anzahl verschiedener picked_by in den ersten ~teams Picks
+  const first = (picks || []).slice(0, 40)
+  const set = new Set(first.map(p => p?.picked_by).filter(Boolean))
+  return set.size || null
+}
+
+export default function RosterList({ picks = [], me, boardPlayers = [], teamsCount: teamsCountProp = null }) {
+  const teamsCount = teamsCountProp || guessTeamsFromPicks(picks)
+
+  // 1) Primärquelle: boardPlayers
   const myPlayersFromBoard = (boardPlayers || []).filter(p => p.picked_by === me)
 
-  // 2) Fallback: livePicks → auf CSV matchen (nur falls noch keine CSV geladen ist)
-  const byName = new Map(
-    (boardPlayers || []).map((bp) => [normalizePlayerName(bp.name), bp])
-  )
+  // 2) Fallback: livePicks -> CSV
+  const byName = new Map((boardPlayers || []).map(bp => [normalizePlayerName(bp.name), bp]))
   const myPicks = (picks || []).filter(p => p.picked_by === me)
   const myPlayersFromPicks = myPicks.map(p => {
     const first = p?.metadata?.first_name || ''
     const last  = p?.metadata?.last_name || ''
     const norm  = normalizePlayerName(`${first} ${last}`)
     const csv   = byName.get(norm)
-    // Bilde ein player-ähnliches Objekt
     return {
       name: `${first} ${last}`.trim(),
       pos: normalizePos(p?.metadata?.position || csv?.pos || ''),
@@ -33,80 +50,91 @@ export default function RosterList({ picks = [], me, boardPlayers = [] }) {
     }
   })
 
-  // 3) Wähle Quelle: bevorzugt Board (stabil & komplett), sonst Pick-Fallback
-  const myRoster = myPlayersFromBoard.length ? myPlayersFromBoard.map(bp => ({
-    name: bp.name,
-    pos: normalizePos(bp.pos),
-    team: bp.team || '',
-    bye: bp.bye || '',
-    pick_no: bp.pick_no ?? null,
-    picked_by: bp.picked_by ?? null,
-  })) : myPlayersFromPicks
+  // 3) Quelle wählen
+  const myRoster = myPlayersFromBoard.length
+    ? myPlayersFromBoard.map(bp => ({
+        name: bp.name,
+        pos: normalizePos(bp.pos),
+        team: bp.team || '',
+        bye: bp.bye || '',
+        pick_no: bp.pick_no ?? null,
+        picked_by: bp.picked_by ?? null,
+      }))
+    : myPlayersFromPicks
 
-  // 4) Slots wie Sleeper
+  // 4) Slots (Sleeper-like)
   const slotConfig = [
-    { label: 'QB', count: 1 },
-    { label: 'RB', count: 2 },
-    { label: 'WR', count: 2 },
-    { label: 'TE', count: 1 },
-    { label: 'FLEX', count: 1 }, // RB/WR/TE
-    { label: 'DEF', count: 1 },
-    { label: 'BENCH', count: Infinity },
+    { label: 'QB',  count: 1,           pill: 'QB'  },
+    { label: 'RB',  count: 2,           pill: 'RB'  },
+    { label: 'WR',  count: 2,           pill: 'WR'  },
+    { label: 'TE',  count: 1,           pill: 'TE'  },
+    { label: 'FLEX',count: 1,           pill: 'WRT' },
+    { label: 'DEF', count: 1,           pill: 'DEF' },
+    { label: 'BENCH', count: Infinity,  pill: 'BN'  },
   ]
 
-  const slotMap = {}
-  const bench = []
-  for (const slot of slotConfig) slotMap[slot.label] = []
+  const slotMap = {}; const bench = []
+  for (const s of slotConfig) slotMap[s.label] = []
 
-  // 5) Zuweisung zu Slots (mit FLEX-Logik)
   for (const player of myRoster) {
     const pos = player.pos
-    const assign = () => {
-      for (const slot of slotConfig) {
-        if (slot.label === 'FLEX' && ['RB', 'WR', 'TE'].includes(pos)) {
-          if (slotMap.FLEX.length < slot.count) { slotMap.FLEX.push(player); return true }
-        } else if (slot.label === pos && slotMap[pos].length < slot.count) {
-          slotMap[pos].push(player); return true
-        }
-      }
-      return false
-    }
-    if (!assign()) bench.push(player)
+    const placed =
+      (pos && slotMap[pos] && slotMap[pos].length < slotConfig.find(s=>s.label===pos).count && slotMap[pos].push(player)) ||
+      (['RB','WR','TE'].includes(pos) && slotMap.FLEX.length < slotConfig.find(s=>s.label==='FLEX').count && slotMap.FLEX.push(player))
+    if (!placed) bench.push(player)
   }
   slotMap.BENCH = bench
 
-  const renderPlayerCard = (p, key) => (
-    <div key={key} className="card roster-slot">
-      {p ? (
-        <>
-          <div><strong>{p.name}</strong></div>
-          <div className="muted text-xs">
-            {p.pos}{p.team ? ` • ${p.team}` : ''}
-          </div>
-          {p.bye ? (
-            <div className="text-xs bye">Bye Week: {p.bye}</div>
-          ) : null}
-          {Number.isFinite(p.pick_no) || typeof p.pick_no === 'number' ? (
-            <div className="chip">#{p.pick_no}</div>
-          ) : null}
-        </>
-      ) : (
-        <div className="muted text-sm empty-slot">Leer</div>
-      )}
+  // Pick-Chip (in Karte rechts)
+  const PickChip = ({ pickNo }) => {
+    const txt = formatRoundPick(pickNo, teamsCount)
+    if (!txt) return null
+    return <div className="roster-pick-chip" title={`Pick ${txt}`}>{txt}</div>
+  }
+
+  const Row = ({ pill, player, emptyText = 'Empty', keyIdx }) => (
+    <div className="roster-row" key={keyIdx}>
+      <div className={`slot-pill slot-pill--${pill}`}>{pill}</div>
+
+      <div className={`roster-card ${player ? '' : 'is-empty'}`}>
+        {player ? (
+          <>
+            <div className="roster-avatar" aria-hidden>
+              {player.avatar
+                ? <img src={player.avatar} alt="" />
+                : <span>{initials(player.name)}</span>
+              }
+            </div>
+            <div className="roster-main">
+              <div className="roster-name">{player.name}</div>
+              <div className="roster-sub muted">
+                {player.pos}{player.team ? ` - ${player.team}` : ''}{player.bye ? ` (${player.bye})` : ''}
+              </div>
+            </div>
+
+            {/* NEU: Pick-Chip direkt in der Karte (rechts innen) */}
+            <PickChip pickNo={player.pick_no} />
+          </>
+        ) : (
+          <div className="roster-empty">{emptyText}</div>
+        )}
+      </div>
     </div>
   )
 
   return (
-    <div className="roster-wrapper">
-      {slotConfig.map((slot) => (
-        <div key={slot.label}>
-          <h4>{slot.label}</h4>
-          <div className="roster-slot-row">
-            {[...Array(slot.count === Infinity ? slotMap.BENCH.length : slot.count)]
-              .map((_, i) => renderPlayerCard(slotMap[slot.label][i], i))}
-          </div>
-        </div>
-      ))}
+    <div className="roster-list">
+      {slotConfig.flatMap((slot) => {
+        const count = slot.count === Infinity ? Math.max(1, slotMap.BENCH.length || 1) : slot.count
+        return Array.from({ length: count }, (_, i) => (
+          <Row
+            keyIdx={`${slot.label}-${i}`}
+            pill={slot.pill}
+            player={slotMap[slot.label][i] || null}
+            emptyText="Empty"
+          />
+        ))
+      })}
     </div>
   )
 }
