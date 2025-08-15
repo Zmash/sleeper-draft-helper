@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse'
+import { getTeamsCount } from './services/derive'
 
 // Hooks / Utils / Services / Actions
 import useDebouncedEffect from './hooks/useDebouncedEffect'
@@ -279,6 +280,12 @@ const selectedDraft = useMemo(
     }
   }
 
+  const teamsCount = getTeamsCount({
+    draft: selectedDraft,
+    picks: livePicks,
+    league: selectedLeague
+  })
+
   // Render
   return (
     <AppShell
@@ -345,7 +352,14 @@ const selectedDraft = useMemo(
       )}
   
       {activeTab === 'roster' && (
-        <RosterSection picks={livePicks} me={sleeperUserId} boardPlayers={boardPlayers} />
+        <RosterSection
+          picks={livePicks}
+          me={sleeperUserId}
+          boardPlayers={boardPlayers}
+          league={selectedLeague}
+          draft={selectedDraft}
+          teamsCount={teamsCount}
+        />
       )}
     </AppShell>
   )  

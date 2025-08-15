@@ -43,3 +43,15 @@ export function formatDraftLabel(d, leaguesById) {
   const leagueName = !isMock ? (leaguesById.get(d.league_id)?.name || d.league_id) : ''
   return isMock ? `${prefix} ${name}` : `${prefix} ${name} – ${leagueName}`
 }
+
+// Einzelne Liga mit vollen Details (total_rosters, roster_positions, scoring_settings, ...)
+export async function fetchLeague(leagueId) {
+  if (!leagueId) return null
+  return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}`)
+}
+
+// Optional: Users einer Liga (falls später benötigt)
+export async function fetchLeagueUsers(leagueId) {
+  if (!leagueId) return []
+  return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
+}

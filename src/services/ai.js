@@ -112,7 +112,7 @@ function makeContext({
   const draftContext = {
     current_pick_number: currentPickNumber,
     rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
-    teams: draft?.settings?.teams ?? draft?.teams ?? null,
+    teams: league?.total_rosters ?? null,
     slot: inferMySlot({ draft, livePicks, me }), // best effort
     is_snake: inferSnake(draft),
   }
@@ -136,6 +136,9 @@ function makeContext({
       roster_requirements: rosterReq,
       ppr_type: pprType,
       scoring_settings: league?.scoring_settings ?? {},
+      playoff_start_week: league?.playoff_start_week ?? undefined,
+      total_rosters: league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null,
+      waiver_type: league?.waiver_type ?? undefined,
     },
     draft: draftContext,
     me: { user_id: me },

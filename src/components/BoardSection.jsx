@@ -8,6 +8,7 @@ import ApiKeyDialog from './ApiKeyDialog'
 import { buildAIAdviceRequest } from '../services/ai'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { loadPreferences, setPreference, PlayerPreference } from '../services/preferences'
+import { getTeamsCount } from '../services/derive'
 
 const DEBUG_AI = false
 
@@ -53,6 +54,7 @@ export default function BoardSection({
   const [adviceDebug, setAdviceDebug] = useState(null)
 
   // Roster-Positions robuster ermitteln
+  const teamsCount = getTeamsCount({ draft, picks: livePicks, league })
   const rosterPositions =
     (league && Array.isArray(league.roster_positions) && league.roster_positions) ||
     (league && league.settings && Array.isArray(league.settings.roster_positions) && league.settings.roster_positions) ||
@@ -85,7 +87,7 @@ export default function BoardSection({
         boardPlayers: boardPlayers || [],
         livePicks: livePicks || [],
         me: meUserId || '',
-        league: { ...(league || {}), roster_positions: rosterPositions },
+        league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
         draft: draft || null,
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
         options: { topNOverall: 60, topPerPos: 20, model: 'gpt-4o-mini', temperature: 0.2, max_output_tokens: 700 }

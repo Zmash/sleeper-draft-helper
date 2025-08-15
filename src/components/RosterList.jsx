@@ -1,6 +1,7 @@
 // src/components/RosterList.jsx
 import React from 'react'
 import { normalizePlayerName } from '../utils/formatting'
+import { getTeamsCount } from '../services/derive'
 
 const normalizePos = (posRaw = '') => {
   const pos = String(posRaw).toUpperCase()
@@ -26,26 +27,34 @@ const guessTeamsFromPicks = (picks = []) => {
   return set.size || null
 }
 
-export default function RosterList({ picks = [], me, boardPlayers = [], teamsCount: teamsCountProp = null }) {
-  const teamsCount = teamsCountProp || guessTeamsFromPicks(picks)
-
+export default function RosterList({
+  picks = [],
+  me,
+  boardPlayers = [],
+  teamsCount = null,   // <- wir nutzen diese Prop direkt
+  draft = null,        // (optional, wird hier nicht gebraucht)
+  league = null,       // (optional, wird hier nicht gebraucht)
+}) {
   // 1) Primärquelle: boardPlayers
   const myPlayersFromBoard = (boardPlayers || []).filter(p => p.picked_by === me)
 
-  // 2) Fallback: livePicks -> CSV
+  // 2) Fallback: livePicks → CSV matchen
   const byName = new Map((boardPlayers || []).map(bp => [normalizePlayerName(bp.name), bp]))
   const myPicks = (picks || []).filter(p => p.picked_by === me)
   const myPlayersFromPicks = myPicks.map(p => {
     const first = p?.metadata?.first_name || ''
     const last  = p?.metadata?.last_name || ''
-    const norm  = normalizePlayerName(`${first} ${last}`)
+    const full  = `${first} ${last}`.trim()
+    const norm  = normalizePlayerName(full)
     const csv   = byName.get(norm)
+
     return {
-      name: `${first} ${last}`.trim(),
+      name: full,
       pos: normalizePos(p?.metadata?.position || csv?.pos || ''),
       team: p?.metadata?.team || csv?.team || '',
       bye: p?.bye || p?.metadata?.bye_week || csv?.bye || '',
-      pick_no: p?.pick_no ?? null,
+      pick_no: p?.pick_no ?? null,   // overall pick von Sleeper
+      round: p?.round ?? null,       // (optional)
       picked_by: p?.picked_by ?? null,
     }
   })
@@ -78,18 +87,24 @@ export default function RosterList({ picks = [], me, boardPlayers = [], teamsCou
 
   for (const player of myRoster) {
     const pos = player.pos
+    const cfgPos  = slotConfig.find(s => s.label === pos)
+    const cfgFlex = slotConfig.find(s => s.label === 'FLEX')
+
     const placed =
-      (pos && slotMap[pos] && slotMap[pos].length < slotConfig.find(s=>s.label===pos).count && slotMap[pos].push(player)) ||
-      (['RB','WR','TE'].includes(pos) && slotMap.FLEX.length < slotConfig.find(s=>s.label==='FLEX').count && slotMap.FLEX.push(player))
+      (cfgPos && slotMap[pos].length < cfgPos.count && slotMap[pos].push(player)) ||
+      (['RB','WR','TE'].includes(pos) && slotMap.FLEX.length < cfgFlex.count && slotMap.FLEX.push(player))
+
     if (!placed) bench.push(player)
   }
   slotMap.BENCH = bench
 
-  // Pick-Chip (in Karte rechts)
-  const PickChip = ({ pickNo }) => {
-    const txt = formatRoundPick(pickNo, teamsCount)
-    if (!txt) return null
-    return <div className="roster-pick-chip" title={`Pick ${txt}`}>{txt}</div>
+  // ---- Pick-Chip (rechts in der Karte, absolut positioniert; CSS hast du bereits)
+  const computeRoundInRound = (pickNo, teams) => {
+    const p = Number(pickNo), t = Number(teams)
+    if (!Number.isFinite(p) || !Number.isFinite(t) || t <= 0) return null
+    const round = Math.ceil(p / t)
+    const inRound = ((p - 1) % t) + 1
+    return `${round}.${inRound}`
   }
 
   const Row = ({ pill, player, emptyText = 'Empty', keyIdx }) => (
@@ -105,6 +120,7 @@ export default function RosterList({ picks = [], me, boardPlayers = [], teamsCou
                 : <span>{initials(player.name)}</span>
               }
             </div>
+
             <div className="roster-main">
               <div className="roster-name">{player.name}</div>
               <div className="roster-sub muted">
@@ -112,8 +128,11 @@ export default function RosterList({ picks = [], me, boardPlayers = [], teamsCou
               </div>
             </div>
 
-            {/* NEU: Pick-Chip direkt in der Karte (rechts innen) */}
-            <PickChip pickNo={player.pick_no} />
+            {/* Pick-Chip: runde.pick aus pick_no + teamsCount */}
+            {(() => {
+              const txt = computeRoundInRound(player.pick_no, teamsCount)
+              return txt ? <div className="roster-pick-chip" title={`Pick ${txt}`}>{txt}</div> : null
+            })()}
           </>
         ) : (
           <div className="roster-empty">{emptyText}</div>

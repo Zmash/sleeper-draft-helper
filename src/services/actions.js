@@ -40,6 +40,19 @@ import {
     if (preferred) {
       setSelectedLeagueId?.(preferred.league_id)
       saveToLocalStorage?.({ leagueId: preferred.league_id })
+
+      try {
+        const detailed = await fetchLeague(preferred.league_id)
+        if (detailed) {
+          setAvailableLeagues?.(prev => {
+            const list = Array.isArray(prev) ? prev : leagues
+            return list.map(l => (l.league_id === preferred.league_id ? { ...l, ...detailed } : l))
+          })
+        }
+      } catch (e) {
+        console.warn('[loadLeaguesAction] fetchLeague failed', e)
+      }
+
       await loadDraftOptions(preferred.league_id)
     } else {
       await loadDraftOptions('')
