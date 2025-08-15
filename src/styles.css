@@ -1,0 +1,39 @@
+
+/* --- Player preferences + AI/ALT badges --- */
+.player-row { position: relative; }
+.player-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-name-btn {
+  background: transparent; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.player-name-text { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+.pref-icon { display: inline-block; width: 1em; text-align: center; opacity: 0.9; }
+.pref-fav { color: var(--accent, #60a5fa); }
+.pref-avoid { color: #ef4444; }
+
+.pref-menu {
+  position: absolute; z-index: 50; background: var(--card, #101827);
+  border: 1px solid var(--border, #23324a); border-radius: 10px; padding: 6px;
+  display: inline-flex; gap: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.pref-action {
+  background: transparent; border: 0; width: 28px; height: 28px; border-radius: 6px;
+  font-size: 16px; line-height: 28px; cursor: pointer;
+}
+.pref-action:hover { background: rgba(255,255,255,0.06); }
+
+.ai-badge-wrap {
+  position: relative; width: 44px; flex: 0 0 44px;
+  display: inline-flex; justify-content: flex-end; gap: 4px;
+}
+.ai-badge, .alt-badge {
+  display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+  font-size: 11px; line-height: 18px; text-align: center; user-select: none;
+}
+.ai-badge { background: rgba(96,165,250,0.18); color: #60a5fa; }
+.alt-badge { background: rgba(234,179,8,0.18); color: #eab308; }
+
+@media (max-width: 640px) {
+  .col-team, .col-bye, .col-adp { display: none; }
+}

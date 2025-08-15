@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
@@ -7,6 +7,7 @@ import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { buildAIAdviceRequest } from '../services/ai'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
+import { loadPreferences, setPreference, PlayerPreference } from '../services/preferences'
 
 const DEBUG_AI = false
 
@@ -350,6 +351,20 @@ const aiHighlights = React.useMemo(() => {
   return { primary, all, reasons }
 }, [advice])
 
+// Player Preferences
+const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
+function handleSetPlayerPref(playerId, pref) {
+  setPlayerPrefs(prev => setPreference(prev, playerId, pref))
+}
+
+// Filter: Avoid ausblenden
+const [hideAvoid, setHideAvoid] = useState(false)
+const filteredBoardPlayers = useMemo(() => {
+  const list = boardPlayers || []
+  if (!hideAvoid) return list
+  return list.filter(p => (playerPrefs[p.player_id || p.id] !== PlayerPreference.AVOID))
+}, [boardPlayers, hideAvoid, playerPrefs])
+
   return (
     <section className="card">
       <div className="row between items-center wrap" style={{ gap: 8 }}>
@@ -381,16 +396,23 @@ const aiHighlights = React.useMemo(() => {
         positionFilter={positionFilter}
         onPositionChange={onPositionChange}
         onJumpToNext={scrollToNextUndrafted}
+        playerPrefs={playerPrefs}
+        PlayerPreference={PlayerPreference}
+        hideAvoid={hideAvoid}
+        setHideAvoid={setHideAvoid}
       />
 
       <BoardTable
         progressPercent={totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}
         pickedCount={pickedCount}
         totalCount={totalCount}
-        filteredPlayers={filteredPlayers}
+        filteredPlayers={filteredBoardPlayers} 
         highlightedNnames={[...aiHighlights.all]}
         primaryNname={aiHighlights.primary}
         adviceReasons={aiHighlights.reasons}
+        boardPlayers={filteredBoardPlayers}
+        playerPrefs={playerPrefs}
+        onSetPlayerPref={handleSetPlayerPref}
       />
 
       {/* Advice Modal mit Debug */}

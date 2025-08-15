@@ -431,3 +431,103 @@ th, td {
 .mt-4 { margin-top: 1rem; }
 .mt-5 { margin-top: 1.25rem; }
 .mt-6 { margin-top: 1.5rem; }
+
+/* Toggle-Button für Filter */
+.btn-toggle {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #23324a);
+  background: var(--card, #101827);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.btn-toggle:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.btn-toggle.is-active {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* Popup wird relativ zum Viewport positioniert */
+.pref-menu {
+  position: fixed;               /* vorher: absolute */
+  z-index: 1000;
+  background: var(--card, #101827);
+  border: 1px solid var(--border, #23324a);
+  border-radius: 10px;
+  padding: 6px;
+  display: inline-flex;
+  gap: 6px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  transform-origin: top center;
+  animation: prefPop 120ms ease-out;
+}
+
+/* kleines Pfeilchen */
+.pref-menu::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--card, #101827);
+}
+
+/* dezente Intro-Animation */
+@keyframes prefPop {
+  from { transform: translateY(-2px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);     opacity: 1; }
+}
+
+.pref-menu.pref-menu--flip::after {
+  top: auto;
+  bottom: -6px;
+  transform: translateX(-50%) rotate(180deg);
+}
+
+/* Basis */
+.player-name-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Gold (Favorite) */
+.player-name-btn.is-favorite {
+  background: rgba(234, 179, 8, 0.10);   /* amber-400 ~ goldig, sehr dezent */
+  border-color: rgba(234, 179, 8, 0.6);
+  box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.0);
+}
+.player-name-btn.is-favorite:hover {
+  background: rgba(234, 179, 8, 0.18);
+  box-shadow: 0 6px 14px rgba(234, 179, 8, 0.2);
+}
+
+/* Rot (Avoid) */
+.player-name-btn.is-avoid {
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
+}
+.player-name-btn.is-avoid:hover {
+  background: rgba(239, 68, 68, 0.18);
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.2);
+}
+
+/* Icons vorne behalten eine feste Breite → keine Sprünge */
+.pref-icon { display: inline-block; width: 1em; text-align: center; opacity: 0.95; }
+.pref-fav  { color: #eab308; }   /* Gold */
+.pref-avoid{ color: #ef4444; }   /* Rot  */
+

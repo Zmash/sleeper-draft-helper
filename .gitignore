@@ -21,6 +21,7 @@ Thumbs.db
 *.xlsx
 *.csv
 *.bak
+*.zip
 
 # Remove Android-specific if not used
 android/

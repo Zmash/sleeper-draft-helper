@@ -1,5 +1,7 @@
 // src/components/BoardTable.jsx
+import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
+import { PlayerPreference } from '../services/preferences'
 
 export default function BoardTable({
   progressPercent,
@@ -9,10 +11,59 @@ export default function BoardTable({
   highlightedNnames = [],
   primaryNname = null,
   adviceReasons = {},
+  playerPrefs = {},
+  onSetPlayerPref,
 }) {
+  // Helpers für Highlight-Logik (AI/ALT)
   const toKey = (s) => String(s || '').trim().toLowerCase()
-  const highlightSet = new Set((highlightedNnames || []).map(toKey))
-  const primaryKey = toKey(primaryNname)
+  const highlightSet = useMemo(
+    () => new Set((highlightedNnames || []).map(toKey)),
+    [highlightedNnames]
+  )
+  const primaryKey = useMemo(() => toKey(primaryNname), [primaryNname])
+
+  // Popup-State
+  const [menuOpenFor, setMenuOpenFor] = useState(null)
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!menuRef.current) return
+      if (!menuRef.current.contains(e.target)) setMenuOpenFor(null)
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setMenuOpenFor(null)
+    }
+    document.addEventListener('keydown', onKey)
+      return () => {
+        document.removeEventListener('mousedown', onDocClick)
+        document.removeEventListener('keydown', onKey)
+      }
+  }, [])
+
+  function openPrefMenu(e, player) {
+    e.preventDefault()
+    const clickX = e.clientX
+    const clickY = e.clientY
+    // Grobmaße des Popups (Breite~120, Höhe~40); wir clampen gegen Fenstergröße
+    const pad = 8
+    const menuW = 120
+    const menuH = 44
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const x = Math.max(pad, Math.min(clickX - menuW / 2, vw - menuW - pad))
+    const y = Math.max(pad, Math.min(clickY + 12, vh - menuH - pad)) // etwas unterhalb vom Klick
+    setMenuPos({ x, y })
+    setMenuOpenFor(player.player_id || player.id)
+  }
+
+  function setPref(playerId, pref) {
+    if (onSetPlayerPref) onSetPlayerPref(playerId, pref)
+    setMenuOpenFor(null)
+  }
+
+  const rows = useMemo(() => filteredPlayers || [], [filteredPlayers])
 
   return (
     <>
@@ -41,11 +92,13 @@ export default function BoardTable({
           </thead>
 
           <tbody>
-            {filteredPlayers.map((p) => {
+            {rows.map((p) => {
               const keyN = toKey(p.nname || p.name)
               const isHighlighted = highlightSet.has(keyN)
               const isPrimary = primaryKey && keyN === primaryKey
-              const reason = adviceReasons[keyN] || ''
+              const reason = (adviceReasons && adviceReasons[keyN]) || ''
+              const pid = p.player_id || p.id
+              const pref = playerPrefs ? (playerPrefs[pid] || null) : null
 
               return (
                 <tr
@@ -64,23 +117,55 @@ export default function BoardTable({
                   <td className="col-rk">{p.rk}</td>
 
                   <td className="col-name">
-                    <strong>{p.name}</strong>
-                    {isHighlighted && (
-                      <span
-                        className={cx('ai-badge', isPrimary ? 'ai-badge-primary' : 'ai-badge-alt')}
-                        title={isPrimary ? 'Primäre AI-Empfehlung' : 'AI-Alternative'}
+                    <div
+                      className="cell-content"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+                    >
+                      <button
+                        className={cx(
+                          'player-name-btn',
+                          pref === PlayerPreference.FAVORITE && 'is-favorite',
+                          pref === PlayerPreference.AVOID && 'is-avoid'
+                        )}
+                        onClick={(e) => openPrefMenu(e, p)}
+                        title="Präferenz setzen"
                       >
-                        {isPrimary ? 'AI' : 'alt'}
+                        {pref === PlayerPreference.FAVORITE && (
+                          <span className="pref-icon pref-fav" aria-hidden>
+                            ⭐
+                          </span>
+                        )}
+                        {pref === PlayerPreference.AVOID && (
+                          <span className="pref-icon pref-avoid" aria-hidden>
+                            ❌
+                          </span>
+                        )}
+                        <span className="player-name-text">{p.name}</span>
+                      </button>
+
+                      {/* AI/ALT Badges – jetzt layout-stabil */}
+                      <span className="ai-badge-wrap">
+                        {isHighlighted && (
+                          <span
+                            className={cx(
+                              'ai-badge',
+                              isPrimary ? 'ai-badge-primary' : 'ai-badge-alt'
+                            )}
+                            title={isPrimary ? 'Primäre AI-Empfehlung' : 'AI-Alternative'}
+                          >
+                            {isPrimary ? 'AI' : 'alt'}
+                          </span>
+                        )}
                       </span>
-                    )}
+                    </div>
 
                     {/* Mobile-Subline: kompakte Zusatzinfos */}
                     <div className="row-subline mobile-only">
-                    {p.team} · {p.pos}
-                    {p.bye ? ` · Bye ${p.bye}` : ''}
-                    {p.sos ? ` · SOS ${p.sos}` : ''}
-                    {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
-                  </div>
+                      {p.team} · {p.pos}
+                      {p.bye ? ` · Bye ${p.bye}` : ''}
+                      {p.sos ? ` · SOS ${p.sos}` : ''}
+                      {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
+                    </div>
                   </td>
 
                   <td className="col-team">{p.team}</td>
@@ -95,6 +180,40 @@ export default function BoardTable({
           </tbody>
         </table>
       </div>
+
+      {/* Mini-Popup für Präferenzen */}
+      {menuOpenFor && (
+        <div
+          ref={menuRef}
+          className="pref-menu"
+          style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
+        >
+          <button
+            className="pref-action"
+            onClick={() => setPref(menuOpenFor, PlayerPreference.FAVORITE)}
+            title="Favorite"
+            aria-label="Favorite"
+          >
+            ⭐
+          </button>
+          <button
+            className="pref-action"
+            onClick={() => setPref(menuOpenFor, null)}
+            title="Neutral"
+            aria-label="Neutral"
+          >
+            •
+          </button>
+          <button
+            className="pref-action"
+            onClick={() => setPref(menuOpenFor, PlayerPreference.AVOID)}
+            title="Avoid"
+            aria-label="Avoid"
+          >
+            ❌
+          </button>
+        </div>
+      )}
     </>
   )
 }
