@@ -301,29 +301,106 @@ th, td {
 .board-table .col-name strong { font-weight: 600; }
 
 /* AI-Highlights (dezent) */
-.board-table tbody tr.row-ai {
-  position: relative;
-  background: linear-gradient(90deg, rgba(124,58,237,0.07), transparent 40%);
+/* 2.1: Tabellengrundlage robust machen */
+.board-table {
+  width: 100%;
+  table-layout: fixed;        /* Zellen umbrechen statt Gesamtbreite zu sprengen */
+  border-collapse: separate;  /* damit border-radius/shadows der Zeilen sauber wirken */
+  border-spacing: 0;
 }
-.board-table tbody tr.row-ai::before {
-  content: '';
-  position: absolute; left: 0; top: 0; bottom: 0;
-  width: 3px; background: rgba(124,58,237,0.6); border-radius: 2px;
+.board-table th,
+.board-table td {
+  overflow: hidden;           /* verhindert Überlauf in einer Zelle */
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.board-table tbody tr.row-ai-primary {
-  background: linear-gradient(90deg, rgba(124,58,237,0.12), transparent 50%);
-}
-.board-table tbody tr.row-ai-primary::before { width: 4px; background: #7c3aed; }
 
-/* Mindestbreiten je Spalte */
-.col-rk   { min-width: 48px; }
-.col-name { min-width: 220px; }
-.col-team { min-width: 80px; }
-.col-pos  { min-width: 64px; }
-.col-bye  { min-width: 64px; }
-.col-sos  { min-width: 70px; }
-.col-ecr  { min-width: 96px; }
-.col-pick { min-width: 64px; }
+/* 2.2: Name-Spalte darf schrumpfen, ohne Layout zu sprengen */
+.col-name .cell-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;               /* WICHTIG: erlaubt Shrink in Flex-Layouts */
+}
+.player-name-text {
+  min-width: 0;               /* Text kann ellipsen statt schieben */
+}
+
+.player-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Button darf schrumpfen und clippt sauber */
+.player-name-btn {
+  flex: 0 0 auto; /* shrink to fit content */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden; /* keep ellipsis working */
+}
+
+/* 2.3: AI/ALT-Row-Highlight OHNE Breitenänderung */
+.row-ai,
+.row-ai-primary {
+  position: relative;
+  background-image: none !important;   /* falls vorher Gradient/Outline benutzt wurde */
+  outline: none;                       /* Outlines addieren Breite – raus damit */
+}
+
+/* Dezente lila Bar links – schiebt nichts, da inset */
+.row-ai::before,
+.row-ai-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;                   /* vollflächig als Overlay */
+  pointer-events: none;
+  border-radius: 6px;         /* falls deine Zeilen abgerundet sind */
+  box-shadow: inset 4px 0 0 0 rgba(139, 92, 246, 0.85);  /* violet-500 */
+}
+.row-ai-primary::before {
+  box-shadow: inset 4px 0 0 0 rgba(99, 102, 241, 0.95);  /* indigo-500 für Primary */
+}
+
+/* 2.4: AI/ALT-Badges selbst bleiben fix breit → kein Schieben */
+.ai-badge-wrap {
+  position: relative;
+  width: 44px;          /* feste Breite */
+  flex: 0 0 44px;
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.ai-badge,
+.alt-badge {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  border-radius: 4px;
+  text-align: center;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* 2.5: Mobile – falls nötig, sekundäre Spalten ausblenden */
+@media (max-width: 640px) {
+  .col-team, .col-bye, .col-sos, .col-ecr, .col-pick { display: none; }
+}
+
+/* Feste Spaltenbreiten (keine min-widths) */
+th.col-rk,   td.col-rk   { width: 48px; }  /* # */
+th.col-name, td.col-name { width: auto; }  /* Name füllt Rest */
+th.col-team, td.col-team { width: 80px; }
+th.col-pos,  td.col-pos  { width: 64px; }
+th.col-bye,  td.col-bye  { width: 64px; }
+th.col-sos,  td.col-sos  { width: 70px; }
+th.col-ecr,  td.col-ecr  { width: 96px; }
+th.col-pick, td.col-pick { width: 64px; }
 
 /* Status-Row-Farben */
 .row-me td {
@@ -349,8 +426,11 @@ th, td {
   .board-table .col-ecr,
   .board-table .col-pick { display: none; }
 
-  .board-table th.col-name,
-  .board-table td.col-name { width: 100%; max-width: 0; }
+  /* # bleibt schmal sichtbar */
+  th.col-rk, td.col-rk { width: 42px; }
+
+  /* Name bekommt den Rest */
+  th.col-name, td.col-name { width: auto; }
 
   .board-table th, .board-table td { padding: 0.55rem 0.6rem; font-size: 0.95rem; }
 
