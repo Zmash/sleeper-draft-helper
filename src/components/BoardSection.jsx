@@ -360,10 +360,10 @@ function handleSetPlayerPref(playerId, pref) {
 // Filter: Avoid ausblenden
 const [hideAvoid, setHideAvoid] = useState(false)
 const filteredBoardPlayers = useMemo(() => {
-  const list = boardPlayers || []
+  const list = filteredPlayers || []
   if (!hideAvoid) return list
-  return list.filter(p => (playerPrefs[p.player_id || p.id] !== PlayerPreference.AVOID))
-}, [boardPlayers, hideAvoid, playerPrefs])
+  return list.filter(p => playerPrefs[p.player_id || p.id] !== PlayerPreference.AVOID)
+}, [filteredPlayers, hideAvoid, playerPrefs])
 
   return (
     <section className="card">
@@ -406,7 +406,7 @@ const filteredBoardPlayers = useMemo(() => {
         progressPercent={totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}
         pickedCount={pickedCount}
         totalCount={totalCount}
-        filteredPlayers={filteredBoardPlayers} 
+        filteredPlayers={filteredBoardPlayers}
         highlightedNnames={[...aiHighlights.all]}
         primaryNname={aiHighlights.primary}
         adviceReasons={aiHighlights.reasons}
