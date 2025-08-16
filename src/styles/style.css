@@ -313,8 +313,6 @@ th, td {
 .board-table .col-name strong { font-weight: 600; }
 
 /* --- AI/alt: stabil & ohne Layout-Verschiebung --- */
-.board-table td.col-name { position: relative; } /* 1) Positionierungs-Container */
-
 .board-table td.col-name .ai-badge-wrap {        /* 2) Badges aus dem Flow */
   position: absolute;
   right: 6px;
@@ -346,18 +344,8 @@ th, td {
   position: relative;
   background-image: none !important;
   outline: none;
-}
-.row-ai::before,
-.row-ai-primary::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+  box-shadow: inset 2px 0 0 0 rgba(139, 92, 246, 0.95);
   border-radius: 6px;
-  box-shadow: inset 4px 0 0 0 rgba(139, 92, 246, 0.85);
-}
-.row-ai-primary::before {
-  box-shadow: inset 4px 0 0 0 rgba(99, 102, 241, 0.95);
 }
 
 /* AI-Badge-Optik */
