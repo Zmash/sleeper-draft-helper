@@ -8,6 +8,14 @@ import { cx, normalizePlayerName } from './utils/formatting'
 import { parseDraftId } from './utils/parse'
 import { STORAGE_KEY, THEME_STORAGE_KEY, saveToLocalStorage, loadFromLocalStorage } from './services/storage'
 import { parseFantasyProsCsv } from './services/csv'
+
+import { enrichBoardPlayersWithSleeper } from './services/enrichBoardWithSleeper'
+import { useDraftTips } from './hooks/useDraftTips'
+import DraftAnalysis from './components/DraftAnalysis'
+import Modal from './components/Modal'
+import { computeTeamScores, isDraftComplete } from './services/analysis'
+import { prioritizeTips } from './services/tipsPrioritizer'
+
 import {
   SLEEPER_API_BASE,
   fetchJson,
@@ -32,6 +40,7 @@ import SetupForm from './components/SetupForm'
 import BoardSection from './components/BoardSection'
 import RosterSection from './components/RosterSection'
 import { CURRENT_YEAR } from './constants'
+
 
 export default function App() {
   // Theme
@@ -69,6 +78,35 @@ export default function App() {
   )
   const [lastSyncAt, setLastSyncAt] = useState(null)
 
+    // Map der Ligen (für Labels im Draft-Select)
+  const leaguesById = useMemo(() => {
+      const m = new Map()
+      ;(availableLeagues || []).forEach(l => m.set(l.league_id, l))
+      return m
+  }, [availableLeagues])
+
+  const selectedLeague = useMemo(
+    () =>
+      (leaguesById && typeof leaguesById.get === 'function')
+        ? leaguesById.get(selectedLeagueId) || null
+        : null,
+    [leaguesById, selectedLeagueId]
+  )
+
+  const selectedDraft = useMemo(
+    () =>
+      (Array.isArray(availableDrafts))
+        ? availableDrafts.find(d => d.draft_id === selectedDraftId) || null
+        : null,
+    [availableDrafts, selectedDraftId]
+  )
+
+  const teamsCount = useMemo(() => getTeamsCount({
+    draft: selectedDraft,
+    picks: livePicks,
+    league: selectedLeague
+  }), [selectedDraft, livePicks, selectedLeague])
+
   // Tabs
   const [activeTab, setActiveTab] = useState(persisted.activeTab || (persisted.leagueId ? 'board' : 'setup'))
 
@@ -77,6 +115,97 @@ export default function App() {
   const [manualDraftInput, setManualDraftInput] = useState(persisted.manualDraftInput || '')
   const prevConfigRef = useRef({ sleeperUserId, selectedLeagueId, selectedDraftId })
   const pollingIntervalRef = useRef(null)
+  const [analysisOpen, setAnalysisOpen] = useState(false)
+
+  // Owner-Label-Map (user_id -> display_name/username)
+  // Owner-Label-Map (user_id/slot -> display label)
+  const ownerLabels = useMemo(() => {
+    const m = new Map();
+
+  // 1) aus League-Users (falls vorhanden)
+  for (const u of (leagueUsers || [])) {
+    m.set(`user:${u.user_id}`, u.display_name || u.username || u.user_id);
+  }
+
+  // kleine Helper, um stabile Keys + Labels auch ohne leagueUsers zu bauen
+  const teamKeyFromPick = (p) => {
+    // Primär: tatsächliche Sleeper user_id
+    if (p?.picked_by) return `user:${p.picked_by}`;
+    // Liga-Drafts: roster_id ist stabil pro Team
+    if (p?.roster_id != null) return `roster:${p.roster_id}`;
+    // Mock-Drafts: notfalls Draft-Slot (1..teamsCount) oder Slot aus pick_no ableiten
+    if (p?.draft_slot != null) return `slot:${p.draft_slot}`;
+    if (teamsCount && p?.pick_no) {
+      const slot = ((p.pick_no - 1) % teamsCount) + 1;
+      return `slot:${slot}`;
+    }
+    return `slot:unknown`;
+  };
+
+  const teamLabelFromPick = (p) => {
+    // Falls später mal Namen aus Draft-Meta auftauchen:
+    const metaLabel =
+      p?.metadata?.team_name ||
+      p?.metadata?.owner ||
+      null;
+
+    if (metaLabel) return metaLabel;
+
+    if (p?.picked_by && m.has(`user:${p.picked_by}`)) {
+      return m.get(`user:${p.picked_by}`);
+    }
+    if (p?.roster_id != null) return `Team ${p.roster_id}`;
+    if (p?.draft_slot != null) return `Slot ${p.draft_slot}`;
+    if (teamsCount && p?.pick_no) {
+      const slot = ((p.pick_no - 1) % teamsCount) + 1;
+      return `Slot ${slot}`;
+    }
+    return `Unknown`;
+  };
+
+  // 2) Fallback: aus Picks (wichtig für Mock-Drafts / Bots)
+  for (const p of (livePicks || [])) {
+    const key = teamKeyFromPick(p);
+    if (!m.has(key)) m.set(key, teamLabelFromPick(p));
+  }
+
+  return m;
+}, [leagueUsers, livePicks, teamsCount]);
+
+
+
+  // --- Sleeper Enrichment after CSV import / on start (non-blocking) ---
+  const [enriching, setEnriching] = useState(false)
+
+  useEffect(() => {
+    async function maybeEnrich() {
+      if (!Array.isArray(boardPlayers) || boardPlayers.length === 0) return
+      if (enriching) return
+      setEnriching(true)
+      try {
+        // Saison & Format ableiten
+        const season = selectedDraft?.season || Number(seasonYear) || new Date().getFullYear()
+        const format = selectedLeague?.scoring_settings?.ppr === 0.5 ? 'half'
+          : (selectedLeague?.scoring_settings?.ppr ?? 1) >= 1 ? 'ppr'
+          : 'ppr'
+
+        // ⚠️ WICHTIG: hier NICHT 'fresh' verwenden, sondern den aktuellen State
+        const enriched = await enrichBoardPlayersWithSleeper(boardPlayers, { season })
+
+        if (JSON.stringify(enriched) !== JSON.stringify(boardPlayers)) {
+          setBoardPlayers(enriched)
+          saveToLocalStorage({ boardPlayers: enriched })
+        }
+      } catch (e) {
+        console.warn('Enrichment failed', e)
+      } finally {
+        setEnriching(false)
+      }
+    }
+    maybeEnrich()
+    // dependencies so wählen, dass bei CSV/League-Format-Änderungen neu angereichert wird
+  }, [JSON.stringify(boardPlayers), selectedDraft?.season, selectedLeague?.scoring_settings?.ppr])
+
 
   // Persist (debounced)
   useDebouncedEffect(() => {
@@ -189,30 +318,7 @@ export default function App() {
       if (!q) return true
       return normalizePlayerName(p.name).includes(q)
     })
-  }, [boardPlayers, searchQuery, positionFilter])
-
-    // Map der Ligen (für Labels im Draft-Select)
-    const leaguesById = useMemo(() => {
-        const m = new Map()
-        ;(availableLeagues || []).forEach(l => m.set(l.league_id, l))
-        return m
-    }, [availableLeagues])
-
-    const selectedLeague = useMemo(
-  () =>
-    (leaguesById && typeof leaguesById.get === 'function')
-      ? leaguesById.get(selectedLeagueId) || null
-      : null,
-  [leaguesById, selectedLeagueId]
-)
-
-const selectedDraft = useMemo(
-  () =>
-    (Array.isArray(availableDrafts))
-      ? availableDrafts.find(d => d.draft_id === selectedDraftId) || null
-      : null,
-  [availableDrafts, selectedDraftId]
-)
+  }, [boardPlayers, searchQuery, positionFilter]) 
 
   const pickedCount = useMemo(() => boardPlayers.filter(p => p.status).length, [boardPlayers])
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map(p => p.pick_no || 0)) : 0
@@ -280,15 +386,30 @@ const selectedDraft = useMemo(
     }
   }
 
-  const teamsCount = getTeamsCount({
-    draft: selectedDraft,
+  const rawTips = useDraftTips({
     picks: livePicks,
-    league: selectedLeague
+    boardPlayers,
+    meUserId: sleeperUserId,
+    teamsCount,
+    playerPrefs: {},
+    rosterPositions: selectedLeague?.roster_positions || null,
+  })
+
+    // Wichtig: currentPickNumber hast du bereits oben berechnet
+  const tips = prioritizeTips(rawTips, {
+    boardPlayers,
+    picks: livePicks,
+    meUserId: sleeperUserId,
+    teamsCount,
+    rosterPositions: selectedLeague?.roster_positions || [],
+    currentPickNumber,
+    maxTips: 7,   // kannst du als Setting persistieren
+    minScore: 10, // Schwelle, ab wann es “wichtig” ist
   })
 
   // Render
   return (
-    <AppShell
+    <AppShell tips={tips}
       themeMode={themeMode}
       onToggleTheme={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
       activeTab={activeTab}
@@ -361,6 +482,39 @@ const selectedDraft = useMemo(
           teamsCount={teamsCount}
         />
       )}
+    
+      {/* Draft Analysis Trigger (Floating Button) */}
+      {isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds) && (
+        <button
+          type="button"
+          className="dock-toggle dock-toggle--right"
+          title="Draft Analysis"
+          onClick={() => setAnalysisOpen(true)}
+        >
+          📊 Draft Analysis
+        </button>
+      )}
+
+      {/* Draft Analysis Modal */}
+      <Modal
+        open={analysisOpen}
+        onClose={() => setAnalysisOpen(false)}
+        title="Team Rankings"
+      >
+          <div className="draft-analysis">
+          <DraftAnalysis
+              scores={computeTeamScores({
+                boardPlayers,
+                livePicks,
+                teamsCount,
+                rosterPositions: selectedLeague?.roster_positions || null
+              })}
+              ownerLabels={ownerLabels}
+            />
+          </div>
+      </Modal>
+
+
     </AppShell>
   )  
 }

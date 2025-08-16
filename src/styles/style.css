@@ -756,3 +756,151 @@ th.col-pick, td.col-pick { width: 64px; }
 .pref-fav  { color: #eab308; }   /* Gold */
 .pref-avoid{ color: #ef4444; }   /* Rot  */
 
+/* ===== Floating Dock Toggle (gleich wie TipsDock) ===== */
+.dock-toggle {
+  position: fixed;
+  bottom: 16px;
+  z-index: 40;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.dock-toggle:hover { filter: brightness(1.05); }
+.dock-toggle:active { transform: translateY(1px); }
+.dock-toggle--right { right: 16px; }
+.dock-toggle--left  { left: 16px; }
+
+/* ===== Floating Dock Toggle (gleich wie TipsDock) ===== */
+.dock-toggle {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 60;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.dock-toggle:hover { filter: brightness(1.05); }
+.dock-toggle:active { transform: translateY(1px); }
+
+/* ===== Modal (responsive) ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 70;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-card {
+  width: min(1000px, 95vw);
+  max-height: 85vh;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.35);
+
+  /* wichtig für mobiles Vollbild-Scrollen */
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  z-index: 1; /* über dem Body-Scroll */
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 1rem;
+  flex: 1;              /* füllt den verfügbaren Platz */
+  overflow: auto;       /* eigener Scrollcontainer */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== DraftAnalysis Inhalt mobil scrollbar machen ===== */
+.draft-analysis {
+  width: 100%;
+  overflow: auto;              /* horizontales Scrollen für breite Tabellen */
+  -webkit-overflow-scrolling: touch;
+}
+.draft-analysis table {
+  min-width: 720px;            /* nicht unter 720px zusammenquetschen */
+}
+.draft-analysis th,
+.draft-analysis td {
+  white-space: nowrap;
+}
+
+/* ===== Mobile Fullscreen Variant ===== */
+@media (max-width: 768px) {
+  .modal {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+  .modal-card {
+    width: 100%;
+    max-height: none;
+    min-height: 100dvh;        /* echtes Gerätesichtfenster */
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  .modal-header {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    padding-left: 16px;
+    padding-right: 8px;
+  }
+  .modal-body {
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* größere Tap-Ziele */
+  .btn-compact {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
+
+
+
