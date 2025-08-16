@@ -296,84 +296,71 @@ th, td {
 }
 
 /* Kompaktere Board-Tabelle */
-.board-table th, .board-table td { padding: 4px 6px; line-height: 1.3; }
-.board-table .col-name { white-space: nowrap; }
-.board-table .col-name strong { font-weight: 600; }
-
-/* AI-Highlights (dezent) */
-/* 2.1: Tabellengrundlage robust machen */
 .board-table {
   width: 100%;
-  table-layout: fixed;        /* Zellen umbrechen statt Gesamtbreite zu sprengen */
-  border-collapse: separate;  /* damit border-radius/shadows der Zeilen sauber wirken */
+  table-layout: fixed;
+  border-collapse: separate;
   border-spacing: 0;
 }
+.board-table th, .board-table td { padding: 4px 6px; line-height: 1.3; }
 .board-table th,
 .board-table td {
-  overflow: hidden;           /* verhindert Überlauf in einer Zelle */
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 2.2: Name-Spalte darf schrumpfen, ohne Layout zu sprengen */
-.col-name .cell-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;               /* WICHTIG: erlaubt Shrink in Flex-Layouts */
-}
-.player-name-text {
-  min-width: 0;               /* Text kann ellipsen statt schieben */
-}
-
-.player-name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.board-table .col-name { white-space: nowrap; }
+.board-table .col-name strong { font-weight: 600; }
 
-/* Button darf schrumpfen und clippt sauber */
-.player-name-btn {
-  flex: 0 0 auto; /* shrink to fit content */
+/* --- AI/alt: stabil & ohne Layout-Verschiebung --- */
+.board-table td.col-name { position: relative; } /* 1) Positionierungs-Container */
+
+.board-table td.col-name .ai-badge-wrap {        /* 2) Badges aus dem Flow */
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden; /* keep ellipsis working */
+  gap: 4px;
+  pointer-events: none;
+  width: auto;
 }
 
-/* 2.3: AI/ALT-Row-Highlight OHNE Breitenänderung */
+/* 3) Nur wenn Badges da sind, Platz für sie reservieren */
+.board-table td.col-name:has(.ai-badge-wrap) .player-name-btn {
+  max-width: calc(100% - 44px);
+}
+
+/* 4) Name/Btn verhalten sich ellipsend */
+.player-name-text,
+.player-name-btn {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* dezente AI-Row-Highlights ohne Breitenänderung */
 .row-ai,
 .row-ai-primary {
   position: relative;
-  background-image: none !important;   /* falls vorher Gradient/Outline benutzt wurde */
-  outline: none;                       /* Outlines addieren Breite – raus damit */
+  background-image: none !important;
+  outline: none;
 }
-
-/* Dezente lila Bar links – schiebt nichts, da inset */
 .row-ai::before,
 .row-ai-primary::before {
   content: "";
   position: absolute;
-  inset: 0;                   /* vollflächig als Overlay */
+  inset: 0;
   pointer-events: none;
-  border-radius: 6px;         /* falls deine Zeilen abgerundet sind */
-  box-shadow: inset 4px 0 0 0 rgba(139, 92, 246, 0.85);  /* violet-500 */
+  border-radius: 6px;
+  box-shadow: inset 4px 0 0 0 rgba(139, 92, 246, 0.85);
 }
 .row-ai-primary::before {
-  box-shadow: inset 4px 0 0 0 rgba(99, 102, 241, 0.95);  /* indigo-500 für Primary */
+  box-shadow: inset 4px 0 0 0 rgba(99, 102, 241, 0.95);
 }
 
-/* 2.4: AI/ALT-Badges selbst bleiben fix breit → kein Schieben */
-.ai-badge-wrap {
-  position: relative;
-  width: 44px;          /* feste Breite */
-  flex: 0 0 44px;
-  display: inline-flex;
-  justify-content: flex-end;
-  gap: 4px;
-}
+/* AI-Badge-Optik */
 .ai-badge,
 .alt-badge {
   display: inline-block;
@@ -386,13 +373,19 @@ th, td {
   user-select: none;
   white-space: nowrap;
 }
-
-/* 2.5: Mobile – falls nötig, sekundäre Spalten ausblenden */
-@media (max-width: 640px) {
-  .col-team, .col-bye, .col-sos, .col-ecr, .col-pick { display: none; }
+.ai-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(124,58,237,0.4);
+  display: inline-block;
+  vertical-align: middle;
 }
+.ai-badge-primary { border-color: #7c3aed; }
+.ai-badge-alt     { opacity: 0.9; }
 
-/* Feste Spaltenbreiten (keine min-widths) */
+/* Spaltenbreiten */
 th.col-rk,   td.col-rk   { width: 48px; }  /* # */
 th.col-name, td.col-name { width: auto; }  /* Name füllt Rest */
 th.col-team, td.col-team { width: 80px; }
@@ -401,19 +394,6 @@ th.col-bye,  td.col-bye  { width: 64px; }
 th.col-sos,  td.col-sos  { width: 70px; }
 th.col-ecr,  td.col-ecr  { width: 96px; }
 th.col-pick, td.col-pick { width: 64px; }
-
-/* Status-Row-Farben */
-.row-me td {
-  background: rgba(34,197,94,0.10);
-}
-.row-other td {
-  background: rgba(220,38,38,0.12);
-  color: #9aa4b2;
-}
-:root:not([data-theme='light']) .row-other td {
-  background: rgba(220,38,38,0.15);
-  color: #8b94a3;
-}
 
 /* Mobile Optimierung für Board */
 .mobile-only { display: none; }
@@ -426,10 +406,8 @@ th.col-pick, td.col-pick { width: 64px; }
   .board-table .col-ecr,
   .board-table .col-pick { display: none; }
 
-  /* # bleibt schmal sichtbar */
-  th.col-rk, td.col-rk { width: 42px; }
+  th.col-rk, td.col-rk { width: 42px; } /* # bleibt schmal sichtbar */
 
-  /* Name bekommt den Rest */
   th.col-name, td.col-name { width: auto; }
 
   .board-table th, .board-table td { padding: 0.55rem 0.6rem; font-size: 0.95rem; }
@@ -445,18 +423,25 @@ th.col-pick, td.col-pick { width: 64px; }
   }
 }
 
-/* AI-Badge (klein & dezent) */
-.ai-badge {
-  margin-left: 8px;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(124,58,237,0.4);
-  display: inline-block;
-  vertical-align: middle;
+@media (max-width: 480px) {
+  .board-table td.col-name .ai-badge-wrap { right: 4px; }
+  .board-table td.col-name:has(.ai-badge-wrap) .player-name-btn {
+    max-width: calc(100% - 38px);
+  }
 }
-.ai-badge-primary { border-color: #7c3aed; }
-.ai-badge-alt     { opacity: 0.9; }
+
+/* Status-Row-Farben */
+.row-me td {
+  background: rgba(34,197,94,0.10);
+}
+.row-other td {
+  background: rgba(220,38,38,0.12);
+  color: #9aa4b2;
+}
+:root:not([data-theme='light']) .row-other td {
+  background: rgba(220,38,38,0.15);
+  color: #8b94a3;
+}
 
 /* Scroll-Highlight für "Zum nächsten freien" */
 @keyframes rowFlash {
@@ -481,9 +466,9 @@ th.col-pick, td.col-pick { width: 64px; }
   gap: 12px;
 }
 
-/* Karte: relativ für den Chip */
+/* Karte (einmalig, inkl. Pick-Chip-Support) */
 .roster-card {
-  position: relative;           /* wichtig: damit der Chip innen rechts sitzen kann */
+  position: relative;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -493,8 +478,14 @@ th.col-pick, td.col-pick { width: 64px; }
   gap: 10px;
   align-items: center;
   min-height: 48px;
-  overflow: hidden;             /* Chip-Glow clippt sauber */
+  overflow: hidden;
 }
+.roster-card.is-empty {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+.roster-empty { padding-left: 2px; }
 
 /* Pick-Chip rechts in der Karte */
 .roster-pick-chip {
@@ -507,11 +498,11 @@ th.col-pick, td.col-pick { width: 64px; }
   font-weight: 800;
   font-size: 12px;
   line-height: 1;
-  background: rgba(96,165,250,0.15);   /* var(--accent) transparent */
+  background: rgba(96,165,250,0.15);
   border: 1px solid rgba(96,165,250,0.45);
   color: var(--text);
   box-shadow: 0 2px 10px rgba(0,0,0,0.25);
-  pointer-events: none; /* rein informativ */
+  pointer-events: none;
 }
 
 /* Mobile etwas kleiner */
@@ -534,32 +525,13 @@ th.col-pick, td.col-pick { width: 64px; }
   user-select: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25) inset, 0 1px 0 rgba(255,255,255,0.08);
 }
-.slot-pill--QB  { background: #f472b6; } /* pink-400 */
-.slot-pill--RB  { background: #34d399; } /* emerald-400 */
-.slot-pill--WR  { background: #60a5fa; } /* blue-400 */
-.slot-pill--TE  { background: #fbbf24; } /* amber-400 */
-.slot-pill--WRT { background: #38bdf8; } /* sky-400 */
-.slot-pill--DEF { background: #9ca3af; } /* gray-400 */
-.slot-pill--BN  { background: #9ca3af; } /* gray-400 */
-
-/* Mitte: Card */
-.roster-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 12px;
-  display: grid;
-  grid-template-columns: 40px minmax(0,1fr);
-  gap: 10px;
-  align-items: center;
-  min-height: 48px;
-}
-.roster-card.is-empty {
-  display: flex;
-  align-items: center;
-  color: var(--muted);
-}
-.roster-empty { padding-left: 2px; }
+.slot-pill--QB  { background: #f472b6; }
+.slot-pill--RB  { background: #34d399; }
+.slot-pill--WR  { background: #60a5fa; }
+.slot-pill--TE  { background: #fbbf24; }
+.slot-pill--WRT { background: #38bdf8; }
+.slot-pill--DEF { background: #9ca3af; }
+.slot-pill--BN  { background: #9ca3af; }
 
 .roster-avatar {
   width: 40px;
@@ -596,24 +568,11 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 /* Rechts: Pick-Box */
-.roster-right {
-  display: flex;
-  justify-content: flex-end;
-}
-.roster-pick {
-  display: grid;
-  place-items: end;
-}
-.roster-pick__num {
-  font-weight: 800;
-  font-size: 14px;
-}
-.roster-pick__label {
-  font-size: 11px;
-  opacity: 0.7;
-}
+.roster-right { display: flex; justify-content: flex-end; }
+.roster-pick  { display: grid; place-items: end; }
+.roster-pick__num   { font-weight: 800; font-size: 14px; }
+.roster-pick__label { font-size: 11px; opacity: 0.7; }
 
-/* Mobile Tweaks */
 @media (max-width: 640px) {
   .roster-row {
     grid-template-columns: 56px minmax(0, 1fr) 60px;
@@ -676,7 +635,7 @@ th.col-pick, td.col-pick { width: 64px; }
 
 /* Popup wird relativ zum Viewport positioniert */
 .pref-menu {
-  position: fixed;               /* vorher: absolute */
+  position: fixed;
   z-index: 1000;
   background: var(--card, #101827);
   border: 1px solid var(--border, #23324a);
@@ -713,7 +672,7 @@ th.col-pick, td.col-pick { width: 64px; }
   transform: translateX(-50%) rotate(180deg);
 }
 
-/* Basis */
+/* Basis-Styles Player-Name-Button (inkl. Ellipsis) */
 .player-name-btn {
   background: transparent;
   border: 1px solid transparent;
@@ -727,11 +686,17 @@ th.col-pick, td.col-pick { width: 64px; }
   cursor: pointer;
   border-radius: 8px;
   transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Gold (Favorite) */
 .player-name-btn.is-favorite {
-  background: rgba(234, 179, 8, 0.10);   /* amber-400 ~ goldig, sehr dezent */
+  background: rgba(234, 179, 8, 0.10);
   border-color: rgba(234, 179, 8, 0.6);
   box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.0);
 }
@@ -751,37 +716,16 @@ th.col-pick, td.col-pick { width: 64px; }
   box-shadow: 0 6px 14px rgba(239, 68, 68, 0.2);
 }
 
-/* Icons vorne behalten eine feste Breite → keine Sprünge */
+/* Icons vorne mit fester Breite */
 .pref-icon { display: inline-block; width: 1em; text-align: center; opacity: 0.95; }
-.pref-fav  { color: #eab308; }   /* Gold */
-.pref-avoid{ color: #ef4444; }   /* Rot  */
+.pref-fav  { color: #eab308; }
+.pref-avoid{ color: #ef4444; }
 
-/* ===== Floating Dock Toggle (gleich wie TipsDock) ===== */
-.dock-toggle {
-  position: fixed;
-  bottom: 16px;
-  z-index: 40;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  padding: 8px 12px;
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.25);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-}
-.dock-toggle:hover { filter: brightness(1.05); }
-.dock-toggle:active { transform: translateY(1px); }
-.dock-toggle--right { right: 16px; }
-.dock-toggle--left  { left: 16px; }
-
-/* ===== Floating Dock Toggle (gleich wie TipsDock) ===== */
+/* ===== Floating Dock Toggle ===== */
 .dock-toggle {
   position: fixed;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  right: calc(16px + env(safe-area-inset-right, 0px));
+  right:  calc(16px + env(safe-area-inset-right, 0px));
   z-index: 60;
   border: 1px solid var(--border);
   background: var(--card);
@@ -823,8 +767,6 @@ th.col-pick, td.col-pick { width: 64px; }
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,.35);
-
-  /* wichtig für mobiles Vollbild-Scrollen */
   display: flex;
   flex-direction: column;
 }
@@ -839,7 +781,7 @@ th.col-pick, td.col-pick { width: 64px; }
   padding: .75rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--card);
-  z-index: 1; /* über dem Body-Scroll */
+  z-index: 1;
 }
 
 .modal-title {
@@ -850,27 +792,23 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .modal-body {
   padding: 1rem;
-  flex: 1;              /* füllt den verfügbaren Platz */
-  overflow: auto;       /* eigener Scrollcontainer */
+  flex: 1;
+  overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== DraftAnalysis Inhalt mobil scrollbar machen ===== */
+/* DraftAnalysis breit, mobil scrollbar */
 .draft-analysis {
   width: 100%;
-  overflow: auto;              /* horizontales Scrollen für breite Tabellen */
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
-.draft-analysis table {
-  min-width: 720px;            /* nicht unter 720px zusammenquetschen */
-}
+.draft-analysis table { min-width: 720px; }
 .draft-analysis th,
-.draft-analysis td {
-  white-space: nowrap;
-}
+.draft-analysis td { white-space: nowrap; }
 
-/* ===== Mobile Fullscreen Variant ===== */
+/* Mobile Fullscreen Variant */
 @media (max-width: 768px) {
   .modal {
     align-items: stretch;
@@ -880,7 +818,7 @@ th.col-pick, td.col-pick { width: 64px; }
   .modal-card {
     width: 100%;
     max-height: none;
-    min-height: 100dvh;        /* echtes Gerätesichtfenster */
+    min-height: 100dvh;
     border-radius: 0;
     border-left: none;
     border-right: none;
@@ -895,14 +833,10 @@ th.col-pick, td.col-pick { width: 64px; }
     padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* größere Tap-Ziele */
-  .btn-compact {
-    min-height: 44px;
-    padding: 8px 12px;
-  }
+  .btn-compact { min-height: 44px; padding: 8px 12px; }
 }
 
-/* Toolbar-Container sollte bereits flex haben; falls nicht: */
+/* Toolbar-Container (falls nicht vorhanden) */
 .board-toolbar, .board-tools, .board-filters {
   display: flex;
   flex-wrap: wrap;
@@ -927,21 +861,12 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 /* Team-Filter spezifisch */
-.team-filter select {
-  min-width: 160px;
-}
+.team-filter select { min-width: 160px; }
 
 /* Mobile: Filter brechen sauber um */
 @media (max-width: 640px) {
   .board-toolbar .board-filter,
   .board-tools .board-filter,
-  .board-filters .board-filter {
-    flex: 1 1 calc(50% - .5rem);
-  }
-  .team-filter select {
-    width: 100%;
-  }
+  .board-filters .board-filter { flex: 1 1 calc(50% - .5rem); }
+  .team-filter select { width: 100%; }
 }
-
-
-
