@@ -12,6 +12,30 @@ const scale01 = (x, min, max) => {
 }
 const scale100 = (x, min, max) => Math.round(100 * Math.max(0, Math.min(1, scale01(x, min, max))))
 
+// --- Value-Tuning ---
+const VALUE_ECR_WEIGHT = 0.85   // ECR dominiert
+const VALUE_ADP_WEIGHT = 0.15   // ADP nur leicht als Kontext
+const VALUE_DELTA_CAP  = 20     // harte Kappung der Deltas
+
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x))
+const capDelta = (d, cap = VALUE_DELTA_CAP) => clamp(d, -cap, cap)
+
+// Späte Runden schwächer werten: <=100 voll, 101..160 75%, >160 50%
+function lateRoundWeight(pickNo) {
+  const n = Number(pickNo)
+  if (!Number.isFinite(n)) return 1
+  if (n <= 100) return 1
+  if (n <= 160) return 0.75
+  return 0.5
+}
+
+// K/DST (bzw. DEF) deutlich entwerten
+function positionWeight(pos) {
+  const p = String(pos || '').toUpperCase()
+  if (p === 'K' || p === 'DST' || p === 'DEF') return 0.25
+  return 1
+}
+
 function requiredStarters(rosterPositions = []) {
   const req = { QB:0, RB:0, WR:0, TE:0 }
   for (const slot of rosterPositions || []) {
@@ -117,22 +141,30 @@ export function computeTeamScores({
       const player = playerForPick(pick)
       if (!player) continue
 
-      const rk  = toNum(player.rk)
-      const evA = toNum(player.ecrVsAdp ?? player['ECR VS. ADP'] ?? player['ECRvsADP'])
+      const rk     = toNum(player.rk)
+      const evA    = toNum(player.ecrVsAdp ?? player['ECR VS. ADP'] ?? player['ECRvsADP'])
       // ADP-Fallback: ADP = RK + (ECRvsADP)
-      const adp = toNum(player.adp ?? (isNum(rk) && isNum(evA) ? rk + evA : null))
+      const adp    = toNum(player.adp ?? (isNum(rk) && isNum(evA) ? rk + evA : null))
       const pickNo = toNum(pick.pick_no)
 
-      let market = 0
-      if (isNum(adp) && isNum(pickNo)) market = pickNo - adp
-      let expert = 0
-      if (isNum(rk) && isNum(pickNo))  expert = pickNo - rk
+      // Deltas (Pick vs. ECR/ADP)
+      const expertDelta = (isNum(rk)  && isNum(pickNo)) ? (pickNo - rk)  : 0
+      const marketDelta = (isNum(adp) && isNum(pickNo)) ? (pickNo - adp) : 0
 
-      const valueDelta = 0.7 * market + 0.3 * expert
-      team.valueRaw += valueDelta
+      // Kappen & Mischung: ECR dominiert, ADP nur leicht
+      const blended =
+        (VALUE_ECR_WEIGHT * capDelta(expertDelta)) +
+        (VALUE_ADP_WEIGHT * capDelta(marketDelta))
 
+      // Späte Runden & K/DST abschwächen
+      const w = lateRoundWeight(pickNo) * positionWeight(player.pos)
+
+      team.valueRaw += blended * w
+
+      // Positions-/Bye-Statistiken
       const pos = String(player.pos || '').toUpperCase()
-      if (team.posCounts[pos] != null) team.posCounts[pos] += 1
+      const posKey = (pos === 'DEF') ? 'DST' : pos
+      if (team.posCounts[posKey] != null) team.posCounts[posKey] += 1
 
       const bye = String(player.bye || '').trim()
       if (bye) team.byeCounts[bye] = (team.byeCounts[bye] || 0) + 1

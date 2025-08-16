@@ -902,5 +902,46 @@ th.col-pick, td.col-pick { width: 64px; }
   }
 }
 
+/* Toolbar-Container sollte bereits flex haben; falls nicht: */
+.board-toolbar, .board-tools, .board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* Einheitliche Optik für alle Filter-Controls */
+.board-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.board-filter select {
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  border: 1px solid var(--border, #333);
+  background: var(--surface-2, #1c1c1c);
+  color: var(--text, #eee);
+  min-height: 2rem;
+}
+
+/* Team-Filter spezifisch */
+.team-filter select {
+  min-width: 160px;
+}
+
+/* Mobile: Filter brechen sauber um */
+@media (max-width: 640px) {
+  .board-toolbar .board-filter,
+  .board-tools .board-filter,
+  .board-filters .board-filter {
+    flex: 1 1 calc(50% - .5rem);
+  }
+  .team-filter select {
+    width: 100%;
+  }
+}
+
 
 

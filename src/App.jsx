@@ -67,6 +67,7 @@ export default function App() {
   const [boardPlayers, setBoardPlayers] = useState(Array.isArray(persisted.boardPlayers) ? persisted.boardPlayers : [])
   const [searchQuery, setSearchQuery] = useState(persisted.searchQuery || '')
   const [positionFilter, setPositionFilter] = useState(persisted.positionFilter || 'ALL')
+  const [teamFilter, setTeamFilter] = useState(persisted.teamFilter || 'ALL')
 
   // Live picks
   const [livePicks, setLivePicks] = useState([])
@@ -219,6 +220,7 @@ export default function App() {
       boardPlayers,
       searchQuery,
       positionFilter,
+      teamFilter,
       autoRefreshEnabled,
       refreshIntervalSeconds,
       activeTab,
@@ -228,7 +230,7 @@ export default function App() {
     sleeperUsername, sleeperUserId, seasonYear,
     selectedLeagueId, selectedDraftId,
     csvRawText, boardPlayers,
-    searchQuery, positionFilter,
+    searchQuery, positionFilter, teamFilter,
     autoRefreshEnabled, refreshIntervalSeconds,
     activeTab, manualDraftInput,
   ], 200)
@@ -306,19 +308,42 @@ export default function App() {
       }
     }
     const updated = [...byNormalizedName.values()].sort((a, b) => Number(a.rk) - Number(b.rk))
-    setBoardPlayers(updated)
-    saveToLocalStorage({ boardPlayers: updated })
-  }, [livePicks]) // eslint-disable-line
+      setBoardPlayers(updated)
+      saveToLocalStorage({ boardPlayers: updated })
+    }, [livePicks]) // eslint-disable-line
+
+    // Team-Key wie in ownerLabels/analysis ableiten (für Spieler, die bereits gepickt sind)
+    const teamKeyForPlayer = (p) => {
+      if (!p?.pick_no) return null            // nicht gepickt -> kein Team
+      if (p?.picked_by) return `user:${p.picked_by}`
+      if (teamsCount) {
+        const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
+        return `slot:${slot}`
+      }
+      return 'slot:unknown'
+    }
 
   // Derived UI
   const filteredPlayers = useMemo(() => {
     const q = normalizePlayerName(searchQuery)
     return boardPlayers.filter(p => {
       if (positionFilter !== 'ALL' && p.pos !== positionFilter) return false
+      // Team-Filter: zeige nur Spieler, die von diesem Team gepickt wurden
+      if (teamFilter && teamFilter !== 'ALL') {
+        const key = (() => {
+          if (p?.picked_by) return `user:${p.picked_by}`
+          if (teamsCount && p?.pick_no) {
+            const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
+            return `slot:${slot}`
+          }
+          return null
+        })()
+        if (key !== teamFilter) return false
+      }
       if (!q) return true
       return normalizePlayerName(p.name).includes(q)
     })
-  }, [boardPlayers, searchQuery, positionFilter]) 
+  }, [boardPlayers, searchQuery, positionFilter, teamFilter, teamsCount]) 
 
   const pickedCount = useMemo(() => boardPlayers.filter(p => p.status).length, [boardPlayers])
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map(p => p.pick_no || 0)) : 0
@@ -450,6 +475,12 @@ export default function App() {
   
       {activeTab === 'board' && (
         <BoardSection
+          ownerLabels={ownerLabels}
+          teamFilter={teamFilter}
+          onTeamFilterChange={(e) => { 
+            setTeamFilter(e.target.value)
+            saveToLocalStorage({ teamFilter: e.target.value })
+          }}
           currentPickNumber={currentPickNumber}
           autoRefreshEnabled={autoRefreshEnabled}
           refreshIntervalSeconds={refreshIntervalSeconds}

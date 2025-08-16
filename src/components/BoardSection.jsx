@@ -14,6 +14,9 @@ const DEBUG_AI = false
 
 export default function BoardSection({
   // --- Original-Werte ---
+  ownerLabels,
+  teamFilter,
+  onTeamFilterChange,
   currentPickNumber,
   autoRefreshEnabled,
   refreshIntervalSeconds,
@@ -402,6 +405,9 @@ const filteredBoardPlayers = useMemo(() => {
         PlayerPreference={PlayerPreference}
         hideAvoid={hideAvoid}
         setHideAvoid={setHideAvoid}
+        ownerLabels={ownerLabels}
+        teamFilter={teamFilter}
+        onTeamFilterChange={onTeamFilterChange}
       />
 
       <BoardTable

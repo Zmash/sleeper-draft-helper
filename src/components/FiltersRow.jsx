@@ -8,6 +8,9 @@ export default function FiltersRow({
     onJumpToNext,
     hideAvoid,
     setHideAvoid,
+    ownerLabels,
+    teamFilter,
+    onTeamFilterChange,
   }) {
     return (
       <div className="row mt-2 gap">
@@ -25,6 +28,22 @@ export default function FiltersRow({
             </option>
           ))}
         </select>
+              {/* Team-Filter: wie das Positions-Select stylen -> kein spezieller Wrapper */}
+      <select
+        value={teamFilter}
+        onChange={onTeamFilterChange}
+        disabled={!ownerLabels || (ownerLabels.size ?? 0) === 0}
+        title="Nur Picks eines Teams anzeigen"
+      >
+        <option value="ALL">Alle Teams</option>
+        {ownerLabels
+          ? Array.from(ownerLabels.entries()).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))
+          : null}
+      </select>
         <button
           type="button"
           className={cx('btn', 'btn-toggle', hideAvoid && 'is-active')}
