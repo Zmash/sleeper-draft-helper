@@ -7,3 +7,12 @@ export const normalizePlayerName = (name) =>
     .replace(/\b(jr|sr|iii|ii|iv)\b/g, '')
     .replace(/\s+/g, ' ')
     .trim()
+
+export const normalizePos = (p = '') =>
+  String(p || '')
+    .toUpperCase()
+    .replace(/\d+/g, '')
+    .replace('D/ST', 'DEF')
+    .replace('DST', 'DEF')
+    .trim()
+

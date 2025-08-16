@@ -4,7 +4,7 @@ import { getTeamsCount } from './services/derive'
 
 // Hooks / Utils / Services / Actions
 import useDebouncedEffect from './hooks/useDebouncedEffect'
-import { cx, normalizePlayerName } from './utils/formatting'
+import { cx, normalizePlayerName, normalizePos } from './utils/formatting'
 import { parseDraftId } from './utils/parse'
 import { STORAGE_KEY, THEME_STORAGE_KEY, saveToLocalStorage, loadFromLocalStorage } from './services/storage'
 import { parseFantasyProsCsv } from './services/csv'
@@ -327,7 +327,7 @@ export default function App() {
   const filteredPlayers = useMemo(() => {
     const q = normalizePlayerName(searchQuery)
     return boardPlayers.filter(p => {
-      if (positionFilter !== 'ALL' && p.pos !== positionFilter) return false
+      if (positionFilter !== 'ALL' && normalizePos(p.pos) !== normalizePos(positionFilter)) return false
       // Team-Filter: zeige nur Spieler, die von diesem Team gepickt wurden
       if (teamFilter && teamFilter !== 'ALL') {
         const key = (() => {

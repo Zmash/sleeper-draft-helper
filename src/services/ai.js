@@ -2,7 +2,7 @@
 // Erzeugt das Payload für einen OpenAI-Aufruf, um einen Next-Pick-Vorschlag zu erhalten.
 // Nutzt Structured Outputs, damit die Antwort exakt einem JSON-Schema entspricht.
 
-import { normalizePlayerName } from '../utils/formatting'
+import { normalizePlayerName, normalizePos } from '../utils/formatting'
 
 /**
  * @typedef {Object} BoardPlayer
@@ -82,7 +82,7 @@ function makeContext({
 
   // 3) Top-N Gesamt + je Position
   const topOverall = available.slice(0, topNOverall).map(minifyBoardPlayer)
-  const byPos = groupBy(available, p => p.pos || 'OTHER')
+  const byPos = groupBy(available, p => normalizePos(p.pos || 'OTHER'))
   const topByPosition = Object.fromEntries(
     Object.entries(byPos).map(([pos, arr]) => [pos, arr.slice(0, topPerPos).map(minifyBoardPlayer)])
   )
@@ -161,7 +161,7 @@ function minifyBoardPlayer(p) {
     tier: p.tier || '',
     name: p.name || '',
     nname: p.nname || normalizePlayerName(p.name || ''),
-    pos: p.pos || '',
+    pos: normalizePos(p.pos || ''),
     team: p.team || '',
     bye: p.bye || '',
     sos: p.sos || '',

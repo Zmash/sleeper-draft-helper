@@ -1,5 +1,5 @@
 // src/services/tipsPrioritizer.js
-import { normalizePlayerName } from '../utils/formatting'
+import { normalizePlayerName, normalizePos } from '../utils/formatting'
 
 // leichte, textbasierte Typ-Erkennung für vorhandene Tipps
 const TYPE_WEIGHTS = [
@@ -15,21 +15,20 @@ const TYPE_WEIGHTS = [
 
 // Hilfswerte für Positionsbedarf (Start-Slots aus League-Settings)
 function computeRequiredStarters(rosterPositions = []) {
-  const req = { QB:0, RB:0, WR:0, TE:0, DST:0, K:0 }
+  const req = { QB:0, RB:0, WR:0, TE:0, DEF:0, K:0 }
   for (const slot of rosterPositions || []) {
-    const s = String(slot).toUpperCase()
+    const s = normalizePos(slot)
     if (req[s] != null) req[s] += 1
-    // FLEX/SUPER_FLEX/IDP etc. ignoriere bewusst hier – vereinfacht
   }
   return req
 }
 
 // Mein Roster nach Position aus bereits gemachten Picks
 function computeMyStartersFromPicks(picks = [], meUserId) {
-  const have = { QB:0, RB:0, WR:0, TE:0, DST:0, K:0 }
+  const have = { QB:0, RB:0, WR:0, TE:0, DEF:0, K:0 }
   for (const p of picks || []) {
     if (p.picked_by !== meUserId) continue
-    const pos = String(p?.metadata?.position || '').toUpperCase()
+    const pos = normalizePos(p?.metadata?.position || p?.position || '')
     if (have[pos] != null) have[pos] += 1
   }
   return have
@@ -79,7 +78,7 @@ function valueDeltaBoost(player) {
 
 // Positionsbedarf in Score gießen
 function positionNeedBoost(pos, required, have) {
-  const P = String(pos || '').toUpperCase()
+  const P = normalizePos(pos || '')
   if (required[P] == null) return 0
   const gap = Math.max(0, (required[P] || 0) - (have[P] || 0))
   if (gap >= 2) return 10
@@ -89,10 +88,13 @@ function positionNeedBoost(pos, required, have) {
 
 // textbasierte Typ-Gewichtung
 function typeWeightFromText(tip) {
-  const text = [tip?.type, tip?.title, tip?.message, tip?.reason].filter(Boolean).join(' ')
+  const type = String(tip?.type || '').toLowerCase()
+  const weightsByKey = Object.fromEntries(TYPE_WEIGHTS.map(r => [r.key, r.w]))
+  if (type && weightsByKey[type] != null) return weightsByKey[type]
+  const text = [tip?.type, tip?.title, tip?.message, tip?.reason, tip?.text].filter(Boolean).join(' ')
   let w = 0
   for (const rule of TYPE_WEIGHTS) {
-    if (rule.rx.test(text)) w += rule.w
+    if (rule.rx && rule.rx.test(text)) w += rule.w
   }
   return w
 }
@@ -136,13 +138,14 @@ export function prioritizeTips(tips = [], ctx = {}) {
 
   const required = computeRequiredStarters(rosterPositions)
   const have = computeMyStartersFromPicks(picks, meUserId)
+  const is1QBLeague = (required.QB || 0) < 1.5
 
   const byKey = new Map()
 
   for (const tip of tips || []) {
     const key = tipKey(tip)
     const player = resolvePlayerFromTip(tip, boardPlayers)
-    const pos = player?.pos || tip?.pos || tip?.player?.pos
+    const pos = normalizePos(player?.pos || tip?.pos || tip?.player?.pos || '')
 
     let score = 0
     score += typeWeightFromText(tip)
