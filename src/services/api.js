@@ -55,3 +55,90 @@ export async function fetchLeagueUsers(leagueId) {
   if (!leagueId) return []
   return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
 }
+
+// --- DRAFT META --------------------------------------------------------------
+
+export async function fetchDraft(draftId) {
+  return fetchJson(`${SLEEPER_API_BASE}/v1/draft/${draftId}`)
+}
+
+export async function fetchDraftPicks(draftId) {
+  return fetchJson(`${SLEEPER_API_BASE}/v1/draft/${draftId}/picks`)
+}
+
+/**
+ * Convert Sleeper draft.settings 'slots_*' into roster positions array like:
+ * ["QB","RB","RB","WR","WR","TE","FLEX","SUPER_FLEX", ...]
+ * Falls back to league.roster_positions if needed.
+ */
+export function rosterPositionsFromDraft(draft = {}, league = null) {
+  const s = draft?.settings || {}
+  const map = {
+    slots_qb: 'QB',
+    slots_rb: 'RB',
+    slots_wr: 'WR',
+    slots_te: 'TE',
+    slots_k: 'K',
+    slots_def: 'DEF',
+    slots_flex: 'FLEX',               // WR/RB/TE
+    slots_wr_rb: 'WR/RB',
+    slots_wr_te: 'WR/TE',
+    slots_rb_te: 'RB/TE',
+    slots_super_flex: 'SUPER_FLEX',
+    slots_bn: 'BN',
+    slots_idp_flex: 'IDP_FLEX',
+    slots_dl: 'DL',
+    slots_lb: 'LB',
+    slots_db: 'DB',
+  }
+  const out = []
+  for (const [k, v] of Object.entries(s)) {
+    if (!k.startsWith('slots_')) continue
+    const name = map[k]
+    const n = Number(v)
+    if (!name || !Number.isFinite(n) || n <= 0) continue
+    for (let i=0;i<n;i++) out.push(name)
+  }
+  if (out.length) return out
+  // Fallback to league (rarely needed)
+  return Array.isArray(league?.roster_positions) ? league.roster_positions : []
+}
+
+/** Basic scoring meta from draft metadata; fallback to league.scoring_settings */
+export function scoringFromDraft(draft = {}, league = null) {
+  const scoring_type = String(draft?.metadata?.scoring_type || '').toLowerCase() || null
+  const scoring_settings = league?.scoring_settings || null
+  return { scoring_type, scoring_settings }
+}
+
+/** Teams & rounds from draft.settings */
+export function teamsAndRoundsFromDraft(draft = {}) {
+  const teams = Number(draft?.settings?.teams) || null
+  const rounds = Number(draft?.settings?.rounds) || null
+  const type = String(draft?.type || 'snake').toLowerCase()
+  return { teams, rounds, type }
+}
+
+/**
+ * Best effort: determine my draft slot.
+ * 1) Try draft.draft_order (user_id -> slot)
+ * 2) Else, deduce from my earliest pick_no (snake parity).
+ */
+export function inferMyDraftSlot({ draft, picks, meUserId }) {
+  const order = draft?.draft_order
+  if (order && meUserId && order[meUserId]) {
+    return Number(order[meUserId]) || null
+  }
+  const { teams, type } = teamsAndRoundsFromDraft(draft)
+  if ((type !== 'snake') || !Number.isFinite(teams) || teams <= 0) return null
+  // earliest pick by me
+  const mine = (picks || []).filter(p => String(p?.picked_by) === String(meUserId))
+  if (!mine.length) return null
+  const earliest = mine.reduce((a,b) => (a.pick_no < b.pick_no ? a : b))
+  const pickNo = Number(earliest?.pick_no)
+  if (!Number.isFinite(pickNo)) return null
+  const round = Math.ceil(pickNo / teams)
+  const inRound = ((pickNo - 1) % teams) + 1
+  return (round % 2 === 1) ? inRound : (teams - inRound + 1)
+}
+

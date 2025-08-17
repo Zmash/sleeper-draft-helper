@@ -1,20 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse'
 import { getTeamsCount } from './services/derive'
+import { prioritizeTips } from './services/tipsPrioritizer'
+import { useDraftTips } from './hooks/useDraftTips'
+import { teamsAndRoundsFromDraft, inferMyDraftSlot } from './services/api'
 
 // Hooks / Utils / Services / Actions
 import useDebouncedEffect from './hooks/useDebouncedEffect'
 import { cx, normalizePlayerName, normalizePos } from './utils/formatting'
 import { parseDraftId } from './utils/parse'
-import { STORAGE_KEY, THEME_STORAGE_KEY, saveToLocalStorage, loadFromLocalStorage } from './services/storage'
+import { STORAGE_KEY, THEME_STORAGE_KEY, saveToLocalStorage, loadFromLocalStorage, loadSetup } from './services/storage'
 import { parseFantasyProsCsv } from './services/csv'
 
 import { enrichBoardPlayersWithSleeper } from './services/enrichBoardWithSleeper'
-import { useDraftTips } from './hooks/useDraftTips'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
 import { computeTeamScores, isDraftComplete } from './services/analysis'
-import { prioritizeTips } from './services/tipsPrioritizer'
 
 import {
   SLEEPER_API_BASE,
@@ -79,7 +80,21 @@ export default function App() {
   )
   const [lastSyncAt, setLastSyncAt] = useState(null)
 
-    // Map der Ligen (für Labels im Draft-Select)
+  // listen for Setup changes so we re-read overrides and recompute tips
+  const [setupVersion, setSetupVersion] = useState(0)
+  useEffect(() => {
+    const onSetup = () => setSetupVersion(v => v + 1)
+    const onStorage = (e) => { if (e.key === 'sdh.setup.v2') onSetup() }
+    window.addEventListener('sdh:setup-changed', onSetup)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('sdh:setup-changed', onSetup)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
+
+  // Map der Ligen (für Labels im Draft-Select)
   const leaguesById = useMemo(() => {
       const m = new Map()
       ;(availableLeagues || []).forEach(l => m.set(l.league_id, l))
@@ -347,6 +362,7 @@ export default function App() {
 
   const pickedCount = useMemo(() => boardPlayers.filter(p => p.status).length, [boardPlayers])
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map(p => p.pick_no || 0)) : 0
+  const draftFinished = isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds)
   const progressPercent = boardPlayers.length ? Math.round((pickedCount / boardPlayers.length) * 100) : 0
 
   // Polling
@@ -411,22 +427,57 @@ export default function App() {
     }
   }
 
+  // --- Setup overrides (format + strategies) ---
+  const setupOverrides = useMemo(() => (loadSetup()?.overrides) || {}, [setupVersion])
+  const effRoster = setupOverrides.roster_positions ?? (
+    selectedDraft?.settings
+      ? (function mapSlots(s){
+          const m={slots_qb:'QB',slots_rb:'RB',slots_wr:'WR',slots_te:'TE',slots_k:'K',slots_def:'DEF',slots_flex:'FLEX',slots_wr_rb:'WR/RB',slots_wr_te:'WR/TE',slots_rb_te:'RB/TE',slots_super_flex:'SUPER_FLEX',slots_idp_flex:'IDP_FLEX',slots_dl:'DL',slots_lb:'LB',slots_db:'DB',slots_bn:'BN'}
+          const out=[]
+          for (const [k,v] of Object.entries(s||{})) {
+            if (!k.startsWith('slots_')) continue
+            const name=m[k]; const n=Number(v)
+            if (!name || !Number.isFinite(n) || n<=0) continue
+            for (let i=0;i<n;i++) out.push(name)
+          }
+          return out
+        })(selectedDraft.settings)
+      : (selectedLeague?.roster_positions || [])
+  )
+  const effScoringType =
+    setupOverrides.scoring_type ??
+    (((selectedLeague?.scoring_settings?.rec ?? 1) >= 0.95) ? 'ppr'
+      : ((selectedLeague?.scoring_settings?.rec ?? 0) >= 0.45) ? 'half_ppr'
+      : 'standard')
+  const strategies = Array.isArray(setupOverrides.strategies) && setupOverrides.strategies.length
+    ? setupOverrides.strategies
+    : ['balanced']
+  const isSuperflex = (setupOverrides.superflex != null)
+    ? !!setupOverrides.superflex
+    : effRoster.some(r => String(r).toUpperCase().includes('SUPER'))
+
+
   const rawTips = useDraftTips({
     picks: livePicks,
     boardPlayers,
     meUserId: sleeperUserId,
     teamsCount,
     playerPrefs: {},
-    rosterPositions: selectedLeague?.roster_positions || null,
+    rosterPositions: effRoster,
+    scoringSettings: selectedLeague?.scoring_settings || null,
+    scoringType: effScoringType,
+    draftType: (selectedDraft?.type || 'snake'),
+    strategies,
   })
 
     // Wichtig: currentPickNumber hast du bereits oben berechnet
-  const tips = prioritizeTips(rawTips, {
+  const tips = draftFinished ? [] : prioritizeTips(rawTips, {
     boardPlayers,
     picks: livePicks,
     meUserId: sleeperUserId,
     teamsCount,
-    rosterPositions: selectedLeague?.roster_positions || [],
+    rosterPositions: effRoster,
+    isSuperflex,
     currentPickNumber,
     maxTips: 7,   // kannst du als Setting persistieren
     minScore: 10, // Schwelle, ab wann es “wichtig” ist
@@ -476,6 +527,7 @@ export default function App() {
       {activeTab === 'board' && (
         <BoardSection
           ownerLabels={ownerLabels}
+          setupVersion={setupVersion}
           teamFilter={teamFilter}
           onTeamFilterChange={(e) => { 
             setTeamFilter(e.target.value)
@@ -538,7 +590,7 @@ export default function App() {
                 boardPlayers,
                 livePicks,
                 teamsCount,
-                rosterPositions: selectedLeague?.roster_positions || null
+                rosterPositions: effRoster
               })}
               ownerLabels={ownerLabels}
             />

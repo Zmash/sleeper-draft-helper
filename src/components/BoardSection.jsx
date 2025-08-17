@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
@@ -56,12 +56,40 @@ export default function BoardSection({
   // --- Debug: Request/Response im Dialog anzeigen ---
   const [adviceDebug, setAdviceDebug] = useState(null)
 
+  const [setupTick, setSetupTick] = useState(0)
+  useEffect(() => {
+    const onSetup = () => setSetupTick(x => x + 1)
+    const onStorage = (e) => { if (e.key === 'sdh.setup.v2') onSetup() }
+    window.addEventListener('sdh:setup-changed', onSetup)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('sdh:setup-changed', onSetup)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
   // Roster-Positions robuster ermitteln
   const teamsCount = getTeamsCount({ draft, picks: livePicks, league })
+  // Effective roster from Setup overrides (falls vorhanden), sonst Draft-Slots, sonst League
+  const setupOverrides = (() => { try { return JSON.parse(localStorage.getItem('sdh.setup.v2')||'{}').overrides || {} } catch { return {} } })()
+
+  function mapSlotsToRoster(settings = {}) {
+    const m={slots_qb:'QB',slots_rb:'RB',slots_wr:'WR',slots_te:'TE',slots_k:'K',slots_def:'DEF',slots_flex:'FLEX',slots_wr_rb:'WR/RB',slots_wr_te:'WR/TE',slots_rb_te:'RB/TE',slots_super_flex:'SUPER_FLEX',slots_idp_flex:'IDP_FLEX',slots_dl:'DL',slots_lb:'LB',slots_db:'DB',slots_bn:'BN'}
+    const out=[]
+    for (const [k,v] of Object.entries(settings||{})) {
+      if (!k.startsWith('slots_')) continue
+      const name=m[k]; const n=Number(v)
+      if (!name || !Number.isFinite(n) || n<=0) continue
+      for (let i=0;i<n;i++) out.push(name)
+    }
+    return out
+  }
+
   const rosterPositions =
-    (league && Array.isArray(league.roster_positions) && league.roster_positions) ||
-    (league && league.settings && Array.isArray(league.settings.roster_positions) && league.settings.roster_positions) ||
-    []
+    setupOverrides.roster_positions
+    ?? (draft?.settings ? mapSlotsToRoster(draft.settings) : null)
+    ?? (Array.isArray(league?.roster_positions) ? league.roster_positions : [])
+
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
   const disabled = false

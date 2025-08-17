@@ -326,6 +326,11 @@ export function buildAIAdviceRequest(params) {
     draft = null,
     currentPickNumber = null,
     options = {},
+    scoringType,            // 'standard' | 'half_ppr' | 'ppr'
+    scoringSettings,        // numeric map if available
+    rosterPositions,        // array of slots
+    strategies = ['balanced'],
+    isSuperflex,            // boolean
   } = params || {}
 
   const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
@@ -366,5 +371,14 @@ ${JSON.stringify(context)}
 </CONTEXT_JSON>`
       }
     ],
+    format: {
+      scoring_type: scoringType,
+      superflex: !!isSuperflex,
+      roster_positions: rosterPositions,
+      scoring_settings: scoringSettings || null,
+    },
+    strategies,
+    // Hint to the model: English only, concise bullets, avoid repeating QB warning, prefer Tier/ADP/Need logic
+    instructions: "Answer in English. Prefer value vs ADP and tier pressure; gate QB need in 1-QB until Round >= 7 unless elite QB value or superflex. Use selected strategies as soft tiebreakers."
   }
 }
