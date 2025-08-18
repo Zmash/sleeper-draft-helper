@@ -335,18 +335,23 @@ export function buildAIAdviceRequest(params) {
   } = params || {}
 
   const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
-  // add setup knobs into the LLM context (not as top-level request args)
-  context.format = {
-    scoring_type: scoringType || (
-      typeof league?.scoring_settings?.rec === 'number'
-        ? (league.scoring_settings.rec >= 0.95 ? 'ppr' : league.scoring_settings.rec >= 0.45 ? 'half_ppr' : 'standard')
-        : 'ppr'
-    ),
-    superflex: !!isSuperflex,
-    roster_positions: Array.isArray(rosterPositions) && rosterPositions.length ? rosterPositions : (league?.roster_positions || []),
-    scoring_settings: scoringSettings || league?.scoring_settings || {}
-  }
-  context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
+  // add setup knobs into the LLM context (NOT as top-level request args)
+context.format = {
+  scoring_type: scoringType || (
+    typeof league?.scoring_settings?.rec === 'number'
+      ? (league.scoring_settings.rec >= 0.95 ? 'ppr'
+        : league.scoring_settings.rec >= 0.45 ? 'half_ppr'
+        : 'standard')
+      : 'ppr'
+  ),
+  superflex: !!isSuperflex,
+  roster_positions: Array.isArray(rosterPositions) && rosterPositions.length
+    ? rosterPositions
+    : (league?.roster_positions || []),
+  scoring_settings: scoringSettings || league?.scoring_settings || {}
+}
+context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
+
   const system = buildSystemPrompt()
   const parametersSchema = draftAdviceParametersSchema()
 
@@ -375,14 +380,12 @@ export function buildAIAdviceRequest(params) {
       { role: 'system', content: system },
       {
         role: 'user',
-        // Daten als JSON im Text – universell kompatibel mit Chat Completions.
-        // (Falls du später die Responses API nutzt, kannst du input_json separat schicken.)
         content:
-`Use the following structured context to recommend the next pick:
-<CONTEXT_JSON>
-${JSON.stringify(context)}
-</CONTEXT_JSON>`
+  `Use the following structured context to recommend the next pick:
+  <CONTEXT_JSON>
+  ${JSON.stringify(context)}
+  </CONTEXT_JSON>`
       }
-    ],
+    ]
   }
 }

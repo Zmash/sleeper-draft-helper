@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
+    "scripts": {
     "dev": "vite",
+    "dev:client": "vite",
+    "dev:api": "node src/server/index.js",
+    "dev:all": "concurrently -n \"CLIENT,API\" -c \"cyan,magenta\" \"npm:dev:client\" \"npm:dev:api\"",
     "build": "vite build",
     "preview": "vite preview",
     "cap:add:android": "cap add android",

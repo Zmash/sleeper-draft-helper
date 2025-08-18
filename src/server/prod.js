@@ -110,6 +110,10 @@ app.post('/api/ai-advice', async (req, res) => {
     }
 
     const client = new OpenAI({ apiKey: userKey })
+    // sanitize unexpected top-level keys (Chat Completions doesn’t accept these)
+    for (const k of ['instructions','strategies','format','input','input_text','metadata','response','reasoning','max_output_tokens']) {
+      if (k in payload) delete payload[k]
+    }
     const completion = await client.chat.completions.create(payload)
 
     const choice = completion.choices?.[0] || null
