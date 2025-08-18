@@ -247,12 +247,13 @@ function buildSystemPrompt() {
     'Task: Recommend the next best pick for the USER given the league settings, roster needs, and the provided ranking board.',
     'Hard constraints:',
     '- Never recommend a player who is already picked.',
-    '- Recommend only players that appear in board.overall_top or board.by_position.',
-    '- Respect the league scoring (PPR vs Half PPR vs Standard) and roster requirements.',
-    '- Consider positional scarcity, team roster balance, bye weeks only as soft tie-breakers.',
-    '- Consider snake draft turn distance (risk of players not returning to next pick) if data is available.',
-    'When you are ready, CALL the tool function `return_draft_advice` with your final recommendation object.',
-  ].join('\n')
+    '- Recommend only players from board.overall_top or board.by_position.',
+    '- Respect the league scoring and roster requirements from context.format.',
+    '- Consider positional scarcity, roster balance, and tier pressure; bye weeks only as tie-breakers.',
+    '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
+    '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
+    'Return your final answer by CALLING the tool function `return_draft_advice`.'
+  ].join('\\n')
 }
 
 /**
@@ -334,6 +335,18 @@ export function buildAIAdviceRequest(params) {
   } = params || {}
 
   const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
+  // add setup knobs into the LLM context (not as top-level request args)
+  context.format = {
+    scoring_type: scoringType || (
+      typeof league?.scoring_settings?.rec === 'number'
+        ? (league.scoring_settings.rec >= 0.95 ? 'ppr' : league.scoring_settings.rec >= 0.45 ? 'half_ppr' : 'standard')
+        : 'ppr'
+    ),
+    superflex: !!isSuperflex,
+    roster_positions: Array.isArray(rosterPositions) && rosterPositions.length ? rosterPositions : (league?.roster_positions || []),
+    scoring_settings: scoringSettings || league?.scoring_settings || {}
+  }
+  context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
   const system = buildSystemPrompt()
   const parametersSchema = draftAdviceParametersSchema()
 
@@ -371,14 +384,5 @@ ${JSON.stringify(context)}
 </CONTEXT_JSON>`
       }
     ],
-    format: {
-      scoring_type: scoringType,
-      superflex: !!isSuperflex,
-      roster_positions: rosterPositions,
-      scoring_settings: scoringSettings || null,
-    },
-    strategies,
-    // Hint to the model: English only, concise bullets, avoid repeating QB warning, prefer Tier/ADP/Need logic
-    instructions: "Answer in English. Prefer value vs ADP and tier pressure; gate QB need in 1-QB until Round >= 7 unless elite QB value or superflex. Use selected strategies as soft tiebreakers."
   }
 }
