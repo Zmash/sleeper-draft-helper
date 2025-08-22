@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
@@ -9,6 +9,7 @@ import { buildAIAdviceRequest } from '../services/ai'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { loadPreferences, setPreference, PlayerPreference } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
+import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer";
 
 const DEBUG_AI = false
 
@@ -72,6 +73,9 @@ export default function BoardSection({
   const teamsCount = getTeamsCount({ draft, picks: livePicks, league })
   // Effective roster from Setup overrides (falls vorhanden), sonst Draft-Slots, sonst League
   const setupOverrides = (() => { try { return JSON.parse(localStorage.getItem('sdh.setup.v2')||'{}').overrides || {} } catch { return {} } })()
+
+  const fileRef = useRef(null);
+  const [status, setStatus] = useState("");
 
   function mapSlotsToRoster(settings = {}) {
     const m={slots_qb:'QB',slots_rb:'RB',slots_wr:'WR',slots_te:'TE',slots_k:'K',slots_def:'DEF',slots_flex:'FLEX',slots_wr_rb:'WR/RB',slots_wr_te:'WR/TE',slots_rb_te:'RB/TE',slots_super_flex:'SUPER_FLEX',slots_idp_flex:'IDP_FLEX',slots_dl:'DL',slots_lb:'LB',slots_db:'DB',slots_bn:'BN'}
@@ -450,6 +454,47 @@ const filteredBoardPlayers = useMemo(() => {
         playerPrefs={playerPrefs}
         onSetPlayerPref={handleSetPlayerPref}
       />
+
+      <div className="row end" style={{ gap: 8, marginTop: "1rem" }}>
+      <button
+        className="btn-compact"
+        onClick={() => exportSettings("User-initiated export")}
+      >
+       💾 Export settings
+      </button>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json"
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          try {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const res = await importSettingsFromFile(f, {
+              cleanupOldVersions: true,
+            });
+            setStatus(
+              `Import OK. Applied: ${res.applied.length}, Skipped: ${res.skipped.length}`
+            );
+          } catch (err) {
+            setStatus(`Import-Fehler: ${err?.message || String(err)}`);
+          } finally {
+            e.currentTarget.value = "";
+          }
+        }}
+      />
+      <button
+        className="btn-compact"
+        onClick={() => fileRef.current?.click()}
+      >
+       📥 Import settings
+      </button>
+    </div>
+
+    {status && <p className="text-xs muted">{status}</p>}
+
 
       {/* Advice Modal mit Debug */}
       <AdviceDialog
