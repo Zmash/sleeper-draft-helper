@@ -125,7 +125,11 @@ export default function BoardSection({
         league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
         draft: draft || null,
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
-        options: { topNOverall: 60, topPerPos: 20, model: 'gpt-4o-mini', temperature: 0.2, max_output_tokens: 700 }
+        customStrategyText: (typeof window !== "undefined" ? localStorage.getItem("sdh.strategy.v1") : "") || "",
+        playerPreferences: playerPrefs || {},
+        options: { topNOverall: 60, topPerPos: 20, model: 'gpt-4o-mini', temperature: 0.2, max_output_tokens: 700 },
+        favBonus: 6,        // optional: feintunen
+        avoidPenalty: 10    // optional: feintunen
       })
 
      // ---- LOG: Vollständige Anfrage im Browser-Console

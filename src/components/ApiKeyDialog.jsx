@@ -2,6 +2,9 @@
 import React from 'react'
 import { getOpenAIKey, setOpenAIKey, maskKey } from '../services/key'
 
+const STRATEGY_KEY = 'sdh.strategy.v1'
+const MAX_STRATEGY = 4000
+
 export default function ApiKeyDialog({
   open,
   onClose,
@@ -13,11 +16,22 @@ export default function ApiKeyDialog({
   const [show, setShow] = React.useState(false)
   const [localErr, setLocalErr] = React.useState('')
 
+  // NEU: Strategy
+  const [strategy, setStrategy] = React.useState('')
+  const [chars, setChars] = React.useState(0)
+
   React.useEffect(() => {
     if (open) {
       const k = getOpenAIKey() || ''
       setValue(k)
       setLocalErr('')
+
+      // Strategy aus LocalStorage vorbefüllen
+      try {
+        const s = localStorage.getItem(STRATEGY_KEY) || ''
+        setStrategy(s)
+        setChars(s.length)
+      } catch { /* noop */ }
     }
   }, [open])
 
@@ -37,6 +51,13 @@ export default function ApiKeyDialog({
     const err = validateFormat(value)
     setLocalErr(err)
     if (err) return
+
+    // Strategy persistent speichern (hart auf MAX_STRATEGY limitiert)
+    try {
+      const trimmed = String(strategy || '').slice(0, MAX_STRATEGY)
+      localStorage.setItem(STRATEGY_KEY, trimmed)
+    } catch { /* noop */ }
+
     // Übergib den Key an den Parent -> der validiert gegen /api/validate-key
     await onSaved?.(String(value).trim())
   }
@@ -58,11 +79,13 @@ export default function ApiKeyDialog({
         </p>
 
         <form onSubmit={handleSave} style={{ marginTop: 12 }}>
+          {/* Aktueller Key */}
           <label className="muted" style={{ fontSize: 12 }}>Aktueller Key</label>
           <div style={boxStyle}>
             <code>{maskKey(value || getOpenAIKey() || '') || '—'}</code>
           </div>
 
+          {/* Neuer Key */}
           <label className="muted" style={{ fontSize: 12, marginTop: 10 }}>Neuen Key eingeben</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -90,6 +113,34 @@ export default function ApiKeyDialog({
             </div>
           )}
 
+          {/* NEU: Custom Draft Strategy */}
+          <label className="muted" style={{ fontSize: 12, marginTop: 14 }}>Custom Draft Strategy (optional)</label>
+          <textarea
+            value={strategy}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_STRATEGY)
+              setStrategy(v)
+              setChars(v.length)
+            }}
+            placeholder="Füge hier deine Draft-Strategie ein… (z. B. Rundenplan, Risikoanteil, Spielerprofile, No-Gos)"
+            rows={7}
+            spellCheck={false}
+            style={{
+              width: '100%',
+              resize: 'vertical',
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: '1px solid #444',
+              background: 'transparent',
+              color: 'inherit',
+              marginTop: 4
+            }}
+          />
+          <div className="muted" style={{ textAlign: 'right', fontSize: 12, marginTop: 4 }}>
+            {chars} / {MAX_STRATEGY}
+          </div>
+
+          {/* Buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, gap: 8 }}>
             <button type="button" onClick={onClose} style={btnGhost}>Abbrechen</button>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -110,7 +161,8 @@ const backdropStyle = {
   display: 'grid', placeItems: 'center', zIndex: 1000
 }
 const modalStyle = {
-  width: 'min(560px, 90vw)', background: '#111', border: '1px solid #333', borderRadius: 12, padding: 16, color: 'inherit', boxShadow: '0 6px 24px rgba(0,0,0,0.4)'
+  width: 'min(560px, 90vw)', background: '#111', border: '1px solid #333',
+  borderRadius: 12, padding: 16, color: 'inherit', boxShadow: '0 6px 24px rgba(0,0,0,0.4)'
 }
 const boxStyle = {
   border: '1px solid #333', padding: '8px 10px', borderRadius: 8, marginTop: 4

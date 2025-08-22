@@ -252,6 +252,8 @@ function buildSystemPrompt() {
     '- Consider positional scarcity, roster balance, and tier pressure; bye weeks only as tie-breakers.',
     '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
     '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
+    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
+    '- Respect user preferences from context.user_bias: slightly prefer favorites and avoid "avoid" players unless the value is exceptional. Never pick an avoid if there are comparable alternatives.',
     'Return your final answer by CALLING the tool function `return_draft_advice`.'
   ].join('\\n')
 }
@@ -305,6 +307,45 @@ function draftAdviceParametersSchema() {
   }
 }
 
+function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
+  const idByNname = new Map()
+  for (const p of boardPlayers || []) {
+    const n = normalizePlayerName(p?.nname || p?.name || '')
+    if (n) idByNname.set(n, p.player_id || p.id || null)
+  }
+
+  const favorites = []
+  const avoids = []
+  for (const [pid, pref] of Object.entries(playerPreferences || {})) {
+    // pref-Werte kommen von PlayerPreference (z.B. 'FAVORITE' / 'AVOID' / 'NEUTRAL')
+    if (!pref) continue
+    // Wir versuchen sowohl per ID-Match als auch per nname-Match
+    // 1) per nname-Schlüssel (falls prefs so gespeichert sind)
+    const asNname = normalizePlayerName(pid)
+    const nnameHasBoard = idByNname.has(asNname)
+    if (nnameHasBoard) {
+      if (pref === 'FAVORITE') favorites.push(asNname)
+      else if (pref === 'AVOID') avoids.push(asNname)
+      continue
+    }
+    // 2) per ID -> nname
+    // Falls du IDs statt nname in prefs speicherst: wir suchen den Spieler im Board
+    const p = (boardPlayers || []).find(bp => String(bp.player_id || bp.id) === String(pid))
+    if (p) {
+      const n = normalizePlayerName(p.nname || p.name || '')
+      if (n) {
+        if (pref === 'FAVORITE') favorites.push(n)
+        else if (pref === 'AVOID') avoids.push(n)
+      }
+    }
+  }
+  return {
+    favorites: Array.from(new Set(favorites)),
+    avoids: Array.from(new Set(avoids)),
+  }
+}
+
+
 /**
  * Baut das vollständige Payload für openai.chat.completions.create(...)
  *
@@ -332,6 +373,8 @@ export function buildAIAdviceRequest(params) {
     rosterPositions,        // array of slots
     strategies = ['balanced'],
     isSuperflex,            // boolean
+    customStrategyText,
+    playerPreferences = {},
   } = params || {}
 
   const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
@@ -350,7 +393,22 @@ context.format = {
     : (league?.roster_positions || []),
   scoring_settings: scoringSettings || league?.scoring_settings || {}
 }
+
 context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
+// Freitext-Strategie (hart auf ~4k Zeichen begrenzt, damit die Message nicht explodiert)
+if (customStrategyText && typeof customStrategyText === 'string') {
+  context.custom_strategy = String(customStrategyText).slice(0, 4000)
+}
+
+// User-Bias aus Favorites/Avoids  Weights (tunable)
+const { favorites, avoids } = deriveFavAvoid({ boardPlayers, playerPreferences })
+const favBonus = Number.isFinite(options.favBonus) ? options.favBonus : 5   // 0..20 (weiches Signal)
+const avoidPenalty = Number.isFinite(options.avoidPenalty) ? options.avoidPenalty : 8 // 0..30
+context.user_bias = {
+  favorites_nnames: favorites,     // LLM arbeitet mit nname
+  avoids_nnames: avoids,
+  weights: { fav_bonus: favBonus, avoid_penalty: avoidPenalty }
+}
 
   const system = buildSystemPrompt()
   const parametersSchema = draftAdviceParametersSchema()
