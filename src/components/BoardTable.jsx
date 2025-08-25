@@ -1,7 +1,7 @@
 // src/components/BoardTable.jsx
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
-import { PlayerPreference } from '../services/preferences'
+import { PlayerPreference, playerKey } from '../services/preferences'
 
 export default function BoardTable({
   progressPercent,
@@ -35,6 +35,7 @@ export default function BoardTable({
     function onKey(e) {
       if (e.key === 'Escape') setMenuOpenFor(null)
     }
+  document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
       return () => {
         document.removeEventListener('mousedown', onDocClick)
@@ -55,7 +56,7 @@ export default function BoardTable({
     const x = Math.max(pad, Math.min(clickX - menuW / 2, vw - menuW - pad))
     const y = Math.max(pad, Math.min(clickY + 12, vh - menuH - pad)) // etwas unterhalb vom Klick
     setMenuPos({ x, y })
-    setMenuOpenFor(player.player_id || player.id)
+    setMenuOpenFor(playerKey(player))
   }
 
   function setPref(playerId, pref) {
@@ -97,12 +98,11 @@ export default function BoardTable({
               const isHighlighted = highlightSet.has(keyN)
               const isPrimary = primaryKey && keyN === primaryKey
               const reason = (adviceReasons && adviceReasons[keyN]) || ''
-              const pid = p.player_id || p.id
-              const pref = playerPrefs ? (playerPrefs[pid] || null) : null
+              const pref = playerPrefs[playerKey(p)] || null
 
               return (
                 <tr
-                  key={`${p.id ?? p.nname ?? p.name}`}
+                  key={playerKey(p)}
                   id={`row-${p.nname}`}
                   className={cx(
                     p.status === 'me' && 'row-me',

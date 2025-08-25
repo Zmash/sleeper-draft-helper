@@ -7,7 +7,7 @@ import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { buildAIAdviceRequest } from '../services/ai'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
-import { loadPreferences, setPreference, PlayerPreference } from '../services/preferences'
+import { loadPreferences, savePreferences, setPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
 import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer";
 
@@ -392,10 +392,61 @@ const aiHighlights = React.useMemo(() => {
   return { primary, all, reasons }
 }, [advice])
 
-// Player Preferences
+// Player Preferences (v2)
 const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
-function handleSetPlayerPref(playerId, pref) {
-  setPlayerPrefs(prev => setPreference(prev, playerId, pref))
+
+// Einmalige Migration von v1 -> v2, sobald boardPlayers verfügbar sind
+useEffect(() => {
+  if (!boardPlayers?.length) return
+  const already = localStorage.getItem('sdh.playerPreferences.v2.migratedFromV1')
+  if (already === '1') return
+  const migrated = migrateV1ToV2IfNeeded(boardPlayers)
+  if (migrated) {
+    setPlayerPrefs(migrated)
+  } else {
+    // Flag setzen, damit wir nicht dauernd prüfen
+    localStorage.setItem('sdh.playerPreferences.v2.migratedFromV1', '1')
+  }
+}, [boardPlayers])
+
+// Numeric v2-Keys (z.B. "2","3",...) on-the-fly auf stabile Keys remappen
+const didSanitizeRef = useRef(false)
+useEffect(() => {
+  if (!boardPlayers?.length) return
+  if (didSanitizeRef.current) return
+
+  const prefs = playerPrefs || {}
+  const numericKeys = Object.keys(prefs).filter(k => /^\d+$/.test(k))
+  if (!numericKeys.length) return
+
+  const byRk = new Map(
+    boardPlayers
+      .map(p => [String(p?.rk ?? ''), p])
+      .filter(([rk]) => rk) // nur gültige rk
+  )
+
+  const next = { ...prefs }
+  let changed = false
+  for (const k of numericKeys) {
+    const p = byRk.get(String(k))
+    if (!p) continue
+    const stable = playerKey(p)
+    if (!stable || stable === k) continue
+    next[stable] = prefs[k]
+    delete next[k]
+    changed = true
+  }
+
+  if (changed) {
+    savePreferences(next)
+    setPlayerPrefs(next)
+  }
+
+  didSanitizeRef.current = true
+}, [boardPlayers, playerPrefs])
+
+function handleSetPlayerPref(playerIdOrKey, pref) {
+  setPlayerPrefs(prev => setPreference(prev, playerIdOrKey, pref))
 }
 
 // Filter: Avoid ausblenden
@@ -403,7 +454,7 @@ const [hideAvoid, setHideAvoid] = useState(false)
 const filteredBoardPlayers = useMemo(() => {
   const list = filteredPlayers || []
   if (!hideAvoid) return list
-  return list.filter(p => playerPrefs[p.player_id || p.id] !== PlayerPreference.AVOID)
+  return list.filter(p => (playerPrefs[playerKey(p)] || null) !== PlayerPreference.AVOID)
 }, [filteredPlayers, hideAvoid, playerPrefs])
 
   return (
