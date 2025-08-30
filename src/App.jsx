@@ -483,6 +483,116 @@ export default function App() {
     minScore: 10, // Schwelle, ab wann es “wichtig” ist
   })
 
+  // ---- Team-Ableitungen aus Picks + Board ----
+
+// stabile Team-Keys (matching ownerLabels) bauen:
+const teamKeyFromPick = (p) => {
+  if (p?.picked_by) return `user:${p.picked_by}`
+  if (teamsCount && p?.pick_no) {
+    const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
+    return `slot:${slot}`
+  }
+  return 'slot:unknown'
+}
+
+// Spieler dem Team-Key zuordnen, basierend auf pick-Infos im angereicherten Board
+function buildPlayersByTeamKey(boardPlayers) {
+  const out = {}
+  for (const p of (boardPlayers || [])) {
+    if (!p?.pick_no) continue // nur gepickte Spieler haben ein Team
+    const key =
+      p?.picked_by ? `user:${p.picked_by}` :
+      (teamsCount ? `slot:${(((Number(p.pick_no)-1)%Number(teamsCount))+1)}` : 'slot:unknown')
+    if (!out[key]) out[key] = []
+    out[key].push({
+      id: p.id, name: p.name, pos: p.pos, team: p.team, bye: p.bye,
+      tier: p.tier ?? null, rk: p.rk ?? null
+    })
+  }
+  return out
+}
+
+// teamByRosterId in das erwartete Format transformieren.
+// Wir bauen "synthetische roster_ids" aus dem Team-Key, z. B. roster:user:12345 oder roster:slot:4
+function buildTeamByRosterId({ livePicks, boardPlayers, ownerLabels }) {
+  const playersByTeamKey = buildPlayersByTeamKey(boardPlayers)
+
+  // owner_id ermitteln (für user:* easy; für slot:* notfalls der Slot selbst)
+  const teamIds = new Set()
+  for (const p of (livePicks || [])) {
+    teamIds.add(teamKeyFromPick(p))
+  }
+
+  const out = {}
+  for (const teamKey of teamIds) {
+    const syntheticRosterId = `roster:${teamKey}`               // z. B. "roster:user:7232..." oder "roster:slot:4"
+    const owner_id = teamKey.startsWith('user:')
+      ? teamKey.slice('user:'.length)
+      : teamKey // für Slots nutzen wir den Key selbst als "owner Id" string
+
+    const display = ownerLabels?.get?.(teamKey) || ownerLabels?.[teamKey] || owner_id
+
+    out[syntheticRosterId] = {
+      owner_id: String(owner_id),
+      display_name: display,
+      players: playersByTeamKey[teamKey] || []
+    }
+  }
+  return out
+}
+
+// eigenes Team bestimmen
+function deriveMyIds({ sleeperUserId, livePicks }) {
+  // owner_id = echte Sleeper user_id, wenn vorhanden
+  const myOwnerId = sleeperUserId ? String(sleeperUserId) : null
+
+  // RosterKey / Slot suchen
+  let myTeamKey = null
+  for (const p of (livePicks || [])) {
+    if (p?.picked_by && String(p.picked_by) === String(sleeperUserId)) {
+      myTeamKey = `user:${p.picked_by}`
+      break
+    }
+  }
+  if (!myTeamKey && teamsCount && livePicks?.length) {
+    // Fallback: finde den Draft-Slot, an dem du gepickt hast
+    const mine = livePicks.find(p => p?.picked_by && String(p.picked_by) === String(sleeperUserId))
+    if (mine?.pick_no) {
+      const slot = ((Number(mine.pick_no) - 1) % Number(teamsCount)) + 1
+      myTeamKey = `slot:${slot}`
+    }
+  }
+
+  const myRosterId = myTeamKey ? `roster:${myTeamKey}` : null
+  return { myOwnerId, myRosterId }
+}
+
+
+    // ---- Ableitungen für die AI-Analyse ----
+  const teamByRosterId = useMemo(() => {
+    return buildTeamByRosterId({ livePicks, boardPlayers, ownerLabels })
+  }, [livePicks, boardPlayers, ownerLabels, teamsCount])
+
+  const { myOwnerId, myRosterId } = useMemo(() => {
+    return deriveMyIds({ sleeperUserId, livePicks })
+  }, [sleeperUserId, livePicks, teamsCount])
+
+  const scores = useMemo(() => {
+    try {
+      // Variante A: falls deine computeTeamScores({ boardPlayers, rosterPositions, teamsCount, picks }) Signatur nutzt:
+      return computeTeamScores({
+        boardPlayers,
+        rosterPositions: effRoster,
+        teamsCount,
+        livePicks,
+      })
+    } catch {
+      // Variante B (alte Signatur): computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks)
+      try { return computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks) } catch { return [] }
+    }
+  }, [boardPlayers, effRoster, teamsCount, livePicks])
+
+
   // Render
   return (
     <AppShell tips={tips}
@@ -584,17 +694,19 @@ export default function App() {
         onClose={() => setAnalysisOpen(false)}
         title="Team Rankings"
       >
-          <div className="draft-analysis">
           <DraftAnalysis
-              scores={computeTeamScores({
-                boardPlayers,
-                livePicks,
-                teamsCount,
-                rosterPositions: effRoster
-              })}
-              ownerLabels={ownerLabels}
-            />
-          </div>
+            scores={scores}
+            ownerLabels={ownerLabels}
+            league={selectedLeague}
+            picks={livePicks}
+            teamByRosterId={teamByRosterId}
+            myOwnerId={myOwnerId}
+            myRosterId={myRosterId}
+            board={{
+              players: boardPlayers,
+              metadata: { season: selectedLeague?.season }
+            }}
+          />
       </Modal>
 
 

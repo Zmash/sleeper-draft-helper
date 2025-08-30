@@ -1,4 +1,3 @@
-// server/prod.js
 // Start (Prod):  PORT=8080 node server/prod.js
 // Optional Debug: SDH_DEBUG=1 PORT=8080 node server/prod.js
 
@@ -68,6 +67,121 @@ function parseAdviceFromChoice(choice) {
   }
 }
 
+// ---- Review: Tool-Schema & Parser ----
+const REVIEW_TOOL = {
+  type: 'function',
+  function: {
+    name: 'return_draft_review',
+    description: 'Final draft review with rankings, one-liners, global summary, deep dive, steals/reaches, week-1 start/sit.',
+    parameters: {
+      type: 'object',
+      properties: {
+        overallRankings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              teamId: { type: 'string' },
+              displayName: { type: 'string' },
+              rank: { type: 'integer' },
+              score: { type: 'number' }
+            },
+            required: ['teamId','displayName','rank','score']
+          }
+        },
+        teamOneLiners: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              teamId: { type: 'string' },
+              displayName: { type: 'string' },
+              comment: { type: 'string' }
+            },
+            required: ['teamId','displayName','comment']
+          }
+        },
+        overallSummary: { type: 'string' },
+        myTeamDeepDive: {
+          type: 'object',
+          properties: {
+            grade: { type: 'string' },
+            strengths: { type: 'array', items: { type: 'string' } },
+            weaknesses:{ type: 'array', items: { type: 'string' } },
+            risks:      { type: 'array', items: { type: 'string' } },
+            recommendedMoves: { type: 'array', items: { type: 'string' } },
+            longText:   { type: 'string' }
+          },
+          required: ['grade','strengths','weaknesses','risks','recommendedMoves','longText']
+        },
+        steals: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              pick_no: { type: 'integer' },
+              player:  { type: 'string' },
+              teamId:  { type: 'string' },
+              displayName: { type: 'string' },
+              rationale: { type: 'string' }
+            },
+            required: ['pick_no','player','teamId','displayName','rationale']
+          }
+        },
+        reaches: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              pick_no: { type: 'integer' },
+              player:  { type: 'string' },
+              teamId:  { type: 'string' },
+              displayName: { type: 'string' },
+              rationale: { type: 'string' }
+            },
+            required: ['pick_no','player','teamId','displayName','rationale']
+          }
+        },
+        myWeek1StartSit: {
+          type: 'object',
+          properties: {
+            starters: { type: 'array', items: { type: 'string' } },
+            sits:     { type: 'array', items: { type: 'string' } },
+            notes:    { type: 'string' }
+          },
+          required: ['starters','sits','notes']
+        },
+        meta: {
+          type: 'object',
+          properties: { model: { type: 'string' } }
+        }
+      },
+      required: ['overallRankings','teamOneLiners','overallSummary','myTeamDeepDive','steals','reaches','myWeek1StartSit']
+    }
+  }
+}
+
+function parseReviewFromChoice(choice) {
+  const msg = choice?.message
+  const tc = msg?.tool_calls || null
+  const content = msg?.content || ''
+  if (Array.isArray(tc) && tc.length > 0) {
+    const call = tc.find(c => c?.function?.name === 'return_draft_review') || tc[0]
+    if (call?.function?.arguments) {
+      try {
+        const parsed = JSON.parse(call.function.arguments)
+        return { parsed, raw: '', tool_calls: tc }
+      } catch { /* fallthrough */ }
+    }
+  }
+  try {
+    const parsed = JSON.parse(content)
+    return { parsed, raw: content, tool_calls: tc }
+  } catch {
+    return { parsed: null, raw: content, tool_calls: tc }
+  }
+}
+
 // ---- API: AI Advice ----
 app.post('/api/ai-advice', async (req, res) => {
   try {
@@ -79,7 +193,7 @@ app.post('/api/ai-advice', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Invalid payload: expected { model, messages, ... }' })
     }
 
-    // (Optional) kleine Request-Zusammenfassung für Debug
+    // Debug-Info (optional)
     let debugReq = null
     if (DEBUG) {
       const payloadSize = Buffer.byteLength(JSON.stringify(payload), 'utf8')
@@ -110,7 +224,6 @@ app.post('/api/ai-advice', async (req, res) => {
     }
 
     const client = new OpenAI({ apiKey: userKey })
-    // sanitize unexpected top-level keys (Chat Completions doesn’t accept these)
     for (const k of ['instructions','strategies','format','input','input_text','metadata','response','reasoning','max_output_tokens']) {
       if (k in payload) delete payload[k]
     }
@@ -133,7 +246,83 @@ app.post('/api/ai-advice', async (req, res) => {
       raw,
       tool_calls,
       ...(DEBUG ? { debug: { request: debugReq, openai: openaiMeta } } : {}),
-      // (ohne DEBUG keine großen Debugfelder in der Response)
+    })
+  } catch (err) {
+    res.status(err?.status || 500).json({ ok: false, message: err?.message || 'AI request failed' })
+  }
+})
+
+/**
+ * ---- API: Final Draft Review ----
+ * Identisch zu dev: wir injizieren Tool-Schema + tool_choice.
+ */
+app.post('/api/ai-draft-review', async (req, res) => {
+  try {
+    const userKey = req.header('x-openai-key')
+    if (!userKey) return res.status(401).json({ ok: false, error: 'Missing X-OpenAI-Key header' })
+
+    const payload = req.body
+    if (!payload || !payload.model || !payload.messages) {
+      return res.status(400).json({ ok: false, error: 'Invalid payload: expected { model, messages, ... }' })
+    }
+
+    // Debug-Zusammenfassung
+    let debugReq = null
+    if (DEBUG) {
+      const payloadSize = Buffer.byteLength(JSON.stringify(payload), 'utf8')
+      const userMsg = payload.messages.find(m => m.role === 'user')?.content || ''
+      let ctx = null
+      try {
+        const m = userMsg.match(/<CONTEXT_JSON>\s*([\s\S]*?)\s*<\/CONTEXT_JSON>/)
+        if (m) ctx = JSON.parse(m[1])
+      } catch {}
+      debugReq = {
+        meta: {
+          model: payload.model,
+          temperature: payload.temperature,
+          payload_size_bytes: payloadSize,
+        },
+        counts: ctx ? {
+          picks: Array.isArray(ctx?.picks) ? ctx.picks.length : 0,
+          rosters: ctx?.rosters ? Object.keys(ctx.rosters).length : 0,
+          roster_positions: Array.isArray(ctx?.league?.roster_positions) ? ctx.league.roster_positions.length : 0,
+        } : null
+      }
+    }
+
+    // Tools injizieren
+    const finalPayload = {
+      ...payload,
+      tools: Array.isArray(payload.tools) ? [...payload.tools, REVIEW_TOOL] : [REVIEW_TOOL],
+      tool_choice: { type: 'function', function: { name: 'return_draft_review' } },
+    }
+
+    const client = new OpenAI({ apiKey: userKey })
+    for (const k of ['instructions','strategies','format','input','input_text','metadata','response','reasoning','max_output_tokens']) {
+      if (k in finalPayload) delete finalPayload[k]
+    }
+    const completion = await client.chat.completions.create(finalPayload)
+
+    const choice = completion.choices?.[0] || null
+    const { parsed, raw, tool_calls } = parseReviewFromChoice(choice)
+
+    if (!parsed) {
+      return res.status(502).json({ ok: false, error: 'Model did not return structured review JSON' })
+    }
+
+    parsed.meta = parsed.meta || {}
+    parsed.meta.model = parsed.meta.model || completion.model
+
+    res.json({
+      ok: true,
+      parsed,
+      raw,
+      tool_calls,
+      ...(DEBUG ? { debug: { request: debugReq, openai: {
+        id: completion.id, model: completion.model, usage: completion.usage,
+        tool_calls_count: Array.isArray(choice?.message?.tool_calls) ? choice.message.tool_calls.length : 0,
+        content_len: (choice?.message?.content || '').length,
+      } } } : {})
     })
   } catch (err) {
     res.status(err?.status || 500).json({ ok: false, message: err?.message || 'AI request failed' })
@@ -142,7 +331,6 @@ app.post('/api/ai-advice', async (req, res) => {
 
 /**
  * ---- Static Frontend ausliefern ----
- * In Prod kommen Frontend und API vom gleichen Origin, daher kein CORS nötig.
  */
 const distDir = path.resolve(__dirname, '../dist')
 app.use(express.static(distDir))
