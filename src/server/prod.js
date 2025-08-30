@@ -336,8 +336,7 @@ const distDir = path.resolve(__dirname, '../dist')
 app.use(express.static(distDir))
 
 // SPA-Fallback (alles außer /api -> index.html)
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next()
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(distDir, 'index.html'))
 })
 
