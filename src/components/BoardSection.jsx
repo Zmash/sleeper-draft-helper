@@ -9,12 +9,11 @@ import { buildAIAdviceRequest } from '../services/ai'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { loadPreferences, savePreferences, setPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
-import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer";
+import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer"
 
 const DEBUG_AI = false
 
 export default function BoardSection({
-  // --- Original-Werte ---
   ownerLabels,
   teamFilter,
   onTeamFilterChange,
@@ -28,33 +27,29 @@ export default function BoardSection({
   pickedCount,
   totalCount,
 
-  // --- Original-Actions ---
   onToggleAutoRefresh,
   onChangeInterval,
   onSync,
   onSearchChange,
   onPositionChange,
 
-  // --- AI-Advice relevante Props ---
   boardPlayers,
   livePicks,
   meUserId,
   league,
   draft,
 }) {
-  // --- AI Advice Dialog State ---
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [advice, setAdvice] = useState(null)
   const [adviceError, setAdviceError] = useState(null)
+  const [streamingText, setStreamingText] = useState('')
 
-  // --- API Key Dialog State ---
   const [keyDialogOpen, setKeyDialogOpen] = useState(false)
   const [keyValidating, setKeyValidating] = useState(false)
   const [keyValidationError, setKeyValidationError] = useState('')
   const [pendingAskAfterKey, setPendingAskAfterKey] = useState(false)
 
-  // --- Debug: Request/Response im Dialog anzeigen ---
   const [adviceDebug, setAdviceDebug] = useState(null)
 
   const [setupTick, setSetupTick] = useState(0)
@@ -69,22 +64,20 @@ export default function BoardSection({
     }
   }, [])
 
-  // Roster-Positions robuster ermitteln
   const teamsCount = getTeamsCount({ draft, picks: livePicks, league })
-  // Effective roster from Setup overrides (falls vorhanden), sonst Draft-Slots, sonst League
-  const setupOverrides = (() => { try { return JSON.parse(localStorage.getItem('sdh.setup.v2')||'{}').overrides || {} } catch { return {} } })()
+  const setupOverrides = (() => { try { return JSON.parse(localStorage.getItem('sdh.setup.v2') || '{}').overrides || {} } catch { return {} } })()
 
-  const fileRef = useRef(null);
-  const [status, setStatus] = useState("");
+  const fileRef = useRef(null)
+  const [status, setStatus] = useState('')
 
   function mapSlotsToRoster(settings = {}) {
-    const m={slots_qb:'QB',slots_rb:'RB',slots_wr:'WR',slots_te:'TE',slots_k:'K',slots_def:'DEF',slots_flex:'FLEX',slots_wr_rb:'WR/RB',slots_wr_te:'WR/TE',slots_rb_te:'RB/TE',slots_super_flex:'SUPER_FLEX',slots_idp_flex:'IDP_FLEX',slots_dl:'DL',slots_lb:'LB',slots_db:'DB',slots_bn:'BN'}
-    const out=[]
-    for (const [k,v] of Object.entries(settings||{})) {
+    const m = { slots_qb: 'QB', slots_rb: 'RB', slots_wr: 'WR', slots_te: 'TE', slots_k: 'K', slots_def: 'DEF', slots_flex: 'FLEX', slots_wr_rb: 'WR/RB', slots_wr_te: 'WR/TE', slots_rb_te: 'RB/TE', slots_super_flex: 'SUPER_FLEX', slots_idp_flex: 'IDP_FLEX', slots_dl: 'DL', slots_lb: 'LB', slots_db: 'DB', slots_bn: 'BN' }
+    const out = []
+    for (const [k, v] of Object.entries(settings || {})) {
       if (!k.startsWith('slots_')) continue
-      const name=m[k]; const n=Number(v)
-      if (!name || !Number.isFinite(n) || n<=0) continue
-      for (let i=0;i<n;i++) out.push(name)
+      const name = m[k]; const n = Number(v)
+      if (!name || !Number.isFinite(n) || n <= 0) continue
+      for (let i = 0; i < n; i++) out.push(name)
     }
     return out
   }
@@ -94,11 +87,10 @@ export default function BoardSection({
     ?? (draft?.settings ? mapSlotsToRoster(draft.settings) : null)
     ?? (Array.isArray(league?.roster_positions) ? league.roster_positions : [])
 
-
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
-  const disabled = false
 
-  // Button click -> Wenn Key fehlt, Dialog öffnen; sonst direkt Anfrage starten
+  // ---------- AI Advice ----------
+
   async function handleAskAI() {
     const key = getOpenAIKey()
     if (!key) {
@@ -109,14 +101,14 @@ export default function BoardSection({
     await doAskAIWithKey(key)
   }
 
-  // Tatsächlicher Advice-Call (mit bereits vorhandenem, validem Key)
-    async function doAskAIWithKey(userKey) {
+  async function doAskAIWithKey(userKey) {
     try {
       setAdviceOpen(true)
       setAdviceLoading(true)
       setAdviceError(null)
       setAdvice(null)
       setAdviceDebug(null)
+      setStreamingText('')
 
       const payload = buildAIAdviceRequest({
         boardPlayers: boardPlayers || [],
@@ -125,124 +117,80 @@ export default function BoardSection({
         league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
         draft: draft || null,
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
-        customStrategyText: (typeof window !== "undefined" ? localStorage.getItem("sdh.strategy.v1") : "") || "",
+        customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
         playerPreferences: playerPrefs || {},
-        options: { topNOverall: 60, topPerPos: 20, model: 'gpt-4o-mini', temperature: 0.2, max_output_tokens: 700 },
-        favBonus: 6,        // optional: feintunen
-        avoidPenalty: 10    // optional: feintunen
+        options: { topNOverall: 60, topPerPos: 20, temperature: 0.2 },
+        favBonus: 6,
+        avoidPenalty: 10,
       })
 
-     // ---- LOG: Vollständige Anfrage im Browser-Console
-     if (DEBUG_AI) {
-       console.groupCollapsed('[AI REQUEST -> /api/ai-advice]')
-       console.log('payload:', payload)
-       const ctx = extractContextFromUserMessage(payload)
-       console.log('context_counts:', summarizeCtxCounts(ctx))
-       console.log('context_sample:', sampleCtx(ctx))
-       console.groupEnd()
-     }
+      if (DEBUG_AI) {
+        console.groupCollapsed('[AI REQUEST -> /api/ai-advice]')
+        console.log('payload:', payload)
+        console.groupEnd()
+      }
 
-      // Kleine Request-Zusammenfassung für Debug-Panel
-      const requestSummary = summarizeRequest(payload)
+      const requestSummary = {
+        max_tokens: payload.max_tokens,
+        temperature: payload.temperature,
+        tools: payload.tools?.length,
+        tool_choice: payload.tool_choice?.name,
+        messages: payload.messages?.length,
+      }
 
       const res = await fetch('/api/ai-advice', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-OpenAI-Key': userKey,
+          'X-Anthropic-Key': userKey,
         },
         body: JSON.stringify(payload),
       })
 
-      const text = await res.text()
-      let data = null
-      try { data = JSON.parse(text) } catch { /* noop */ }
-
-      // ---- LOG: Vollständige RESPONSE im Browser
-      console.groupCollapsed('[AI RESPONSE <- /api/ai-advice]')
-      console.log('status:', res.status)
-      console.log('json parsed:', data)
-      console.log('raw text:', text)
-      console.groupEnd()
-
       if (!res.ok) {
-        const msg = data?.message || data?.error || `HTTP ${res.status}`
-       setAdviceDebug({
-        // kompakte Summary für schnellen Überblick
-        request: requestSummary,
-
-        // volle Anfrage, die rausging
-        request_payload: payload,
-
-        // verkleinerter Kontext-Sample (erste Einträge)
-        request_context_sample: sampleCtx(extractContextFromUserMessage(payload)),
-
-        // was der Server zurückgab (falls JSON), sonst zumindest Status/Text
-        response: data || { status: res.status, text },
-
-        // komplette Response (JSON) und der rohe Text – super fürs Debuggen
-        response_all: data || null,
-        response_text: text,
-
-        // falls der Server bereits openai_message mitecho’t (bei Fehlern oft null)
-        openai_message: data?.debug?.openai_message || null,
-
-        // falls der Server schon was in raw/tool_calls hatte
-        raw: data?.raw || null,
-        tool_calls: data?.tool_calls || null,
-      })
-
-        throw new Error(msg)
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData?.message || errData?.error || `HTTP ${res.status}`)
       }
 
-      // Server liefert { ok, raw, parsed, tool_calls, usage, debug?... }
-      let parsed = data?.parsed || null
+      // Read SSE stream
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
 
-      if (!parsed && Array.isArray(data?.tool_calls) && data.tool_calls.length > 0) {
-        const call = data.tool_calls.find(c => c?.function?.name === 'return_draft_advice')
-        if (call?.function?.arguments) {
-          try { parsed = JSON.parse(call.function.arguments) } catch { /* noop */ }
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          if (!part.trim()) continue
+          const lines = part.split('\n')
+          const eventLine = lines.find(l => l.startsWith('event: '))
+          const dataLine = lines.find(l => l.startsWith('data: '))
+          if (!dataLine) continue
+
+          const eventType = eventLine?.slice(7).trim() || 'message'
+          let data
+          try { data = JSON.parse(dataLine.slice(6)) } catch { continue }
+
+          if (eventType === 'text') {
+            setStreamingText(prev => prev + data.text)
+          } else if (eventType === 'result') {
+            if (!data.ok) throw new Error(data.message || 'AI error')
+            setAdvice(data.parsed || null)
+            setAdviceDebug({
+              request: requestSummary,
+              request_payload: payload,
+              response: { ok: data.ok, model: data.model, usage: data.usage },
+            })
+          } else if (eventType === 'error') {
+            throw new Error(data.message || 'AI error')
+          }
         }
       }
-
-      if (!parsed && data?.raw) {
-        parsed = extractLooseJson(data.raw) || null
-      }
-      if (!parsed && text) {
-        parsed = extractLooseJson(text) || null
-      }
-
-      setAdvice(parsed || null)
-      setAdviceDebug({
-        // nimm bevorzugt die serverseitige Request-Zusammenfassung, sonst unsere
-        request: data?.debug?.request || requestSummary,
-
-        // volle Anfrage
-        request_payload: payload,
-
-        // Kontext-Sample
-        request_context_sample: sampleCtx(extractContextFromUserMessage(payload)),
-
-        // OpenAI-Metadaten (usage, tool_calls_count, content_len, …)
-        response: {
-          ok: data?.ok,
-          ...(data?.debug?.openai || {}),
-          id: data?.id,
-          model: data?.model,
-          usage: data?.usage,
-        },
-
-        // kompletter Response-Body und Roh-Text (falls mal kein JSON)
-        response_all: data || null,
-        response_text: text,
-
-        // genau die Message, die OpenAI zurückgab (gekürzt), inkl. tool_calls
-        openai_message: data?.debug?.openai_message || null,
-
-        // was wir fürs UI extrahiert haben
-        raw: data?.raw || null,
-        tool_calls: data?.tool_calls || null,
-      })
 
     } catch (e) {
       setAdviceError(e?.message || 'Unerwarteter Fehler')
@@ -251,87 +199,6 @@ export default function BoardSection({
     }
   }
 
-
-  function summarizeRequest(payload) {
-    const sys = payload?.messages?.find(m => m.role === 'system')?.content || ''
-    const user = payload?.messages?.find(m => m.role === 'user')?.content || ''
-    const ctxMatch = user.match(/<CONTEXT_JSON>\s*([\s\S]*?)\s*<\/CONTEXT_JSON>/)
-    let ctx = null
-    try { ctx = ctxMatch ? JSON.parse(ctxMatch[1]) : null } catch { /* noop */ }
-
-    const counts = ctx ? {
-      overall_top: ctx?.board?.overall_top?.length || 0,
-      by_pos_keys: Object.keys(ctx?.board?.by_position || {}).length,
-      my_picks: ctx?.my_team?.picks?.length || 0,
-      roster_pos_len: ctx?.league?.roster_positions?.length || 0,
-    } : null
-
-    return {
-      model: payload?.model,
-      temperature: payload?.temperature,
-      max_tokens: payload?.max_tokens,
-      messages: payload?.messages?.length,
-      has_tools: Array.isArray(payload?.tools) && payload.tools.length > 0,
-      tool_choice: payload?.tool_choice?.type || null,
-      context_counts: counts,
-    }
-  }
-
-  function extractContextFromUserMessage(payload) {
-  try {
-    const user = payload?.messages?.find(m => m.role === 'user')?.content || ''
-    const m = user.match(/<CONTEXT_JSON>\s*([\s\S]*?)\s*<\/CONTEXT_JSON>/)
-    if (!m) return null
-    return JSON.parse(m[1])
-  } catch { return null }
-}
-
-function summarizeCtxCounts(ctx) {
-  if (!ctx) return null
-  return {
-    overall_top: Array.isArray(ctx?.board?.overall_top) ? ctx.board.overall_top.length : 0,
-    by_pos_keys: ctx?.board?.by_position ? Object.keys(ctx.board.by_position).length : 0,
-    my_picks: Array.isArray(ctx?.my_team?.picks) ? ctx.my_team.picks.length : 0,
-    roster_pos_len: Array.isArray(ctx?.league?.roster_positions) ? ctx.league.roster_positions.length : 0,
-  }
-}
-
-function sampleCtx(ctx) {
-  if (!ctx) return null
-  const byPosKeys = ctx?.board?.by_position ? Object.keys(ctx.board.by_position) : []
-  return {
-    overall_top_first5: (ctx?.board?.overall_top || []).slice(0,5),
-    by_pos_keys: byPosKeys,
-    by_pos_first2: byPosKeys.slice(0,2).map(k => ({ [k]: (ctx.board.by_position[k] || []).slice(0,3) })),
-    my_picks_first3: (ctx?.my_team?.picks || []).slice(0,3),
-    roster_positions_first15: (ctx?.league?.roster_positions || []).slice(0,15),
-  }
-}
-
-function extractLooseJson(s) {
-  if (!s || typeof s !== 'string') return null
-  const start = s.indexOf('{')
-  const end = s.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) return null
-  const candidate = s.slice(start, end + 1)
-  if (!/\"primary\"\s*:/.test(candidate)) return null
-  try { return JSON.parse(candidate) } catch { return null }
-}
-
-function scrollToNextUndrafted() {
-  const next = (filteredPlayers || []).find(p => !p.status)
-  if (!next) return
-  const id = `row-${next.nname}`   // muss in BoardTable gesetzt werden
-  const el = document.getElementById(id)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.add('row-flash')
-    setTimeout(() => el.classList.remove('row-flash'), 900)
-  }
-}
-
-
-  // Wird aufgerufen, nachdem der Nutzer im ApiKeyDialog "Speichern" gedrückt hat
   async function handleKeySaved(savedKey) {
     setKeyValidationError('')
     setKeyValidating(true)
@@ -344,9 +211,7 @@ function scrollToNextUndrafted() {
       return
     }
 
-    // Key dauerhaft speichern
     setOpenAIKey(savedKey)
-
     setKeyDialogOpen(false)
 
     if (pendingAskAfterKey) {
@@ -355,12 +220,11 @@ function scrollToNextUndrafted() {
     }
   }
 
-  // Schlanke Key-Validierung gegen separaten Endpoint
   async function validateKey(userKey) {
     try {
       const res = await fetch('/api/validate-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-OpenAI-Key': userKey },
+        headers: { 'Content-Type': 'application/json', 'X-Anthropic-Key': userKey },
         body: JSON.stringify({}),
       })
       return res.ok
@@ -369,93 +233,102 @@ function scrollToNextUndrafted() {
     }
   }
 
-  // --- Abgeleitete Highlights aus der AI-Antwort ---
-const aiHighlights = React.useMemo(() => {
-  if (!advice) return { primary: null, all: new Set(), reasons: {} }
-  const primary = advice?.primary?.player_nname
-    ? String(advice.primary.player_nname).trim().toLowerCase()
-    : null
+  // ---------- AI highlights for board ----------
 
-  const all = new Set()
-  const reasons = {}
+  const aiHighlights = React.useMemo(() => {
+    if (!advice) return { primary: null, all: new Set(), reasons: {} }
+    const primary = advice?.primary?.player_nname
+      ? String(advice.primary.player_nname).trim().toLowerCase()
+      : null
 
-  if (primary) {
-    all.add(primary)
-    if (advice.primary.why) reasons[primary] = advice.primary.why
+    const all = new Set()
+    const reasons = {}
+
+    if (primary) {
+      all.add(primary)
+      if (advice.primary.why) reasons[primary] = advice.primary.why
+    }
+    for (const alt of advice?.alternatives || []) {
+      const n = alt?.player_nname ? String(alt.player_nname).trim().toLowerCase() : null
+      if (!n) continue
+      all.add(n)
+      if (alt.why) reasons[n] = alt.why
+    }
+    return { primary, all, reasons }
+  }, [advice])
+
+  // ---------- Player Preferences (v2) ----------
+
+  const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
+
+  useEffect(() => {
+    if (!boardPlayers?.length) return
+    const already = localStorage.getItem('sdh.playerPreferences.v2.migratedFromV1')
+    if (already === '1') return
+    const migrated = migrateV1ToV2IfNeeded(boardPlayers)
+    if (migrated) {
+      setPlayerPrefs(migrated)
+    } else {
+      localStorage.setItem('sdh.playerPreferences.v2.migratedFromV1', '1')
+    }
+  }, [boardPlayers])
+
+  const didSanitizeRef = useRef(false)
+  useEffect(() => {
+    if (!boardPlayers?.length) return
+    if (didSanitizeRef.current) return
+
+    const prefs = playerPrefs || {}
+    const numericKeys = Object.keys(prefs).filter(k => /^\d+$/.test(k))
+    if (!numericKeys.length) return
+
+    const byRk = new Map(
+      boardPlayers
+        .map(p => [String(p?.rk ?? ''), p])
+        .filter(([rk]) => rk)
+    )
+
+    const next = { ...prefs }
+    let changed = false
+    for (const k of numericKeys) {
+      const p = byRk.get(String(k))
+      if (!p) continue
+      const stable = playerKey(p)
+      if (!stable || stable === k) continue
+      next[stable] = prefs[k]
+      delete next[k]
+      changed = true
+    }
+
+    if (changed) {
+      savePreferences(next)
+      setPlayerPrefs(next)
+    }
+
+    didSanitizeRef.current = true
+  }, [boardPlayers, playerPrefs])
+
+  function handleSetPlayerPref(playerIdOrKey, pref) {
+    setPlayerPrefs(prev => setPreference(prev, playerIdOrKey, pref))
   }
-  for (const alt of advice?.alternatives || []) {
-    const n = alt?.player_nname ? String(alt.player_nname).trim().toLowerCase() : null
-    if (!n) continue
-    all.add(n)
-    if (alt.why) reasons[n] = alt.why
+
+  const [hideAvoid, setHideAvoid] = useState(false)
+  const filteredBoardPlayers = useMemo(() => {
+    const list = filteredPlayers || []
+    if (!hideAvoid) return list
+    return list.filter(p => (playerPrefs[playerKey(p)] || null) !== PlayerPreference.AVOID)
+  }, [filteredPlayers, hideAvoid, playerPrefs])
+
+  function scrollToNextUndrafted() {
+    const next = (filteredPlayers || []).find(p => !p.status)
+    if (!next) return
+    const el = document.getElementById(`row-${next.nname}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('row-flash')
+      setTimeout(() => el.classList.remove('row-flash'), 900)
+    }
   }
-  return { primary, all, reasons }
-}, [advice])
-
-// Player Preferences (v2)
-const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
-
-// Einmalige Migration von v1 -> v2, sobald boardPlayers verfügbar sind
-useEffect(() => {
-  if (!boardPlayers?.length) return
-  const already = localStorage.getItem('sdh.playerPreferences.v2.migratedFromV1')
-  if (already === '1') return
-  const migrated = migrateV1ToV2IfNeeded(boardPlayers)
-  if (migrated) {
-    setPlayerPrefs(migrated)
-  } else {
-    // Flag setzen, damit wir nicht dauernd prüfen
-    localStorage.setItem('sdh.playerPreferences.v2.migratedFromV1', '1')
-  }
-}, [boardPlayers])
-
-// Numeric v2-Keys (z.B. "2","3",...) on-the-fly auf stabile Keys remappen
-const didSanitizeRef = useRef(false)
-useEffect(() => {
-  if (!boardPlayers?.length) return
-  if (didSanitizeRef.current) return
-
-  const prefs = playerPrefs || {}
-  const numericKeys = Object.keys(prefs).filter(k => /^\d+$/.test(k))
-  if (!numericKeys.length) return
-
-  const byRk = new Map(
-    boardPlayers
-      .map(p => [String(p?.rk ?? ''), p])
-      .filter(([rk]) => rk) // nur gültige rk
-  )
-
-  const next = { ...prefs }
-  let changed = false
-  for (const k of numericKeys) {
-    const p = byRk.get(String(k))
-    if (!p) continue
-    const stable = playerKey(p)
-    if (!stable || stable === k) continue
-    next[stable] = prefs[k]
-    delete next[k]
-    changed = true
-  }
-
-  if (changed) {
-    savePreferences(next)
-    setPlayerPrefs(next)
-  }
-
-  didSanitizeRef.current = true
-}, [boardPlayers, playerPrefs])
-
-function handleSetPlayerPref(playerIdOrKey, pref) {
-  setPlayerPrefs(prev => setPreference(prev, playerIdOrKey, pref))
-}
-
-// Filter: Avoid ausblenden
-const [hideAvoid, setHideAvoid] = useState(false)
-const filteredBoardPlayers = useMemo(() => {
-  const list = filteredPlayers || []
-  if (!hideAvoid) return list
-  return list.filter(p => (playerPrefs[playerKey(p)] || null) !== PlayerPreference.AVOID)
-}, [filteredPlayers, hideAvoid, playerPrefs])
 
   return (
     <section className="card">
@@ -470,16 +343,18 @@ const filteredBoardPlayers = useMemo(() => {
           lastSyncAt={lastSyncAt}
         />
 
-        {/* AI-Advice Button neben der Toolbar */}
         <div className="btn-group-compact">
-  <button onClick={handleAskAI} className="btn-compact" title="AI-Empfehlung für den nächsten Pick">
-    🤖 AI-Advice
-  </button>
-  <button onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
-          className="btn-compact" title="OpenAI API-Key verwalten">
-    🔑 Key
-  </button>
-</div>
+          <button onClick={handleAskAI} className="btn-compact" title="AI-Empfehlung für den nächsten Pick">
+            🤖 AI-Advice
+          </button>
+          <button
+            onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
+            className="btn-compact"
+            title="Anthropic API-Key verwalten"
+          >
+            🔑 Key
+          </button>
+        </div>
       </div>
 
       <FiltersRow
@@ -510,48 +385,35 @@ const filteredBoardPlayers = useMemo(() => {
         onSetPlayerPref={handleSetPlayerPref}
       />
 
-      <div className="row end" style={{ gap: 8, marginTop: "1rem" }}>
-      <button
-        className="btn-compact"
-        onClick={() => exportSettings("User-initiated export")}
-      >
-       💾 Export settings
-      </button>
+      <div className="row end" style={{ gap: 8, marginTop: '1rem' }}>
+        <button className="btn-compact" onClick={() => exportSettings('User-initiated export')}>
+          💾 Export settings
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={async (e) => {
+            try {
+              const f = e.target.files?.[0]
+              if (!f) return
+              const res = await importSettingsFromFile(f, { cleanupOldVersions: true })
+              setStatus(`Import OK. Applied: ${res.applied.length}, Skipped: ${res.skipped.length}`)
+            } catch (err) {
+              setStatus(`Import-Fehler: ${err?.message || String(err)}`)
+            } finally {
+              e.currentTarget.value = ''
+            }
+          }}
+        />
+        <button className="btn-compact" onClick={() => fileRef.current?.click()}>
+          📥 Import settings
+        </button>
+      </div>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json"
-        style={{ display: "none" }}
-        onChange={async (e) => {
-          try {
-            const f = e.target.files?.[0];
-            if (!f) return;
-            const res = await importSettingsFromFile(f, {
-              cleanupOldVersions: true,
-            });
-            setStatus(
-              `Import OK. Applied: ${res.applied.length}, Skipped: ${res.skipped.length}`
-            );
-          } catch (err) {
-            setStatus(`Import-Fehler: ${err?.message || String(err)}`);
-          } finally {
-            e.currentTarget.value = "";
-          }
-        }}
-      />
-      <button
-        className="btn-compact"
-        onClick={() => fileRef.current?.click()}
-      >
-       📥 Import settings
-      </button>
-    </div>
+      {status && <p className="text-xs muted">{status}</p>}
 
-    {status && <p className="text-xs muted">{status}</p>}
-
-
-      {/* Advice Modal mit Debug */}
       <AdviceDialog
         open={adviceOpen}
         onClose={() => setAdviceOpen(false)}
@@ -559,9 +421,9 @@ const filteredBoardPlayers = useMemo(() => {
         advice={advice}
         error={adviceError}
         debug={adviceDebug}
+        streamingText={streamingText}
       />
 
-      {/* API Key Modal mit Validierungsstatus */}
       <ApiKeyDialog
         open={keyDialogOpen}
         onClose={() => {

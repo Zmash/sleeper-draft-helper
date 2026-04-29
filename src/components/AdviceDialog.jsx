@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function AdviceDialog({ open, onClose, loading, advice, error, debug }) {
+export default function AdviceDialog({ open, onClose, loading, advice, error, debug, streamingText }) {
   if (!open) return null
 
   const hasAdvice =
@@ -15,7 +15,13 @@ export default function AdviceDialog({ open, onClose, loading, advice, error, de
           <button onClick={onClose} style={btnGhost} aria-label="Close">×</button>
         </div>
 
-        {loading && <div style={{ padding: '8px 0' }}>Analysiere Board, Liga und Roster …</div>}
+        {loading && (
+          <div style={{ padding: '8px 0' }}>
+            {streamingText
+              ? <div style={{ fontStyle: 'italic', opacity: 0.85, whiteSpace: 'pre-wrap' }}>{streamingText}</div>
+              : 'Analysiere Board, Liga und Roster …'}
+          </div>
+        )}
 
         {!loading && error && (
           <div style={{ color: 'crimson', marginBottom: 8 }}>{String(error)}</div>

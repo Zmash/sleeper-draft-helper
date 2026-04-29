@@ -1,176 +1,17 @@
 // src/services/ai.js
-// Erzeugt das Payload für einen OpenAI-Aufruf, um einen Next-Pick-Vorschlag zu erhalten.
-// Nutzt Structured Outputs, damit die Antwort exakt einem JSON-Schema entspricht.
+// Builds Claude API payload for the next-pick advice endpoint.
+// Output format: { system, messages, tools, tool_choice, max_tokens, temperature }
 
 import { normalizePlayerName, normalizePos } from '../utils/formatting'
 
-/**
- * @typedef {Object} BoardPlayer
- * @property {number|string} id
- * @property {string} rk            // Ranking (string in CSV, wird zu Zahl geparst)
- * @property {string} tier
- * @property {string} name
- * @property {string} team
- * @property {string} pos           // QB | RB | WR | TE | K | DEF | ...
- * @property {string} bye
- * @property {string} sos           // z.B. "3/5"
- * @property {string} ecrVsAdp
- * @property {string} nname         // normalisierter Name (siehe parse CSV)
- * @property {'me'|'other'|null} status
- * @property {number|null} pick_no
- * @property {string|null} picked_by
- */
+// ---------- Pure helpers ----------
 
-/**
- * @typedef {Object} SleeperPick
- * @property {number} pick_no
- * @property {string} picked_by
- * @property {{first_name:string,last_name:string,position:string,team:string}} metadata
- */
-
-/**
- * @typedef {Object} LeagueLike
- * @property {string} [name]
- * @property {string|number} [season]
- * @property {Array<string>} [roster_positions] // z.B. ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF","BN",...]
- * @property {Object<string,number>} [scoring_settings] // Sleeper-Scoring, z.B. { rec: 1, pass_yd: 0.04, ... }
- * @property {Object} [settings] // ggf. rounds, teams, draft_order etc.
- */
-
-/**
- * @typedef {Object} BuildOptions
- * @property {number} [topNOverall=30]     // wie viele best-available insgesamt
- * @property {number} [topPerPos=10]       // wie viele best-available je Position
- * @property {string} [model="gpt-4o-mini"]
- * @property {number} [temperature=0.2]
- * @property {number} [max_output_tokens=500]
- */
-
-/**
- * Fasst den App-Zustand kompakt für das LLM zusammen
- */
-function makeContext({
-  boardPlayers = /** @type {BoardPlayer[]} */([]),
-  livePicks = /** @type {SleeperPick[]} */([]),
-  me = '',
-  league = /** @type {LeagueLike} */({}),
-  draft = /** @type {any} */(null),
-  currentPickNumber = null,
-  options = /** @type {BuildOptions} */({})
-}) {
-  const {
-    topNOverall = 40,
-    topPerPos = 10,
-  } = options
-
-  // 1) Bereits gepickte Spieler (per Sleeper live picks) -> normalisierte Namen
-  const pickedByName = new Set(
-    (livePicks || []).map(p => normalizePlayerName(`${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`))
-  )
-
-  // 2) Board: verfügbar = nicht gepickt (entweder via status oder via live picks Vergleich)
-  const numericRank = (r) => {
-    const n = Number(String(r).replace(/[^\d.-]/g, ''))
-    return Number.isFinite(n) ? n : 1e9
-  }
-
-  const available = (boardPlayers || []).filter(p => {
-    if (p?.status === 'me' || p?.status === 'other') return false
-    if (pickedByName.has(p.nname)) return false
-    return true
-  }).sort((a,b) => numericRank(a.rk) - numericRank(b.rk))
-
-  // 3) Top-N Gesamt + je Position
-  const topOverall = available.slice(0, topNOverall).map(minifyBoardPlayer)
-  const byPos = groupBy(available, p => normalizePos(p.pos || 'OTHER'))
-  const topByPosition = Object.fromEntries(
-    Object.entries(byPos).map(([pos, arr]) => [pos, arr.slice(0, topPerPos).map(minifyBoardPlayer)])
-  )
-
-  // 4) Mein Roster + Pos-Counts
-  const myPicks = (livePicks || []).filter(p => p.picked_by === me)
-  const myRoster = myPicks.map(p => ({
-    nname: normalizePlayerName(`${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`),
-    name: `${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`.trim(),
-    pos: p?.metadata?.position || '',
-    team: p?.metadata?.team || '',
-    pick_no: p?.pick_no || null,
-  }))
-  const myCounts = countBy(myRoster, r => r.pos || 'OTHER')
-
-  // 5) Roster-Anforderungen aus League-Setup (Counts je Slot)
-  const rosterReq = summarizeRosterRequirements(league?.roster_positions || [])
-
-  // 6) Scoring-Zusammenfassung (v.a. PPR)
-  const recPoints = (league?.scoring_settings && typeof league.scoring_settings.rec === 'number')
-    ? league.scoring_settings.rec : 0
-  const pprType = recPoints >= 0.95 ? 'PPR'
-               : recPoints >= 0.45 ? 'Half PPR'
-               : 'Standard/Non-PPR'
-
-  // 7) Draft-Kontext (so weit vorhanden)
-  const draftContext = {
-    current_pick_number: currentPickNumber,
-    rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
-    teams: league?.total_rosters ?? null,
-    slot: inferMySlot({ draft, livePicks, me }), // best effort
-    is_snake: inferSnake(draft),
-  }
-
-  // 8) Sicherheits-/Integritäts-Infos
-  const constraints = {
-    // LLM darf nur aus diesen Kandidaten wählen:
-    candidate_pool_hint: {
-      overall_size: topOverall.length,
-      by_position_keys: Object.keys(topByPosition),
-    },
-    // Strict rule: niemals bereits gepickte vorschlagen
-    avoid_nnames: Array.from(pickedByName),
-  }
-
-  return {
-    league: {
-      name: league?.name ?? null,
-      season: league?.season ?? null,
-      roster_positions: league?.roster_positions ?? [],
-      roster_requirements: rosterReq,
-      ppr_type: pprType,
-      scoring_settings: league?.scoring_settings ?? {},
-      playoff_start_week: league?.playoff_start_week ?? undefined,
-      total_rosters: league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null,
-      waiver_type: league?.waiver_type ?? undefined,
-    },
-    draft: draftContext,
-    me: { user_id: me },
-    my_team: {
-      picks: myRoster,
-      position_counts: myCounts,
-    },
-    board: {
-      overall_top: topOverall,
-      by_position: topByPosition,
-    },
-    constraints,
-    timestamp_iso: new Date().toISOString(),
-  }
-}
-
-function minifyBoardPlayer(p) {
-  return {
-    rk: Number(String(p.rk).replace(/[^\d.-]/g, '')),
-    tier: p.tier || '',
-    name: p.name || '',
-    nname: p.nname || normalizePlayerName(p.name || ''),
-    pos: normalizePos(p.pos || ''),
-    team: p.team || '',
-    bye: p.bye || '',
-    sos: p.sos || '',
-    ecrVsAdp: p.ecrVsAdp || '',
-  }
+const numericRank = (r) => {
+  const n = Number(String(r).replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n : 1e9
 }
 
 function groupBy(arr, keyFn) {
-  /** @type {Record<string, any[]>} */
   const out = {}
   for (const x of arr) {
     const k = keyFn(x)
@@ -181,7 +22,6 @@ function groupBy(arr, keyFn) {
 }
 
 function countBy(arr, keyFn) {
-  /** @type {Record<string, number>} */
   const out = {}
   for (const x of arr) {
     const k = keyFn(x)
@@ -191,7 +31,6 @@ function countBy(arr, keyFn) {
 }
 
 function summarizeRosterRequirements(positions) {
-  // Sleeper typisch: ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF","BN","BN","IR","TAXI",...]
   const counts = countBy(positions || [], x => x)
   return {
     required: {
@@ -209,102 +48,58 @@ function summarizeRosterRequirements(positions) {
       IDP: (counts.DL || 0) + (counts.LB || 0) + (counts.DB || 0),
     },
     bench: counts.BN || 0,
-    special: {
-      IR: counts.IR || 0,
-      TAXI: counts.TAXI || 0,
-    },
+    special: { IR: counts.IR || 0, TAXI: counts.TAXI || 0 },
   }
-}
-
-function inferSnake(draft) {
-  // Sleeper Draft settings -> meist snake. Wenn du später die echte Info hast, hier ersetzen.
-  // fallback: assume snake
-  return true
 }
 
 function inferMySlot({ draft, livePicks, me }) {
-  // Best effort: früheste eigene Pick-Nummer -> Slot % Teams
   try {
     const teams = draft?.settings?.teams ?? draft?.teams
     if (!teams || !Number.isFinite(teams)) return null
-    const mine = (livePicks || []).filter(p => p.picked_by === me).sort((a,b) => (a.pick_no||0)-(b.pick_no||0))
+    const mine = (livePicks || [])
+      .filter(p => p.picked_by === me)
+      .sort((a, b) => (a.pick_no || 0) - (b.pick_no || 0))
     if (!mine.length) return null
     const pick1 = mine[0].pick_no
     if (!Number.isFinite(pick1)) return null
-    const slot = ((pick1 - 1) % teams) + 1
-    return slot
-  } catch {
-    return null
+    return ((pick1 - 1) % teams) + 1
+  } catch { return null }
+}
+
+function minifyBoardPlayer(p) {
+  return {
+    rk: numericRank(p.rk),
+    tier: p.tier || '',
+    name: p.name || '',
+    nname: p.nname || normalizePlayerName(p.name || ''),
+    pos: normalizePos(p.pos || ''),
+    team: p.team || '',
+    bye: p.bye || '',
+    sos: p.sos || '',
+    ecrVsAdp: p.ecrVsAdp || '',
   }
 }
 
 /**
- * System Prompt: stabile, klare Regeln für das LLM
+ * For each RB on the user's roster, find available backups on the same NFL team.
+ * Helps the AI recommend handcuffs at the right moment.
  */
-function buildSystemPrompt() {
-  return [
-    'You are a veteran Fantasy Football draft advisor specialized in Sleeper drafts.',
-    'Task: Recommend the next best pick for the USER given the league settings, roster needs, and the provided ranking board.',
-    'Hard constraints:',
-    '- Never recommend a player who is already picked.',
-    '- Recommend only players from board.overall_top or board.by_position.',
-    '- Respect the league scoring and roster requirements from context.format.',
-    '- Consider positional scarcity, roster balance, and tier pressure; bye weeks only as tie-breakers.',
-    '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
-    '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
-    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
-    '- Respect user preferences from context.user_bias: slightly prefer favorites and avoid "avoid" players unless the value is exceptional. Never pick an avoid if there are comparable alternatives.',
-    'Return your final answer by CALLING the tool function `return_draft_advice`.'
-  ].join('\\n')
-}
-
-/**
- * JSON-Schema für eine robuste, kleinteilige Antwort.
- * -> Passt gut zum UI (Primary + Alternativen + kompakte Begründungen).
- */
-function draftAdviceParametersSchema() {
-    return {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        primary: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            player_nname: { type: 'string', description: 'Normalized name to match board.nname' },
-            player_display: { type: 'string', description: 'Human readable "First Last"' },
-            pos: { type: 'string', enum: ['QB','RB','WR','TE','K','DEF','OTHER'] },
-            tier: { type: 'string' },
-            rk: { type: 'integer' },
-            fit_score: { type: 'number', minimum: 0, maximum: 100 },
-            why: { type: 'string', description: 'Short reasoning focusing on fit, scarcity, risk' },
-          },
-          required: ['player_nname','pos','why'],
-        },
-        alternatives: {
-          type: 'array',
-          minItems: 2,
-          maxItems: 5,
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              player_nname: { type: 'string' },
-              player_display: { type: 'string' },
-              pos: { type: 'string', enum: ['QB','RB','WR','TE','K','DEF','OTHER'] },
-              tier: { type: 'string' },
-              rk: { type: 'integer' },
-              why: { type: 'string' },
-            },
-            required: ['player_nname','pos','why'],
-          }
-        },
-        strategy_notes: { type: 'string', description: '1-3 short bullets about overall strategy from now on' },
-        risk_level: { type: 'string', enum: ['low','medium','high'] },
-        confidence: { type: 'number', minimum: 0, maximum: 1 },
-      },
-      required: ['primary','alternatives'],
-  }
+function findHandcuffs({ myRoster, available }) {
+  const myRBs = myRoster.filter(r => r.pos === 'RB' && r.team)
+  return myRBs.flatMap(starter => {
+    const backups = available
+      .filter(p => normalizePos(p.pos) === 'RB' && p.team === starter.team)
+      .slice(0, 2)
+      .map(b => ({
+        nname: b.nname,
+        name: b.name || b.nname,
+        rk: numericRank(b.rk),
+        tier: b.tier || '',
+      }))
+    return backups.length > 0
+      ? [{ starter_nname: starter.nname, starter_team: starter.team, backups }]
+      : []
+  })
 }
 
 function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
@@ -317,19 +112,13 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
   const favorites = []
   const avoids = []
   for (const [pid, pref] of Object.entries(playerPreferences || {})) {
-    // pref-Werte kommen von PlayerPreference (z.B. 'FAVORITE' / 'AVOID' / 'NEUTRAL')
     if (!pref) continue
-    // Wir versuchen sowohl per ID-Match als auch per nname-Match
-    // 1) per nname-Schlüssel (falls prefs so gespeichert sind)
     const asNname = normalizePlayerName(pid)
-    const nnameHasBoard = idByNname.has(asNname)
-    if (nnameHasBoard) {
+    if (idByNname.has(asNname)) {
       if (pref === 'FAVORITE') favorites.push(asNname)
       else if (pref === 'AVOID') avoids.push(asNname)
       continue
     }
-    // 2) per ID -> nname
-    // Falls du IDs statt nname in prefs speicherst: wir suchen den Spieler im Board
     const p = (boardPlayers || []).find(bp => String(bp.player_id || bp.id) === String(pid))
     if (p) {
       const n = normalizePlayerName(p.nname || p.name || '')
@@ -345,19 +134,166 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
   }
 }
 
+// ---------- Context builder ----------
+
+function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options }) {
+  const { topNOverall = 40, topPerPos = 10 } = options
+
+  const pickedByName = new Set(
+    (livePicks || []).map(p =>
+      normalizePlayerName(`${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`)
+    )
+  )
+
+  const available = (boardPlayers || [])
+    .filter(p => {
+      if (p?.status === 'me' || p?.status === 'other') return false
+      if (pickedByName.has(p.nname)) return false
+      return true
+    })
+    .sort((a, b) => numericRank(a.rk) - numericRank(b.rk))
+
+  const topOverall = available.slice(0, topNOverall).map(minifyBoardPlayer)
+  const byPos = groupBy(available, p => normalizePos(p.pos || 'OTHER'))
+  const topByPosition = Object.fromEntries(
+    Object.entries(byPos).map(([pos, arr]) => [pos, arr.slice(0, topPerPos).map(minifyBoardPlayer)])
+  )
+
+  const myPicks = (livePicks || []).filter(p => p.picked_by === me)
+  const myRoster = myPicks.map(p => ({
+    nname: normalizePlayerName(`${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`),
+    name: `${p?.metadata?.first_name || ''} ${p?.metadata?.last_name || ''}`.trim(),
+    pos: p?.metadata?.position || '',
+    team: p?.metadata?.team || '',
+    pick_no: p?.pick_no || null,
+  }))
+  const myCounts = countBy(myRoster, r => r.pos || 'OTHER')
+
+  const rosterReq = summarizeRosterRequirements(league?.roster_positions || [])
+
+  const recPoints =
+    league?.scoring_settings && typeof league.scoring_settings.rec === 'number'
+      ? league.scoring_settings.rec
+      : 0
+  const pprType =
+    recPoints >= 0.95 ? 'PPR' : recPoints >= 0.45 ? 'Half PPR' : 'Standard/Non-PPR'
+
+  const draftContext = {
+    current_pick_number: currentPickNumber,
+    rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
+    teams: league?.total_rosters ?? null,
+    slot: inferMySlot({ draft, livePicks, me }),
+    is_snake: true,
+  }
+
+  const handcuffOpps = findHandcuffs({ myRoster, available })
+
+  return {
+    league: {
+      name: league?.name ?? null,
+      season: league?.season ?? null,
+      roster_positions: league?.roster_positions ?? [],
+      roster_requirements: rosterReq,
+      ppr_type: pprType,
+      scoring_settings: league?.scoring_settings ?? {},
+      playoff_start_week: league?.playoff_start_week ?? undefined,
+      total_rosters: league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null,
+    },
+    draft: draftContext,
+    me: { user_id: me },
+    my_team: { picks: myRoster, position_counts: myCounts },
+    board: { overall_top: topOverall, by_position: topByPosition },
+    constraints: {
+      candidate_pool_hint: {
+        overall_size: topOverall.length,
+        by_position_keys: Object.keys(topByPosition),
+      },
+      avoid_nnames: Array.from(pickedByName),
+    },
+    ...(handcuffOpps.length > 0 ? { handcuff_opportunities: handcuffOpps } : {}),
+    timestamp_iso: new Date().toISOString(),
+  }
+}
+
+// ---------- System prompt ----------
+
+function buildSystemPrompt() {
+  return [
+    'You are a veteran Fantasy Football draft advisor specialized in Sleeper drafts.',
+    'Task: Recommend the next best pick for the USER given league settings, roster needs, and the provided ranking board.',
+    'Hard constraints:',
+    '- Never recommend a player listed in constraints.avoid_nnames (already picked).',
+    '- Only recommend players from board.overall_top or board.by_position.',
+    '- Respect league scoring and roster requirements from context.league.',
+    '- Consider positional scarcity, roster balance, and tier pressure; use bye weeks only as tie-breakers.',
+    '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
+    '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
+    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
+    '- Respect context.user_bias: prefer favorites, strongly avoid "avoid" players unless the value gap is extreme.',
+    '- Handcuffs: if context.handcuff_opportunities lists an available RB backup, consider recommending it in rounds 8+ when roster depth allows.',
+    'Return your answer by calling tool `return_draft_advice`.',
+  ].join('\n')
+}
+
+// ---------- Tool definition (Anthropic format) ----------
+
+function buildAdviceTool() {
+  return {
+    name: 'return_draft_advice',
+    description: 'Return the next-pick recommendation and alternatives for the user based on the provided context.',
+    input_schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        primary: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            player_nname: { type: 'string', description: 'Normalized name matching board.nname' },
+            player_display: { type: 'string', description: 'Human-readable "First Last"' },
+            pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
+            tier: { type: 'string' },
+            rk: { type: 'integer' },
+            fit_score: { type: 'number', minimum: 0, maximum: 100 },
+            why: { type: 'string', description: 'Short reasoning: fit, scarcity, risk' },
+          },
+          required: ['player_nname', 'pos', 'why'],
+        },
+        alternatives: {
+          type: 'array',
+          minItems: 2,
+          maxItems: 5,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              player_nname: { type: 'string' },
+              player_display: { type: 'string' },
+              pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
+              tier: { type: 'string' },
+              rk: { type: 'integer' },
+              why: { type: 'string' },
+            },
+            required: ['player_nname', 'pos', 'why'],
+          },
+        },
+        strategy_notes: {
+          type: 'string',
+          description: '1-3 short bullets about overall strategy going forward',
+        },
+        risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
+        confidence: { type: 'number', minimum: 0, maximum: 1 },
+      },
+      required: ['primary', 'alternatives'],
+    },
+  }
+}
+
+// ---------- Public API ----------
 
 /**
- * Baut das vollständige Payload für openai.chat.completions.create(...)
- *
- * @param {Object} params
- * @param {BoardPlayer[]} params.boardPlayers
- * @param {SleeperPick[]} params.livePicks
- * @param {string} params.me
- * @param {LeagueLike} params.league
- * @param {any} [params.draft]
- * @param {number|null} [params.currentPickNumber]
- * @param {BuildOptions} [params.options]
- * @returns {Object} payload
+ * Builds the Claude-native request payload for /api/ai-advice.
+ * Returns { system, messages, tools, tool_choice, max_tokens, temperature }
  */
 export function buildAIAdviceRequest(params) {
   const {
@@ -368,82 +304,62 @@ export function buildAIAdviceRequest(params) {
     draft = null,
     currentPickNumber = null,
     options = {},
-    scoringType,            // 'standard' | 'half_ppr' | 'ppr'
-    scoringSettings,        // numeric map if available
-    rosterPositions,        // array of slots
+    scoringType,
+    scoringSettings,
+    rosterPositions,
     strategies = ['balanced'],
-    isSuperflex,            // boolean
+    isSuperflex,
     customStrategyText,
     playerPreferences = {},
   } = params || {}
 
   const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
-  // add setup knobs into the LLM context (NOT as top-level request args)
-context.format = {
-  scoring_type: scoringType || (
-    typeof league?.scoring_settings?.rec === 'number'
-      ? (league.scoring_settings.rec >= 0.95 ? 'ppr'
-        : league.scoring_settings.rec >= 0.45 ? 'half_ppr'
-        : 'standard')
-      : 'ppr'
-  ),
-  superflex: !!isSuperflex,
-  roster_positions: Array.isArray(rosterPositions) && rosterPositions.length
-    ? rosterPositions
-    : (league?.roster_positions || []),
-  scoring_settings: scoringSettings || league?.scoring_settings || {}
-}
 
-context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
-// Freitext-Strategie (hart auf ~4k Zeichen begrenzt, damit die Message nicht explodiert)
-if (customStrategyText && typeof customStrategyText === 'string') {
-  context.custom_strategy = String(customStrategyText).slice(0, 4000)
-}
+  context.format = {
+    scoring_type:
+      scoringType ||
+      (typeof league?.scoring_settings?.rec === 'number'
+        ? league.scoring_settings.rec >= 0.95
+          ? 'ppr'
+          : league.scoring_settings.rec >= 0.45
+          ? 'half_ppr'
+          : 'standard'
+        : 'ppr'),
+    superflex: !!isSuperflex,
+    roster_positions:
+      Array.isArray(rosterPositions) && rosterPositions.length
+        ? rosterPositions
+        : league?.roster_positions || [],
+    scoring_settings: scoringSettings || league?.scoring_settings || {},
+  }
 
-// User-Bias aus Favorites/Avoids  Weights (tunable)
-const { favorites, avoids } = deriveFavAvoid({ boardPlayers, playerPreferences })
-const favBonus = Number.isFinite(options.favBonus) ? options.favBonus : 5   // 0..20 (weiches Signal)
-const avoidPenalty = Number.isFinite(options.avoidPenalty) ? options.avoidPenalty : 8 // 0..30
-context.user_bias = {
-  favorites_nnames: favorites,     // LLM arbeitet mit nname
-  avoids_nnames: avoids,
-  weights: { fav_bonus: favBonus, avoid_penalty: avoidPenalty }
-}
+  context.strategies = Array.isArray(strategies) ? strategies : ['balanced']
 
-  const system = buildSystemPrompt()
-  const parametersSchema = draftAdviceParametersSchema()
+  if (customStrategyText && typeof customStrategyText === 'string') {
+    context.custom_strategy = String(customStrategyText).slice(0, 4000)
+  }
 
-  const model = options.model || 'gpt-4o-mini'
-  const temperature = options.temperature ?? 0.2
-  const max_output_tokens = options.max_output_tokens ?? 500
+  const { favorites, avoids } = deriveFavAvoid({ boardPlayers, playerPreferences })
+  context.user_bias = {
+    favorites_nnames: favorites,
+    avoids_nnames: avoids,
+    weights: {
+      fav_bonus: Number.isFinite(options.favBonus) ? options.favBonus : 5,
+      avoid_penalty: Number.isFinite(options.avoidPenalty) ? options.avoidPenalty : 8,
+    },
+  }
 
-  // Für Chat Completions:
-  // client.chat.completions.create({ model, messages, response_format, temperature, max_tokens })
   return {
-    model,
-    temperature,
-    max_tokens: max_output_tokens,
-    tools: [
-      {
-        type: 'function',
-        function: {
-          name: 'return_draft_advice',
-          description: 'Return the next-pick recommendation and alternatives for the user based on the provided context.',
-          parameters: parametersSchema
-        }
-      }
-    ],
-    tool_choice: { type: 'function', function: { name: 'return_draft_advice' } },
+    system: buildSystemPrompt(),
     messages: [
-      { role: 'system', content: system },
       {
         role: 'user',
-        content:
-  `Use the following structured context to recommend the next pick:
-  <CONTEXT_JSON>
-  ${JSON.stringify(context)}
-  </CONTEXT_JSON>`
-      }
-    ]
+        content: `Use the following structured context to recommend the next pick:\n<CONTEXT_JSON>\n${JSON.stringify(context)}\n</CONTEXT_JSON>`,
+      },
+    ],
+    tools: [buildAdviceTool()],
+    tool_choice: { type: 'tool', name: 'return_draft_advice' },
+    max_tokens: 1024,
+    temperature: options.temperature ?? 0.2,
   }
 }

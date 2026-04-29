@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"import\\('@anthropic-ai/sdk'\\).then\\(m => console.log\\('SDK OK, version:', m.default?.VERSION || 'loaded'\\)\\)\")",
+      "Bash(npm run *)",
+      "Bash(node --input-type=module)",
+      "Bash(kill %1)"
+    ]
+  }
+}

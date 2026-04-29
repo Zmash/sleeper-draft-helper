@@ -14,15 +14,10 @@ export default function DraftAnalysis({
   board = null,
 }) {
   const [ai, setAi] = React.useState({ loading: false, data: null, error: '', ran: false })
-  const canAI = !!getOpenAIKey() && 
-                !!league && 
+  const canAI = !!getOpenAIKey() &&
+                !!league &&
                 Array.isArray(picks) && picks.length > 0 &&
                 teamByRosterId && Object.keys(teamByRosterId || {}).length > 0
-  console.debug("[DraftAnalysis] getOpenAIKey:", getOpenAIKey())
-  console.debug("[DraftAnalysis] league:", league)
-  console.debug("[DraftAnalysis] picks.length:", Array.isArray(picks) ? picks.length : "not an array")
-  console.debug("[DraftAnalysis] teamByRosterId keys:", teamByRosterId ? Object.keys(teamByRosterId) : "null/undefined")
-  console.debug("[DraftAnalysis] canAI:", canAI)
 
 
   const runAI = React.useCallback(async () => {
@@ -45,7 +40,7 @@ export default function DraftAnalysis({
         myRosterId: myRosterId || fallbackRosterId,
         board
       })
-      const payload = buildDraftReviewPayload(ctx, { model: 'gpt-4o-mini', temperature: 0.3 })
+      const payload = buildDraftReviewPayload(ctx, { temperature: 0.3 })
       const parsed = await callAiDraftReview(payload)
       setAi({ loading: false, data: parsed, error: '', ran: true })
     } catch (e) {
@@ -105,7 +100,7 @@ export default function DraftAnalysis({
       <div className="mt-6 flex items-center justify-between">
         <h3 className="text-lg font-semibold">AI Draft Review</h3>
         <div className="flex items-center gap-2">
-          {!canAI && <span className="muted text-sm">(Add an OpenAI key to enable the AI review)</span>}
+          {!canAI && <span className="muted text-sm">(Add an Anthropic key to enable the AI review)</span>}
           <button className="btn" disabled={!canAI || ai.loading} onClick={runAI}>
             {ai.loading ? 'Analyzing…' : (ai.ran ? 'Re-run' : 'Run')}
           </button>

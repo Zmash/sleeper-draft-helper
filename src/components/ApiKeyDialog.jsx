@@ -42,7 +42,7 @@ export default function ApiKeyDialog({
     if (!t) return 'Bitte gib einen API-Key ein.'
     if (t.length < 20) return 'Der Key ist zu kurz.'
     // akzeptiere neue und alte Formate
-    if (!/^sk-/.test(t)) return 'Ungewöhnliches Format. Beginnt üblicherweise mit "sk-".'
+    if (!/^sk-ant-/.test(t)) return 'Ungewöhnliches Format. Anthropic-Keys beginnen mit "sk-ant-".'
     return ''
   }
 
@@ -72,10 +72,10 @@ export default function ApiKeyDialog({
   return (
     <div style={backdropStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ margin: 0, fontSize: 18 }}>OpenAI API-Key</h3>
+        <h3 style={{ margin: 0, fontSize: 18 }}>Anthropic API-Key</h3>
         <p className="muted" style={{ marginTop: 6 }}>
           Dein Key wird <b>nur lokal</b> im Browser gespeichert (LocalStorage) und bei Aufrufen
-          im Header <code>X-OpenAI-Key</code> an die API geschickt.
+          im Header <code>X-Anthropic-Key</code> an die API geschickt.
         </p>
 
         <form onSubmit={handleSave} style={{ marginTop: 12 }}>
@@ -92,7 +92,7 @@ export default function ApiKeyDialog({
               type={show ? 'text' : 'password'}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder="sk-..."
+              placeholder="sk-ant-..."
               autoFocus
               spellCheck={false}
               style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: 'inherit' }}
