@@ -5,6 +5,7 @@ import {
     loadUserDraftsForYear,
     fetchLeagueDrafts,
     mergeDraftsUnique,
+    fetchLeague,
   } from './api'
   
   // 1) User-ID auflösen (schreibt userId in State + LocalStorage)

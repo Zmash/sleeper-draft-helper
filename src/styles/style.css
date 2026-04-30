@@ -811,3 +811,56 @@ th.col-pick, td.col-pick { width: 64px; }
 .summary-item { display: flex; justify-content: space-between; gap: 8px; }
 .summary-item .k { color: var(--muted); }
 .summary-item .v { font-weight: 600; }
+
+/* =========================================================
+   ROOKIE DRAFT — Dynasty Roster & Picks Banner
+   ========================================================= */
+
+/* chip variant for acquired/traded picks */
+.chip--accent {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #a5b4fc;
+}
+
+/* "Deine Picks" banner above the board */
+.my-picks-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Dynasty roster section */
+.dynasty-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.dynasty-group { display: flex; flex-direction: column; gap: 4px; }
+.dynasty-group-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.dynasty-group-rows { display: flex; flex-direction: column; gap: 4px; }
+.dynasty-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+}
+.dynasty-name { font-size: 0.875rem; font-weight: 500; }
+.dynasty-meta { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+/* Taxi pill color */
+.slot-pill--TAXI { background: #7c3aed; }
+.slot-pill--IR   { background: #dc2626; }

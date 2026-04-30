@@ -38,6 +38,9 @@ export default function BoardSection({
   meUserId,
   league,
   draft,
+  draftMode = 'redraft',
+  myDraftPicks = [],
+  dynastyRoster = [],
 }) {
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
@@ -122,6 +125,9 @@ export default function BoardSection({
         options: { topNOverall: 60, topPerPos: 20, temperature: 0.2 },
         favBonus: 6,
         avoidPenalty: 10,
+        draftMode,
+        dynastyRoster,
+        myDraftPicks,
       })
 
       if (DEBUG_AI) {
@@ -372,6 +378,17 @@ export default function BoardSection({
         onTeamFilterChange={onTeamFilterChange}
       />
 
+      {draftMode === 'rookie' && myDraftPicks.length > 0 && (
+        <div className="my-picks-banner">
+          <span className="muted text-xs" style={{ marginRight: '0.5rem' }}>Deine Picks:</span>
+          {myDraftPicks.map((p, i) => (
+            <span key={i} className={`chip chip--small ${p.type === 'acquired' ? 'chip--accent' : ''}`} title={p.type === 'acquired' ? 'Eingetauscht' : 'Eigenerpick'}>
+              R{p.round}{p.type === 'acquired' ? ' ↗' : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
       <BoardTable
         progressPercent={totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}
         pickedCount={pickedCount}
@@ -383,6 +400,7 @@ export default function BoardSection({
         boardPlayers={filteredBoardPlayers}
         playerPrefs={playerPrefs}
         onSetPlayerPref={handleSetPlayerPref}
+        draftMode={draftMode}
       />
 
       <div className="row end" style={{ gap: 8, marginTop: '1rem' }}>

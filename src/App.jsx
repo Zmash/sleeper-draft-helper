@@ -24,7 +24,10 @@ import {
   fetchLeagueDrafts,
   mergeDraftsUnique,
   formatDraftLabel,
+  fetchLeagueRosters,
+  fetchTradedPicks,
 } from './services/api'
+import { loadPlayersMetaCached } from './services/playersMeta'
 
 import {
     resolveUserIdAction,
@@ -69,6 +72,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState(persisted.searchQuery || '')
   const [positionFilter, setPositionFilter] = useState(persisted.positionFilter || 'ALL')
   const [teamFilter, setTeamFilter] = useState(persisted.teamFilter || 'ALL')
+
+  // Draft mode: 'redraft' | 'rookie'
+  const [draftMode, setDraftMode] = useState(persisted.draftMode || 'redraft')
+
+  // Dynasty roster (nur im Rookie-Modus befüllt)
+  const [dynastyRoster, setDynastyRoster] = useState([])
+  const [mySleeperRosterId, setMySleeperRosterId] = useState(null)
+  const [tradedPicks, setTradedPicks] = useState([])
 
   // Live picks
   const [livePicks, setLivePicks] = useState([])
@@ -240,6 +251,7 @@ export default function App() {
       refreshIntervalSeconds,
       activeTab,
       manualDraftInput,
+      draftMode,
     })
   }, [
     sleeperUsername, sleeperUserId, seasonYear,
@@ -247,7 +259,7 @@ export default function App() {
     csvRawText, boardPlayers,
     searchQuery, positionFilter, teamFilter,
     autoRefreshEnabled, refreshIntervalSeconds,
-    activeTab, manualDraftInput,
+    activeTab, manualDraftInput, draftMode,
   ], 200)
 
   // Networking helpers (bleiben hier, greifen auf State zu)
@@ -382,6 +394,68 @@ export default function App() {
       loadLeagueUsers(selectedLeagueId).catch(() => {})
     }
   }, [selectedLeagueId]) // eslint-disable-line
+
+  // Auto-detect draft mode from league type
+  useEffect(() => {
+    const lt = selectedLeague?.league_type
+    if (lt === 'dynasty' || lt === 'keeper') setDraftMode('rookie')
+    else if (lt === 'redraft') setDraftMode('redraft')
+  }, [selectedLeague?.league_type]) // eslint-disable-line
+
+  // Dynasty roster laden (nur im Rookie-Modus)
+  useEffect(() => {
+    if (draftMode !== 'rookie' || !selectedLeagueId || !sleeperUserId) {
+      setDynastyRoster([])
+      return
+    }
+    async function loadDynastyRoster() {
+      try {
+        const season = Number(seasonYear) || new Date().getFullYear()
+        const [rosters, playersMeta] = await Promise.all([
+          fetchLeagueRosters(selectedLeagueId),
+          loadPlayersMetaCached({ season }),
+        ])
+        const myRoster = (rosters || []).find(r => String(r.owner_id) === String(sleeperUserId))
+        if (!myRoster) { setDynastyRoster([]); setMySleeperRosterId(null); return }
+        setMySleeperRosterId(myRoster.roster_id ?? null)
+
+        const starterSet = new Set(myRoster.starters || [])
+        const taxiSet = new Set(myRoster.taxi || [])
+        const reserveSet = new Set(myRoster.reserve || [])
+        const allIds = myRoster.players || []
+
+        const players = allIds.map(id => {
+          const meta = playersMeta[id] || {}
+          const slot = taxiSet.has(id) ? 'taxi'
+            : reserveSet.has(id) ? 'ir'
+            : starterSet.has(id) ? 'starter'
+            : 'bench'
+          return {
+            sleeper_id: id,
+            name: meta.full_name || `#${id}`,
+            pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
+            team: meta.team || '',
+            bye: meta.bye_week != null ? String(meta.bye_week) : '',
+            age: meta.age || null,
+            slot,
+          }
+        })
+        setDynastyRoster(players)
+      } catch (e) {
+        console.warn('[dynastyRoster] load failed', e)
+        setDynastyRoster([])
+      }
+    }
+    loadDynastyRoster()
+  }, [draftMode, selectedLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
+
+  // Traded Picks laden (nur im Rookie-Modus)
+  useEffect(() => {
+    if (draftMode !== 'rookie' || !selectedDraftId) { setTradedPicks([]); return }
+    fetchTradedPicks(selectedDraftId)
+      .then(setTradedPicks)
+      .catch(e => { console.warn('[tradedPicks] load failed', e); setTradedPicks([]) })
+  }, [draftMode, selectedDraftId]) // eslint-disable-line
 
   // Detect config changes → re-mark
   useEffect(() => {
@@ -592,6 +666,36 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
     }
   }, [boardPlayers, effRoster, teamsCount, livePicks])
 
+  // Meine Picks in diesem Rookie-Draft (inklusive Trades)
+  const myDraftPicks = useMemo(() => {
+    if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
+
+    const rounds = Number(selectedDraft.settings?.rounds) || 3
+    const traded = tradedPicks || []
+
+    // Picks die ich abgegeben habe (original meins, neuer owner ≠ ich)
+    const tradedAway = new Set(
+      traded
+        .filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId))
+        .map(p => p.round)
+    )
+    // Picks die ich bekommen habe (von anderem ursprünglich, aktuell mir)
+    const tradedToMe = traded.filter(
+      p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId)
+    )
+
+    const result = []
+    // Meine Original-Picks (noch nicht abgegeben)
+    for (let r = 1; r <= rounds; r++) {
+      if (!tradedAway.has(r)) result.push({ round: r, type: 'own' })
+    }
+    // Dazu gehandelte Picks
+    for (const tp of tradedToMe) {
+      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id })
+    }
+    return result.sort((a, b) => a.round - b.round)
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks])
+
 
   // Render
   return (
@@ -631,6 +735,9 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
           attachDraftByIdOrUrl={attachDraftByIdOrUrl}
           handleCsvLoad={handleCsvLoad}
           formatDraftLabel={formatDraftLabel}
+          draftMode={draftMode}
+          setDraftMode={setDraftMode}
+          selectedLeague={selectedLeague}
         />
       )}
   
@@ -662,6 +769,9 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
           meUserId={sleeperUserId}
           league={selectedLeague}
           draft={selectedDraft}
+          draftMode={draftMode}
+          myDraftPicks={myDraftPicks}
+          dynastyRoster={dynastyRoster}
         />
       )}
   
@@ -673,6 +783,8 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
           league={selectedLeague}
           draft={selectedDraft}
           teamsCount={teamsCount}
+          draftMode={draftMode}
+          dynastyRoster={dynastyRoster}
         />
       )}
     

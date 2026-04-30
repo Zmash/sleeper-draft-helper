@@ -59,11 +59,21 @@ export async function fetchLeagueUsers(leagueId) {
 // --- DRAFT META --------------------------------------------------------------
 
 export async function fetchDraft(draftId) {
-  return fetchJson(`${SLEEPER_API_BASE}/v1/draft/${draftId}`)
+  return fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}`)
 }
 
 export async function fetchDraftPicks(draftId) {
-  return fetchJson(`${SLEEPER_API_BASE}/v1/draft/${draftId}/picks`)
+  return fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks`)
+}
+
+export async function fetchTradedPicks(draftId) {
+  if (!draftId) return []
+  return fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/traded_picks`)
+}
+
+export async function fetchLeagueRosters(leagueId) {
+  if (!leagueId) return []
+  return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/rosters`)
 }
 
 /**
@@ -86,6 +96,7 @@ export function rosterPositionsFromDraft(draft = {}, league = null) {
     slots_rb_te: 'RB/TE',
     slots_super_flex: 'SUPER_FLEX',
     slots_bn: 'BN',
+    slots_taxi: 'TAXI',
     slots_idp_flex: 'IDP_FLEX',
     slots_dl: 'DL',
     slots_lb: 'LB',

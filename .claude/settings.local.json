@@ -4,7 +4,10 @@
       "Bash(node -e \"import\\('@anthropic-ai/sdk'\\).then\\(m => console.log\\('SDK OK, version:', m.default?.VERSION || 'loaded'\\)\\)\")",
       "Bash(npm run *)",
       "Bash(node --input-type=module)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "WebSearch",
+      "WebFetch(domain:ffscrapr.ffverse.com)",
+      "WebFetch(domain:sleeper-api-client.readthedocs.io)"
     ]
   }
 }

@@ -136,7 +136,7 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
 
 // ---------- Context builder ----------
 
-function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options }) {
+function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks }) {
   const { topNOverall = 40, topPerPos = 10 } = options
 
   const pickedByName = new Set(
@@ -186,9 +186,21 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
     is_snake: true,
   }
 
-  const handcuffOpps = findHandcuffs({ myRoster, available })
+  const isRookie = draftMode === 'rookie'
+  const handcuffOpps = isRookie ? [] : findHandcuffs({ myRoster, available })
+
+  // Dynasty-Kader: Positionszählung für AI-Kontext
+  const existingRosterCounts = isRookie && Array.isArray(dynastyRoster) && dynastyRoster.length
+    ? countBy(dynastyRoster, p => normalizePos(p.pos || 'OTHER'))
+    : null
+
+  // Meine Picks in diesem Draft (Rookie)
+  const myPicksInDraft = isRookie && Array.isArray(myDraftPicks) && myDraftPicks.length
+    ? myDraftPicks.map(p => ({ round: p.round, type: p.type }))
+    : null
 
   return {
+    draft_mode: draftMode || 'redraft',
     league: {
       name: league?.name ?? null,
       season: league?.season ?? null,
@@ -199,9 +211,16 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
       playoff_start_week: league?.playoff_start_week ?? undefined,
       total_rosters: league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null,
     },
-    draft: draftContext,
+    draft: {
+      ...draftContext,
+      ...(myPicksInDraft ? { my_picks: myPicksInDraft } : {}),
+    },
     me: { user_id: me },
-    my_team: { picks: myRoster, position_counts: myCounts },
+    my_team: {
+      picks: myRoster,
+      position_counts: myCounts,
+      ...(existingRosterCounts ? { existing_dynasty_roster_counts: existingRosterCounts } : {}),
+    },
     board: { overall_top: topOverall, by_position: topByPosition },
     constraints: {
       candidate_pool_hint: {
@@ -217,21 +236,42 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
 
 // ---------- System prompt ----------
 
-function buildSystemPrompt() {
-  return [
-    'You are a veteran Fantasy Football draft advisor specialized in Sleeper drafts.',
-    'Task: Recommend the next best pick for the USER given league settings, roster needs, and the provided ranking board.',
+function buildSystemPrompt(draftMode) {
+  const shared = [
     'Hard constraints:',
     '- Never recommend a player listed in constraints.avoid_nnames (already picked).',
     '- Only recommend players from board.overall_top or board.by_position.',
+    '- Respect context.user_bias: prefer favorites, strongly avoid "avoid" players unless the value gap is extreme.',
+    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
+    'Return your answer by calling tool `return_draft_advice`.',
+  ]
+
+  if (draftMode === 'rookie') {
+    return [
+      'You are a veteran Dynasty Fantasy Football advisor specialized in annual Rookie Drafts on Sleeper.',
+      'Task: Recommend the next best rookie pick for the USER given their existing dynasty roster and the current rookie board.',
+      ...shared,
+      'Rookie Draft specifics:',
+      '- All available players are NFL rookies. Prioritize long-term dynasty value over immediate starter impact.',
+      '- Key evaluation factors: NFL landing spot (depth chart opportunity), college production, age/athleticism, positional value (WR > RB long-term).',
+      '- Picks often land on the Taxi Squad — immediate starter value is NOT required.',
+      '- context.my_team.existing_dynasty_roster_counts shows positions already on the dynasty roster. Fill positional weaknesses.',
+      '- context.draft.my_picks lists which rounds the user has picks in (some may be traded). Adjust urgency accordingly.',
+      '- Bye weeks are irrelevant for dynasty. Do NOT mention bye weeks.',
+      '- No handcuff logic applies — skip handcuff reasoning entirely.',
+      '- Scarcity: the eligible player pool is small (20–60 players total). Be precise about tier drops.',
+    ].join('\n')
+  }
+
+  return [
+    'You are a veteran Fantasy Football draft advisor specialized in Sleeper drafts.',
+    'Task: Recommend the next best pick for the USER given league settings, roster needs, and the provided ranking board.',
+    ...shared,
     '- Respect league scoring and roster requirements from context.league.',
     '- Consider positional scarcity, roster balance, and tier pressure; use bye weeks only as tie-breakers.',
     '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
     '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
-    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
-    '- Respect context.user_bias: prefer favorites, strongly avoid "avoid" players unless the value gap is extreme.',
     '- Handcuffs: if context.handcuff_opportunities lists an available RB backup, consider recommending it in rounds 8+ when roster depth allows.',
-    'Return your answer by calling tool `return_draft_advice`.',
   ].join('\n')
 }
 
@@ -313,7 +353,8 @@ export function buildAIAdviceRequest(params) {
     playerPreferences = {},
   } = params || {}
 
-  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options })
+  const { draftMode, dynastyRoster, myDraftPicks } = params || {}
+  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks })
 
   context.format = {
     scoring_type:
@@ -350,7 +391,7 @@ export function buildAIAdviceRequest(params) {
   }
 
   return {
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(draftMode),
     messages: [
       {
         role: 'user',

@@ -13,7 +13,9 @@ export default function BoardTable({
   adviceReasons = {},
   playerPrefs = {},
   onSetPlayerPref,
+  draftMode = 'redraft',
 }) {
+  const isRookie = draftMode === 'rookie'
   // Helpers für Highlight-Logik (AI/ALT)
   const toKey = (s) => String(s || '').trim().toLowerCase()
   const highlightSet = useMemo(
@@ -85,8 +87,8 @@ export default function BoardTable({
               <th className="col-name">Name</th>
               <th className="col-team">Team</th>
               <th className="col-pos">Pos</th>
-              <th className="col-bye">Bye</th>
-              <th className="col-sos">SOS</th>
+              {!isRookie && <th className="col-bye">Bye</th>}
+              {!isRookie && <th className="col-sos">SOS</th>}
               <th className="col-ecr">ECR±ADP</th>
               <th className="col-pick">Pick</th>
             </tr>
@@ -162,16 +164,16 @@ export default function BoardTable({
                     {/* Mobile-Subline: kompakte Zusatzinfos */}
                     <div className="row-subline mobile-only">
                       {p.team} · {p.pos}
-                      {p.bye ? ` · Bye ${p.bye}` : ''}
-                      {p.sos ? ` · SOS ${p.sos}` : ''}
+                      {!isRookie && p.bye ? ` · Bye ${p.bye}` : ''}
+                      {!isRookie && p.sos ? ` · SOS ${p.sos}` : ''}
                       {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
                     </div>
                   </td>
 
                   <td className="col-team">{p.team}</td>
                   <td className="col-pos">{p.pos}</td>
-                  <td className="col-bye">{p.bye}</td>
-                  <td className="col-sos">{p.sos}</td>
+                  {!isRookie && <td className="col-bye">{p.bye}</td>}
+                  {!isRookie && <td className="col-sos">{p.sos}</td>}
                   <td className="col-ecr">{p.ecrVsAdp}</td>
                   <td className="col-pick">{p.pick_no || ''}</td>
                 </tr>

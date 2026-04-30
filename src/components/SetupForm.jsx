@@ -39,6 +39,7 @@ export default function SetupForm(props) {
     setSelectedLeagueId, setSelectedDraftId, setManualDraftInput, setCsvRawText,
     saveToLocalStorage, resolveUserId, loadLeagues, loadDraftOptions,
     attachDraftByIdOrUrl, handleCsvLoad, formatDraftLabel,
+    draftMode, setDraftMode, selectedLeague: selectedLeagueProp,
   } = props
 
   // --- UI State
@@ -293,6 +294,30 @@ export default function SetupForm(props) {
                   )}
                 </div>
               </label>
+
+              <label className="field">
+                <span>Draft-Modus</span>
+                <div className="row">
+                  {['redraft', 'rookie'].map(mode => (
+                    <label key={mode} className="radio-option" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="draftMode"
+                        value={mode}
+                        checked={draftMode === mode}
+                        onChange={() => setDraftMode(mode)}
+                      />
+                      {mode === 'redraft' ? 'Redraft' : 'Rookie Draft (Dynasty)'}
+                    </label>
+                  ))}
+                </div>
+                {selectedLeague?.league_type === 'dynasty' && draftMode === 'redraft' && (
+                  <div className="muted text-xs mt-1">Dynasty-Liga erkannt — Rookie Draft empfohlen</div>
+                )}
+                {selectedLeague?.league_type && selectedLeague.league_type !== 'dynasty' && draftMode === 'rookie' && (
+                  <div className="muted text-xs mt-1">Erkannt: {selectedLeague.league_type}</div>
+                )}
+              </label>
             </div>
           </div>
           <div className="step-actions">
@@ -312,6 +337,9 @@ export default function SetupForm(props) {
             <div className="form-row">
               <label className="field">
                 <span>FantasyPros CSV (file)</span>
+                {draftMode === 'rookie' && (
+                  <div className="muted text-xs mb-1">Rookie-Modus: Lade ein Rookie-Only-Ranking hoch (z.B. FantasyPros Dynasty Rookies)</div>
+                )}
                 <div className="row">
                   <input
                     ref={fileRef}
@@ -510,6 +538,7 @@ export default function SetupForm(props) {
             <div className="summary-card">
               <div className="summary-grid">
                 <div className="summary-item"><span className="k">League</span><span className="v">{selectedLeague?.name || '—'}</span></div>
+                <div className="summary-item"><span className="k">Draft-Modus</span><span className="v">{draftMode === 'rookie' ? 'Rookie Draft (Dynasty)' : 'Redraft'}</span></div>
                 <div className="summary-item"><span className="k">Draft</span><span className="v">{selectedDraft ? (formatDraftLabel ? formatDraftLabel(selectedDraft, leaguesById || new Map()) : (selectedDraft?.metadata?.name || selectedDraft?.draft_id)) : '—'}</span></div>
                 <div className="summary-item"><span className="k">Scoring</span><span className="v">{String(eff.scoring_type).toUpperCase()}</span></div>
                 <div className="summary-item"><span className="k">Superflex</span><span className="v">{eff.superflex ? 'Yes' : 'No'}</span></div>
