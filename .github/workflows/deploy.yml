@@ -82,7 +82,7 @@ jobs:
       - name: Restart Node service
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "systemctl restart sleeper"
+            "service sleeper restart"
 
       - name: Cleanup old releases (keep last 5)
         run: |
