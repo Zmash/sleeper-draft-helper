@@ -79,14 +79,10 @@ jobs:
           if command -v restorecon >/dev/null 2>&1; then restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; fi
           EOSSH
 
-      - name: Point service to current symlink & restart
+      - name: Restart Node service
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOSSH'
-          set -euo pipefail
-          sed -i 's|WorkingDirectory=.*|WorkingDirectory=/var/www/zmash/current|' /etc/systemd/system/sleeper.service
-          systemctl daemon-reload
-          systemctl restart sleeper
-          EOSSH
+          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "systemctl restart sleeper"
 
       - name: Cleanup old releases (keep last 5)
         run: |
