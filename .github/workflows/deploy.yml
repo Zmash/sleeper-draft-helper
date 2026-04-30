@@ -23,21 +23,13 @@ jobs:
       - name: Install deps (incl. dev)
         run: npm ci
         env:
-          NODE_ENV: ""               # überschreibt evtl. gesetztes NODE_ENV
+          NODE_ENV: ""
           NPM_CONFIG_PRODUCTION: "false"
-
-      # Falls du Build-ENV aus Secrets brauchst, hier schreiben:
-      # - name: Write .env.production
-      #   run: |
-      #     cat > .env.production << 'EOF'
-      #     VITE_API_BASE=/api
-      #     # WEITERE=WERTE
-      #     EOF
 
       - name: Sanity check vite
         run: npx vite --version
-        
-      - name: Build (Vite/CRA -> dist)
+
+      - name: Build (Vite -> dist)
         run: npm run build
 
       - name: Set release name
@@ -54,10 +46,10 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Create release dir on server
+      - name: Create release dirs on server
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "mkdir -p /var/www/zmash/releases/${{ steps.rel.outputs.REL }}"
+            "mkdir -p /var/www/zmash/releases/${{ steps.rel.outputs.REL }}/server"
 
       - name: Upload dist/ to release
         run: |
@@ -65,17 +57,38 @@ jobs:
             ./dist/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/
 
+      - name: Upload server code to release
+        run: |
+          rsync -az \
+            ./src/server/prod.js \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/server/
+          rsync -az \
+            ./package.json ./package-lock.json \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/
+
+      - name: Install production deps on server
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /var/www/zmash/releases/${{ steps.rel.outputs.REL }} && npm ci --omit=dev"
+
       - name: Activate release (atomic symlink switch)
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOSSH'
           set -euo pipefail
           ln -sfn /var/www/zmash/releases/${{ steps.rel.outputs.REL }} /var/www/zmash/current
-          # SELinux-Relabel ist optional; wenn nicht als root, einfach weglassen oder separat cronen
           if command -v restorecon >/dev/null 2>&1; then restorecon -R /var/www/zmash/releases/${{ steps.rel.outputs.REL }} || true; fi
+          EOSSH
+
+      - name: Point service to current symlink & restart
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOSSH'
+          set -euo pipefail
+          sed -i 's|WorkingDirectory=.*|WorkingDirectory=/var/www/zmash/current|' /etc/systemd/system/sleeper.service
+          systemctl daemon-reload
+          systemctl restart sleeper
           EOSSH
 
       - name: Cleanup old releases (keep last 5)
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '\
-            cd /var/www/zmash/releases && ls -1t | tail -n +6 | xargs -r rm -rf -- \
-          '
+          ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /var/www/zmash/releases && ls -1t | tail -n +6 | xargs -r rm -rf --"
