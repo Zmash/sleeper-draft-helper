@@ -82,7 +82,8 @@ jobs:
       - name: Restart Node service
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "kill \$(pgrep -f 'server/prod.js') 2>/dev/null || true; sleep 4"
+            "pkill -f 'prod.js' || true"
+          sleep 5
 
       - name: Cleanup old releases (keep last 5)
         run: |
