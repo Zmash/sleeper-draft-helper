@@ -7,7 +7,12 @@
       "Bash(kill %1)",
       "WebSearch",
       "WebFetch(domain:ffscrapr.ffverse.com)",
-      "WebFetch(domain:sleeper-api-client.readthedocs.io)"
+      "WebFetch(domain:sleeper-api-client.readthedocs.io)",
+      "Bash(cat)",
+      "Bash(bash /tmp/check_imports.sh)",
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.js$|\\\\.jsx$\")",
+      "Read(//tmp/**)"
     ]
   }
 }

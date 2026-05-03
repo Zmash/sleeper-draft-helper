@@ -543,6 +543,52 @@ export default function App() {
 
   const isRookieMode = draftMode === 'rookie'
 
+  // Meine Picks in diesem Rookie-Draft (inklusive Trades + Slot-Position)
+  // Muss VOR useRookieDraftTips stehen (sonst TDZ-Fehler durch const-Hoisting)
+  const myDraftPicks = useMemo(() => {
+    if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
+
+    const rounds  = Number(selectedDraft.settings?.rounds) || 3
+    const teams   = Number(selectedDraft.settings?.teams)  || 12
+    const order   = selectedDraft.draft_order || {} // user_id → slot
+
+    const mySlot  = Number(order[sleeperUserId]) || null
+
+    const pickPos = (slot, round) => {
+      if (!slot || !teams) return null
+      return round % 2 === 1 ? slot : teams - slot + 1
+    }
+
+    const slotForRoster = (rosterId) => {
+      const uid = rosterToUserMap[String(rosterId)]
+      if (!uid) return null
+      return Number(order[uid]) || null
+    }
+
+    const traded = tradedPicks || []
+
+    const tradedAway = new Set(
+      traded
+        .filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId))
+        .map(p => p.round)
+    )
+    const tradedToMe = traded.filter(
+      p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId)
+    )
+
+    const result = []
+    for (let r = 1; r <= rounds; r++) {
+      if (!tradedAway.has(r)) {
+        result.push({ round: r, type: 'own', pick_pos: pickPos(mySlot, r) })
+      }
+    }
+    for (const tp of tradedToMe) {
+      const theirSlot = slotForRoster(tp.roster_id)
+      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(theirSlot, tp.round) })
+    }
+    return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
+
   const redraftTips = useDraftTips({
     picks: livePicks,
     boardPlayers,
@@ -691,54 +737,6 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
       try { return computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks) } catch { return [] }
     }
   }, [boardPlayers, effRoster, teamsCount, livePicks])
-
-  // Meine Picks in diesem Rookie-Draft (inklusive Trades + Slot-Position)
-  const myDraftPicks = useMemo(() => {
-    if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
-
-    const rounds  = Number(selectedDraft.settings?.rounds) || 3
-    const teams   = Number(selectedDraft.settings?.teams)  || 12
-    const order   = selectedDraft.draft_order || {} // user_id → slot
-
-    const mySlot  = Number(order[sleeperUserId]) || null
-
-    // Slot innerhalb einer Runde: Snake — gerade Runden umgekehrt
-    const pickPos = (slot, round) => {
-      if (!slot || !teams) return null
-      return round % 2 === 1 ? slot : teams - slot + 1
-    }
-
-    // Slot eines anderen Teams über roster_id → user_id → draft_order
-    const slotForRoster = (rosterId) => {
-      const uid = rosterToUserMap[String(rosterId)]
-      if (!uid) return null
-      return Number(order[uid]) || null
-    }
-
-    const traded = tradedPicks || []
-
-    const tradedAway = new Set(
-      traded
-        .filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId))
-        .map(p => p.round)
-    )
-    const tradedToMe = traded.filter(
-      p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId)
-    )
-
-    const result = []
-    for (let r = 1; r <= rounds; r++) {
-      if (!tradedAway.has(r)) {
-        result.push({ round: r, type: 'own', pick_pos: pickPos(mySlot, r) })
-      }
-    }
-    for (const tp of tradedToMe) {
-      const theirSlot = slotForRoster(tp.roster_id)
-      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(theirSlot, tp.round) })
-    }
-    return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
-  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
-
 
   // Render
   return (
