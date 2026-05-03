@@ -381,11 +381,15 @@ export default function BoardSection({
       {draftMode === 'rookie' && myDraftPicks.length > 0 && (
         <div className="my-picks-banner">
           <span className="muted text-xs" style={{ marginRight: '0.5rem' }}>Deine Picks:</span>
-          {myDraftPicks.map((p, i) => (
-            <span key={i} className={`chip chip--small ${p.type === 'acquired' ? 'chip--accent' : ''}`} title={p.type === 'acquired' ? 'Eingetauscht' : 'Eigenerpick'}>
-              R{p.round}{p.type === 'acquired' ? ' ↗' : ''}
-            </span>
-          ))}
+          {myDraftPicks.map((p, i) => {
+            const label = `R${p.round}${p.pick_pos != null ? `.${p.pick_pos}` : ''}${p.type === 'acquired' ? ' ↗' : ''}`
+            const title = p.type === 'acquired' ? 'Eingetauscht' : 'Eigener Pick'
+            return (
+              <span key={i} className={`chip chip--small ${p.type === 'acquired' ? 'chip--accent' : ''}`} title={title}>
+                {label}
+              </span>
+            )
+          })}
         </div>
       )}
 

@@ -21,8 +21,10 @@ export function useDraftTips({
   draftType = 'snake',    // 'snake' | 'auction' | ...
   strategies = ['balanced'],
   draftSlot = null,       // optional; enables exact On-the-Clock if present
+  enabled = true,
 } = {}) {
   return useMemo(() => {
+    if (!enabled) return []
     const curPick = currentPickNumber(picks)
     const window = (draftType === 'snake' && teamsCount)
       ? picksUntilMyNext({ picks, meUserId, teamsCount, draftSlot })
@@ -175,5 +177,5 @@ export function useDraftTips({
     if (preferQBearly) tips.push({ id: 'strategy-qb-early-sf', type: 'strategy', severity: 'info', text: 'Strategy active: Early QB (SF) — prioritize securing two starters.' })
 
     return tips
-  }, [JSON.stringify(picks), JSON.stringify(boardPlayers), meUserId, teamsCount, JSON.stringify(rosterPositions), JSON.stringify(scoringSettings), scoringType, draftType, JSON.stringify(strategies), draftSlot])
+  }, [enabled, JSON.stringify(picks), JSON.stringify(boardPlayers), meUserId, teamsCount, JSON.stringify(rosterPositions), JSON.stringify(scoringSettings), scoringType, draftType, JSON.stringify(strategies), draftSlot])
 }

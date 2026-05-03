@@ -16,10 +16,10 @@ export default function BoardTable({
   draftMode = 'redraft',
 }) {
   const isRookie = draftMode === 'rookie'
-  const hasDynastyValue = useMemo(
-    () => isRookie && (filteredPlayers || []).some(p => p.dynasty_value != null),
-    [isRookie, filteredPlayers]
-  )
+  const hasBye          = useMemo(() => (filteredPlayers || []).some(p => p.bye), [filteredPlayers])
+  const hasSos          = useMemo(() => (filteredPlayers || []).some(p => p.sos), [filteredPlayers])
+  const hasEcrVsAdp     = useMemo(() => (filteredPlayers || []).some(p => p.ecrVsAdp), [filteredPlayers])
+  const hasDynastyValue = useMemo(() => (filteredPlayers || []).some(p => p.dynasty_value != null), [filteredPlayers])
   // Helpers für Highlight-Logik (AI/ALT)
   const toKey = (s) => String(s || '').trim().toLowerCase()
   const highlightSet = useMemo(
@@ -91,10 +91,10 @@ export default function BoardTable({
               <th className="col-name">Name</th>
               <th className="col-team">Team</th>
               <th className="col-pos">Pos</th>
-              {!isRookie && <th className="col-bye">Bye</th>}
-              {!isRookie && <th className="col-sos">SOS</th>}
+              {hasBye          && <th className="col-bye">Bye</th>}
+              {hasSos          && <th className="col-sos">SOS</th>}
               {hasDynastyValue && <th className="col-dyn" title="Dynasty Value">Dyn.Val</th>}
-              <th className="col-ecr">ECR±ADP</th>
+              {hasEcrVsAdp     && <th className="col-ecr">ECR±ADP</th>}
               <th className="col-pick">Pick</th>
             </tr>
           </thead>
@@ -169,19 +169,19 @@ export default function BoardTable({
                     {/* Mobile-Subline: kompakte Zusatzinfos */}
                     <div className="row-subline mobile-only">
                       {p.team} · {p.pos}
-                      {!isRookie && p.bye ? ` · Bye ${p.bye}` : ''}
-                      {!isRookie && p.sos ? ` · SOS ${p.sos}` : ''}
+                      {hasBye && p.bye ? ` · Bye ${p.bye}` : ''}
+                      {hasSos && p.sos ? ` · SOS ${p.sos}` : ''}
                       {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
-                      {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
+                      {hasEcrVsAdp && p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
                     </div>
                   </td>
 
                   <td className="col-team">{p.team}</td>
                   <td className="col-pos">{p.pos}</td>
-                  {!isRookie && <td className="col-bye">{p.bye}</td>}
-                  {!isRookie && <td className="col-sos">{p.sos}</td>}
+                  {hasBye          && <td className="col-bye">{p.bye}</td>}
+                  {hasSos          && <td className="col-sos">{p.sos}</td>}
                   {hasDynastyValue && <td className="col-dyn">{p.dynasty_value ?? ''}</td>}
-                  <td className="col-ecr">{p.ecrVsAdp}</td>
+                  {hasEcrVsAdp     && <td className="col-ecr">{p.ecrVsAdp}</td>}
                   <td className="col-pick">{p.pick_no || ''}</td>
                 </tr>
               )

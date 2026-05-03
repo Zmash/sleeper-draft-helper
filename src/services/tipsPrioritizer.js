@@ -3,6 +3,7 @@ const TYPE_WEIGHTS = {
   value: 18,
   pos_need: 20,
   run_warning: 15,
+  depth_warning: 10, // rookie: positional saturation warning
   stack: 8,
   injury: -4,
   bye_risk: -2,

@@ -3,6 +3,7 @@ import Papa from 'papaparse'
 import { getTeamsCount } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
+import { useRookieDraftTips } from './hooks/useRookieDraftTips'
 import { teamsAndRoundsFromDraft, inferMyDraftSlot } from './services/api'
 
 // Hooks / Utils / Services / Actions
@@ -79,6 +80,7 @@ export default function App() {
   // Dynasty roster (nur im Rookie-Modus befüllt)
   const [dynastyRoster, setDynastyRoster] = useState([])
   const [mySleeperRosterId, setMySleeperRosterId] = useState(null)
+  const [rosterToUserMap, setRosterToUserMap] = useState({}) // roster_id → user_id
   const [tradedPicks, setTradedPicks] = useState([])
 
   // Live picks
@@ -299,7 +301,8 @@ export default function App() {
       setAvailableDrafts,
       setSelectedDraftId,
       saveToLocalStorage,
-      resolveUserId, // Dependency
+      resolveUserId,
+      loadPicks,
     })
   }  
 
@@ -415,6 +418,13 @@ export default function App() {
           fetchLeagueRosters(selectedLeagueId),
           loadPlayersMetaCached({ season }),
         ])
+        // Roster-ID → User-ID Mapping für alle Teams (für Pick-Slot-Berechnung)
+        const rMap = {}
+        for (const r of (rosters || [])) {
+          if (r.roster_id != null && r.owner_id) rMap[String(r.roster_id)] = String(r.owner_id)
+        }
+        setRosterToUserMap(rMap)
+
         const myRoster = (rosters || []).find(r => String(r.owner_id) === String(sleeperUserId))
         if (!myRoster) { setDynastyRoster([]); setMySleeperRosterId(null); return }
         setMySleeperRosterId(myRoster.roster_id ?? null)
@@ -531,7 +541,9 @@ export default function App() {
     : effRoster.some(r => String(r).toUpperCase().includes('SUPER'))
 
 
-  const rawTips = useDraftTips({
+  const isRookieMode = draftMode === 'rookie'
+
+  const redraftTips = useDraftTips({
     picks: livePicks,
     boardPlayers,
     meUserId: sleeperUserId,
@@ -542,7 +554,21 @@ export default function App() {
     scoringType: effScoringType,
     draftType: (selectedDraft?.type || 'snake'),
     strategies,
+    enabled: !isRookieMode,
   })
+
+  const rookieTips = useRookieDraftTips({
+    picks: livePicks,
+    boardPlayers,
+    meUserId: sleeperUserId,
+    dynastyRoster,
+    teamsCount,
+    draftSlot: inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: sleeperUserId }),
+    myDraftPicks,
+    enabled: isRookieMode,
+  })
+
+  const rawTips = isRookieMode ? rookieTips : redraftTips
 
     // Wichtig: currentPickNumber hast du bereits oben berechnet
   const tips = draftFinished ? [] : prioritizeTips(rawTips, {
@@ -666,35 +692,52 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
     }
   }, [boardPlayers, effRoster, teamsCount, livePicks])
 
-  // Meine Picks in diesem Rookie-Draft (inklusive Trades)
+  // Meine Picks in diesem Rookie-Draft (inklusive Trades + Slot-Position)
   const myDraftPicks = useMemo(() => {
     if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
 
-    const rounds = Number(selectedDraft.settings?.rounds) || 3
+    const rounds  = Number(selectedDraft.settings?.rounds) || 3
+    const teams   = Number(selectedDraft.settings?.teams)  || 12
+    const order   = selectedDraft.draft_order || {} // user_id → slot
+
+    const mySlot  = Number(order[sleeperUserId]) || null
+
+    // Slot innerhalb einer Runde: Snake — gerade Runden umgekehrt
+    const pickPos = (slot, round) => {
+      if (!slot || !teams) return null
+      return round % 2 === 1 ? slot : teams - slot + 1
+    }
+
+    // Slot eines anderen Teams über roster_id → user_id → draft_order
+    const slotForRoster = (rosterId) => {
+      const uid = rosterToUserMap[String(rosterId)]
+      if (!uid) return null
+      return Number(order[uid]) || null
+    }
+
     const traded = tradedPicks || []
 
-    // Picks die ich abgegeben habe (original meins, neuer owner ≠ ich)
     const tradedAway = new Set(
       traded
         .filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId))
         .map(p => p.round)
     )
-    // Picks die ich bekommen habe (von anderem ursprünglich, aktuell mir)
     const tradedToMe = traded.filter(
       p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId)
     )
 
     const result = []
-    // Meine Original-Picks (noch nicht abgegeben)
     for (let r = 1; r <= rounds; r++) {
-      if (!tradedAway.has(r)) result.push({ round: r, type: 'own' })
+      if (!tradedAway.has(r)) {
+        result.push({ round: r, type: 'own', pick_pos: pickPos(mySlot, r) })
+      }
     }
-    // Dazu gehandelte Picks
     for (const tp of tradedToMe) {
-      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id })
+      const theirSlot = slotForRoster(tp.roster_id)
+      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(theirSlot, tp.round) })
     }
-    return result.sort((a, b) => a.round - b.round)
-  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks])
+    return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
 
 
   // Render

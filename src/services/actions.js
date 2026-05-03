@@ -86,25 +86,28 @@ import {
     saveToLocalStorage,
     // Abhängigkeiten:
     resolveUserId, // function(): Promise<string>
+    loadPicks,     // function(draftId): Promise<void>
   }) {
     const userId = await resolveUserId()
     const [userDrafts, leagueDrafts] = await Promise.all([
       loadUserDraftsForYear(userId, seasonYear),
       fetchLeagueDrafts(leagueId),
     ])
-  
+
     const merged = mergeDraftsUnique(userDrafts, leagueDrafts)
     merged.sort(
       (a, b) =>
         (b.start_time || 0) - (a.start_time || 0) ||
         String(b.draft_id).localeCompare(String(a.draft_id))
     )
-  
+
     setAvailableDrafts?.(merged)
-  
+
     if (!selectedDraftId && merged.length) {
-      setSelectedDraftId?.(merged[0].draft_id)
-      saveToLocalStorage?.({ draftId: merged[0].draft_id })
+      const autoId = merged[0].draft_id
+      setSelectedDraftId?.(autoId)
+      saveToLocalStorage?.({ draftId: autoId })
+      loadPicks?.(autoId).catch(() => {})
     }
   }
   
