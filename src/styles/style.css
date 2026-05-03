@@ -419,6 +419,7 @@ th.col-team, td.col-team { width: 80px; }
 th.col-pos,  td.col-pos  { width: 64px; }
 th.col-bye,  td.col-bye  { width: 64px; }
 th.col-sos,  td.col-sos  { width: 70px; }
+th.col-dyn,  td.col-dyn  { width: 72px; }
 th.col-ecr,  td.col-ecr  { width: 96px; }
 th.col-pick, td.col-pick { width: 64px; }
 
@@ -430,6 +431,7 @@ th.col-pick, td.col-pick { width: 64px; }
   .board-table .col-pos,
   .board-table .col-bye,
   .board-table .col-sos,
+  .board-table .col-dyn,
   .board-table .col-ecr,
   .board-table .col-pick { display: none; }
 

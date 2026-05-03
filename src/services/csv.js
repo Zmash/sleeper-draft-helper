@@ -33,11 +33,29 @@ export function parseFantasyProsCsv(text) {
       ? (ecrNum + ecrVsAdpNum)
       : null
 
+    // Dynasty Value (FantasyPros dynasty/rookie rankings)
+    const dynastyValueRaw =
+      row['DYNASTY VALUE'] ??
+      row['Dynasty Value'] ??
+      row['DYN VALUE'] ??
+      row['DYN. VALUE'] ??
+      row['VALUE'] ??
+      row['Value'] ??
+      null
+    const dynastyValue = toNum(dynastyValueRaw)
+
+    // Age / Experience (relevant für Dynasty)
+    const ageRaw = row['AGE'] ?? row['Age'] ?? null
+    const ageNum = toNum(ageRaw)
+
+    const expRaw = row['EXP'] ?? row['YRS EXP'] ?? row['Experience'] ?? null
+    const expNum = toNum(expRaw)
+
     return {
       id: idx + 1,
       rk: rkRaw || String(idx + 1),
       ecr: ecrNum, // numerischer ECR zusätzlich zu rk
-      tier: row['TIERS'] || '',
+      tier: row['TIERS'] || row['TIER'] || '',
       name: row['PLAYER NAME'] || row['Player'] || row['Name'] || '',
       team: row['TEAM'] || row['Team'] || '',
       pos: (row['POS'] || row['Position'] || '').replace(/\d+/g, ''),
@@ -50,6 +68,9 @@ export function parseFantasyProsCsv(text) {
       })(),
       ecrVsAdp: ecrVsAdpRaw ?? '',   // Original-String beibehalten (z.B. "+3")
       adp: Number.isFinite(adp) ? adp : null, // berechneter ADP
+      dynasty_value: Number.isFinite(dynastyValue) ? dynastyValue : null,
+      age: Number.isFinite(ageNum) ? ageNum : null,
+      years_exp: Number.isFinite(expNum) ? expNum : null,
 
       nname: normalizePlayerName(row['PLAYER NAME'] || row['Player'] || row['Name'] || ''),
       status: null,     // null | 'me' | 'other'

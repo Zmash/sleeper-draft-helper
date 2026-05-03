@@ -67,7 +67,7 @@ function inferMySlot({ draft, livePicks, me }) {
 }
 
 function minifyBoardPlayer(p) {
-  return {
+  const base = {
     rk: numericRank(p.rk),
     tier: p.tier || '',
     name: p.name || '',
@@ -78,6 +78,10 @@ function minifyBoardPlayer(p) {
     sos: p.sos || '',
     ecrVsAdp: p.ecrVsAdp || '',
   }
+  if (p.dynasty_value != null) base.dynasty_value = p.dynasty_value
+  if (p.age != null) base.age = p.age
+  if (p.years_exp != null) base.years_exp = p.years_exp
+  return base
 }
 
 /**

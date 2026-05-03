@@ -16,6 +16,10 @@ export default function BoardTable({
   draftMode = 'redraft',
 }) {
   const isRookie = draftMode === 'rookie'
+  const hasDynastyValue = useMemo(
+    () => isRookie && (filteredPlayers || []).some(p => p.dynasty_value != null),
+    [isRookie, filteredPlayers]
+  )
   // Helpers für Highlight-Logik (AI/ALT)
   const toKey = (s) => String(s || '').trim().toLowerCase()
   const highlightSet = useMemo(
@@ -89,6 +93,7 @@ export default function BoardTable({
               <th className="col-pos">Pos</th>
               {!isRookie && <th className="col-bye">Bye</th>}
               {!isRookie && <th className="col-sos">SOS</th>}
+              {hasDynastyValue && <th className="col-dyn" title="Dynasty Value">Dyn.Val</th>}
               <th className="col-ecr">ECR±ADP</th>
               <th className="col-pick">Pick</th>
             </tr>
@@ -166,6 +171,7 @@ export default function BoardTable({
                       {p.team} · {p.pos}
                       {!isRookie && p.bye ? ` · Bye ${p.bye}` : ''}
                       {!isRookie && p.sos ? ` · SOS ${p.sos}` : ''}
+                      {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
                       {p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
                     </div>
                   </td>
@@ -174,6 +180,7 @@ export default function BoardTable({
                   <td className="col-pos">{p.pos}</td>
                   {!isRookie && <td className="col-bye">{p.bye}</td>}
                   {!isRookie && <td className="col-sos">{p.sos}</td>}
+                  {hasDynastyValue && <td className="col-dyn">{p.dynasty_value ?? ''}</td>}
                   <td className="col-ecr">{p.ecrVsAdp}</td>
                   <td className="col-pick">{p.pick_no || ''}</td>
                 </tr>
