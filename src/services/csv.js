@@ -1,4 +1,28 @@
 import Papa from 'papaparse'
+
+export function exportBoardAsCsv(players) {
+  const headers = ['Rank', 'Name', 'Position', 'Team', 'Age', 'Tier', 'Dynasty Value', 'Bye', 'SOS', 'ECR±ADP', 'ADP', 'Pick']
+  const escapeCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const rows = [
+    headers.map(escapeCell).join(','),
+    ...players.map(p => [
+      p.rk, p.name, p.pos, p.team,
+      p.age ?? '', p.tier ?? '', p.dynasty_value ?? '',
+      p.bye ?? '', p.sos ?? '', p.ecrVsAdp ?? '', p.adp ?? '',
+      p.pick_no ?? '',
+    ].map(escapeCell).join(',')),
+  ].join('\n')
+
+  const blob = new Blob([rows], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `rankings_${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 import { normalizePlayerName } from '../utils/formatting'
 
 // kleines Helper für robuste Zahl-Parsing (auch "+3", "-1.5", "3,2" etc.)

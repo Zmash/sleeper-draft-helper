@@ -357,18 +357,30 @@ export default function SetupForm(props) {
             {draftMode === 'rookie' && (
               <div className="form-row">
                 <label className="field">
-                  <span>Auto-Import (KTC Rookie Rankings)</span>
-                  <div className="muted text-xs mb-1">Holt die aktuellen Rookie-Rankings direkt von KeepTradeCut – kein CSV nötig.</div>
-                  <button
-                    className="btn btn-primary control"
-                    disabled={busyKtcImport}
-                    onClick={async () => {
-                      setBusyKtcImport(true)
-                      try { await handleKtcRookieImport() } finally { setBusyKtcImport(false) }
-                    }}
-                  >
-                    {busyKtcImport ? 'Wird geladen…' : 'KTC Rookies importieren'}
-                  </button>
+                  <span>Auto-Import – Quelle wählen</span>
+                  <div className="muted text-xs mb-1">Rookie-Rankings direkt importieren – kein CSV nötig. Wähle eine Quelle:</div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <button
+                      className="btn btn-primary control"
+                      disabled={busyKtcImport || busyAutoImport}
+                      onClick={async () => {
+                        setBusyKtcImport(true)
+                        try { await handleKtcRookieImport() } finally { setBusyKtcImport(false) }
+                      }}
+                    >
+                      {busyKtcImport ? 'Wird geladen…' : 'KTC Rookies'}
+                    </button>
+                    <button
+                      className="btn btn-secondary control"
+                      disabled={busyAutoImport || busyKtcImport}
+                      onClick={async () => {
+                        setBusyAutoImport(true)
+                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
+                      }}
+                    >
+                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
+                    </button>
+                  </div>
                 </label>
               </div>
             )}

@@ -511,6 +511,20 @@ export default function App() {
     }
   }
 
+  // Manuelle Reihenfolge per Drag-and-Drop
+  function onBoardReorder(draggedNname, targetNname) {
+    if (!draggedNname || draggedNname === targetNname) return
+    const arr = [...boardPlayers]
+    const fromIdx = arr.findIndex(p => p.nname === draggedNname)
+    const toIdx   = arr.findIndex(p => p.nname === targetNname)
+    if (fromIdx === -1 || toIdx === -1) return
+    const [removed] = arr.splice(fromIdx, 1)
+    arr.splice(toIdx, 0, removed)
+    const reordered = arr.map((p, i) => ({ ...p, rk: String(i + 1), ecr: i + 1 }))
+    setBoardPlayers(reordered)
+    saveToLocalStorage({ boardPlayers: reordered })
+  }
+
   // KTC Rookie Rankings scraping
   async function handleKtcRookieImport() {
     if (boardPlayers.length) {
@@ -874,6 +888,7 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
           draftMode={draftMode}
           myDraftPicks={myDraftPicks}
           dynastyRoster={dynastyRoster}
+          onBoardReorder={onBoardReorder}
         />
       )}
   

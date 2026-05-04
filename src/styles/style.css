@@ -412,6 +412,11 @@ th, td {
 .ai-badge-primary { border-color: #7c3aed; }
 .ai-badge-alt     { opacity: 0.9; }
 
+/* Drag-and-Drop */
+th.col-drag, td.col-drag { width: 24px; text-align: center; padding: 0 4px; }
+.row-dragging { opacity: 0.4; }
+.row-drag-over td { border-top: 2px solid var(--accent, #6366f1); }
+
 /* Column widths */
 th.col-rk,   td.col-rk   { width: 48px; }  /* # */
 th.col-name, td.col-name { width: auto; }  /* name fills remaining space */

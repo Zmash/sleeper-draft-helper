@@ -10,6 +10,7 @@ import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { loadPreferences, savePreferences, setPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
 import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer"
+import { exportBoardAsCsv } from '../services/csv'
 
 const DEBUG_AI = false
 
@@ -41,6 +42,7 @@ export default function BoardSection({
   draftMode = 'redraft',
   myDraftPicks = [],
   dynastyRoster = [],
+  onBoardReorder,
 }) {
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
@@ -404,10 +406,18 @@ export default function BoardSection({
         boardPlayers={filteredBoardPlayers}
         playerPrefs={playerPrefs}
         onSetPlayerPref={handleSetPlayerPref}
+        onReorder={onBoardReorder}
         draftMode={draftMode}
       />
 
       <div className="row end" style={{ gap: 8, marginTop: '1rem' }}>
+        <button
+          className="btn-compact"
+          onClick={() => exportBoardAsCsv(filteredBoardPlayers)}
+          title="Aktuelles Ranking als CSV exportieren"
+        >
+          📋 Export rankings
+        </button>
         <button className="btn-compact" onClick={() => exportSettings('User-initiated export')}>
           💾 Export settings
         </button>

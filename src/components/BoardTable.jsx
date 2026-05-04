@@ -13,6 +13,7 @@ export default function BoardTable({
   adviceReasons = {},
   playerPrefs = {},
   onSetPlayerPref,
+  onReorder,
   draftMode = 'redraft',
 }) {
   const isRookie = draftMode === 'rookie'
@@ -20,7 +21,6 @@ export default function BoardTable({
   const hasSos          = useMemo(() => (filteredPlayers || []).some(p => p.sos), [filteredPlayers])
   const hasEcrVsAdp     = useMemo(() => (filteredPlayers || []).some(p => p.ecrVsAdp), [filteredPlayers])
   const hasDynastyValue = useMemo(() => (filteredPlayers || []).some(p => p.dynasty_value != null), [filteredPlayers])
-  // Helpers für Highlight-Logik (AI/ALT)
   const toKey = (s) => String(s || '').trim().toLowerCase()
   const highlightSet = useMemo(
     () => new Set((highlightedNnames || []).map(toKey)),
@@ -32,6 +32,10 @@ export default function BoardTable({
   const [menuOpenFor, setMenuOpenFor] = useState(null)
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
   const menuRef = useRef(null)
+
+  // DnD State
+  const [draggedNname, setDraggedNname] = useState(null)
+  const [dragOverNname, setDragOverNname] = useState(null)
 
   useEffect(() => {
     function onDocClick(e) {
@@ -53,14 +57,13 @@ export default function BoardTable({
     e.preventDefault()
     const clickX = e.clientX
     const clickY = e.clientY
-    // Grobmaße des Popups (Breite~120, Höhe~40); wir clampen gegen Fenstergröße
     const pad = 8
     const menuW = 120
     const menuH = 44
     const vw = window.innerWidth
     const vh = window.innerHeight
     const x = Math.max(pad, Math.min(clickX - menuW / 2, vw - menuW - pad))
-    const y = Math.max(pad, Math.min(clickY + 12, vh - menuH - pad)) // etwas unterhalb vom Klick
+    const y = Math.max(pad, Math.min(clickY + 12, vh - menuH - pad))
     setMenuPos({ x, y })
     setMenuOpenFor(playerKey(player))
   }
@@ -71,6 +74,8 @@ export default function BoardTable({
   }
 
   const rows = useMemo(() => filteredPlayers || [], [filteredPlayers])
+
+  const canDrag = !!onReorder
 
   return (
     <>
@@ -87,6 +92,7 @@ export default function BoardTable({
         <table className="nowrap board-table">
           <thead>
             <tr>
+              {canDrag && <th className="col-drag" title="Reihenfolge per Drag-and-Drop anpassen" />}
               <th className="col-rk">#</th>
               <th className="col-name">Name</th>
               <th className="col-team">Team</th>
@@ -106,6 +112,8 @@ export default function BoardTable({
               const isPrimary = primaryKey && keyN === primaryKey
               const reason = (adviceReasons && adviceReasons[keyN]) || ''
               const pref = playerPrefs[playerKey(p)] || null
+              const isDragOver = dragOverNname === p.nname
+              const isDragging = draggedNname === p.nname
 
               return (
                 <tr
@@ -115,12 +123,29 @@ export default function BoardTable({
                     p.status === 'me' && 'row-me',
                     p.status === 'other' && 'row-other',
                     isHighlighted && 'row-ai',
-                    isPrimary && 'row-ai-primary'
+                    isPrimary && 'row-ai-primary',
+                    isDragging && 'row-dragging',
+                    isDragOver && 'row-drag-over',
                   )}
                   title={reason || undefined}
                   data-nname={p.nname || ''}
                   data-ai={isHighlighted ? (isPrimary ? 'primary' : 'alt') : 'none'}
+                  draggable={canDrag}
+                  onDragStart={canDrag ? () => setDraggedNname(p.nname) : undefined}
+                  onDragOver={canDrag ? (e) => { e.preventDefault(); setDragOverNname(p.nname) } : undefined}
+                  onDragEnd={canDrag ? () => { setDraggedNname(null); setDragOverNname(null) } : undefined}
+                  onDrop={canDrag ? (e) => {
+                    e.preventDefault()
+                    if (draggedNname && draggedNname !== p.nname) onReorder(draggedNname, p.nname)
+                    setDraggedNname(null)
+                    setDragOverNname(null)
+                  } : undefined}
                 >
+                  {canDrag && (
+                    <td className="col-drag" style={{ cursor: 'grab', color: 'var(--text-muted, #888)', userSelect: 'none' }}>
+                      ⠿
+                    </td>
+                  )}
                   <td className="col-rk">{p.rk}</td>
 
                   <td className="col-name">
@@ -150,7 +175,7 @@ export default function BoardTable({
                         <span className="player-name-text">{p.name}</span>
                       </button>
 
-                      {/* AI/ALT Badges – jetzt layout-stabil */}
+                      {/* AI/ALT Badges */}
                       <span className="ai-badge-wrap">
                         {isHighlighted && (
                           <span
@@ -166,7 +191,7 @@ export default function BoardTable({
                       </span>
                     </div>
 
-                    {/* Mobile-Subline: kompakte Zusatzinfos */}
+                    {/* Mobile-Subline */}
                     <div className="row-subline mobile-only">
                       {p.team} · {p.pos}
                       {hasBye && p.bye ? ` · Bye ${p.bye}` : ''}
