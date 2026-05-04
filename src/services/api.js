@@ -56,6 +56,17 @@ export async function fetchLeagueUsers(leagueId) {
   return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
 }
 
+// Aktueller NFL-State: Woche, Season-Type, Season-Jahr
+export async function fetchNflState() {
+  return fetchJson(`${SLEEPER_API_BASE}/state/nfl`)
+}
+
+// Matchups einer Liga für eine bestimmte Woche
+export async function fetchMatchups(leagueId, week) {
+  if (!leagueId || !week) return []
+  return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/matchups/${week}`)
+}
+
 // --- DRAFT META --------------------------------------------------------------
 
 export async function fetchDraft(draftId) {

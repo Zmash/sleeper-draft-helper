@@ -871,3 +871,371 @@ th.col-pick, td.col-pick { width: 64px; }
 /* Taxi pill color */
 .slot-pill--TAXI { background: #7c3aed; }
 .slot-pill--IR   { background: #dc2626; }
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+.dashboard {
+  padding: 0 0 2rem;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.dashboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-season {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.dashboard-week {
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dashboard-refresh-hint {
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.dashboard-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* =========================================================
+   LEAGUE CARD
+   ========================================================= */
+.league-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: border-color 0.15s;
+}
+
+.league-card:hover {
+  border-color: var(--accent);
+}
+
+.league-card--live {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef444433;
+}
+
+.league-card--error {
+  opacity: 0.7;
+}
+
+.league-card--draft {
+  border-style: dashed;
+}
+
+.lc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lc-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.lc-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lc-record {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.lc-badges {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.lc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.lc-error {
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+/* Matchup */
+
+.lc-matchup-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.lc-matchup-mine {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.lc-matchup-vs {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+  flex: 1;
+  padding: 0 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lc-matchup-opp {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.lc-matchup-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.lc-matchup-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.lc-matchup-fill--winning { background: #22c55e; }
+.lc-matchup-fill--losing  { background: #f87171; }
+
+/* Injuries */
+.lc-injuries {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.lc-injuries-icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  margin-top: 1px;
+}
+
+.lc-injuries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.lc-injury-item {
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Actions */
+.lc-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.badge--neutral { background: var(--border); color: var(--muted); }
+.badge--live    { background: #ef4444; color: #fff; animation: pulse-badge 2s infinite; }
+.badge--info    { background: #3b82f6; color: #fff; }
+.badge--warn    { background: #f59e0b; color: #000; }
+.badge--danger  { background: #ef4444; color: #fff; }
+.badge--muted   { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+
+.badge--xs { font-size: 0.65rem; padding: 0.1rem 0.35rem; }
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* =========================================================
+   SKELETON
+   ========================================================= */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    color-mix(in srgb, var(--border) 60%, var(--card)) 50%,
+    var(--border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 6px;
+}
+
+.skeleton--title  { height: 1rem; width: 60%; }
+.skeleton--badge  { height: 1rem; width: 30%; border-radius: 99px; }
+.skeleton--line   { height: 0.75rem; width: 100%; }
+.skeleton--short  { width: 50%; }
+
+.league-card--skeleton {
+  gap: 0.75rem;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Picks loading notice (shown on board while new draft picks load) */
+.picks-loading-bar {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  animation: pulse-badge 1.4s infinite;
+}
+
+/* =========================================================
+   BUTTON SIZES
+   ========================================================= */
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+/* Ghost button — text-only, no background */
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: transparent;
+}
+
+/* =========================================================
+   ADD DRAFT TILE
+   ========================================================= */
+.league-card--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 1.5rem 1rem;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-height: 100px;
+}
+.league-card--add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.lc-add-icon {
+  font-size: 1.8rem;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.lc-add-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+/* =========================================================
+   IMPORT DONE BANNER
+   ========================================================= */
+.import-done-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: color-mix(in srgb, #22c55e 15%, var(--surface));
+  border: 1px solid color-mix(in srgb, #22c55e 40%, transparent);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import-done-text {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #22c55e;
+}
+
+.import-done-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}

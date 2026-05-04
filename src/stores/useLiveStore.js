@@ -7,6 +7,7 @@ export const useLiveStore = create(
     (set) => ({
       livePicks: [],
       lastSyncAt: null,
+      picksLoading: false,
       autoRefreshEnabled: true,
       refreshIntervalSeconds: 10,
 
@@ -17,9 +18,15 @@ export const useLiveStore = create(
 
       loadPicks: async (draftId) => {
         if (!draftId) return []
-        const ps = await fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks`)
-        set({ livePicks: ps, lastSyncAt: new Date() })
-        return ps
+        set({ picksLoading: true })
+        try {
+          const ps = await fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks`)
+          set({ livePicks: ps, lastSyncAt: new Date(), picksLoading: false })
+          return ps
+        } catch (e) {
+          set({ picksLoading: false })
+          throw e
+        }
       },
     }),
     {

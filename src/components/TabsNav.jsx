@@ -1,21 +1,27 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { cx } from '../utils/formatting'
 
+const TABS = [
+  { path: '/dashboard', label: 'Home' },
+  { path: '/board',     label: 'Board' },
+  { path: '/roster',    label: 'Roster' },
+]
+
 export default function TabsNav() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
   return (
     <nav className="tabs">
-      <button className={cx('tab', pathname === '/setup' && 'active')} onClick={() => navigate('/setup')}>
-        Setup
-      </button>
-      <button className={cx('tab', pathname === '/board' && 'active')} onClick={() => navigate('/board')}>
-        Board
-      </button>
-      <button className={cx('tab', pathname === '/roster' && 'active')} onClick={() => navigate('/roster')}>
-        Roster
-      </button>
+      {TABS.map(({ path, label }) => (
+        <button
+          key={path}
+          className={cx('tab', pathname === path && 'active')}
+          onClick={() => navigate(path)}
+        >
+          {label}
+        </button>
+      ))}
     </nav>
   )
 }

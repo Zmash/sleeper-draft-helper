@@ -26,7 +26,7 @@ export default function BoardPage({
   } = useBoardStore()
 
   const {
-    livePicks, autoRefreshEnabled, refreshIntervalSeconds, lastSyncAt,
+    livePicks, autoRefreshEnabled, refreshIntervalSeconds, lastSyncAt, picksLoading,
     setAutoRefreshEnabled, setRefreshIntervalSeconds, loadPicks,
   } = useLiveStore()
 
@@ -138,6 +138,12 @@ export default function BoardPage({
     : 0
 
   return (
+    <>
+      {picksLoading && (
+        <div className="picks-loading-bar">
+          Picks werden geladen…
+        </div>
+      )}
     <BoardSection
       ownerLabels={ownerLabels}
       setupVersion={0}
@@ -167,5 +173,6 @@ export default function BoardPage({
       dynastyRoster={dynastyRoster}
       onBoardReorder={onBoardReorder}
     />
+    </>
   )
 }

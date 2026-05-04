@@ -22,11 +22,12 @@ import Modal from './components/Modal'
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
 import RosterPage from './pages/RosterPage'
+import DashboardPage from './pages/DashboardPage'
 
-// ── Redirect from / based on whether a draft is configured ──────────────────
+// ── Redirect from / based on account state ───────────────────────────────────
 function RootRedirect() {
-  const { selectedDraftId } = useSessionStore()
-  return <Navigate to={selectedDraftId ? '/board' : '/setup'} replace />
+  const { sleeperUserId } = useSessionStore()
+  return <Navigate to={sleeperUserId ? '/dashboard' : '/setup'} replace />
 }
 
 export default function App() {
@@ -289,25 +290,24 @@ export default function App() {
     return () => clearInterval(pollingRef.current)
   }, [autoRefreshEnabled, selectedDraftId, refreshIntervalSeconds]) // eslint-disable-line
 
-  // Config change detection (user/league/draft changed → offer reset)
-  const prevConfigRef = useRef({ sleeperUserId, selectedLeagueId, selectedDraftId })
+  // Draft change → auto-reset picks + board statuses, then load fresh
+  const prevDraftIdRef = useRef(selectedDraftId)
   useEffect(() => {
-    const prev = prevConfigRef.current
-    const changed =
-      prev.sleeperUserId !== sleeperUserId ||
-      prev.selectedLeagueId !== selectedLeagueId ||
-      prev.selectedDraftId !== selectedDraftId
-    if (changed && boardPlayers.length) {
-      const ok = window.confirm('Konfiguration geändert. Markierungen zurücksetzen und neu synchronisieren?')
-      if (ok) {
-        useBoardStore.getState().setBoardPlayers(
-          boardPlayers.map((p) => ({ ...p, status: null, pick_no: null, picked_by: null }))
-        )
-        if (selectedDraftId) loadPicks(selectedDraftId)
-      }
+    const prev = prevDraftIdRef.current
+    prevDraftIdRef.current = selectedDraftId
+    if (prev === selectedDraftId) return   // no change (incl. initial mount)
+    // Clear stale live picks immediately so board shows clean state
+    useLiveStore.getState().setLivePicks([])
+    // Clear pick status markings on board players
+    const bp = useBoardStore.getState().boardPlayers
+    if (bp.some((p) => p.status)) {
+      useBoardStore.getState().setBoardPlayers(
+        bp.map((p) => ({ ...p, status: null, pick_no: null, picked_by: null }))
+      )
     }
-    prevConfigRef.current = { sleeperUserId, selectedLeagueId, selectedDraftId }
-  }, [sleeperUserId, selectedLeagueId, selectedDraftId]) // eslint-disable-line
+    // Load picks for the new draft
+    if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
+  }, [selectedDraftId]) // eslint-disable-line
 
   // ── Shared page props ──────────────────────────────────────────────────────
   const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType }
@@ -316,6 +316,7 @@ export default function App() {
   return (
     <AppShell tips={tips} themeMode={themeMode} onToggleTheme={toggleTheme}>
       <Routes>
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
         <Route path="/board" element={<BoardPage {...pageProps} />} />
         <Route path="/roster" element={<RosterPage {...pageProps} />} />
