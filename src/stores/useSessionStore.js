@@ -64,7 +64,8 @@ export const useSessionStore = create(
             (b.start_time || 0) - (a.start_time || 0) ||
             String(b.draft_id).localeCompare(String(a.draft_id))
         )
-        set({ availableDrafts: merged })
+        // Merge with existing to preserve manually-added drafts (e.g. mock drafts via URL)
+        set((s) => ({ availableDrafts: mergeDraftsUnique(merged, s.availableDrafts || []) }))
         if (!selectedDraftId && merged.length) {
           const autoId = merged[0].draft_id
           set({ selectedDraftId: autoId })
@@ -125,7 +126,10 @@ export const useSessionStore = create(
         sleeperUsername: s.sleeperUsername,
         sleeperUserId: s.sleeperUserId,
         seasonYear: s.seasonYear,
+        availableLeagues: s.availableLeagues,
         selectedLeagueId: s.selectedLeagueId,
+        leagueUsers: s.leagueUsers,
+        availableDrafts: s.availableDrafts,
         selectedDraftId: s.selectedDraftId,
         manualDraftInput: s.manualDraftInput,
       }),

@@ -14,10 +14,10 @@ import { loadPlayersMetaCached } from '../services/playersMeta'
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
 
 function detectFormat(league) {
-  // league_type is only present on enriched leagues (fetchLeague); use multiple signals
-  const t = league?.league_type || league?.settings?.type || ''
-  if (t === 'dynasty') return 'dynasty'
-  if (t === 'keeper') return 'keeper'
+  // league_type is a string on enriched leagues; settings.type is a number (0=redraft,1=keeper,2=dynasty)
+  const t = league?.league_type || league?.settings?.type
+  if (t === 'dynasty' || t === 2) return 'dynasty'
+  if (t === 'keeper'  || t === 1) return 'keeper'
   // Fallback: TAXI slot is dynasty-exclusive in Sleeper
   const pos = league?.roster_positions || []
   if (pos.includes('TAXI')) return 'dynasty'

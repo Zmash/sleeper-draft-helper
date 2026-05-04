@@ -504,6 +504,7 @@ export default function SetupForm(props) {
                     aria-label="Draft type" title="Draft type"
                   >
                     <option value="snake">Snake</option>
+                    <option value="linear">Linear</option>
                     <option value="auction">Auction</option>
                   </select>
                 </div>

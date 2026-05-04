@@ -21,7 +21,8 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     availableLeagues, selectedLeagueId, leagueUsers,
     availableDrafts, selectedDraftId, manualDraftInput,
     setSleeperUsername, setSleeperUserId, setSeasonYear,
-    setSelectedLeagueId, setSelectedDraftId, setManualDraftInput,
+    setAvailableLeagues, setSelectedLeagueId, setLeagueUsers,
+    setAvailableDrafts, setSelectedDraftId, setManualDraftInput,
     resolveUserId, loadLeagues, loadDraftOptions, loadLeagueUsers, attachDraftByIdOrUrl,
   } = useSessionStore()
 
@@ -31,11 +32,15 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     handleCsvLoad, handleAutoImport, handleKtcRookieImport,
   } = useBoardStore()
 
-  // Add mode: clear draft-specific state, keep account + league list
+  // Add mode: clear everything except the Sleeper account credentials
   useEffect(() => {
     if (mode === 'add') {
+      setAvailableLeagues([])
       setSelectedLeagueId(null)
+      setLeagueUsers([])
+      setAvailableDrafts([])
       setSelectedDraftId(null)
+      setManualDraftInput('')
       setCsvRawText('')
       useBoardStore.getState().setBoardPlayers([])
       useLiveStore.getState().setLivePicks([])
