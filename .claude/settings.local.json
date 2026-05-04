@@ -12,7 +12,29 @@
       "Bash(bash /tmp/check_imports.sh)",
       "Bash(xargs grep *)",
       "Bash(grep -E \"\\\\.js$|\\\\.jsx$\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\" -Recurse -Filter \"src\" -Directory)",
+      "Bash(Select-Object -First 1)",
+      "Bash(ls -la f:\\\\\\\\sleeper-draft-helper)",
+      "Bash(ls \"f:\\\\\\\\sleeper-draft-helper\")",
+      "Bash(grep -n \"handleCsvLoad\\\\|csvRawText\\\\|boardPlayers\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\src\\\\\\\\App.jsx\")",
+      "Bash(grep -r \"ranking\\\\|Ranking\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\src\" --include=\"*.jsx\" --include=\"*.js\" -l)",
+      "Bash(grep -n \"row\\\\[\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\src\\\\\\\\services\\\\\\\\csv.js\")",
+      "Bash(grep -n \"Choose CSV\\\\|import ranking\\\\|FantasyPros\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\src\\\\\\\\components\\\\\\\\SetupForm.jsx\")",
+      "Bash(grep -rn \"Papa\\\\|parse\\\\|CSV\\\\|csv\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\src\\\\\\\\services\" --include=\"*.js\")",
+      "Bash(grep -A5 \"papaparse\\\\|dependencies\" \"f:\\\\\\\\sleeper-draft-helper\\\\\\\\package.json\")",
+      "Bash(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\" -Force)",
+      "Bash(Select-Object Name, FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\" -Force | Select-Object Name, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"Folder\"}else{\"File\"}}} | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\\\\src\" -Recurse -Directory | Select-Object -ExpandProperty FullName | Foreach-Object { $_.Replace\\(\"f:\\\\sleeper-draft-helper\\\\src\\\\\", \"\"\\) } | Sort-Object)",
+      "WebFetch(domain:keeptradecut.com)",
+      "Bash(curl -s \"https://keeptradecut.com/dynasty-rankings/rookie-rankings\")",
+      "Bash(curl -s \"https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=1\")",
+      "Bash(curl -s \"https://keeptradecut.com/dynasty-rankings?page=0\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" \"https://keeptradecut.com/dynasty-rankings/rookie-rankings\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"import\\('cheerio'\\).then\\(c => console.log\\('OK', Object.keys\\(c\\)\\)\\)\")"
     ]
   }
 }

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-    "scripts": {
+  "scripts": {
     "dev": "vite",
     "dev:client": "vite",
     "dev:api": "node src/server/index.js",
@@ -15,11 +15,12 @@
     "cap:open:android": "cap open android"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.53.0",
     "@capacitor/android": "^6.2.1",
+    "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "@anthropic-ai/sdk": "^0.53.0",
     "papaparse": "^5.4.1",
     "prop-types": "^15.8.1",
     "react": "^18.2.0",

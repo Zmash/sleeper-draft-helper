@@ -38,7 +38,7 @@ export default function SetupForm(props) {
     setSleeperUsername, setSleeperUserId, setSeasonYear,
     setSelectedLeagueId, setSelectedDraftId, setManualDraftInput, setCsvRawText,
     saveToLocalStorage, resolveUserId, loadLeagues, loadDraftOptions,
-    attachDraftByIdOrUrl, handleCsvLoad, formatDraftLabel,
+    attachDraftByIdOrUrl, handleCsvLoad, handleAutoImport, handleKtcRookieImport, formatDraftLabel,
     draftMode, setDraftMode, selectedLeague: selectedLeagueProp,
   } = props
 
@@ -48,6 +48,8 @@ export default function SetupForm(props) {
   const [showCsvAdvanced, setShowCsvAdvanced] = useState(false)
   const [showAdvancedFormat, setShowAdvancedFormat] = useState(false)
   const [busyResolveAndLoad, setBusyResolveAndLoad] = useState(false)
+  const [busyAutoImport, setBusyAutoImport] = useState(false)
+  const [busyKtcImport, setBusyKtcImport] = useState(false)
 
   // --- CSV
   const fileRef = useRef(null)
@@ -334,6 +336,42 @@ export default function SetupForm(props) {
             <span className="step-sub">Upload CSV or paste raw contents</span>
           </button>
           <div className="step-body">
+            {draftMode !== 'rookie' && (
+              <div className="form-row">
+                <label className="field">
+                  <span>Auto-Import (FantasyCalc)</span>
+                  <div className="muted text-xs mb-1">Holt Dynasty-Rankings automatisch von FantasyCalc – kein CSV nötig.</div>
+                  <button
+                    className="btn btn-primary control"
+                    disabled={busyAutoImport}
+                    onClick={async () => {
+                      setBusyAutoImport(true)
+                      try { await handleAutoImport() } finally { setBusyAutoImport(false) }
+                    }}
+                  >
+                    {busyAutoImport ? 'Wird geladen…' : 'Rankings auto-importieren'}
+                  </button>
+                </label>
+              </div>
+            )}
+            {draftMode === 'rookie' && (
+              <div className="form-row">
+                <label className="field">
+                  <span>Auto-Import (KTC Rookie Rankings)</span>
+                  <div className="muted text-xs mb-1">Holt die aktuellen Rookie-Rankings direkt von KeepTradeCut – kein CSV nötig.</div>
+                  <button
+                    className="btn btn-primary control"
+                    disabled={busyKtcImport}
+                    onClick={async () => {
+                      setBusyKtcImport(true)
+                      try { await handleKtcRookieImport() } finally { setBusyKtcImport(false) }
+                    }}
+                  >
+                    {busyKtcImport ? 'Wird geladen…' : 'KTC Rookies importieren'}
+                  </button>
+                </label>
+              </div>
+            )}
             <div className="form-row">
               <label className="field">
                 <span>FantasyPros CSV (file)</span>

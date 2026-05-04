@@ -511,6 +511,65 @@ export default function App() {
     }
   }
 
+  // KTC Rookie Rankings scraping
+  async function handleKtcRookieImport() {
+    if (boardPlayers.length) {
+      const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
+      if (!ok) return
+    }
+    try {
+      const resp = await fetch('/api/rankings/ktc-rookies')
+      if (!resp.ok) throw new Error(`Server antwortete mit ${resp.status}`)
+      const data = await resp.json()
+      if (!data.ok) throw new Error(data.error || 'Unbekannter Fehler')
+      const fresh = data.players.map(p => ({
+        ...p,
+        nname: normalizePlayerName(p.name),
+        status: null,
+        pick_no: null,
+        picked_by: null,
+      }))
+      setBoardPlayers(fresh)
+      saveToLocalStorage({ csvRawText: '', boardPlayers: fresh })
+      if (selectedDraftId) await loadPicks(selectedDraftId)
+      setActiveTab('board')
+      saveToLocalStorage({ activeTab: 'board' })
+    } catch (e) {
+      alert('Fehler beim KTC-Import: ' + (e.message || e))
+    }
+  }
+
+  // FantasyCalc Auto-Import
+  async function handleAutoImport() {
+    if (boardPlayers.length) {
+      const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
+      if (!ok) return
+    }
+    try {
+      const numQbs = isSuperflex ? 2 : 1
+      const numTeams = selectedLeague?.total_rosters || 12
+      const pprVal = effScoringType === 'ppr' ? 1 : effScoringType === 'half_ppr' ? 0.5 : 0
+      const resp = await fetch(`/api/rankings/fantasycalc?numQbs=${numQbs}&numTeams=${numTeams}&ppr=${pprVal}`)
+      if (!resp.ok) throw new Error(`Server antwortete mit ${resp.status}`)
+      const data = await resp.json()
+      if (!data.ok) throw new Error(data.error || 'Unbekannter Fehler')
+      const fresh = data.players.map(p => ({
+        ...p,
+        nname: normalizePlayerName(p.name),
+        status: null,
+        pick_no: null,
+        picked_by: null,
+      }))
+      setBoardPlayers(fresh)
+      saveToLocalStorage({ csvRawText: '', boardPlayers: fresh })
+      if (selectedDraftId) await loadPicks(selectedDraftId)
+      setActiveTab('board')
+      saveToLocalStorage({ activeTab: 'board' })
+    } catch (e) {
+      alert('Fehler beim Auto-Import: ' + (e.message || e))
+    }
+  }
+
   // --- Setup overrides (format + strategies) ---
   const setupOverrides = useMemo(() => (loadSetup()?.overrides) || {}, [setupVersion])
   const effRoster = setupOverrides.roster_positions ?? (
@@ -775,6 +834,8 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
           loadDraftOptions={loadDraftOptions}
           attachDraftByIdOrUrl={attachDraftByIdOrUrl}
           handleCsvLoad={handleCsvLoad}
+          handleAutoImport={handleAutoImport}
+          handleKtcRookieImport={handleKtcRookieImport}
           formatDraftLabel={formatDraftLabel}
           draftMode={draftMode}
           setDraftMode={setDraftMode}

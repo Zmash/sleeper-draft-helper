@@ -5,6 +5,7 @@ import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import Anthropic from '@anthropic-ai/sdk'
+import { load as cheerioLoad } from 'cheerio'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -115,6 +116,90 @@ const REVIEW_TOOL = {
     required: ['overallRankings', 'teamOneLiners', 'overallSummary', 'myTeamDeepDive', 'steals', 'reaches', 'myWeek1StartSit'],
   },
 }
+
+// ---------- Rankings: FantasyCalc ----------
+app.get('/api/rankings/fantasycalc', async (req, res) => {
+  const numQbs = parseInt(req.query.numQbs) === 2 ? 2 : 1
+  const numTeams = parseInt(req.query.numTeams) || 12
+  const ppr = req.query.ppr !== undefined ? Number(req.query.ppr) : 1
+  const url = `https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}&includeAdp=false`
+  try {
+    const upstream = await fetch(url)
+    if (!upstream.ok) return res.status(502).json({ ok: false, error: `FantasyCalc returned ${upstream.status}` })
+    const json = await upstream.json()
+    const players = json.map((fc, idx) => ({
+      id: idx + 1,
+      rk: String(fc.overallRank ?? idx + 1),
+      ecr: fc.overallRank ?? idx + 1,
+      tier: '',
+      name: fc.player?.name ?? '',
+      team: fc.player?.maybeTeam ?? fc.player?.team ?? '',
+      pos: fc.player?.position ?? '',
+      posRank: (fc.player?.position ?? '') + (fc.positionRank ?? ''),
+      bye: '',
+      sos: '',
+      ecrVsAdp: '',
+      adp: null,
+      dynasty_value: fc.value ?? null,
+      redraft_value: fc.redraftValue ?? null,
+      age: fc.player?.age ?? null,
+      years_exp: null,
+    }))
+    res.json({ ok: true, players })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message || 'Failed to fetch FantasyCalc rankings' })
+  }
+})
+
+// ---------- Rankings: KTC Rookies ----------
+app.get('/api/rankings/ktc-rookies', async (_req, res) => {
+  const KTC_URL = 'https://keeptradecut.com/dynasty-rankings/rookie-rankings'
+  const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  try {
+    const upstream = await fetch(KTC_URL, { headers: HEADERS })
+    if (!upstream.ok) return res.status(502).json({ ok: false, error: `KTC returned ${upstream.status}` })
+    const html = await upstream.text()
+    const $ = cheerioLoad(html)
+    const players = []
+    $('.single-ranking').each((idx, el) => {
+      const rank = parseInt($('.rank-number p', el).text().trim()) || (idx + 1)
+      const nameEl = $('.player-name a', el)
+      const name = nameEl.text().trim()
+      if (!name) return
+      const team = $('.player-name .player-team', el).text().trim() || ''
+      const posRankRaw = $('.position-team .position', el).first().text().trim()
+      const pos = posRankRaw.replace(/\d+/g, '') || ''
+      const ageRaw = $('.position-team .position.hidden-xs', el).text().replace('y.o.', '').trim()
+      const age = parseFloat(ageRaw) || null
+      const tierRaw = $('.player-info .position', el).text().trim()
+      const tier = tierRaw || ''
+      const valueRaw = $('.value p', el).text().trim()
+      const value = parseInt(valueRaw) || null
+      players.push({
+        id: idx + 1,
+        rk: String(rank),
+        ecr: rank,
+        tier,
+        name,
+        team,
+        pos,
+        posRank: posRankRaw,
+        bye: '',
+        sos: '',
+        ecrVsAdp: '',
+        adp: null,
+        dynasty_value: value,
+        redraft_value: null,
+        age,
+        years_exp: null,
+      })
+    })
+    if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
+    res.json({ ok: true, players })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })
+  }
+})
 
 // ---------- Health ----------
 app.get('/api/health', (_req, res) => {
