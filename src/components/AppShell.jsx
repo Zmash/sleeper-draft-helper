@@ -3,31 +3,12 @@ import TabsNav from './TabsNav'
 import Footer from './Footer'
 import TipsDock from './TipsDock'
 
-export default function AppShell({ // Topbar
-  themeMode,
-  onToggleTheme,
-
-  // Tabs
-  activeTab,
-  onSetupClick,
-  onBoardClick,
-  onRosterClick,
-
-  // Inhalt
-  children, tips }) {
+export default function AppShell({ themeMode, onToggleTheme, children, tips }) {
   return (
     <div className="wrap">
       <Topbar themeMode={themeMode} onToggleTheme={onToggleTheme} />
-
-      <TabsNav
-        activeTab={activeTab}
-        onSetupClick={onSetupClick}
-        onBoardClick={onBoardClick}
-        onRosterClick={onRosterClick}
-      />
-
+      <TabsNav />
       {children}
-
       <TipsDock tips={tips} />
       <Footer />
     </div>

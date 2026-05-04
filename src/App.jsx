@@ -1,102 +1,247 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import Papa from 'papaparse'
+import React, { useEffect, useMemo, useRef } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+
+import { useSessionStore } from './stores/useSessionStore'
+import { useBoardStore } from './stores/useBoardStore'
+import { useLiveStore } from './stores/useLiveStore'
+import { useDynastyStore } from './stores/useDynastyStore'
+import { useUIStore } from './stores/useUIStore'
+
 import { getTeamsCount } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
-import { teamsAndRoundsFromDraft, inferMyDraftSlot } from './services/api'
+import { loadSetup } from './services/storage'
+import { computeTeamScores, isDraftComplete } from './services/analysis'
+import { inferMyDraftSlot } from './services/api'
 
-// Hooks / Utils / Services / Actions
-import useDebouncedEffect from './hooks/useDebouncedEffect'
-import { cx, normalizePlayerName, normalizePos } from './utils/formatting'
-import { parseDraftId } from './utils/parse'
-import { STORAGE_KEY, THEME_STORAGE_KEY, saveToLocalStorage, loadFromLocalStorage, loadSetup } from './services/storage'
-import { parseFantasyProsCsv } from './services/csv'
-
-import { enrichBoardPlayersWithSleeper } from './services/enrichBoardWithSleeper'
+import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
-import { computeTeamScores, isDraftComplete } from './services/analysis'
 
-import {
-  SLEEPER_API_BASE,
-  fetchJson,
-  loadUserDraftsForYear,
-  fetchLeagueDrafts,
-  mergeDraftsUnique,
-  formatDraftLabel,
-  fetchLeagueRosters,
-  fetchTradedPicks,
-} from './services/api'
-import { loadPlayersMetaCached } from './services/playersMeta'
+import SetupPage from './pages/SetupPage'
+import BoardPage from './pages/BoardPage'
+import RosterPage from './pages/RosterPage'
 
-import {
-    resolveUserIdAction,
-    loadLeaguesAction,
-    loadLeagueUsersAction,
-    loadPicksAction,
-    loadDraftOptionsAction,
-    attachDraftByIdOrUrlAction,
-  } from './services/actions'
-
-// Components
-import AppShell from './components/AppShell'
-import SetupForm from './components/SetupForm'
-import BoardSection from './components/BoardSection'
-import RosterSection from './components/RosterSection'
-import { CURRENT_YEAR } from './constants'
-
+// ── Redirect from / based on whether a draft is configured ──────────────────
+function RootRedirect() {
+  const { selectedDraftId } = useSessionStore()
+  return <Navigate to={selectedDraftId ? '/board' : '/setup'} replace />
+}
 
 export default function App() {
-  // Theme
-  const initialTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'dark'
-  const [themeMode, setThemeMode] = useState(initialTheme)
+  const isAndroid = /Android/i.test(navigator.userAgent)
+
+  // ── Store reads ────────────────────────────────────────────────────────────
+  const {
+    sleeperUserId, selectedLeagueId, selectedDraftId, seasonYear,
+    availableLeagues, leagueUsers, availableDrafts,
+    loadDraftOptions, loadLeagueUsers,
+  } = useSessionStore()
+
+  const { boardPlayers, draftMode, setDraftMode } = useBoardStore()
+
+  const { livePicks, autoRefreshEnabled, refreshIntervalSeconds, loadPicks } = useLiveStore()
+
+  const {
+    dynastyRoster, mySleeperRosterId, rosterToUserMap, tradedPicks,
+    loadDynastyRoster, loadTradedPicks,
+  } = useDynastyStore()
+
+  const { themeMode, toggleTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
+
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const selectedLeague = useMemo(
+    () => (availableLeagues || []).find((l) => l.league_id === selectedLeagueId) || null,
+    [availableLeagues, selectedLeagueId]
+  )
+  const selectedDraft = useMemo(
+    () => (availableDrafts || []).find((d) => d.draft_id === selectedDraftId) || null,
+    [availableDrafts, selectedDraftId]
+  )
+  const teamsCount = useMemo(
+    () => getTeamsCount({ draft: selectedDraft, picks: livePicks, league: selectedLeague }),
+    [selectedDraft, livePicks, selectedLeague]
+  )
+
+  const ownerLabels = useMemo(() => {
+    const m = new Map()
+    for (const u of leagueUsers || []) {
+      m.set(`user:${u.user_id}`, u.display_name || u.username || u.user_id)
+    }
+    const teamKeyFromPick = (p) => {
+      if (p?.picked_by) return `user:${p.picked_by}`
+      if (p?.roster_id != null) return `roster:${p.roster_id}`
+      if (p?.draft_slot != null) return `slot:${p.draft_slot}`
+      if (teamsCount && p?.pick_no) return `slot:${((p.pick_no - 1) % teamsCount) + 1}`
+      return 'slot:unknown'
+    }
+    const teamLabelFromPick = (p) => {
+      const metaLabel = p?.metadata?.team_name || p?.metadata?.owner || null
+      if (metaLabel) return metaLabel
+      if (p?.picked_by && m.has(`user:${p.picked_by}`)) return m.get(`user:${p.picked_by}`)
+      if (p?.roster_id != null) return `Team ${p.roster_id}`
+      if (p?.draft_slot != null) return `Slot ${p.draft_slot}`
+      if (teamsCount && p?.pick_no) return `Slot ${((p.pick_no - 1) % teamsCount) + 1}`
+      return 'Unknown'
+    }
+    for (const p of livePicks || []) {
+      const key = teamKeyFromPick(p)
+      if (!m.has(key)) m.set(key, teamLabelFromPick(p))
+    }
+    return m
+  }, [leagueUsers, livePicks, teamsCount])
+
+  const setupOverrides = useMemo(() => loadSetup()?.overrides || {}, [setupVersion])
+
+  const effRoster = useMemo(() => {
+    if (setupOverrides.roster_positions) return setupOverrides.roster_positions
+    if (selectedDraft?.settings) {
+      const m = {
+        slots_qb:'QB', slots_rb:'RB', slots_wr:'WR', slots_te:'TE', slots_k:'K', slots_def:'DEF',
+        slots_flex:'FLEX', slots_wr_rb:'WR/RB', slots_wr_te:'WR/TE', slots_rb_te:'RB/TE',
+        slots_super_flex:'SUPER_FLEX', slots_idp_flex:'IDP_FLEX',
+        slots_dl:'DL', slots_lb:'LB', slots_db:'DB', slots_bn:'BN',
+      }
+      const out = []
+      for (const [k, v] of Object.entries(selectedDraft.settings || {})) {
+        if (!k.startsWith('slots_')) continue
+        const name = m[k]; const n = Number(v)
+        if (!name || !Number.isFinite(n) || n <= 0) continue
+        for (let i = 0; i < n; i++) out.push(name)
+      }
+      return out
+    }
+    return selectedLeague?.roster_positions || []
+  }, [setupOverrides.roster_positions, selectedDraft, selectedLeague])
+
+  const effScoringType = useMemo(() => {
+    if (setupOverrides.scoring_type) return setupOverrides.scoring_type
+    const rec = selectedLeague?.scoring_settings?.rec ?? 1
+    return rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
+  }, [setupOverrides.scoring_type, selectedLeague])
+
+  const strategies = useMemo(
+    () =>
+      Array.isArray(setupOverrides.strategies) && setupOverrides.strategies.length
+        ? setupOverrides.strategies
+        : ['balanced'],
+    [setupOverrides.strategies]
+  )
+
+  const isSuperflex = useMemo(
+    () =>
+      setupOverrides.superflex != null
+        ? !!setupOverrides.superflex
+        : effRoster.some((r) => String(r).toUpperCase().includes('SUPER')),
+    [setupOverrides.superflex, effRoster]
+  )
+
+  const isRookieMode = draftMode === 'rookie'
+  const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map((p) => p.pick_no || 0)) : 0
+  const draftFinished = isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds)
+  const pickedCount = useMemo(() => boardPlayers.filter((p) => p.status).length, [boardPlayers])
+
+  // ── DraftAnalysis data (only computed when modal open) ─────────────────────
+  const teamByRosterId = useMemo(() => {
+    const playersByKey = {}
+    for (const p of boardPlayers || []) {
+      if (!p?.pick_no) continue
+      const key = p?.picked_by
+        ? `user:${p.picked_by}`
+        : teamsCount
+        ? `slot:${((Number(p.pick_no) - 1) % Number(teamsCount)) + 1}`
+        : 'slot:unknown'
+      if (!playersByKey[key]) playersByKey[key] = []
+      playersByKey[key].push({ id: p.id, name: p.name, pos: p.pos, team: p.team, bye: p.bye, tier: p.tier ?? null, rk: p.rk ?? null })
+    }
+    const teamIds = new Set((livePicks || []).map((p) => {
+      if (p?.picked_by) return `user:${p.picked_by}`
+      if (teamsCount && p?.pick_no) return `slot:${((Number(p.pick_no) - 1) % Number(teamsCount)) + 1}`
+      return 'slot:unknown'
+    }))
+    const out = {}
+    for (const teamKey of teamIds) {
+      const ownerId = teamKey.startsWith('user:') ? teamKey.slice(5) : teamKey
+      out[`roster:${teamKey}`] = {
+        owner_id: String(ownerId),
+        display_name: ownerLabels?.get?.(teamKey) || ownerId,
+        players: playersByKey[teamKey] || [],
+      }
+    }
+    return out
+  }, [boardPlayers, livePicks, teamsCount, ownerLabels])
+
+  const myOwnerId = sleeperUserId ? String(sleeperUserId) : null
+  const myRosterId = useMemo(() => {
+    for (const p of livePicks || []) {
+      if (p?.picked_by && String(p.picked_by) === String(sleeperUserId)) return `roster:user:${p.picked_by}`
+    }
+    return null
+  }, [livePicks, sleeperUserId])
+
+  const scores = useMemo(() => {
+    try {
+      return computeTeamScores({ boardPlayers, rosterPositions: effRoster, teamsCount, livePicks })
+    } catch {
+      try { return computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks) } catch { return [] }
+    }
+  }, [boardPlayers, effRoster, teamsCount, livePicks])
+
+  // ── Tips ───────────────────────────────────────────────────────────────────
+  const draftSlot = useMemo(
+    () => inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: sleeperUserId }),
+    [selectedDraft, livePicks, sleeperUserId]
+  )
+
+  const myDraftPicksForTips = useMemo(() => {
+    if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
+    const rounds = Number(selectedDraft.settings?.rounds) || 3
+    const teams = Number(selectedDraft.settings?.teams) || 12
+    const order = selectedDraft.draft_order || {}
+    const mySlot = Number(order[sleeperUserId]) || null
+    const pickPos = (slot, round) => (!slot || !teams ? null : round % 2 === 1 ? slot : teams - slot + 1)
+    const slotForRoster = (rid) => Number(order[rosterToUserMap[String(rid)]]) || null
+    const traded = tradedPicks || []
+    const tradedAway = new Set(traded.filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId)).map(p => p.round))
+    const tradedToMe = traded.filter(p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId))
+    const result = []
+    for (let r = 1; r <= rounds; r++) {
+      if (!tradedAway.has(r)) result.push({ round: r, type: 'own', pick_pos: pickPos(mySlot, r) })
+    }
+    for (const tp of tradedToMe) result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(slotForRoster(tp.roster_id), tp.round) })
+    return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
+
+  const redraftTips = useDraftTips({
+    picks: livePicks, boardPlayers, meUserId: sleeperUserId, teamsCount,
+    playerPrefs: {}, rosterPositions: effRoster,
+    scoringSettings: selectedLeague?.scoring_settings || null,
+    scoringType: effScoringType, draftType: selectedDraft?.type || 'snake',
+    strategies, enabled: !isRookieMode,
+  })
+  const rookieTips = useRookieDraftTips({
+    picks: livePicks, boardPlayers, meUserId: sleeperUserId,
+    dynastyRoster, teamsCount, draftSlot, myDraftPicks: myDraftPicksForTips,
+    enabled: isRookieMode,
+  })
+  const rawTips = isRookieMode ? rookieTips : redraftTips
+  const tips = draftFinished ? [] : prioritizeTips(rawTips, {
+    boardPlayers, picks: livePicks, meUserId: sleeperUserId, teamsCount,
+    rosterPositions: effRoster, isSuperflex, currentPickNumber, maxTips: 7, minScore: 10,
+  })
+
+  // ── Global effects ─────────────────────────────────────────────────────────
+
+  // Theme sync
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode
-    localStorage.setItem(THEME_STORAGE_KEY, themeMode)
+    localStorage.setItem('draft-helper-theme', themeMode)
   }, [themeMode])
 
-  // Persisted state (user + league)
-  const persisted = loadFromLocalStorage()
-  const [sleeperUsername, setSleeperUsername] = useState(persisted.username || '')
-  const [sleeperUserId, setSleeperUserId] = useState(persisted.userId || '')
-  const [seasonYear, setSeasonYear] = useState(String(persisted.year || CURRENT_YEAR))
-  const [availableLeagues, setAvailableLeagues] = useState([])
-  const [selectedLeagueId, setSelectedLeagueId] = useState(persisted.leagueId || '')
-  const [availableDrafts, setAvailableDrafts] = useState([])
-  const [selectedDraftId, setSelectedDraftId] = useState(persisted.draftId || '')
-  const [leagueUsers, setLeagueUsers] = useState([])
-
-  // CSV + Board
-  const [csvRawText, setCsvRawText] = useState(persisted.csvRawText || '')
-  const [boardPlayers, setBoardPlayers] = useState(Array.isArray(persisted.boardPlayers) ? persisted.boardPlayers : [])
-  const [searchQuery, setSearchQuery] = useState(persisted.searchQuery || '')
-  const [positionFilter, setPositionFilter] = useState(persisted.positionFilter || 'ALL')
-  const [teamFilter, setTeamFilter] = useState(persisted.teamFilter || 'ALL')
-
-  // Draft mode: 'redraft' | 'rookie'
-  const [draftMode, setDraftMode] = useState(persisted.draftMode || 'redraft')
-
-  // Dynasty roster (nur im Rookie-Modus befüllt)
-  const [dynastyRoster, setDynastyRoster] = useState([])
-  const [mySleeperRosterId, setMySleeperRosterId] = useState(null)
-  const [rosterToUserMap, setRosterToUserMap] = useState({}) // roster_id → user_id
-  const [tradedPicks, setTradedPicks] = useState([])
-
-  // Live picks
-  const [livePicks, setLivePicks] = useState([])
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
-    typeof persisted.autoRefreshEnabled === 'boolean' ? persisted.autoRefreshEnabled : true
-  )
-  const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(
-    Number.isFinite(persisted.refreshIntervalSeconds) ? persisted.refreshIntervalSeconds : 10
-  )
-  const [lastSyncAt, setLastSyncAt] = useState(null)
-
-  // listen for Setup changes so we re-read overrides and recompute tips
-  const [setupVersion, setSetupVersion] = useState(0)
+  // Setup change listener (SetupForm writes sdh.setup.v2 and fires this event)
   useEffect(() => {
-    const onSetup = () => setSetupVersion(v => v + 1)
+    const onSetup = () => incrementSetupVersion()
     const onStorage = (e) => { if (e.key === 'sdh.setup.v2') onSetup() }
     window.addEventListener('sdh:setup-changed', onSetup)
     window.addEventListener('storage', onStorage)
@@ -104,809 +249,80 @@ export default function App() {
       window.removeEventListener('sdh:setup-changed', onSetup)
       window.removeEventListener('storage', onStorage)
     }
-  }, [])
+  }, []) // eslint-disable-line
 
-
-  // Map der Ligen (für Labels im Draft-Select)
-  const leaguesById = useMemo(() => {
-      const m = new Map()
-      ;(availableLeagues || []).forEach(l => m.set(l.league_id, l))
-      return m
-  }, [availableLeagues])
-
-  const selectedLeague = useMemo(
-    () =>
-      (leaguesById && typeof leaguesById.get === 'function')
-        ? leaguesById.get(selectedLeagueId) || null
-        : null,
-    [leaguesById, selectedLeagueId]
-  )
-
-  const selectedDraft = useMemo(
-    () =>
-      (Array.isArray(availableDrafts))
-        ? availableDrafts.find(d => d.draft_id === selectedDraftId) || null
-        : null,
-    [availableDrafts, selectedDraftId]
-  )
-
-  const teamsCount = useMemo(() => getTeamsCount({
-    draft: selectedDraft,
-    picks: livePicks,
-    league: selectedLeague
-  }), [selectedDraft, livePicks, selectedLeague])
-
-  // Tabs
-  const [activeTab, setActiveTab] = useState(persisted.activeTab || (persisted.leagueId ? 'board' : 'setup'))
-
-  // Misc
-  const isAndroid = /Android/i.test(navigator.userAgent)
-  const [manualDraftInput, setManualDraftInput] = useState(persisted.manualDraftInput || '')
-  const prevConfigRef = useRef({ sleeperUserId, selectedLeagueId, selectedDraftId })
-  const pollingIntervalRef = useRef(null)
-  const [analysisOpen, setAnalysisOpen] = useState(false)
-
-  // Owner-Label-Map (user_id -> display_name/username)
-  // Owner-Label-Map (user_id/slot -> display label)
-  const ownerLabels = useMemo(() => {
-    const m = new Map();
-
-  // 1) aus League-Users (falls vorhanden)
-  for (const u of (leagueUsers || [])) {
-    m.set(`user:${u.user_id}`, u.display_name || u.username || u.user_id);
-  }
-
-  // kleine Helper, um stabile Keys + Labels auch ohne leagueUsers zu bauen
-  const teamKeyFromPick = (p) => {
-    // Primär: tatsächliche Sleeper user_id
-    if (p?.picked_by) return `user:${p.picked_by}`;
-    // Liga-Drafts: roster_id ist stabil pro Team
-    if (p?.roster_id != null) return `roster:${p.roster_id}`;
-    // Mock-Drafts: notfalls Draft-Slot (1..teamsCount) oder Slot aus pick_no ableiten
-    if (p?.draft_slot != null) return `slot:${p.draft_slot}`;
-    if (teamsCount && p?.pick_no) {
-      const slot = ((p.pick_no - 1) % teamsCount) + 1;
-      return `slot:${slot}`;
-    }
-    return `slot:unknown`;
-  };
-
-  const teamLabelFromPick = (p) => {
-    // Falls später mal Namen aus Draft-Meta auftauchen:
-    const metaLabel =
-      p?.metadata?.team_name ||
-      p?.metadata?.owner ||
-      null;
-
-    if (metaLabel) return metaLabel;
-
-    if (p?.picked_by && m.has(`user:${p.picked_by}`)) {
-      return m.get(`user:${p.picked_by}`);
-    }
-    if (p?.roster_id != null) return `Team ${p.roster_id}`;
-    if (p?.draft_slot != null) return `Slot ${p.draft_slot}`;
-    if (teamsCount && p?.pick_no) {
-      const slot = ((p.pick_no - 1) % teamsCount) + 1;
-      return `Slot ${slot}`;
-    }
-    return `Unknown`;
-  };
-
-  // 2) Fallback: aus Picks (wichtig für Mock-Drafts / Bots)
-  for (const p of (livePicks || [])) {
-    const key = teamKeyFromPick(p);
-    if (!m.has(key)) m.set(key, teamLabelFromPick(p));
-  }
-
-  return m;
-}, [leagueUsers, livePicks, teamsCount]);
-
-
-
-  // --- Sleeper Enrichment after CSV import / on start (non-blocking) ---
-  const [enriching, setEnriching] = useState(false)
-
-  useEffect(() => {
-    async function maybeEnrich() {
-      if (!Array.isArray(boardPlayers) || boardPlayers.length === 0) return
-      if (enriching) return
-      setEnriching(true)
-      try {
-        // Saison & Format ableiten
-        const season = selectedDraft?.season || Number(seasonYear) || new Date().getFullYear()
-        const format = selectedLeague?.scoring_settings?.ppr === 0.5 ? 'half'
-          : (selectedLeague?.scoring_settings?.ppr ?? 1) >= 1 ? 'ppr'
-          : 'ppr'
-
-        // ⚠️ WICHTIG: hier NICHT 'fresh' verwenden, sondern den aktuellen State
-        const enriched = await enrichBoardPlayersWithSleeper(boardPlayers, { season })
-
-        if (JSON.stringify(enriched) !== JSON.stringify(boardPlayers)) {
-          setBoardPlayers(enriched)
-          saveToLocalStorage({ boardPlayers: enriched })
-        }
-      } catch (e) {
-        console.warn('Enrichment failed', e)
-      } finally {
-        setEnriching(false)
-      }
-    }
-    maybeEnrich()
-    // dependencies so wählen, dass bei CSV/League-Format-Änderungen neu angereichert wird
-  }, [JSON.stringify(boardPlayers), selectedDraft?.season, selectedLeague?.scoring_settings?.ppr])
-
-
-  // Persist (debounced)
-  useDebouncedEffect(() => {
-    saveToLocalStorage({
-      username: sleeperUsername,
-      userId: sleeperUserId,
-      year: seasonYear,
-      leagueId: selectedLeagueId,
-      draftId: selectedDraftId,
-      csvRawText,
-      boardPlayers,
-      searchQuery,
-      positionFilter,
-      teamFilter,
-      autoRefreshEnabled,
-      refreshIntervalSeconds,
-      activeTab,
-      manualDraftInput,
-      draftMode,
-    })
-  }, [
-    sleeperUsername, sleeperUserId, seasonYear,
-    selectedLeagueId, selectedDraftId,
-    csvRawText, boardPlayers,
-    searchQuery, positionFilter, teamFilter,
-    autoRefreshEnabled, refreshIntervalSeconds,
-    activeTab, manualDraftInput, draftMode,
-  ], 200)
-
-  // Networking helpers (bleiben hier, greifen auf State zu)
-  async function resolveUserId() {
-    return resolveUserIdAction({
-      sleeperUserId,
-      sleeperUsername,
-      setSleeperUserId,
-      saveToLocalStorage,
-    })
-  }
-
-  async function loadLeagues() {
-    return loadLeaguesAction({
-      seasonYear,
-      setAvailableLeagues,
-      setSelectedLeagueId,
-      saveToLocalStorage,
-      resolveUserId,      // als Funktion referenzieren
-      loadDraftOptions,   // als Funktion referenzieren
-    })
-  }
-
-  async function loadLeagueUsers(leagueId) {
-    return loadLeagueUsersAction({ leagueId, setLeagueUsers })
-  }
-
-  async function loadPicks(draftId) {
-    return loadPicksAction({ draftId, setLivePicks, setLastSyncAt })
-  }  
-
-  async function loadDraftOptions(leagueId) {
-    return loadDraftOptionsAction({
-      leagueId,
-      seasonYear,
-      selectedDraftId,
-      setAvailableDrafts,
-      setSelectedDraftId,
-      saveToLocalStorage,
-      resolveUserId,
-      loadPicks,
-    })
-  }  
-
-  async function attachDraftByIdOrUrl(input) {
-    return attachDraftByIdOrUrlAction({
-      input,
-      parseDraftId,
-      availableDrafts,
-      setAvailableDrafts,
-      setSelectedDraftId,
-      saveToLocalStorage,
-      loadPicks, // Dependency
-    })
-  }  
-
-  // CSV → Live-Picks remap
-  useEffect(() => {
-    if (!boardPlayers.length) return
-    const byNormalizedName = new Map(boardPlayers.map(p => [p.nname, p]))
-    for (const pick of (livePicks || [])) {
-      const fullName = normalizePlayerName(`${pick?.metadata?.first_name || ''} ${pick?.metadata?.last_name || ''}`)
-      const player = byNormalizedName.get(fullName)
-      if (player) {
-        player.status = pick.picked_by === sleeperUserId ? 'me' : 'other'
-        player.pick_no = pick.pick_no
-        player.picked_by = pick.picked_by
-        const sleeperBye = pick?.metadata?.bye_week
-        if (sleeperBye !== undefined && sleeperBye !== null && String(sleeperBye).trim() !== '') {
-          player.bye = sleeperBye
-        }
-        // sonst: CSV-Bye unverändert lassen
-
-      }
-    }
-    const updated = [...byNormalizedName.values()].sort((a, b) => Number(a.rk) - Number(b.rk))
-      setBoardPlayers(updated)
-      saveToLocalStorage({ boardPlayers: updated })
-    }, [livePicks]) // eslint-disable-line
-
-    // Team-Key wie in ownerLabels/analysis ableiten (für Spieler, die bereits gepickt sind)
-    const teamKeyForPlayer = (p) => {
-      if (!p?.pick_no) return null            // nicht gepickt -> kein Team
-      if (p?.picked_by) return `user:${p.picked_by}`
-      if (teamsCount) {
-        const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
-        return `slot:${slot}`
-      }
-      return 'slot:unknown'
-    }
-
-  // Derived UI
-  const filteredPlayers = useMemo(() => {
-    const q = normalizePlayerName(searchQuery)
-    return boardPlayers.filter(p => {
-      if (positionFilter !== 'ALL' && normalizePos(p.pos) !== normalizePos(positionFilter)) return false
-      // Team-Filter: zeige nur Spieler, die von diesem Team gepickt wurden
-      if (teamFilter && teamFilter !== 'ALL') {
-        const key = (() => {
-          if (p?.picked_by) return `user:${p.picked_by}`
-          if (teamsCount && p?.pick_no) {
-            const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
-            return `slot:${slot}`
-          }
-          return null
-        })()
-        if (key !== teamFilter) return false
-      }
-      if (!q) return true
-      return normalizePlayerName(p.name).includes(q)
-    })
-  }, [boardPlayers, searchQuery, positionFilter, teamFilter, teamsCount]) 
-
-  const pickedCount = useMemo(() => boardPlayers.filter(p => p.status).length, [boardPlayers])
-  const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map(p => p.pick_no || 0)) : 0
-  const draftFinished = isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds)
-  const progressPercent = boardPlayers.length ? Math.round((pickedCount / boardPlayers.length) * 100) : 0
-
-  // Polling
-  useEffect(() => {
-    if (!autoRefreshEnabled || !selectedDraftId) return
-    clearInterval(pollingIntervalRef.current)
-    pollingIntervalRef.current = setInterval(() => {
-      loadPicks(selectedDraftId).catch(() => {})
-    }, Math.max(4, Number(refreshIntervalSeconds)) * 1000)
-    return () => clearInterval(pollingIntervalRef.current)
-  }, [autoRefreshEnabled, selectedDraftId, refreshIntervalSeconds]) // eslint-disable-line
-
-  // League change effects
+  // League change → reload draft options + users
   useEffect(() => {
     loadDraftOptions(selectedLeagueId).catch(() => {})
-    if (selectedLeagueId) {
-      loadLeagueUsers(selectedLeagueId).catch(() => {})
-    }
+    if (selectedLeagueId) loadLeagueUsers(selectedLeagueId).catch(() => {})
   }, [selectedLeagueId]) // eslint-disable-line
 
-  // Auto-detect draft mode from league type
+  // Draft mode auto-detection from league type
   useEffect(() => {
     const lt = selectedLeague?.league_type
     if (lt === 'dynasty' || lt === 'keeper') setDraftMode('rookie')
     else if (lt === 'redraft') setDraftMode('redraft')
   }, [selectedLeague?.league_type]) // eslint-disable-line
 
-  // Dynasty roster laden (nur im Rookie-Modus)
+  // Dynasty roster + traded picks
   useEffect(() => {
     if (draftMode !== 'rookie' || !selectedLeagueId || !sleeperUserId) {
-      setDynastyRoster([])
+      useDynastyStore.getState().setDynastyRoster([])
       return
     }
-    async function loadDynastyRoster() {
-      try {
-        const season = Number(seasonYear) || new Date().getFullYear()
-        const [rosters, playersMeta] = await Promise.all([
-          fetchLeagueRosters(selectedLeagueId),
-          loadPlayersMetaCached({ season }),
-        ])
-        // Roster-ID → User-ID Mapping für alle Teams (für Pick-Slot-Berechnung)
-        const rMap = {}
-        for (const r of (rosters || [])) {
-          if (r.roster_id != null && r.owner_id) rMap[String(r.roster_id)] = String(r.owner_id)
-        }
-        setRosterToUserMap(rMap)
-
-        const myRoster = (rosters || []).find(r => String(r.owner_id) === String(sleeperUserId))
-        if (!myRoster) { setDynastyRoster([]); setMySleeperRosterId(null); return }
-        setMySleeperRosterId(myRoster.roster_id ?? null)
-
-        const starterSet = new Set(myRoster.starters || [])
-        const taxiSet = new Set(myRoster.taxi || [])
-        const reserveSet = new Set(myRoster.reserve || [])
-        const allIds = myRoster.players || []
-
-        const players = allIds.map(id => {
-          const meta = playersMeta[id] || {}
-          const slot = taxiSet.has(id) ? 'taxi'
-            : reserveSet.has(id) ? 'ir'
-            : starterSet.has(id) ? 'starter'
-            : 'bench'
-          return {
-            sleeper_id: id,
-            name: meta.full_name || `#${id}`,
-            pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
-            team: meta.team || '',
-            bye: meta.bye_week != null ? String(meta.bye_week) : '',
-            age: meta.age || null,
-            slot,
-          }
-        })
-        setDynastyRoster(players)
-      } catch (e) {
-        console.warn('[dynastyRoster] load failed', e)
-        setDynastyRoster([])
-      }
-    }
-    loadDynastyRoster()
+    loadDynastyRoster({ selectedLeagueId, sleeperUserId, seasonYear })
   }, [draftMode, selectedLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
 
-  // Traded Picks laden (nur im Rookie-Modus)
   useEffect(() => {
-    if (draftMode !== 'rookie' || !selectedDraftId) { setTradedPicks([]); return }
-    fetchTradedPicks(selectedDraftId)
-      .then(setTradedPicks)
-      .catch(e => { console.warn('[tradedPicks] load failed', e); setTradedPicks([]) })
+    if (draftMode !== 'rookie' || !selectedDraftId) { loadTradedPicks(null); return }
+    loadTradedPicks(selectedDraftId)
   }, [draftMode, selectedDraftId]) // eslint-disable-line
 
-  // Detect config changes → re-mark
+  // Polling
+  const pollingRef = useRef(null)
+  useEffect(() => {
+    if (!autoRefreshEnabled || !selectedDraftId) return
+    clearInterval(pollingRef.current)
+    pollingRef.current = setInterval(() => {
+      loadPicks(selectedDraftId).catch(() => {})
+    }, Math.max(4, Number(refreshIntervalSeconds)) * 1000)
+    return () => clearInterval(pollingRef.current)
+  }, [autoRefreshEnabled, selectedDraftId, refreshIntervalSeconds]) // eslint-disable-line
+
+  // Config change detection (user/league/draft changed → offer reset)
+  const prevConfigRef = useRef({ sleeperUserId, selectedLeagueId, selectedDraftId })
   useEffect(() => {
     const prev = prevConfigRef.current
     const changed =
       prev.sleeperUserId !== sleeperUserId ||
       prev.selectedLeagueId !== selectedLeagueId ||
       prev.selectedDraftId !== selectedDraftId
-
     if (changed && boardPlayers.length) {
       const ok = window.confirm('Konfiguration geändert. Markierungen zurücksetzen und neu synchronisieren?')
       if (ok) {
-        const cleared = boardPlayers.map(p => ({ ...p, status: null, pick_no: null, picked_by: null }))
-        setBoardPlayers(cleared)
-        saveToLocalStorage({ boardPlayers: cleared })
+        useBoardStore.getState().setBoardPlayers(
+          boardPlayers.map((p) => ({ ...p, status: null, pick_no: null, picked_by: null }))
+        )
         if (selectedDraftId) loadPicks(selectedDraftId)
-        setActiveTab('board')
-        saveToLocalStorage({ activeTab: 'board' })
       }
     }
     prevConfigRef.current = { sleeperUserId, selectedLeagueId, selectedDraftId }
   }, [sleeperUserId, selectedLeagueId, selectedDraftId]) // eslint-disable-line
 
-  // CSV laden
-  async function handleCsvLoad() {
-    try {
-      if (!csvRawText.trim()) { alert('Bitte CSV einfügen oder Datei wählen.'); return }
-      if (boardPlayers.length) {
-        const ok = window.confirm('Es ist bereits eine CSV geladen. Aktuelle Daten überschreiben?')
-        if (!ok) return
-      }
-      const rows = parseFantasyProsCsv(csvRawText)
-      if (!rows.length) { alert('CSV konnte nicht gelesen werden.'); return }
-      const fresh = rows.map(r => ({ ...r, status: null, pick_no: null, picked_by: null }))
-      setBoardPlayers(fresh)
-      saveToLocalStorage({ csvRawText, boardPlayers: fresh })
-      if (selectedDraftId) await loadPicks(selectedDraftId)
-      setActiveTab('board')
-      saveToLocalStorage({ activeTab: 'board' })
-      alert('CSV erfolgreich geladen.')
-    } catch (e) {
-      alert('Fehler beim Laden der CSV: ' + (e.message || e))
-    }
-  }
+  // ── Shared page props ──────────────────────────────────────────────────────
+  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType }
 
-  // Manuelle Reihenfolge per Drag-and-Drop
-  function onBoardReorder(draggedNname, targetNname) {
-    if (!draggedNname || draggedNname === targetNname) return
-    const arr = [...boardPlayers]
-    const fromIdx = arr.findIndex(p => p.nname === draggedNname)
-    const toIdx   = arr.findIndex(p => p.nname === targetNname)
-    if (fromIdx === -1 || toIdx === -1) return
-    const [removed] = arr.splice(fromIdx, 1)
-    arr.splice(toIdx, 0, removed)
-    const reordered = arr.map((p, i) => ({ ...p, rk: String(i + 1), ecr: i + 1 }))
-    setBoardPlayers(reordered)
-    saveToLocalStorage({ boardPlayers: reordered })
-  }
-
-  // KTC Rookie Rankings scraping
-  async function handleKtcRookieImport() {
-    if (boardPlayers.length) {
-      const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
-      if (!ok) return
-    }
-    try {
-      const resp = await fetch('/api/rankings/ktc-rookies')
-      if (!resp.ok) throw new Error(`Server antwortete mit ${resp.status}`)
-      const data = await resp.json()
-      if (!data.ok) throw new Error(data.error || 'Unbekannter Fehler')
-      const fresh = data.players.map(p => ({
-        ...p,
-        nname: normalizePlayerName(p.name),
-        status: null,
-        pick_no: null,
-        picked_by: null,
-      }))
-      setBoardPlayers(fresh)
-      saveToLocalStorage({ csvRawText: '', boardPlayers: fresh })
-      if (selectedDraftId) await loadPicks(selectedDraftId)
-      setActiveTab('board')
-      saveToLocalStorage({ activeTab: 'board' })
-    } catch (e) {
-      alert('Fehler beim KTC-Import: ' + (e.message || e))
-    }
-  }
-
-  // FantasyCalc Auto-Import
-  async function handleAutoImport() {
-    if (boardPlayers.length) {
-      const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
-      if (!ok) return
-    }
-    try {
-      const numQbs = isSuperflex ? 2 : 1
-      const numTeams = selectedLeague?.total_rosters || 12
-      const pprVal = effScoringType === 'ppr' ? 1 : effScoringType === 'half_ppr' ? 0.5 : 0
-      const resp = await fetch(`/api/rankings/fantasycalc?numQbs=${numQbs}&numTeams=${numTeams}&ppr=${pprVal}`)
-      if (!resp.ok) throw new Error(`Server antwortete mit ${resp.status}`)
-      const data = await resp.json()
-      if (!data.ok) throw new Error(data.error || 'Unbekannter Fehler')
-      const fresh = data.players.map(p => ({
-        ...p,
-        nname: normalizePlayerName(p.name),
-        status: null,
-        pick_no: null,
-        picked_by: null,
-      }))
-      setBoardPlayers(fresh)
-      saveToLocalStorage({ csvRawText: '', boardPlayers: fresh })
-      if (selectedDraftId) await loadPicks(selectedDraftId)
-      setActiveTab('board')
-      saveToLocalStorage({ activeTab: 'board' })
-    } catch (e) {
-      alert('Fehler beim Auto-Import: ' + (e.message || e))
-    }
-  }
-
-  // --- Setup overrides (format + strategies) ---
-  const setupOverrides = useMemo(() => (loadSetup()?.overrides) || {}, [setupVersion])
-  const effRoster = setupOverrides.roster_positions ?? (
-    selectedDraft?.settings
-      ? (function mapSlots(s){
-          const m={slots_qb:'QB',slots_rb:'RB',slots_wr:'WR',slots_te:'TE',slots_k:'K',slots_def:'DEF',slots_flex:'FLEX',slots_wr_rb:'WR/RB',slots_wr_te:'WR/TE',slots_rb_te:'RB/TE',slots_super_flex:'SUPER_FLEX',slots_idp_flex:'IDP_FLEX',slots_dl:'DL',slots_lb:'LB',slots_db:'DB',slots_bn:'BN'}
-          const out=[]
-          for (const [k,v] of Object.entries(s||{})) {
-            if (!k.startsWith('slots_')) continue
-            const name=m[k]; const n=Number(v)
-            if (!name || !Number.isFinite(n) || n<=0) continue
-            for (let i=0;i<n;i++) out.push(name)
-          }
-          return out
-        })(selectedDraft.settings)
-      : (selectedLeague?.roster_positions || [])
-  )
-  const effScoringType =
-    setupOverrides.scoring_type ??
-    (((selectedLeague?.scoring_settings?.rec ?? 1) >= 0.95) ? 'ppr'
-      : ((selectedLeague?.scoring_settings?.rec ?? 0) >= 0.45) ? 'half_ppr'
-      : 'standard')
-  const strategies = Array.isArray(setupOverrides.strategies) && setupOverrides.strategies.length
-    ? setupOverrides.strategies
-    : ['balanced']
-  const isSuperflex = (setupOverrides.superflex != null)
-    ? !!setupOverrides.superflex
-    : effRoster.some(r => String(r).toUpperCase().includes('SUPER'))
-
-
-  const isRookieMode = draftMode === 'rookie'
-
-  // Meine Picks in diesem Rookie-Draft (inklusive Trades + Slot-Position)
-  // Muss VOR useRookieDraftTips stehen (sonst TDZ-Fehler durch const-Hoisting)
-  const myDraftPicks = useMemo(() => {
-    if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
-
-    const rounds  = Number(selectedDraft.settings?.rounds) || 3
-    const teams   = Number(selectedDraft.settings?.teams)  || 12
-    const order   = selectedDraft.draft_order || {} // user_id → slot
-
-    const mySlot  = Number(order[sleeperUserId]) || null
-
-    const pickPos = (slot, round) => {
-      if (!slot || !teams) return null
-      return round % 2 === 1 ? slot : teams - slot + 1
-    }
-
-    const slotForRoster = (rosterId) => {
-      const uid = rosterToUserMap[String(rosterId)]
-      if (!uid) return null
-      return Number(order[uid]) || null
-    }
-
-    const traded = tradedPicks || []
-
-    const tradedAway = new Set(
-      traded
-        .filter(p => String(p.roster_id) === String(mySleeperRosterId) && String(p.owner_id) !== String(mySleeperRosterId))
-        .map(p => p.round)
-    )
-    const tradedToMe = traded.filter(
-      p => String(p.owner_id) === String(mySleeperRosterId) && String(p.roster_id) !== String(mySleeperRosterId)
-    )
-
-    const result = []
-    for (let r = 1; r <= rounds; r++) {
-      if (!tradedAway.has(r)) {
-        result.push({ round: r, type: 'own', pick_pos: pickPos(mySlot, r) })
-      }
-    }
-    for (const tp of tradedToMe) {
-      const theirSlot = slotForRoster(tp.roster_id)
-      result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(theirSlot, tp.round) })
-    }
-    return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
-  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
-
-  const redraftTips = useDraftTips({
-    picks: livePicks,
-    boardPlayers,
-    meUserId: sleeperUserId,
-    teamsCount,
-    playerPrefs: {},
-    rosterPositions: effRoster,
-    scoringSettings: selectedLeague?.scoring_settings || null,
-    scoringType: effScoringType,
-    draftType: (selectedDraft?.type || 'snake'),
-    strategies,
-    enabled: !isRookieMode,
-  })
-
-  const rookieTips = useRookieDraftTips({
-    picks: livePicks,
-    boardPlayers,
-    meUserId: sleeperUserId,
-    dynastyRoster,
-    teamsCount,
-    draftSlot: inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: sleeperUserId }),
-    myDraftPicks,
-    enabled: isRookieMode,
-  })
-
-  const rawTips = isRookieMode ? rookieTips : redraftTips
-
-    // Wichtig: currentPickNumber hast du bereits oben berechnet
-  const tips = draftFinished ? [] : prioritizeTips(rawTips, {
-    boardPlayers,
-    picks: livePicks,
-    meUserId: sleeperUserId,
-    teamsCount,
-    rosterPositions: effRoster,
-    isSuperflex,
-    currentPickNumber,
-    maxTips: 7,   // kannst du als Setting persistieren
-    minScore: 10, // Schwelle, ab wann es “wichtig” ist
-  })
-
-  // ---- Team-Ableitungen aus Picks + Board ----
-
-// stabile Team-Keys (matching ownerLabels) bauen:
-const teamKeyFromPick = (p) => {
-  if (p?.picked_by) return `user:${p.picked_by}`
-  if (teamsCount && p?.pick_no) {
-    const slot = ((Number(p.pick_no) - 1) % Number(teamsCount)) + 1
-    return `slot:${slot}`
-  }
-  return 'slot:unknown'
-}
-
-// Spieler dem Team-Key zuordnen, basierend auf pick-Infos im angereicherten Board
-function buildPlayersByTeamKey(boardPlayers) {
-  const out = {}
-  for (const p of (boardPlayers || [])) {
-    if (!p?.pick_no) continue // nur gepickte Spieler haben ein Team
-    const key =
-      p?.picked_by ? `user:${p.picked_by}` :
-      (teamsCount ? `slot:${(((Number(p.pick_no)-1)%Number(teamsCount))+1)}` : 'slot:unknown')
-    if (!out[key]) out[key] = []
-    out[key].push({
-      id: p.id, name: p.name, pos: p.pos, team: p.team, bye: p.bye,
-      tier: p.tier ?? null, rk: p.rk ?? null
-    })
-  }
-  return out
-}
-
-// teamByRosterId in das erwartete Format transformieren.
-// Wir bauen "synthetische roster_ids" aus dem Team-Key, z. B. roster:user:12345 oder roster:slot:4
-function buildTeamByRosterId({ livePicks, boardPlayers, ownerLabels }) {
-  const playersByTeamKey = buildPlayersByTeamKey(boardPlayers)
-
-  // owner_id ermitteln (für user:* easy; für slot:* notfalls der Slot selbst)
-  const teamIds = new Set()
-  for (const p of (livePicks || [])) {
-    teamIds.add(teamKeyFromPick(p))
-  }
-
-  const out = {}
-  for (const teamKey of teamIds) {
-    const syntheticRosterId = `roster:${teamKey}`               // z. B. "roster:user:7232..." oder "roster:slot:4"
-    const owner_id = teamKey.startsWith('user:')
-      ? teamKey.slice('user:'.length)
-      : teamKey // für Slots nutzen wir den Key selbst als "owner Id" string
-
-    const display = ownerLabels?.get?.(teamKey) || ownerLabels?.[teamKey] || owner_id
-
-    out[syntheticRosterId] = {
-      owner_id: String(owner_id),
-      display_name: display,
-      players: playersByTeamKey[teamKey] || []
-    }
-  }
-  return out
-}
-
-// eigenes Team bestimmen
-function deriveMyIds({ sleeperUserId, livePicks }) {
-  // owner_id = echte Sleeper user_id, wenn vorhanden
-  const myOwnerId = sleeperUserId ? String(sleeperUserId) : null
-
-  // RosterKey / Slot suchen
-  let myTeamKey = null
-  for (const p of (livePicks || [])) {
-    if (p?.picked_by && String(p.picked_by) === String(sleeperUserId)) {
-      myTeamKey = `user:${p.picked_by}`
-      break
-    }
-  }
-  if (!myTeamKey && teamsCount && livePicks?.length) {
-    // Fallback: finde den Draft-Slot, an dem du gepickt hast
-    const mine = livePicks.find(p => p?.picked_by && String(p.picked_by) === String(sleeperUserId))
-    if (mine?.pick_no) {
-      const slot = ((Number(mine.pick_no) - 1) % Number(teamsCount)) + 1
-      myTeamKey = `slot:${slot}`
-    }
-  }
-
-  const myRosterId = myTeamKey ? `roster:${myTeamKey}` : null
-  return { myOwnerId, myRosterId }
-}
-
-
-    // ---- Ableitungen für die AI-Analyse ----
-  const teamByRosterId = useMemo(() => {
-    return buildTeamByRosterId({ livePicks, boardPlayers, ownerLabels })
-  }, [livePicks, boardPlayers, ownerLabels, teamsCount])
-
-  const { myOwnerId, myRosterId } = useMemo(() => {
-    return deriveMyIds({ sleeperUserId, livePicks })
-  }, [sleeperUserId, livePicks, teamsCount])
-
-  const scores = useMemo(() => {
-    try {
-      // Variante A: falls deine computeTeamScores({ boardPlayers, rosterPositions, teamsCount, picks }) Signatur nutzt:
-      return computeTeamScores({
-        boardPlayers,
-        rosterPositions: effRoster,
-        teamsCount,
-        livePicks,
-      })
-    } catch {
-      // Variante B (alte Signatur): computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks)
-      try { return computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks) } catch { return [] }
-    }
-  }, [boardPlayers, effRoster, teamsCount, livePicks])
-
-  // Render
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AppShell tips={tips}
-      themeMode={themeMode}
-      onToggleTheme={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-      activeTab={activeTab}
-      onSetupClick={() => { setActiveTab('setup'); saveToLocalStorage({ activeTab: 'setup' }) }}
-      onBoardClick={() => { setActiveTab('board'); saveToLocalStorage({ activeTab: 'board' }) }}
-      onRosterClick={() => { setActiveTab('roster'); saveToLocalStorage({ activeTab: 'roster' }) }}
-    >
-      {activeTab === 'setup' && (
-        <SetupForm
-          sleeperUsername={sleeperUsername}
-          sleeperUserId={sleeperUserId}
-          seasonYear={seasonYear}
-          availableLeagues={availableLeagues}
-          selectedLeagueId={selectedLeagueId}
-          availableDrafts={availableDrafts}
-          selectedDraftId={selectedDraftId}
-          leaguesById={leaguesById}
-          manualDraftInput={manualDraftInput}
-          csvRawText={csvRawText}
-          isAndroid={isAndroid}
-          lastSyncAt={lastSyncAt}
-          setSleeperUsername={setSleeperUsername}
-          setSleeperUserId={setSleeperUserId}
-          setSeasonYear={setSeasonYear}
-          setSelectedLeagueId={setSelectedLeagueId}
-          setSelectedDraftId={setSelectedDraftId}
-          setManualDraftInput={setManualDraftInput}
-          setCsvRawText={setCsvRawText}
-          saveToLocalStorage={saveToLocalStorage}
-          resolveUserId={resolveUserId}
-          loadLeagues={loadLeagues}
-          loadDraftOptions={loadDraftOptions}
-          attachDraftByIdOrUrl={attachDraftByIdOrUrl}
-          handleCsvLoad={handleCsvLoad}
-          handleAutoImport={handleAutoImport}
-          handleKtcRookieImport={handleKtcRookieImport}
-          formatDraftLabel={formatDraftLabel}
-          draftMode={draftMode}
-          setDraftMode={setDraftMode}
-          selectedLeague={selectedLeague}
-        />
-      )}
-  
-      {activeTab === 'board' && (
-        <BoardSection
-          ownerLabels={ownerLabels}
-          setupVersion={setupVersion}
-          teamFilter={teamFilter}
-          onTeamFilterChange={(e) => { 
-            setTeamFilter(e.target.value)
-            saveToLocalStorage({ teamFilter: e.target.value })
-          }}
-          currentPickNumber={currentPickNumber}
-          autoRefreshEnabled={autoRefreshEnabled}
-          refreshIntervalSeconds={refreshIntervalSeconds}
-          lastSyncAt={lastSyncAt}
-          searchQuery={searchQuery}
-          positionFilter={positionFilter}
-          filteredPlayers={filteredPlayers}
-          pickedCount={pickedCount}
-          totalCount={boardPlayers.length}
-          onToggleAutoRefresh={(e) => setAutoRefreshEnabled(e.target.checked)}
-          onChangeInterval={(e) => setRefreshIntervalSeconds(Number(e.target.value || 10))}
-          onSync={() => selectedDraftId && loadPicks(selectedDraftId)}
-          onSearchChange={(e) => setSearchQuery(e.target.value)}
-          onPositionChange={(e) => setPositionFilter(e.target.value)}
-          boardPlayers={boardPlayers}
-          livePicks={livePicks}
-          meUserId={sleeperUserId}
-          league={selectedLeague}
-          draft={selectedDraft}
-          draftMode={draftMode}
-          myDraftPicks={myDraftPicks}
-          dynastyRoster={dynastyRoster}
-          onBoardReorder={onBoardReorder}
-        />
-      )}
-  
-      {activeTab === 'roster' && (
-        <RosterSection
-          picks={livePicks}
-          me={sleeperUserId}
-          boardPlayers={boardPlayers}
-          league={selectedLeague}
-          draft={selectedDraft}
-          teamsCount={teamsCount}
-          draftMode={draftMode}
-          dynastyRoster={dynastyRoster}
-        />
-      )}
-    
-      {/* Draft Analysis Trigger (Floating Button) */}
-      {isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds) && (
+    <AppShell tips={tips} themeMode={themeMode} onToggleTheme={toggleTheme}>
+      <Routes>
+        <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
+        <Route path="/board" element={<BoardPage {...pageProps} />} />
+        <Route path="/roster" element={<RosterPage {...pageProps} />} />
+        <Route path="*" element={<RootRedirect />} />
+      </Routes>
+
+      {draftFinished && (
         <button
           type="button"
           className="dock-toggle dock-toggle--right"
@@ -917,28 +333,18 @@ function deriveMyIds({ sleeperUserId, livePicks }) {
         </button>
       )}
 
-      {/* Draft Analysis Modal */}
-      <Modal
-        open={analysisOpen}
-        onClose={() => setAnalysisOpen(false)}
-        title="Team Rankings"
-      >
-          <DraftAnalysis
-            scores={scores}
-            ownerLabels={ownerLabels}
-            league={selectedLeague}
-            picks={livePicks}
-            teamByRosterId={teamByRosterId}
-            myOwnerId={myOwnerId}
-            myRosterId={myRosterId}
-            board={{
-              players: boardPlayers,
-              metadata: { season: selectedLeague?.season }
-            }}
-          />
+      <Modal open={analysisOpen} onClose={() => setAnalysisOpen(false)} title="Team Rankings">
+        <DraftAnalysis
+          scores={scores}
+          ownerLabels={ownerLabels}
+          league={selectedLeague}
+          picks={livePicks}
+          teamByRosterId={teamByRosterId}
+          myOwnerId={myOwnerId}
+          myRosterId={myRosterId}
+          board={{ players: boardPlayers, metadata: { season: selectedLeague?.season } }}
+        />
       </Modal>
-
-
     </AppShell>
-  )  
+  )
 }

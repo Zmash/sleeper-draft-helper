@@ -36,7 +36,10 @@
       "Bash(npm install *)",
       "Bash(node -e \"import\\('cheerio'\\).then\\(c => console.log\\('OK', Object.keys\\(c\\)\\)\\)\")",
       "Bash(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\\\\src\" -Recurse -Include \"*.jsx\", \"*.js\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"f:\\\\sleeper-draft-helper\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }
