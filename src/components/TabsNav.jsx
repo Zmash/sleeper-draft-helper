@@ -5,6 +5,7 @@ const TABS = [
   { path: '/dashboard', label: 'Home' },
   { path: '/board',     label: 'Board' },
   { path: '/roster',    label: 'Roster' },
+  { path: '/trade',     label: 'Trade' },
 ]
 
 export default function TabsNav() {

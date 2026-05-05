@@ -43,7 +43,7 @@ export default function SetupForm(props) {
   } = props
 
   // --- UI State
-  const [openStep, setOpenStep] = useState(1)
+  const [openStep, setOpenStep] = useState(sleeperUserId ? 1 : 0)
   const [showAttachAlt, setShowAttachAlt] = useState(false)
   const [showCsvAdvanced, setShowCsvAdvanced] = useState(false)
   const [showAdvancedFormat, setShowAdvancedFormat] = useState(false)
@@ -155,59 +155,25 @@ export default function SetupForm(props) {
   return (
     <section className="card">
       <h2>Setup</h2>
-      <p className="muted">Connect Sleeper, pick your draft, import rankings — then confirm the summary.</p>
+      <p className="muted">Liga & Draft auswählen, Rankings importieren — dann loslegen.</p>
+
+      {!sleeperUserId && (
+        <div className="setup-no-account-banner">
+          Kein Sleeper-Account verbunden.{' '}
+          <a href="/dashboard" onClick={e => { e.preventDefault(); window.history.back() }}>
+            Bitte auf dem Dashboard verbinden.
+          </a>
+        </div>
+      )}
 
       <div className="setup-steps">
 
-        {/* STEP 1 */}
+        {/* STEP 1 (Liga & Draft) */}
         <div className={`step ${isStepOpen(1) ? '' : 'collapsed'}`}>
           <button className="step-header" onClick={() => setOpenStep(1)}>
             <span className="step-badge">1</span>
-            <span className="step-title">Sleeper account & season</span>
-            <span className="step-sub">Enter username, select season, fetch leagues</span>
-          </button>
-          <div className="step-body">
-            <div className="form-row">
-              <label className="field">
-                <span>Username</span>
-                <div className="row">
-                  <input
-                    className="control"
-                    value={sleeperUsername || ''}
-                    onChange={(e) => { const v = e.target.value; setSleeperUsername(v); saveToLocalStorage({ username: v }) }}
-                    placeholder="yourName123"
-                    autoComplete="off"
-                  />
-                </div>
-              </label>
-
-              <label className="field">
-                <span>Season</span>
-                <div className="row">
-                  <input
-                    className="control"
-                    type="number"
-                    value={seasonYear || ''}
-                    onChange={(e) => { const v = Number(e.target.value || 0); setSeasonYear(v); saveToLocalStorage({ year: v }) }}
-                  />
-                  <button className="btn btn-primary control" onClick={handleResolveAndLoad} disabled={busyResolveAndLoad}>
-                    {busyResolveAndLoad ? 'Loading…' : 'Resolve user & load leagues'}
-                  </button>
-                </div>
-              </label>
-            </div>
-          </div>
-          <div className="step-actions">
-            <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Next</button>
-          </div>
-        </div>
-
-        {/* STEP 2 */}
-        <div className={`step ${isStepOpen(2) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(2)}>
-            <span className="step-badge">2</span>
-            <span className="step-title">Choose league & draft</span>
-            <span className="step-sub">Select a league (optional), then pick a draft</span>
+            <span className="step-title">Liga & Draft wählen</span>
+            <span className="step-sub">Liga (optional) und Draft auswählen</span>
           </button>
           <div className="step-body">
             <div className="form-row">
@@ -323,17 +289,16 @@ export default function SetupForm(props) {
             </div>
           </div>
           <div className="step-actions">
-            <button className="btn btn-secondary" onClick={() => setOpenStep(1)}>Back</button>
-            <button className="btn btn-primary" onClick={() => setOpenStep(3)}>Next</button>
+            <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Weiter</button>
           </div>
         </div>
 
-        {/* STEP 3 */}
-        <div className={`step ${isStepOpen(3) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(3)}>
-            <span className="step-badge">3</span>
-            <span className="step-title">Import rankings</span>
-            <span className="step-sub">Upload CSV or paste raw contents</span>
+        {/* STEP 2 */}
+        <div className={`step ${isStepOpen(2) ? '' : 'collapsed'}`}>
+          <button className="step-header" onClick={() => setOpenStep(2)}>
+            <span className="step-badge">2</span>
+            <span className="step-title">Rankings importieren</span>
+            <span className="step-sub">CSV hochladen oder Auto-Import</span>
           </button>
           <div className="step-body">
             {draftMode !== 'rookie' && (
@@ -435,17 +400,17 @@ export default function SetupForm(props) {
             </div>
           </div>
           <div className="step-actions">
-            <button className="btn btn-secondary" onClick={() => setOpenStep(2)}>Back</button>
-            <button className="btn btn-primary" onClick={() => setOpenStep(4)}>Next</button>
+            <button className="btn btn-secondary" onClick={() => setOpenStep(1)}>Zurück</button>
+            <button className="btn btn-primary" onClick={() => setOpenStep(3)}>Weiter</button>
           </div>
         </div>
 
-        {/* STEP 4 */}
-        <div className={`step ${isStepOpen(4) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(4)}>
-            <span className="step-badge">4</span>
-            <span className="step-title">Draft format & options</span>
-            <span className="step-sub">Adjust detected values (optional)</span>
+        {/* STEP 3 */}
+        <div className={`step ${isStepOpen(3) ? '' : 'collapsed'}`}>
+          <button className="step-header" onClick={() => setOpenStep(3)}>
+            <span className="step-badge">3</span>
+            <span className="step-title">Draft-Format & Optionen</span>
+            <span className="step-sub">Erkannte Werte anpassen (optional)</span>
           </button>
           <div className="step-body">
             <div className="form-row">
@@ -573,17 +538,17 @@ export default function SetupForm(props) {
             </div>
           </div>
           <div className="step-actions">
-            <button className="btn btn-secondary" onClick={() => setOpenStep(3)}>Back</button>
-            <button className="btn btn-primary" onClick={() => setOpenStep(5)}>Next</button>
+            <button className="btn btn-secondary" onClick={() => setOpenStep(2)}>Zurück</button>
+            <button className="btn btn-primary" onClick={() => setOpenStep(4)}>Weiter</button>
           </div>
         </div>
 
-        {/* STEP 5 */}
-        <div className={`step ${isStepOpen(5) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(5)}>
-            <span className="step-badge">5</span>
-            <span className="step-title">Summary</span>
-            <span className="step-sub">Quick check before drafting</span>
+        {/* STEP 4 */}
+        <div className={`step ${isStepOpen(4) ? '' : 'collapsed'}`}>
+          <button className="step-header" onClick={() => setOpenStep(4)}>
+            <span className="step-badge">4</span>
+            <span className="step-title">Zusammenfassung</span>
+            <span className="step-sub">Kurzer Check vor dem Draft</span>
           </button>
           <div className="step-body">
             <div className="summary-card">
@@ -601,8 +566,8 @@ export default function SetupForm(props) {
             </div>
           </div>
           <div className="step-actions">
-            <button className="btn btn-secondary" onClick={() => setOpenStep(4)}>Back</button>
-            <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Done</button>
+            <button className="btn btn-secondary" onClick={() => setOpenStep(3)}>Zurück</button>
+            <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Fertig</button>
           </div>
         </div>
 

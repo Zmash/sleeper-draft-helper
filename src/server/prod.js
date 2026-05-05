@@ -151,6 +151,59 @@ app.get('/api/rankings/fantasycalc', async (req, res) => {
   }
 })
 
+// ---------- Rankings: KTC Dynasty (all players) ----------
+app.get('/api/rankings/ktc-dynasty', async (req, res) => {
+  const superflex = req.query.superflex === 'true' || req.query.superflex === '1'
+  const KTC_URL = superflex
+    ? 'https://keeptradecut.com/dynasty-rankings?format=1'
+    : 'https://keeptradecut.com/dynasty-rankings'
+  const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  try {
+    const upstream = await fetch(KTC_URL, { headers: HEADERS })
+    if (!upstream.ok) return res.status(502).json({ ok: false, error: `KTC returned ${upstream.status}` })
+    const html = await upstream.text()
+    const $ = cheerioLoad(html)
+    const players = []
+    $('.single-ranking').each((idx, el) => {
+      const rank = parseInt($('.rank-number p', el).text().trim()) || (idx + 1)
+      const nameEl = $('.player-name a', el)
+      const name = nameEl.text().trim()
+      if (!name) return
+      const team = $('.player-name .player-team', el).text().trim() || ''
+      const posRankRaw = $('.position-team .position', el).first().text().trim()
+      const pos = posRankRaw.replace(/\d+/g, '') || ''
+      const ageRaw = $('.position-team .position.hidden-xs', el).text().replace('y.o.', '').trim()
+      const age = parseFloat(ageRaw) || null
+      const tierRaw = $('.player-info .position', el).text().trim()
+      const tier = tierRaw || ''
+      const valueRaw = $('.value p', el).text().trim()
+      const value = parseInt(valueRaw) || null
+      players.push({
+        id: idx + 1,
+        rk: String(rank),
+        ecr: rank,
+        tier,
+        name,
+        team,
+        pos,
+        posRank: posRankRaw,
+        bye: '',
+        sos: '',
+        ecrVsAdp: '',
+        adp: null,
+        dynasty_value: value,
+        redraft_value: null,
+        age,
+        years_exp: null,
+      })
+    })
+    if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
+    res.json({ ok: true, players })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })
+  }
+})
+
 // ---------- Rankings: KTC Rookies ----------
 app.get('/api/rankings/ktc-rookies', async (_req, res) => {
   const KTC_URL = 'https://keeptradecut.com/dynasty-rankings/rookie-rankings'
@@ -315,6 +368,46 @@ app.post('/api/ai-draft-review', async (req, res) => {
 
 // ---------- Static Frontend ----------
 const distDir = path.resolve(__dirname, '../dist')
+// ---------- Trade Analysis (SSE streaming) ----------
+app.post('/api/ai-trade', async (req, res) => {
+  const userKey = req.header('x-anthropic-key')
+  if (!userKey) return res.status(401).json({ ok: false, error: 'Missing X-Anthropic-Key header' })
+
+  const payload = req.body
+  if (!payload?.messages) {
+    return res.status(400).json({ ok: false, error: 'Invalid payload: expected { messages, ... }' })
+  }
+
+  setSSEHeaders(res)
+
+  try {
+    const client = new Anthropic({ apiKey: userKey })
+    const stream = client.messages.stream({
+      model: MODEL,
+      max_tokens: payload.max_tokens || 1400,
+      temperature: payload.temperature ?? 0.25,
+      ...(payload.system ? { system: payload.system } : {}),
+      messages: payload.messages,
+      tools: Array.isArray(payload.tools) ? payload.tools : [],
+      tool_choice: payload.tool_choice || { type: 'auto' },
+    })
+
+    stream.on('text', (text) => sendSSE(res, 'text', { text }))
+
+    const finalMessage = await stream.finalMessage()
+    const toolBlock = (finalMessage.content || []).find(
+      b => b.type === 'tool_use' && b.name === 'return_trade_analysis'
+    )
+    const parsed = toolBlock?.input || null
+
+    sendSSE(res, 'result', { ok: true, parsed, model: finalMessage.model, usage: finalMessage.usage })
+  } catch (err) {
+    sendSSE(res, 'error', { ok: false, message: err?.message || 'Trade analysis failed' })
+  } finally {
+    res.end()
+  }
+})
+
 app.use(express.static(distDir))
 
 // SPA-Fallback (alles außer /api -> index.html)

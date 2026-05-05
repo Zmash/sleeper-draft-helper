@@ -169,6 +169,17 @@ function LeagueCardInner({ card }) {
             Roster
           </button>
         )}
+        {card.leagueId && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setSelectedLeagueId(card.leagueId)
+              navigate('/trade', { state: { leagueId: card.leagueId, leagueName: card.leagueName } })
+            }}
+          >
+            Trade
+          </button>
+        )}
         <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit setup">
           Edit
         </button>
