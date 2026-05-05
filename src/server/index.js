@@ -405,8 +405,9 @@ app.post('/api/ai-trade', async (req, res) => {
     stream.on('text', (text) => sendSSE(res, 'text', { text }))
 
     const finalMessage = await stream.finalMessage()
+    const expectedTool = payload.tool_choice?.name || 'return_trade_analysis'
     const toolBlock = (finalMessage.content || []).find(
-      b => b.type === 'tool_use' && b.name === 'return_trade_analysis'
+      b => b.type === 'tool_use' && b.name === expectedTool
     )
     const parsed = toolBlock?.input || null
 
@@ -418,7 +419,7 @@ app.post('/api/ai-trade', async (req, res) => {
   }
 })
 
-const PORT = Number(process.env.PORT) || 5174
+const PORT = Number(process.env.PORT) || 5175
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`AI server listening on http://localhost:${PORT} (model: ${MODEL})`)
 })

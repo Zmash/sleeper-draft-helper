@@ -1682,6 +1682,104 @@ th.col-pick, td.col-pick { width: 64px; }
   font-size: 0.78rem;
 }
 
+/* ── Trade suggestions ── */
+.trade-suggest-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.trade-suggest-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.trade-suggest-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.trade-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.trade-suggestions-summary {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.suggestion-card {
+  background: var(--surface-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.suggestion-vs {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.suggestion-balance {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+}
+.suggestion-balance--win  { background: color-mix(in srgb, var(--success, #22c55e) 15%, transparent); color: var(--success, #22c55e); }
+.suggestion-balance--lose { background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent); color: var(--danger, #ef4444); }
+.suggestion-balance--fair { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.suggestion-sides {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.suggestion-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.suggestion-side-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+.suggestion-item {
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.suggestion-val {
+  font-size: 0.75rem;
+  margin-top: 0.15rem;
+}
+.suggestion-arrow {
+  padding: 0.4rem 0.25rem;
+  color: var(--muted);
+  font-size: 1rem;
+  flex-shrink: 0;
+  align-self: center;
+}
+.suggestion-rationale {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border);
+}
+
 /* ── section title ── */
 .section-title {
   font-size: 1rem;

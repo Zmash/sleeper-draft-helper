@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTradeStore } from '../stores/useTradeStore'
 import { evaluateTrade, buildTradeablePlayers, pickDynastyValue, stripSuffix } from '../services/tradeValue'
-import { buildTradeAnalysisRequest } from '../services/aiTrade'
+import { buildTradeAnalysisRequest, buildTradeSuggestionsRequest } from '../services/aiTrade'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { normalizePlayerName } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -360,6 +360,49 @@ function AiResult({ result }) {
   )
 }
 
+// ── Trade suggestions panel ───────────────────────────────────────────────────
+function TradeSuggestions({ result }) {
+  const { team_summary, suggestions = [] } = result
+  return (
+    <div className="trade-suggestions">
+      {team_summary && <p className="trade-suggestions-summary muted">{team_summary}</p>}
+      {suggestions.map((s, i) => {
+        const give = s.value_you_give
+        const get  = s.value_you_get
+        const balanced = give && get
+          ? Math.round(((get - give) / ((give + get) / 2)) * 100)
+          : null
+        return (
+          <div key={i} className="suggestion-card">
+            <div className="suggestion-header">
+              <span className="suggestion-vs">vs {s.opponent}</span>
+              {balanced != null && (
+                <span className={`suggestion-balance ${balanced > 0 ? 'suggestion-balance--win' : balanced < 0 ? 'suggestion-balance--lose' : 'suggestion-balance--fair'}`}>
+                  {balanced > 0 ? `+${balanced}%` : `${balanced}%`} for you
+                </span>
+              )}
+            </div>
+            <div className="suggestion-sides">
+              <div className="suggestion-side">
+                <div className="suggestion-side-label">You give</div>
+                {s.you_give.map((item, j) => <div key={j} className="suggestion-item">{item}</div>)}
+                {give && <div className="suggestion-val muted">{give.toLocaleString()}</div>}
+              </div>
+              <div className="suggestion-arrow">⇄</div>
+              <div className="suggestion-side">
+                <div className="suggestion-side-label">You get</div>
+                {s.you_get.map((item, j) => <div key={j} className="suggestion-item">{item}</div>)}
+                {get && <div className="suggestion-val muted">{get.toLocaleString()}</div>}
+              </div>
+            </div>
+            <p className="suggestion-rationale muted">{s.rationale}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TradeAnalyzer({
@@ -372,11 +415,16 @@ export default function TradeAnalyzer({
     managerGive, managerGet, setManagerGive, setManagerGet,
   } = useTradeStore()
 
-  const [aiResult, setAiResult]     = useState(null)
-  const [aiLoading, setAiLoading]   = useState(false)
-  const [aiError, setAiError]       = useState(null)
+  const [aiResult, setAiResult]         = useState(null)
+  const [aiLoading, setAiLoading]       = useState(false)
+  const [aiError, setAiError]           = useState(null)
   const [keyDialogOpen, setKeyDialogOpen] = useState(false)
-  const [pendingAi, setPendingAi]   = useState(false)
+  const [pendingAi, setPendingAi]       = useState(false)
+
+  const [suggestResult, setSuggestResult] = useState(null)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [suggestError, setSuggestError]   = useState(null)
+  const [pendingSuggest, setPendingSuggest] = useState(false)
 
   // Derive manager options list
   const managerOptions = useMemo(() => {
@@ -492,6 +540,71 @@ export default function TradeAnalyzer({
     setOpenAIKey(key)
     setKeyDialogOpen(false)
     if (pendingAi) { setPendingAi(false); doAiWithKey(key) }
+    if (pendingSuggest) { setPendingSuggest(false); doSuggestWithKey(key) }
+  }
+
+  async function handleSuggestTrades() {
+    const key = getOpenAIKey()
+    if (!key) { setPendingSuggest(true); setKeyDialogOpen(true); return }
+    await doSuggestWithKey(key)
+  }
+
+  async function doSuggestWithKey(key) {
+    setSuggestLoading(true); setSuggestError(null); setSuggestResult(null)
+    try {
+      const myRoster = managerGiveRoster || enrichedRosters?.[myRosterId]
+      if (!myRoster) throw new Error('Select your team on the left side first.')
+      const payload = buildTradeSuggestionsRequest({
+        myRoster,
+        enrichedRosters,
+        myRosterId: managerGive || myRosterId,
+        league,
+        profile,
+      })
+      const res = await fetch('/api/ai-trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Anthropic-Key': key },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.message || err?.error || `HTTP ${res.status}`)
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let found = false
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+        for (const part of parts) {
+          if (!part.trim()) continue
+          const lines = part.split('\n')
+          const eventLine = lines.find(l => l.startsWith('event: '))
+          const dataLine  = lines.find(l => l.startsWith('data: '))
+          if (!dataLine) continue
+          const eventType = eventLine?.slice(7).trim() || 'message'
+          let data
+          try { data = JSON.parse(dataLine.slice(6)) } catch { continue }
+          if (eventType === 'result') {
+            if (!data.ok) throw new Error(data.message || 'AI error')
+            if (!data.parsed) throw new Error('AI returned no suggestions — restart the API server and try again.')
+            found = true
+            setSuggestResult(data.parsed)
+          } else if (eventType === 'error') {
+            throw new Error(data.message || 'AI error')
+          }
+        }
+      }
+      if (!found) throw new Error('No response received — check the API server is running.')
+    } catch (e) {
+      setSuggestError(e?.message || 'Unexpected error')
+    } finally {
+      setSuggestLoading(false)
+    }
   }
 
   const hasItems = tradeGive.length > 0 || tradeGet.length > 0
@@ -607,6 +720,34 @@ export default function TradeAnalyzer({
         <button className="btn btn-ghost btn-sm trade-clear" onClick={clearTrade}>
           Clear trade
         </button>
+      )}
+
+      {/* ── Trade suggestions ─────────────────────────────────────── */}
+      {enrichedRosters && !rosterLoading && (managerGive || myRosterId) && (
+        <div className="trade-suggest-section">
+          <div className="trade-suggest-header">
+            <span className="trade-suggest-title">Trade Ideas</span>
+            <span className="muted" style={{ fontSize: '0.78rem' }}>AI scans all rosters for fair deals</span>
+          </div>
+          {suggestError && <div className="trade-ai-error">{suggestError}</div>}
+          {!suggestResult && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleSuggestTrades}
+              disabled={suggestLoading}
+            >
+              {suggestLoading ? '🔍 Finding trades…' : '🔍 Suggest Trades'}
+            </button>
+          )}
+          {suggestResult && (
+            <>
+              <TradeSuggestions result={suggestResult} />
+              <button className="btn btn-ghost btn-sm" onClick={() => setSuggestResult(null)}>
+                Clear suggestions
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       <ApiKeyDialog

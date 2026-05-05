@@ -395,8 +395,9 @@ app.post('/api/ai-trade', async (req, res) => {
     stream.on('text', (text) => sendSSE(res, 'text', { text }))
 
     const finalMessage = await stream.finalMessage()
+    const expectedTool = payload.tool_choice?.name || 'return_trade_analysis'
     const toolBlock = (finalMessage.content || []).find(
-      b => b.type === 'tool_use' && b.name === 'return_trade_analysis'
+      b => b.type === 'tool_use' && b.name === expectedTool
     )
     const parsed = toolBlock?.input || null
 

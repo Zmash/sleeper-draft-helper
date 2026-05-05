@@ -133,9 +133,10 @@ function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrde
       if (!tradedAwayRounds.has(r)) {
         const slotKey = mySlot ? `${r}_${mySlot}` : null
         if (slotKey && usedSlots.has(slotKey)) continue
+        const roundLabel = r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`
         const label = mySlot
           ? `${year} - ${r}.${String(mySlot).padStart(2, '0')}`
-          : `${year} ${r === 1 ? '1st' : r === 2 ? '2nd' : '3rd+'}`
+          : `${year} ${roundLabel}`
         picks.push({
           type: 'pick',
           id: `pick_own_${rid}_r${r}_${year}`,
@@ -143,7 +144,7 @@ function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrde
           year: String(year),
           round: r,
           tier: 'mid',
-          dynasty_value: pickDynastyValue(r, 'mid'),
+          dynasty_value: pickDynastyValue(r, 'mid', { slot: mySlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
           pos: null, age: null,
           isOwn: true,
           originalRosterId: rid,
@@ -161,7 +162,7 @@ function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrde
       const origOwner = userNameById.get(origOwnerId) || `Team ${tp.roster_id}`
       const label = origSlot
         ? `${year} - ${tp.round}.${String(origSlot).padStart(2, '0')}`
-        : `${year} ${tp.round === 1 ? '1st' : tp.round === 2 ? '2nd' : '3rd+'} (${origOwner})`
+        : `${year} ${tp.round === 1 ? '1st' : tp.round === 2 ? '2nd' : tp.round === 3 ? '3rd' : `${tp.round}th`} (${origOwner})`
       picks.push({
         type: 'pick',
         id: `pick_trade_${rid}_from${tp.roster_id}_r${tp.round}_${year}`,
@@ -169,24 +170,24 @@ function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrde
         year: String(year),
         round: tp.round,
         tier: 'mid',
-        dynasty_value: pickDynastyValue(tp.round, 'mid'),
+        dynasty_value: pickDynastyValue(tp.round, 'mid', { slot: origSlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
         pos: null, age: null,
         isOwn: false,
         originalRosterId: String(tp.roster_id),
       })
     }
 
-    // Next draft year — own picks only (no live draft data yet)
+    // Next draft year — own picks only (no live draft or trade data yet)
     const nextYear = year + 1
     for (let r = 1; r <= rounds; r++) {
       picks.push({
         type: 'pick',
         id: `pick_own_${rid}_r${r}_${nextYear}`,
-        label: `${nextYear} ${r === 1 ? '1st' : r === 2 ? '2nd' : '3rd+'}`,
+        label: `${nextYear} ${r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`}`,
         year: String(nextYear),
         round: r,
         tier: 'mid',
-        dynasty_value: pickDynastyValue(r, 'mid'),
+        dynasty_value: pickDynastyValue(r, 'mid', { numTeams: teamCount, yearOffset: 1 }),
         pos: null, age: null,
         isOwn: true,
         originalRosterId: rid,
