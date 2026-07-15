@@ -19,6 +19,7 @@ import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
 import Icon from './components/Icon'
+import { applyTheme } from './theme/applyTheme'
 
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
@@ -51,7 +52,7 @@ export default function App() {
     loadDynastyRoster, loadTradedPicks,
   } = useDynastyStore()
 
-  const { themeMode, toggleTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
+  const { themeId, setTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const selectedLeague = useMemo(
@@ -238,9 +239,8 @@ export default function App() {
 
   // Theme sync
   useEffect(() => {
-    document.documentElement.dataset.theme = themeMode
-    localStorage.setItem('draft-helper-theme', themeMode)
-  }, [themeMode])
+    applyTheme(themeId)
+  }, [themeId])
 
   // Setup change listener (SetupForm writes sdh.setup.v2 and fires this event)
   useEffect(() => {
@@ -316,7 +316,7 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AppShell tips={tips} themeMode={themeMode} onToggleTheme={toggleTheme}>
+    <AppShell tips={tips} themeId={themeId} setTheme={setTheme}>
       <Routes>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
