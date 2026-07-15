@@ -1,27 +1,17 @@
 /* =========================================================
    THEME TOKENS
    ========================================================= */
+/* Legacy-var bridge → role tokens (tokens.css owns --border and both themes).
+   Lets existing rules keep working while components migrate to tokens. */
 :root {
-  --bg:     #0b1220;
-  --card:   #101827;
-  --muted:  #9aa4b2;
-  --text:   #e6edf3;
-  --border: #23324a;
-  --accent: #60a5fa;
+  --bg:     var(--surface-page);
+  --card:   var(--surface-card);
+  --muted:  var(--text-muted);
+  --text:   var(--text-primary);
+  --accent: var(--accent-fill);
 
   /* Einheitliche Höhe für Form-Controls & Toolbar */
   --control-h: 36px;
-
-  /* Dark/Light native Form-Controls */
-  color-scheme: dark light;
-}
-:root[data-theme='light'] {
-  --bg:     #f6f7fb;
-  --card:   #ffffff;
-  --muted:  #6b7280;
-  --text:   #0b1220;
-  --border: #e5e7eb;
-  --accent: #2563eb;
 }
 
 /* =========================================================
@@ -31,9 +21,9 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: 15px/1.55 var(--font-ui);
 }
 
 /* Container */
