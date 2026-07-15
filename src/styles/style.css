@@ -134,11 +134,11 @@ body {
    CARDS & TABS
    ========================================================= */
 .card {
-  background: var(--card);
+  background: var(--surface-card);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 18px 16px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  box-shadow: none;
 }
 
 /* Broadcast underline nav */
@@ -247,20 +247,23 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-on);
   border: none;
-  border-radius: 14px;
+  border-radius: var(--r-ctl);
   padding: 0.7rem 1rem;
+  font-family: var(--font-ui);
   cursor: pointer;
-  transition: transform 0.05s ease, opacity 0.2s, border-color 0.2s;
+  transition: transform 0.05s ease, filter 0.2s, border-color 0.2s;
 }
-.btn:hover { opacity: 0.95; }
+.btn:hover { filter: brightness(1.05); }
 .btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn.ghost {
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   border: 1px solid var(--border);
 }
 .btn.responsive { width: 100%; }
@@ -268,19 +271,42 @@ body {
 /* Compact actions (legacy) */
 .btn-group-compact { display: inline-flex; gap: 8px; margin-left: 8px; }
 .btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #444;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--border);
   background: transparent;
   color: inherit;
   cursor: pointer;
   font-size: 0.95rem;
   line-height: 1;
 }
+.btn-compact:hover { border-color: var(--accent-fill); }
+.btn-compact:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* Consistent visual hierarchy */
-.btn-primary { background: var(--accent); color: #fff; border: 1px solid transparent; }
-.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-primary { background: var(--accent-fill); color: var(--accent-on); border: 1px solid transparent; }
+.btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border); }
+
+/* Segmented position filter chips */
+.filter-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.filter-chip {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-nav);
+  color: var(--text-muted);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.filter-chip:hover { color: var(--text-primary); border-color: var(--accent-fill); }
+.filter-chip.active { background: var(--accent-fill); color: var(--accent-on); border-color: transparent; }
+.filter-chip:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* =========================================================
    FORM CONTROLS – GLOBAL BASELINE
@@ -321,7 +347,13 @@ button.control,
   align-items: center;
   padding-block: 0;
   padding-inline: 12px;
-  border-radius: 12px;
+  border-radius: var(--r-ctl);
+}
+input.control:focus-visible,
+select.control:focus-visible,
+textarea.control:focus-visible {
+  outline: 2px solid var(--accent-fill);
+  outline-offset: 1px;
 }
 
 /* Keep button look but align to control height */
@@ -873,7 +905,7 @@ th.col-pick, td.col-pick { width: 64px; }
    MODAL (responsive)
    ========================================================= */
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 70;
+  position: fixed; inset: 0; background: rgba(4,8,18,.55); z-index: 70;
 }
 .modal {
   position: fixed; inset: 0; z-index: 71;
@@ -883,10 +915,10 @@ th.col-pick, td.col-pick { width: 64px; }
 .modal-card {
   width: min(1000px, 95vw);
   max-height: 85vh;
-  background: var(--card); color: var(--text);
+  background: var(--surface-card); color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  border-radius: var(--r-card);
+  box-shadow: 0 10px 40px rgba(0,0,0,.45);
   display: flex; flex-direction: column;
 }
 .modal-header {
@@ -894,9 +926,9 @@ th.col-pick, td.col-pick { width: 64px; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: .75rem 1rem;
   border-bottom: 1px solid var(--border);
-  background: var(--card); z-index: 1;
+  background: var(--surface-card); z-index: 1;
 }
-.modal-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.modal-title { margin: 0; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .03em; font-size: 1.05rem; font-weight: 700; }
 .modal-body {
   padding: 1rem; flex: 1; overflow: auto;
   overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
