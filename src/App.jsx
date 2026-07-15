@@ -145,6 +145,16 @@ export default function App() {
   const isRookieMode = draftMode === 'rookie'
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map((p) => p.pick_no || 0)) : 0
   const draftFinished = isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds)
+
+  // Screen-reader announcement for the most recent pick
+  const latestPick = useMemo(() => {
+    let best = null
+    for (const p of boardPlayers || []) {
+      if (p.pick_no && (!best || p.pick_no > best.pick_no)) best = p
+    }
+    return best
+  }, [boardPlayers])
+  const pickAnnouncement = latestPick ? `Pick ${latestPick.pick_no}: ${latestPick.name}` : ''
   const pickedCount = useMemo(() => boardPlayers.filter((p) => p.status).length, [boardPlayers])
 
   // ── DraftAnalysis data (only computed when modal open) ─────────────────────
@@ -317,6 +327,8 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
+    <>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{pickAnnouncement}</div>
     <AppShell
       tips={tips}
       themeId={themeId}
@@ -360,5 +372,6 @@ export default function App() {
         />
       </Modal>
     </AppShell>
+    </>
   )
 }
