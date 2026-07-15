@@ -19,6 +19,7 @@ import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
 import Icon from './components/Icon'
+import OnTheClockBar from './components/OnTheClockBar'
 import { applyTheme } from './theme/applyTheme'
 
 import SetupPage from './pages/SetupPage'
@@ -316,7 +317,16 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AppShell tips={tips} themeId={themeId} setTheme={setTheme}>
+    <AppShell
+      tips={tips}
+      themeId={themeId}
+      setTheme={setTheme}
+      clockBar={
+        selectedDraft ? (
+          <OnTheClockBar draft={selectedDraft} picks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} />
+        ) : null
+      }
+    >
       <Routes>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
