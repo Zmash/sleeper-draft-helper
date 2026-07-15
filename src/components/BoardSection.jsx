@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
@@ -45,6 +46,7 @@ export default function BoardSection({
   dynastyRoster = [],
   onBoardReorder,
 }) {
+  const navigate = useNavigate()
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [advice, setAdvice] = useState(null)
@@ -339,6 +341,19 @@ export default function BoardSection({
     }
   }
 
+  if (!boardPlayers || boardPlayers.length === 0) {
+    return (
+      <section className="card dashboard-empty">
+        <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
+        <h2>Noch kein Ranking importiert</h2>
+        <p className="muted">Importiere im Setup deine Rankings (CSV, FantasyCalc oder KeepTradeCut), um das Board zu füllen.</p>
+        <button className="btn btn-primary" onClick={() => navigate('/setup', { state: { mode: 'edit' } })}>
+          <Icon name="upload" size={16} /> Zum Setup
+        </button>
+      </section>
+    )
+  }
+
   return (
     <section className="card">
       <div className="row between items-center wrap" style={{ gap: 8 }}>
@@ -410,6 +425,10 @@ export default function BoardSection({
         onReorder={onBoardReorder}
         draftMode={draftMode}
       />
+
+      {filteredBoardPlayers.length === 0 && (
+        <p className="muted center mt-3">Keine Spieler für die aktuellen Filter.</p>
+      )}
 
       <div className="row end" style={{ gap: 8, marginTop: '1rem' }}>
         <button
