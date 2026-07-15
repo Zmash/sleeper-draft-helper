@@ -429,12 +429,12 @@ button.control,
 .chip.chip--small { font-size: 0.875rem; padding: 0.35rem 0.65rem; border-radius: 12px; }
 
 .progress {
-  height: 10px;
-  background: rgba(255,255,255,0.09);
+  height: 8px;
+  background: var(--surface-raised);
   border-radius: 999px;
   overflow: hidden;
 }
-.progress > div { height: 100%; background: var(--accent); }
+.progress > div { height: 100%; background: var(--accent-fill); }
 
 /* =========================================================
    BOARD TABLE
@@ -443,13 +443,13 @@ button.control,
   max-height: 62vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
 }
 
 table { width: 100%; border-collapse: collapse; }
 table.nowrap { white-space: nowrap; }
 
-thead { position: sticky; top: 0; background: var(--card); }
+thead { position: sticky; top: 0; background: var(--surface-nav); z-index: var(--z-sticky); }
 
 th, td {
   padding: 0.7rem 0.8rem;
@@ -472,7 +472,60 @@ th, td {
   white-space: nowrap;
 }
 .board-table .col-name { white-space: nowrap; }
-.board-table .col-name strong { font-weight: 600; }
+.board-table .col-name strong { font-family: var(--font-ui); font-weight: 600; }
+
+/* Broadcast header + tabular data */
+.board-table thead th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 400;
+  border-bottom: 1px solid var(--border);
+}
+.board-table td { border-bottom: 1px solid var(--border-soft); }
+.board-table .col-rk,
+.board-table .col-bye,
+.board-table .col-sos,
+.board-table .col-dyn,
+.board-table .col-ecr,
+.board-table .col-pick {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Position badges — colour + text (never colour alone) */
+.pos-badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  color: var(--pos-on);
+  padding: 2px 4px;
+  border-radius: var(--r-ctl);
+}
+.pos-badge.rb  { background: var(--pos-rb); }
+.pos-badge.wr  { background: var(--pos-wr); }
+.pos-badge.qb  { background: var(--pos-qb); }
+.pos-badge.te  { background: var(--pos-te); }
+.pos-badge.k   { background: var(--pos-k); }
+.pos-badge.def { background: var(--pos-def); }
+
+/* Skeleton loading rows */
+.board-skeleton td { padding: 6px; }
+.board-skeleton .sk {
+  display: block;
+  height: 12px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-dim) 22%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .board-skeleton .sk { animation: skPulse 1.2s var(--ease) infinite; }
+}
+@keyframes skPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 /* AI badges: taken out of normal flow to avoid layout shift */
 .board-table td.col-name .ai-badge-wrap {
@@ -586,11 +639,10 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 /* Status rows */
-.row-me td { background: rgba(34,197,94,0.10); }
-.row-other td { background: rgba(220,38,38,0.12); color: #9aa4b2; }
-:root:not([data-theme='light']) .row-other td {
-  background: rgba(220,38,38,0.15);
-  color: #8b94a3;
+.row-me td { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.row-other td {
+  background: color-mix(in srgb, var(--live) 12%, transparent);
+  color: var(--text-muted);
 }
 
 /* Scroll flash helper */

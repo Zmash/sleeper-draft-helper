@@ -203,7 +203,9 @@ export default function BoardTable({
                   </td>
 
                   <td className="col-team">{p.team}</td>
-                  <td className="col-pos">{p.pos}</td>
+                  <td className="col-pos">
+                    {p.pos ? <span className={cx('pos-badge', String(p.pos).toLowerCase())}>{p.pos}</span> : null}
+                  </td>
                   {hasBye          && <td className="col-bye">{p.bye}</td>}
                   {hasSos          && <td className="col-sos">{p.sos}</td>}
                   {hasDynastyValue && <td className="col-dyn">{p.dynasty_value ?? ''}</td>}
