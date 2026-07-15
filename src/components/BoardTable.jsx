@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey } from '../services/preferences'
+import Icon from './Icon'
 
 export default function BoardTable({
   progressPercent,
@@ -164,12 +165,12 @@ export default function BoardTable({
                       >
                         {pref === PlayerPreference.FAVORITE && (
                           <span className="pref-icon pref-fav" aria-hidden>
-                            ⭐
+                            <Icon name="star" size={13} />
                           </span>
                         )}
                         {pref === PlayerPreference.AVOID && (
                           <span className="pref-icon pref-avoid" aria-hidden>
-                            ❌
+                            <Icon name="x" size={13} />
                           </span>
                         )}
                         <span className="player-name-text">{p.name}</span>
@@ -228,7 +229,7 @@ export default function BoardTable({
             title="Favorite"
             aria-label="Favorite"
           >
-            ⭐
+            <Icon name="star" size={15} />
           </button>
           <button
             className="pref-action"
@@ -244,7 +245,7 @@ export default function BoardTable({
             title="Avoid"
             aria-label="Avoid"
           >
-            ❌
+            <Icon name="x" size={15} />
           </button>
         </div>
       )}

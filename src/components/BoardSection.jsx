@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
+import Icon from './Icon'
 
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -353,14 +354,14 @@ export default function BoardSection({
 
         <div className="btn-group-compact">
           <button onClick={handleAskAI} className="btn-compact" title="AI-Empfehlung für den nächsten Pick">
-            🤖 AI-Advice
+            <Icon name="bot" size={15} /> AI-Advice
           </button>
           <button
             onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
             className="btn-compact"
             title="Anthropic API-Key verwalten"
           >
-            🔑 Key
+            <Icon name="key" size={15} /> Key
           </button>
         </div>
       </div>
@@ -416,10 +417,10 @@ export default function BoardSection({
           onClick={() => exportBoardAsCsv(filteredBoardPlayers)}
           title="Aktuelles Ranking als CSV exportieren"
         >
-          📋 Export rankings
+          <Icon name="clipboard-copy" size={15} /> Export rankings
         </button>
         <button className="btn-compact" onClick={() => exportSettings('User-initiated export')}>
-          💾 Export settings
+          <Icon name="save" size={15} /> Export settings
         </button>
         <input
           ref={fileRef}
@@ -440,7 +441,7 @@ export default function BoardSection({
           }}
         />
         <button className="btn-compact" onClick={() => fileRef.current?.click()}>
-          📥 Import settings
+          <Icon name="upload" size={15} /> Import settings
         </button>
       </div>
 

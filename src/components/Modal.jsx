@@ -1,5 +1,6 @@
 // src/components/Modal.jsx
 import React, { useEffect } from 'react'
+import Icon from './Icon'
 
 export default function Modal({ open, onClose, title, children }) {
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function Modal({ open, onClose, title, children }) {
         <div className="modal-card" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h3 className="modal-title">{title}</h3>
-            <button className="btn-compact" onClick={onClose} aria-label="Schließen">✕</button>
+            <button className="btn-compact" onClick={onClose} aria-label="Schließen"><Icon name="x" size={16} /></button>
           </div>
           <div className="modal-body">
             {children}

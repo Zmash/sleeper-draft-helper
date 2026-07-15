@@ -18,6 +18,7 @@ import { inferMyDraftSlot } from './services/api'
 import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
+import Icon from './components/Icon'
 
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
@@ -332,7 +333,7 @@ export default function App() {
           title="Draft Analysis"
           onClick={() => setAnalysisOpen(true)}
         >
-          📊 Draft Analysis
+          <Icon name="chart" size={16} /> Draft Analysis
         </button>
       )}
 

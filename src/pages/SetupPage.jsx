@@ -6,6 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import SetupForm from '../components/SetupForm'
+import Icon from '../components/Icon'
 
 const noop = () => {}
 
@@ -102,14 +103,14 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       {importDone && (
         <div className="import-done-banner">
           <span className="import-done-text">
-            {importDone.count} Spieler importiert ({importDone.method}) ✓
+            {importDone.count} Spieler importiert ({importDone.method}) <Icon name="check" size={14} />
           </span>
           <div className="import-done-actions">
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/board')}>
               → Board
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setImportDone(null)}>
-              ✕
+            <button className="btn btn-ghost btn-sm" onClick={() => setImportDone(null)} aria-label="Schließen">
+              <Icon name="x" size={14} />
             </button>
           </div>
         </div>

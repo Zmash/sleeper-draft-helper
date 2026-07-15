@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
+import Icon from './Icon'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ const INJURY_COLOR = { Out: 'badge--danger', Doubtful: 'badge--warn', IR: 'badge
 
 function DraftBadge({ status }) {
   if (!status) return null
-  if (status === 'drafting') return <span className="badge badge--live">🔴 LIVE</span>
+  if (status === 'drafting') return <span className="badge badge--live"><Icon name="radio" size={12} /> LIVE</span>
   if (status === 'pre_draft') return <span className="badge badge--info">Scheduled</span>
   if (status === 'complete') return <span className="badge badge--muted">Complete</span>
   if (status === 'paused') return <span className="badge badge--warn">Paused</span>
@@ -59,7 +60,7 @@ function InjuriesRow({ injuries }) {
   if (!injuries?.length) return null
   return (
     <div className="lc-injuries">
-      <span className="lc-injuries-icon">⚠️</span>
+      <span className="lc-injuries-icon"><Icon name="warning" size={14} /></span>
       <div className="lc-injuries-list">
         {injuries.map((inj, i) => (
           <span key={i} className="lc-injury-item">
@@ -161,7 +162,7 @@ function LeagueCardInner({ card }) {
             className={`btn ${isLive ? 'btn-primary' : 'btn-secondary'} btn-sm`}
             onClick={openDraftBoard}
           >
-            {isLive ? '🔴 Open Draft' : hasDraft ? 'Draft Board' : 'Past Draft'}
+            {isLive ? <><Icon name="radio" size={13} /> Open Draft</> : hasDraft ? 'Draft Board' : 'Past Draft'}
           </button>
         )}
         {card.leagueId && (
@@ -238,7 +239,7 @@ function DraftCardInner({ card }) {
           className={`btn ${isLive ? 'btn-primary' : 'btn-secondary'} btn-sm`}
           onClick={openDraftBoard}
         >
-          {isLive ? '🔴 Open Draft' : 'Open Board'}
+          {isLive ? <><Icon name="radio" size={13} /> Open Draft</> : 'Open Board'}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit setup">
           Edit
