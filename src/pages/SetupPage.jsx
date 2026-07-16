@@ -86,7 +86,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         setImportDone({ method: 'KTC', count })
       }
     } catch (e) {
-      alert('Fehler beim KTC-Import: ' + (e.message || e))
+      setImportError(`Fehler beim KTC-Import: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`)
     }
   }
 

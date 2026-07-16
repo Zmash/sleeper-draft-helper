@@ -1059,6 +1059,7 @@ th.col-pick, td.col-pick { width: 64px; }
   border-radius: 12px;
   background: rgba(255,255,255,0.02);
 }
+.summary-card--sticky { margin-bottom: 14px; }
 .summary-grid {
   display: grid; gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1067,6 +1068,16 @@ th.col-pick, td.col-pick { width: 64px; }
 .summary-item { display: flex; justify-content: space-between; gap: 8px; }
 .summary-item .k { color: var(--muted); }
 .summary-item .v { font-weight: 600; }
+
+/* Fehler inline am ausloesenden Element — kein alert(). */
+.form-error {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--bad);
+  border-radius: var(--r-ctl);
+  color: var(--bad);
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
 
 /* =========================================================
    ROOKIE DRAFT — Dynasty Roster & Picks Banner
