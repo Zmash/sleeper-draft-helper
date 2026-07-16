@@ -30,6 +30,39 @@ describe('Value mit Streuung', () => {
     expect(t.text).toMatch(/zwischen Pick 18 und 31/)
   })
 
+  // Minor 9: die Spanne allein zwingt den Nutzer, myNext selbst dagegen zu
+  // halten. Der Tip soll das Urteil liefern, nicht nur die Rohdaten.
+  it('urteilt "duerfte da sein", wenn myNext unter high liegt', () => {
+    // draftSlot 6, 1 Pick bisher -> myNext = 5 (< high 18)
+    const tips = tipsOf({
+      picks: [{ pick_no: 1, picked_by: 'u2' }],
+      boardPlayers: [{ name: 'A B', nname: 'ab', pos: 'RB', rk: '1', adp: 24, high: 18, low: 31 }],
+      draftSlot: 6,
+    })
+    const t = tips.find(x => x.type === 'value')
+    expect(t.text).toMatch(/dürfte da sein/)
+  })
+
+  it('urteilt "duerfte weg sein", wenn myNext ueber low liegt', () => {
+    // draftSlot 1, 25 Picks bisher -> myNext = 47 (> low 31)
+    const tips = tipsOf({
+      picks: Array.from({ length: 25 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [{ name: 'A B', nname: 'ab', pos: 'RB', rk: '1', adp: 24, high: 18, low: 31 }],
+      draftSlot: 1,
+    })
+    const t = tips.find(x => x.type === 'value')
+    expect(t.text).toMatch(/dürfte weg sein/)
+  })
+
+  it('urteilt "ein Muenzwurf", wenn myNext zwischen high und low liegt', () => {
+    const tips = tipsOf({
+      picks: Array.from({ length: 20 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [{ name: 'A B', nname: 'ab', pos: 'RB', rk: '1', adp: 24, stdev: 6, high: 18, low: 31 }],
+    })
+    const t = tips.find(x => x.type === 'value')
+    expect(t.text).toMatch(/ein Münzwurf/)
+  })
+
   it('faellt ohne stdev auf die Binaer-Aussage zurueck (CSV-Board)', () => {
     const tips = tipsOf({
       picks: Array.from({ length: 20 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
@@ -68,6 +101,32 @@ describe('Value mit Streuung', () => {
     const t = tips.find(x => x.type === 'value')
     expect(t).toBeTruthy()
     expect(t.text).not.toMatch(/nächsten Pick/)
+  })
+})
+
+describe('adp: null ist kein Fehler, kein erfundener Tip', () => {
+  // mergeRankingsWithMarket setzt fuer jeden Nicht-Treffer explizit adp/high/low
+  // auf null. Number(null) ist 0 (finite!) — ohne expliziten Guard erfindet der
+  // Value-Tip ein Delta und eine Dringlichkeit fuer einen Spieler ohne ADP.
+  it('kein Value-Tip fuer einen Spieler ohne ADP', () => {
+    const tips = tipsOf({
+      picks: Array.from({ length: 20 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [{ name: 'Unmatched Guy', nname: 'unmatchedguy', pos: 'WR', rk: '2', adp: null, high: null, low: null }],
+    })
+    const t = tips.find(x => x.type === 'value' && /Unmatched Guy/.test(x.text))
+    expect(t).toBeUndefined()
+  })
+
+  it('kein Tip-Text enthaelt das Wort "null"', () => {
+    const tips = tipsOf({
+      picks: Array.from({ length: 20 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [
+        { name: 'Unmatched Guy', nname: 'unmatchedguy', pos: 'WR', rk: '2', adp: null, high: null, low: null },
+        { name: 'Matched Guy', nname: 'matchedguy', pos: 'RB', rk: '1', adp: 24, high: 18, low: 31 },
+      ],
+    })
+    const text = tips.map(t => t.text).join(' ')
+    expect(text).not.toMatch(/\bnull\b/)
   })
 })
 

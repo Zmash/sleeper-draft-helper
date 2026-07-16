@@ -89,15 +89,26 @@ export function useDraftTips({
     // 1) Value (rk vs ADP & survival)
     const top = avail.slice(0, 30).sort((a,b)=> Number(a.rk) - Number(b.rk))
     for (const p of top) {
-      const adp = Number(p.adp)
+      // Explizit gegen null/undefined pruefen statt Number.isFinite() nach der Coercion zu
+      // vertrauen: Number(null) === 0 und Number.isFinite(0) === true. mergeRankingsWithMarket
+      // setzt fuer jeden Nicht-Treffer bewusst adp/high/low auf null — ohne diesen Guard wuerde
+      // ein Spieler ohne ADP ein erfundenes Delta, eine erfundene Dringlichkeit und das Wort
+      // "null" im UI-Text bekommen.
+      const adp = (p.adp === null || p.adp === undefined) ? NaN : Number(p.adp)
       const delta = Number.isFinite(adp) ? Math.round((adp - Number(p.rk)) * 10) / 10 : null
       const myNext = Number.isFinite(window) ? curPick + window : null
 
       // Mit Streuung koennen wir eine Spanne nennen statt eines Muenzwurf-Labels.
-      const hasSpread = Number.isFinite(Number(p.high)) && Number.isFinite(Number(p.low))
+      const high = (p.high === null || p.high === undefined) ? NaN : Number(p.high)
+      const low = (p.low === null || p.low === undefined) ? NaN : Number(p.low)
+      const hasSpread = Number.isFinite(high) && Number.isFinite(low)
       let reachText = ''
       if (hasSpread && myNext != null) {
-        reachText = ` Wird typisch zwischen Pick ${p.high} und ${p.low} gezogen — dein nächster Pick ist ${myNext}.`
+        // Die Spanne allein zwingt zum Selbst-Vergleich. Das Urteil nimmt die Arbeit ab:
+        // faellt myNext unter high, ist der Spieler frueher weg als man selbst dran ist —
+        // "duerfte da sein". Ueber low ist er schon vorher vergriffen — "duerfte weg sein".
+        const verdict = myNext < high ? 'dürfte da sein' : myNext > low ? 'dürfte weg sein' : 'ein Münzwurf'
+        reachText = ` Wird typisch zwischen Pick ${high} und ${low} gezogen — bis zu deinem nächsten Pick (${myNext}): ${verdict}.`
       } else if (Number.isFinite(adp) && myNext != null) {
         reachText = adp > myNext
           ? ` Überlebt wahrscheinlich bis zu deinem nächsten Pick (${myNext}).`
