@@ -286,6 +286,20 @@ body {
 .btn-compact:hover { border-color: var(--accent-fill); }
 .btn-compact:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
+/* Herkunfts-Zeile: beantwortet Herkunft, Alter und Modus an einer Stelle. */
+.provenance-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  padding: 0.4rem 0.6rem; margin-top: 0.5rem;
+  border: 1px solid var(--border); border-radius: 2px;
+  background: var(--surface-raised);
+  font-size: 0.75rem; color: var(--text-muted);
+}
+.provenance-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.provenance-item strong { color: var(--text-primary); font-weight: 500; }
+.provenance-item :is(strong) { font-variant-numeric: tabular-nums; }
+.provenance-stale { color: var(--bad); }
+.provenance-stale strong { color: var(--bad); }
+
 /* Consistent visual hierarchy */
 .btn-primary { background: var(--accent-fill); color: var(--accent-on); border: 1px solid transparent; }
 .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border); }

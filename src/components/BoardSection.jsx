@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
+import DataProvenanceBar from './DataProvenanceBar'
 import Icon from './Icon'
+import { useBoardStore } from '../stores/useBoardStore'
 
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -48,6 +50,18 @@ export default function BoardSection({
   onBoardReorder,
 }) {
   const navigate = useNavigate()
+  const { marketMeta, csvRawText, refreshMarketData } = useBoardStore()
+  const [refreshingMarket, setRefreshingMarket] = useState(false)
+  const [marketError, setMarketError] = useState(null)
+
+  async function handleRefreshMarket() {
+    setRefreshingMarket(true)
+    setMarketError(null)
+    const res = await refreshMarketData()
+    if (!res.ok) setMarketError(res.error)
+    setRefreshingMarket(false)
+  }
+
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [advice, setAdvice] = useState(null)
@@ -380,6 +394,15 @@ export default function BoardSection({
         ownerLabels={ownerLabels}
         teamFilter={teamFilter}
         onTeamFilterChange={onTeamFilterChange}
+      />
+
+      <DataProvenanceBar
+        marketMeta={marketMeta}
+        draftMode={draftMode}
+        hasCsvBoard={!!csvRawText}
+        onRefresh={handleRefreshMarket}
+        refreshing={refreshingMarket}
+        error={marketError}
       />
 
       {draftMode === 'rookie' && myDraftPicks.length > 0 && (
