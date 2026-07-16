@@ -12,6 +12,7 @@ import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
 import { loadSetup } from './services/storage'
+import { deriveFormat, resolveDraftMode } from './services/draftFormat'
 import { computeTeamScores, isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
 
@@ -99,32 +100,13 @@ export default function App() {
 
   const setupOverrides = useMemo(() => loadSetup()?.overrides || {}, [setupVersion])
 
-  const effRoster = useMemo(() => {
-    if (setupOverrides.roster_positions) return setupOverrides.roster_positions
-    if (selectedDraft?.settings) {
-      const m = {
-        slots_qb:'QB', slots_rb:'RB', slots_wr:'WR', slots_te:'TE', slots_k:'K', slots_def:'DEF',
-        slots_flex:'FLEX', slots_wr_rb:'WR/RB', slots_wr_te:'WR/TE', slots_rb_te:'RB/TE',
-        slots_super_flex:'SUPER_FLEX', slots_idp_flex:'IDP_FLEX',
-        slots_dl:'DL', slots_lb:'LB', slots_db:'DB', slots_bn:'BN',
-      }
-      const out = []
-      for (const [k, v] of Object.entries(selectedDraft.settings || {})) {
-        if (!k.startsWith('slots_')) continue
-        const name = m[k]; const n = Number(v)
-        if (!name || !Number.isFinite(n) || n <= 0) continue
-        for (let i = 0; i < n; i++) out.push(name)
-      }
-      return out
-    }
-    return selectedLeague?.roster_positions || []
-  }, [setupOverrides.roster_positions, selectedDraft, selectedLeague])
-
-  const effScoringType = useMemo(() => {
-    if (setupOverrides.scoring_type) return setupOverrides.scoring_type
-    const rec = selectedLeague?.scoring_settings?.rec ?? 1
-    return rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
-  }, [setupOverrides.scoring_type, selectedLeague])
+  const format = useMemo(
+    () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: setupOverrides }),
+    [selectedDraft, selectedLeague, setupOverrides]
+  )
+  const effRoster = format.rosterPositions
+  const effScoringType = format.scoringType
+  const isSuperflex = format.isSuperflex
 
   const strategies = useMemo(
     () =>
@@ -132,14 +114,6 @@ export default function App() {
         ? setupOverrides.strategies
         : ['balanced'],
     [setupOverrides.strategies]
-  )
-
-  const isSuperflex = useMemo(
-    () =>
-      setupOverrides.superflex != null
-        ? !!setupOverrides.superflex
-        : effRoster.some((r) => String(r).toUpperCase().includes('SUPER')),
-    [setupOverrides.superflex, effRoster]
   )
 
   const isRookieMode = draftMode === 'rookie'
@@ -271,12 +245,11 @@ export default function App() {
     if (selectedLeagueId) loadLeagueUsers(selectedLeagueId).catch(() => {})
   }, [selectedLeagueId]) // eslint-disable-line
 
-  // Draft mode auto-detection from league type
+  // Draft mode auto-detection from league type (fällt bei Mocks ohne Liga auf 'redraft' zurück, statt still zu bleiben)
   useEffect(() => {
-    const lt = selectedLeague?.league_type
-    if (lt === 'dynasty' || lt === 'keeper') setDraftMode('rookie')
-    else if (lt === 'redraft') setDraftMode('redraft')
-  }, [selectedLeague?.league_type]) // eslint-disable-line
+    const next = resolveDraftMode({ league: selectedLeague, draft: selectedDraft, current: draftMode })
+    if (next !== draftMode) setDraftMode(next)
+  }, [selectedLeague?.league_type, selectedDraft?.draft_id]) // eslint-disable-line
 
   // Dynasty roster + traded picks
   useEffect(() => {
@@ -323,7 +296,7 @@ export default function App() {
   }, [selectedDraftId]) // eslint-disable-line
 
   // ── Shared page props ──────────────────────────────────────────────────────
-  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType }
+  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

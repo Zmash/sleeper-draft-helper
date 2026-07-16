@@ -88,3 +88,14 @@ export function deriveFormat({ draft = null, league = null, overrides = {} } = {
 
   return { rosterPositions, scoringType, isSuperflex, teams, rounds, type, source }
 }
+
+// Ein Mock hat keine Liga. Vorher griff die Erkennung dann gar nicht und der
+// Modus blieb still auf dem alten Wert stehen — nach einem Rookie-Draft lief
+// der Redraft-Mock mit der Rookie-Tipplogik.
+export function resolveDraftMode({ league = null, draft = null, current = 'redraft' } = {}) {
+  const lt = league?.league_type
+  if (lt === 'dynasty' || lt === 'keeper') return 'rookie'
+  if (lt === 'redraft') return 'redraft'
+  if (draft && !league) return 'redraft'
+  return current
+}

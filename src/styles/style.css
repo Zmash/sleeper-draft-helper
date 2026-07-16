@@ -1468,6 +1468,25 @@ th.col-pick, td.col-pick { width: 64px; }
   flex-shrink: 0;
 }
 
+.import-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: color-mix(in srgb, #ef4444 15%, var(--surface));
+  border: 1px solid color-mix(in srgb, #ef4444 40%, transparent);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import-error-text {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #ef4444;
+}
+
 /* =========================================================
    TRADE ANALYZER
    ========================================================= */

@@ -1,33 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { loadSetup, saveSetup } from '../services/storage'
-
-const DEFAULTS = {
-  teams: 12,
-  type: 'snake',
-  scoring_type: 'ppr',
-  roster: ['QB','RB','RB','WR','WR','TE','FLEX','DEF','BN','BN','BN','BN','BN','BN'],
-  rounds: 16,
-}
-
-function rosterFromDraftSettings(settings = {}) {
-  const m = {
-    slots_qb:'QB', slots_rb:'RB', slots_wr:'WR', slots_te:'TE', slots_k:'K', slots_def:'DEF',
-    slots_flex:'FLEX', slots_wr_rb:'WR/RB', slots_wr_te:'WR/TE', slots_rb_te:'RB/TE',
-    slots_super_flex:'SUPER_FLEX', slots_idp_flex:'IDP_FLEX', slots_dl:'DL', slots_lb:'LB', slots_db:'DB', slots_bn:'BN',
-  }
-  const out = []
-  for (const [k,v] of Object.entries(settings||{})) {
-    if (!k.startsWith('slots_')) continue
-    const name = m[k]; const n = Number(v)
-    if (!name || !Number.isFinite(n) || n<=0) continue
-    for (let i=0;i<n;i++) out.push(name)
-  }
-  return out
-}
-function detectScoringTypeStrict(draftMeta = null) {
-  const t = String(draftMeta?.metadata?.scoring_type || '').toLowerCase()
-  return (t==='ppr'||t==='half_ppr'||t==='standard') ? t : null
-}
+import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
 
 export default function SetupForm(props) {
   const {
@@ -67,33 +40,10 @@ export default function SetupForm(props) {
   }, [availableDrafts, selectedDraftId])
 
   // --- Detected vs Overrides
-  const detected = useMemo(() => {
-    if (selectedDraft) {
-      const s = selectedDraft.settings || {}
-      const roster = rosterFromDraftSettings(s)
-      const scoring_type = detectScoringTypeStrict(selectedDraft) ?? DEFAULTS.scoring_type
-      const teams  = Number(s.teams || selectedDraft.teams)   || DEFAULTS.teams
-      const rounds = Number(s.rounds || selectedDraft.rounds) || DEFAULTS.rounds
-      const type   = String(selectedDraft.type || DEFAULTS.type).toLowerCase()
-      return {
-        source: 'draft',
-        roster_positions: roster.length ? roster : DEFAULTS.roster,
-        scoring_type, teams, rounds, type,
-        scoring_settings: null,
-      }
-    }
-    const leagueRoster = selectedLeague?.roster_positions || selectedLeague?.settings?.roster_positions || []
-    const rec = Number(selectedLeague?.scoring_settings?.rec)
-    const leagueScoring = Number.isFinite(rec) ? (rec>=0.95?'ppr':(rec>=0.45?'half_ppr':'standard')) : DEFAULTS.scoring_type
-    const teams = Number(selectedLeague?.total_rosters || selectedLeague?.league_size) || DEFAULTS.teams
-    return {
-      source: 'league_or_default',
-      roster_positions: leagueRoster.length ? leagueRoster : DEFAULTS.roster,
-      scoring_type: leagueScoring,
-      teams, rounds: DEFAULTS.rounds, type: DEFAULTS.type,
-      scoring_settings: selectedLeague?.scoring_settings || null,
-    }
-  }, [selectedDraft, selectedLeague])
+  const detected = useMemo(
+    () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: {} }),
+    [selectedDraft, selectedLeague]
+  )
 
   const [overrides, setOverrides] = useState(() => {
     const s = loadSetup()
@@ -110,13 +60,11 @@ export default function SetupForm(props) {
   }, [JSON.stringify(overrides)])
 
   const eff = {
-    scoring_type: overrides.scoring_type ?? detected.scoring_type,
-    roster_positions: overrides.roster_positions ?? detected.roster_positions,
-    superflex:
-      overrides.superflex ??
-      (overrides.roster_positions ?? detected.roster_positions).some(r => String(r).toUpperCase().includes('SUPER')),
-    teams:  Number(overrides.teams  ?? detected.teams)  || DEFAULTS.teams,
-    rounds: Number(overrides.rounds ?? detected.rounds) || DEFAULTS.rounds,
+    scoring_type: overrides.scoring_type ?? detected.scoringType,
+    roster_positions: overrides.roster_positions ?? detected.rosterPositions,
+    superflex: overrides.superflex ?? detected.isSuperflex,
+    teams:  Number(overrides.teams  ?? detected.teams)  || FORMAT_DEFAULTS.teams,
+    rounds: Number(overrides.rounds ?? detected.rounds) || FORMAT_DEFAULTS.rounds,
     type:   String(overrides.type   ?? detected.type).toLowerCase(),
   }
 
@@ -418,28 +366,28 @@ export default function SetupForm(props) {
                 <span>Scoring</span>
                 <select
                   className="control"
-                  value={overrides.scoring_type ?? detected.scoring_type}
+                  value={overrides.scoring_type ?? detected.scoringType}
                   onChange={e => setOverrides(o => ({ ...o, scoring_type: e.target.value || null }))}
                 >
                   <option value="ppr">PPR</option>
                   <option value="half_ppr">Half-PPR</option>
                   <option value="standard">Standard</option>
                 </select>
-                <div className="muted text-xs mt-1">Detected: {detected.scoring_type || '—'} (source: {detected.source})</div>
+                <div className="muted text-xs mt-1">Detected: {detected.scoringType || '—'} (source: {detected.source})</div>
               </label>
 
               <label className="field">
                 <span>Superflex</span>
                 <select
                   className="control"
-                  value={String(overrides.superflex ?? ((detected.roster_positions || []).some(r => String(r).toUpperCase().includes('SUPER'))))}
+                  value={String(overrides.superflex ?? detected.isSuperflex)}
                   onChange={e => setOverrides(o => ({ ...o, superflex: e.target.value === 'true' }))}
                 >
                   <option value="true">Enabled</option>
                   <option value="false">Disabled</option>
                 </select>
                 <div className="muted text-xs mt-1">
-                  Detected: {(detected.roster_positions || []).some(r => String(r).toUpperCase().includes('SUPER')) ? 'Yes' : 'No'}
+                  Detected: {detected.isSuperflex ? 'Yes' : 'No'}
                 </div>
               </label>
             </div>
@@ -451,20 +399,20 @@ export default function SetupForm(props) {
                   <input
                     className="control"
                     type="number" min={2}
-                    value={overrides.teams ?? detected.teams ?? DEFAULTS.teams}
+                    value={overrides.teams ?? detected.teams ?? FORMAT_DEFAULTS.teams}
                     onChange={e => setOverrides(o => ({ ...o, teams: Number(e.target.value || 0) || null }))}
                     aria-label="Teams" title="Teams"
                   />
                   <input
                     className="control"
                     type="number" min={1}
-                    value={overrides.rounds ?? detected.rounds ?? DEFAULTS.rounds}
+                    value={overrides.rounds ?? detected.rounds ?? FORMAT_DEFAULTS.rounds}
                     onChange={e => setOverrides(o => ({ ...o, rounds: Number(e.target.value || 0) || null }))}
                     aria-label="Rounds" title="Rounds"
                   />
                   <select
                     className="control"
-                    value={overrides.type ?? detected.type ?? DEFAULTS.type}
+                    value={overrides.type ?? detected.type ?? FORMAT_DEFAULTS.type}
                     onChange={e => setOverrides(o => ({ ...o, type: e.target.value || null }))}
                     aria-label="Draft type" title="Draft type"
                   >
@@ -492,7 +440,7 @@ export default function SetupForm(props) {
                     <span>Roster positions (override — optional)</span>
                     <div className="muted text-xs mb-1">Detected:</div>
                     <div className="chips">
-                      {(detected.roster_positions || []).map((r, i) => (
+                      {(detected.rosterPositions || []).map((r, i) => (
                         <span key={i} className="chip chip--small">{r}</span>
                       ))}
                     </div>
@@ -509,7 +457,7 @@ export default function SetupForm(props) {
                       }}
                     />
                     <div className="muted text-xs mt-1">
-                      Effective: {(overrides.roster_positions ?? detected.roster_positions)?.join(', ') || '—'}
+                      Effective: {(overrides.roster_positions ?? detected.rosterPositions)?.join(', ') || '—'}
                     </div>
 
                     <div className="row mt-2">
@@ -519,12 +467,12 @@ export default function SetupForm(props) {
                         onClick={() => {
                           setOverrides(o => ({
                             ...o,
-                            scoring_type: DEFAULTS.scoring_type,
+                            scoring_type: FORMAT_DEFAULTS.scoringType,
                             superflex: false,
-                            roster_positions: DEFAULTS.roster,
-                            teams: DEFAULTS.teams,
-                            rounds: DEFAULTS.rounds,
-                            type: DEFAULTS.type,
+                            roster_positions: FORMAT_DEFAULTS.rosterPositions,
+                            teams: FORMAT_DEFAULTS.teams,
+                            rounds: FORMAT_DEFAULTS.rounds,
+                            type: FORMAT_DEFAULTS.type,
                           }))
                         }}
                       >

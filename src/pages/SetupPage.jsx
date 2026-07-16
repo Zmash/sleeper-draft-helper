@@ -5,6 +5,8 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
+import { deriveFormat } from '../services/draftFormat'
+import { loadSetup } from '../services/storage'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 
@@ -16,6 +18,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   const mode = location.state?.mode // 'add' | 'edit' | undefined
 
   const [importDone, setImportDone] = useState(null)
+  const [importError, setImportError] = useState(null)
 
   const {
     sleeperUsername, sleeperUserId, seasonYear,
@@ -60,21 +63,19 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }
 
   async function wrappedAutoImport() {
-    try {
-      const numQbs = selectedLeague?.roster_positions?.some((r) =>
-        String(r).toUpperCase().includes('SUPER')
-      ) ? 2 : 1
-      const rec = Number(selectedLeague?.scoring_settings?.rec ?? 1)
-      const effScoringType = rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
-      const numTeams = selectedLeague?.total_rosters || 12
-      const ok = await handleAutoImport({ isSuperflex: numQbs === 2, effScoringType, numTeams })
-      if (ok) {
-        const count = useBoardStore.getState().boardPlayers.length
-        setImportDone({ method: 'FantasyCalc', count })
-      }
-    } catch (e) {
-      alert('Fehler beim Auto-Import: ' + (e.message || e))
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const res = await handleAutoImport({
+      isSuperflex: fmt.isSuperflex,
+      effScoringType: fmt.scoringType,
+      numTeams: fmt.teams,
+      draftMode,
+    })
+    if (res.ok) {
+      setImportDone({ method: res.marketMissing ? 'FantasyCalc (ohne Marktdaten)' : 'FantasyCalc + FFC', stats: res.stats })
+    } else if (res.error) {
+      setImportError(res.error)
     }
+    return res
   }
 
   async function wrappedKtcImport() {
@@ -103,7 +104,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       {importDone && (
         <div className="import-done-banner">
           <span className="import-done-text">
-            {importDone.count} Spieler importiert ({importDone.method}) <Icon name="check" size={14} />
+            {importDone.count ?? importDone.stats?.total} Spieler importiert ({importDone.method}) <Icon name="check" size={14} />
           </span>
           <div className="import-done-actions">
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/board')}>
@@ -113,6 +114,16 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
               <Icon name="x" size={14} />
             </button>
           </div>
+        </div>
+      )}
+      {importError && (
+        <div className="import-error-banner">
+          <span className="import-error-text">
+            Import fehlgeschlagen: {importError}
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setImportError(null)} aria-label="Schließen">
+            <Icon name="x" size={14} />
+          </button>
         </div>
       )}
       <SetupForm

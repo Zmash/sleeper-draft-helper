@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveFormat } from './draftFormat'
+import { deriveFormat, resolveDraftMode } from './draftFormat'
 
 const draft = {
   type: 'snake',
@@ -60,5 +60,23 @@ describe('deriveFormat', () => {
   it('explizites superflex-Override schlaegt die Roster-Erkennung', () => {
     const f = deriveFormat({ draft, league: null, overrides: { superflex: false } })
     expect(f.isSuperflex).toBe(false)
+  })
+})
+
+describe('resolveDraftMode', () => {
+  it('Dynasty-Liga -> rookie', () => {
+    expect(resolveDraftMode({ league: { league_type: 'dynasty' }, draft: {}, current: 'redraft' })).toBe('rookie')
+  })
+  it('Keeper-Liga -> rookie', () => {
+    expect(resolveDraftMode({ league: { league_type: 'keeper' }, draft: {}, current: 'redraft' })).toBe('rookie')
+  })
+  it('Redraft-Liga -> redraft', () => {
+    expect(resolveDraftMode({ league: { league_type: 'redraft' }, draft: {}, current: 'rookie' })).toBe('redraft')
+  })
+  it('Mock ohne Liga -> redraft, statt still auf rookie zu bleiben (Regression B6)', () => {
+    expect(resolveDraftMode({ league: null, draft: { draft_id: '1' }, current: 'rookie' })).toBe('redraft')
+  })
+  it('weder Liga noch Draft -> aktueller Wert bleibt', () => {
+    expect(resolveDraftMode({ league: null, draft: null, current: 'rookie' })).toBe('rookie')
   })
 })
