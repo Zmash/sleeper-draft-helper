@@ -35,8 +35,14 @@ export const useBoardStore = create(
       marketMeta: null,          // { source, format, total_drafts, end_date, fetched_at }
       lastImportStats: null,     // { total, withAdp, withoutAdp, unmatchedNames }
       lastBoardSnapshot: null,   // Ein Level Undo — bewusst nicht persistiert
+      // Herkunft des AKTUELLEN Boards: 'csv' | 'market' | null. Haengt bewusst nicht an
+      // csvRawText (das aendert sich bei jedem Tastendruck im Setup-Feld, auch ohne dass
+      // ein CSV-Import stattfand) — sonst luegt die Herkunfts-Zeile, sobald jemand nur
+      // CSV-Text eintippt und den Overwrite-Dialog dann abbricht.
+      boardSource: null,
 
       setCsvRawText: (v) => set({ csvRawText: v }),
+      setBoardSource: (v) => set({ boardSource: v }),
       setBoardPlayers: (v) =>
         set((s) => ({ boardPlayers: typeof v === 'function' ? v(s.boardPlayers) : v })),
       setSearchQuery: (v) => set({ searchQuery: v }),
@@ -78,7 +84,7 @@ export const useBoardStore = create(
           pick_no: null,
           picked_by: null,
         }))
-        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: boardPlayers.length ? boardPlayers : null })
+        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: boardPlayers.length ? boardPlayers : null, boardSource: 'market' })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
@@ -129,6 +135,7 @@ export const useBoardStore = create(
           marketMeta: ffc?.meta || null,
           lastImportStats: stats,
           lastBoardSnapshot: snapshot,
+          boardSource: 'market',
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
@@ -208,6 +215,7 @@ export const useBoardStore = create(
         teamFilter: s.teamFilter,
         draftMode: s.draftMode,
         marketMeta: s.marketMeta,
+        boardSource: s.boardSource,
         // lastBoardSnapshot bleibt in-memory: ein Undo ueber Sessions hinweg
         // waere ueberraschend, und der Snapshot verdoppelt den Speicherbedarf.
       }),

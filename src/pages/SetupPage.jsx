@@ -46,7 +46,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   const {
     csvRawText, draftMode,
-    setCsvRawText, setDraftMode,
+    setCsvRawText, setDraftMode, setBoardSource,
     handleCsvLoad, handleAutoImport, handleKtcRookieImport, undoImport,
   } = useBoardStore()
 
@@ -61,6 +61,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       setManualDraftInput('')
       setCsvRawText('')
       useBoardStore.getState().setBoardPlayers([])
+      useBoardStore.getState().setBoardSource(null)
       useLiveStore.getState().setLivePicks([])
       setImportDone(null)
     }
@@ -75,6 +76,10 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   async function wrappedCsvLoad() {
     const ok = await handleCsvLoad()
     if (ok) {
+      // handleCsvLoad selbst ist tabu (bleibt wie es ist) — die Herkunft wird hier vom
+      // Aufrufer gesetzt, und zwar nur bei tatsaechlichem Erfolg. Tippen im Setup-Feld
+      // oder ein abgebrochener Overwrite-Dialog aendern boardSource dadurch nicht.
+      setBoardSource('csv')
       const count = useBoardStore.getState().boardPlayers.length
       // handleCsvLoad setzt bewusst keinen lastBoardSnapshot (manueller Import
       // bleibt unveraendert, sichert sich stattdessen ueber window.confirm ab)

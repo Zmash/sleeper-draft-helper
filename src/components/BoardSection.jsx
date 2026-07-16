@@ -50,7 +50,7 @@ export default function BoardSection({
   onBoardReorder,
 }) {
   const navigate = useNavigate()
-  const { marketMeta, csvRawText, refreshMarketData } = useBoardStore()
+  const { marketMeta, boardSource, refreshMarketData } = useBoardStore()
   const [refreshingMarket, setRefreshingMarket] = useState(false)
   const [marketError, setMarketError] = useState(null)
 
@@ -399,7 +399,7 @@ export default function BoardSection({
       <DataProvenanceBar
         marketMeta={marketMeta}
         draftMode={draftMode}
-        hasCsvBoard={!!csvRawText}
+        hasCsvBoard={boardSource === 'csv'}
         onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
         refreshing={refreshingMarket}
         error={marketError}

@@ -93,6 +93,18 @@ describe('handleAutoImport (redraft)', () => {
     expect(p.tier).toBe(1)
   })
 
+  // Blocker 4: die Herkunfts-Zeile darf nie an csvRawText haengen (das aendert
+  // sich bei jedem Tastendruck im Setup-Feld, auch ohne dass ein CSV-Import
+  // tatsaechlich stattfand). Auto-/KTC-Importpfade setzen boardSource direkt.
+  it('setzt boardSource auf "market"', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC, 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft',
+    })
+    expect(useBoardStore.getState().boardSource).toBe('market')
+  })
+
   it('ruft FantasyCalc mit isDynasty=false auf (Kern-Bugfix)', async () => {
     const f = mockFetch({ 'ffc-adp': FFC, 'fantasycalc': FC })
     vi.stubGlobal('fetch', f)
@@ -137,6 +149,33 @@ describe('handleAutoImport (redraft)', () => {
     })
     expect(res.ok).toBe(false)
     expect(useBoardStore.getState().boardPlayers[0].name).toBe('Alt')
+  })
+})
+
+describe('handleKtcRookieImport', () => {
+  const KTC = { ok: true, players: [{ name: 'Ashton Jeanty', pos: 'RB', team: 'LV', rk: 1 }] }
+
+  it('setzt boardSource auf "market" (kein CSV)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ktc-rookies': KTC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleKtcRookieImport()
+    expect(useBoardStore.getState().boardSource).toBe('market')
+  })
+})
+
+describe('boardSource-Herkunftsmerkmal', () => {
+  // Blocker 4: hasCsvBoard darf nicht an csvRawText (Tastendruck-Feld) haengen.
+  // setBoardSource ist die vom Aufrufer (SetupPage) gesetzte Wahrheit ueber die
+  // tatsaechliche Herkunft des AKTUELLEN Boards.
+  it('setBoardSource setzt und persistiert das Feld', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardSource('csv')
+    expect(useBoardStore.getState().boardSource).toBe('csv')
+  })
+
+  it('boardSource startet als null', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    expect(useBoardStore.getState().boardSource).toBeNull()
   })
 })
 
