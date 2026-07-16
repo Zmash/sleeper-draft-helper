@@ -13,7 +13,7 @@ export default function FiltersRow({
     onTeamFilterChange,
   }) {
     return (
-      <div className="row mt-2 gap">
+      <div className="row wrap mt-2 gap filters-toolbar">
         <input
           className="flex-1"
           placeholder="Spieler suchen…"

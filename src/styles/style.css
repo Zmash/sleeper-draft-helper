@@ -291,7 +291,15 @@ body {
 .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border); }
 
 /* Segmented position filter chips */
-.filter-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+/* Board-Filterleiste: Suche darf wachsen/schrumpfen, Controls behalten ihre Größe.
+   Reicht der Platz nicht, bricht die Zeile um – nichts wird gequetscht.
+   width überschreibt die globale Baseline (width:95%), die sonst die Zeile sprengt. */
+.filters-toolbar > input.flex-1 { flex: 1 1 160px; min-width: 140px; width: auto; }
+.filters-toolbar > select { flex: 0 0 auto; width: auto; max-width: 180px; }
+.filters-toolbar > .btn { flex: 0 0 auto; }
+
+/* Segmentiertes Control: bricht nie um und wird nie gestaucht */
+.filter-chips { display: inline-flex; gap: 3px; flex-wrap: nowrap; flex: 0 0 auto; }
 .filter-chip {
   font-family: var(--font-ui);
   font-size: 12px;
@@ -314,15 +322,19 @@ body {
 input, select, textarea {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-ctl);
   padding: 0.7rem 0.9rem;
   color: var(--text);
   outline: none;
   width: 95%;
   resize: none;
 }
-input:focus, select:focus, textarea:focus {
-  box-shadow: 0 0 0 3px rgba(96,165,250,0.35);
+/* Fokus über den Akzent, nicht über einen Schlagschatten: gleiche Sprache wie
+   .btn/.filter-chip/.control – und sichtbar in beiden Themes. */
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-fill);
+  outline-offset: 1px;
+  border-color: var(--accent-fill);
 }
 input.w-16 { width: 4.8rem; border: none; }
 
@@ -798,18 +810,27 @@ th.col-pick, td.col-pick { width: 64px; }
 /* =========================================================
    PREFERENCES / MISC CONTROLS
    ========================================================= */
+/* Toggle liegt auf .btn auf und muss dessen Akzent-Farben komplett ersetzen –
+   sonst bleibt die dunkle accent-on-Schrift auf dunklem Grund stehen. */
 .btn-toggle {
   padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #23324a);
-  background: var(--card, #101827);
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-size: 13px;
   line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
 }
-.btn-toggle:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-.btn-toggle.is-active { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+.btn-toggle:hover { border-color: var(--accent-fill); }
+.btn-toggle.is-active {
+  border-color: var(--live);
+  background: color-mix(in srgb, var(--live) 14%, transparent);
+  color: var(--text-primary);
+}
 
 /* Preference popup */
 .pref-menu {
