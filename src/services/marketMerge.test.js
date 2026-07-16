@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeRankingsWithMarket, overlayMarketData } from './marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries } from './marketMerge'
 
 const fc = [
   { name: 'Bijan Robinson', pos: 'RB', team: 'ATL', overallRank: 1, tier: 1, sleeperId: '9509', value: 10491 },
@@ -91,5 +91,22 @@ describe('overlayMarketData', () => {
   it('haengt keine neuen Spieler an', () => {
     const { players } = overlayMarketData(board, ffc)
     expect(players).toHaveLength(2)
+  })
+})
+
+describe('enrichWithInjuries', () => {
+  const meta = { '9509': { injury_status: 'Questionable' }, '7564': { injury_status: null } }
+
+  it('haengt injury_status ueber die sleeperId an', () => {
+    const out = enrichWithInjuries([{ name: 'A', sleeperId: '9509' }], meta)
+    expect(out[0].injury_status).toBe('Questionable')
+  })
+  it('ohne sleeperId bleibt der Spieler unveraendert', () => {
+    const out = enrichWithInjuries([{ name: 'B', sleeperId: null }], meta)
+    expect(out[0].injury_status).toBeNull()
+  })
+  it('ohne Meta bleibt das Board unveraendert', () => {
+    const out = enrichWithInjuries([{ name: 'A', sleeperId: '9509' }], {})
+    expect(out[0].injury_status).toBeNull()
   })
 })

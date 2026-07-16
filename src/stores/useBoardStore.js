@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { normalizePlayerName } from '../utils/formatting'
 import { parseFantasyProsCsv } from '../services/csv'
-import { mergeRankingsWithMarket, overlayMarketData } from '../services/marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries } from '../services/marketMerge'
+import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useSessionStore } from './useSessionStore'
 import { useLiveStore } from './useLiveStore'
 
@@ -114,9 +115,17 @@ export const useBoardStore = create(
         }
 
         const { players, stats } = mergeRankingsWithMarket(fc.players, ffc?.players || [])
+
+        // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
+        let withInjuries = players
+        try {
+          const meta = await loadPlayersMetaCached({ season: new Date().getFullYear() })
+          withInjuries = enrichWithInjuries(players, meta)
+        } catch { /* Verletzungsdaten sind Kuer, kein Grund den Import zu kippen */ }
+
         set({
           csvRawText: '',
-          boardPlayers: players,
+          boardPlayers: withInjuries,
           marketMeta: ffc?.meta || null,
           lastImportStats: stats,
           lastBoardSnapshot: snapshot,

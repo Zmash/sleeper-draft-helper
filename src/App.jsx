@@ -207,7 +207,7 @@ export default function App() {
     playerPrefs: {}, rosterPositions: effRoster,
     scoringSettings: selectedLeague?.scoring_settings || null,
     scoringType: effScoringType, draftType: selectedDraft?.type || 'snake',
-    strategies, enabled: !isRookieMode,
+    strategies, draftRounds: format.rounds, enabled: !isRookieMode,
   })
   const rookieTips = useRookieDraftTips({
     picks: livePicks, boardPlayers, meUserId: sleeperUserId,

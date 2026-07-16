@@ -101,3 +101,12 @@ export function overlayMarketData(boardPlayers, ffcPlayers) {
     stats: { total: players.length, withAdp, withoutAdp: players.length - withAdp, unmatchedNames },
   }
 }
+
+// Weder FantasyCalc noch FFC kennen Verletzungen. Sleeper schon — und seit dem
+// sleeperId-Durchreichen im Rankings-Endpoint haben wir den Schluessel dafuer.
+export function enrichWithInjuries(boardPlayers, playersMeta = {}) {
+  return (boardPlayers || []).map((p) => {
+    const meta = p?.sleeperId ? playersMeta[String(p.sleeperId)] : null
+    return { ...p, injury_status: meta?.injury_status ?? p.injury_status ?? null }
+  })
+}
