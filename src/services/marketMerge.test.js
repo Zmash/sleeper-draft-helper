@@ -92,6 +92,21 @@ describe('overlayMarketData', () => {
     const { players } = overlayMarketData(board, ffc)
     expect(players).toHaveLength(2)
   })
+
+  // Minor 6: withAdp++ feuerte bisher schon bei einem Markt-TREFFER, auch wenn
+  // hit.adp selbst null ist. mergeRankingsWithMarket zaehlt dagegen korrekt per
+  // players.filter(p => p.adp != null).length -- overlayMarketData muss das Gleiche tun.
+  it('zaehlt withAdp korrekt, auch wenn der Markt-Treffer selbst adp: null hat', () => {
+    const boardWithNullHit = [
+      { name: 'Ghost Kicker', nname: 'ghost kicker', rk: '1', pos: 'K', adp: null },
+    ]
+    const ffcWithNullAdp = [
+      { name: 'Ghost Kicker', nname: 'ghost kicker', pos: 'K', team: 'XX', adp: null, bye: 5, stdev: null, high: null, low: null },
+    ]
+    const { stats } = overlayMarketData(boardWithNullHit, ffcWithNullAdp)
+    expect(stats.withAdp).toBe(0)
+    expect(stats.withoutAdp).toBe(1)
+  })
 })
 
 describe('enrichWithInjuries', () => {

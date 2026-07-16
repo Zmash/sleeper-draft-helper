@@ -1546,7 +1546,7 @@ th.col-pick, td.col-pick { width: 64px; }
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: color-mix(in srgb, var(--bad) 15%, var(--surface));
+  background: color-mix(in srgb, var(--bad) 15%, var(--surface-card));
   border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent);
   border-radius: 10px;
   padding: 0.65rem 1rem;

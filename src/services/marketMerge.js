@@ -81,20 +81,23 @@ export function mergeRankingsWithMarket(fcPlayers, ffcPlayers) {
 // pflegt sein Board ueber Wochen, das darf ein Markt-Refresh nicht wegwerfen.
 export function overlayMarketData(boardPlayers, ffcPlayers) {
   const market = marketIndex(ffcPlayers)
-  let withAdp = 0
   const unmatchedNames = []
 
   const players = (boardPlayers || []).map((p) => {
     const nname = p?.nname || normalizePlayerName(p?.name || '')
     const hit = market.get(nname)
-    if (!hit) {
-      if (p.adp == null) unmatchedNames.push(p.name)
-      else withAdp++
-      return p
-    }
-    withAdp++
+    if (!hit) return p
     return { ...p, ...marketFieldsOf(hit) }
   })
+
+  // Ein Markt-TREFFER ist kein Beleg fuer ADP -- der Treffer selbst kann adp: null
+  // tragen (Union-Tail-Spieler ohne eigene ADP-Zahl). Wie mergeRankingsWithMarket
+  // zaehlt withAdp nach dem Merge ueber das tatsaechliche Feld, nicht ueber "gab es
+  // einen Treffer".
+  const withAdp = players.filter((p) => p.adp != null).length
+  for (const p of players) {
+    if (p.adp == null) unmatchedNames.push(p.name)
+  }
 
   return {
     players,
