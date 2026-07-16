@@ -1929,9 +1929,70 @@ export default function MockDraftCard() {
 }
 ```
 
-**Wichtig:** `attachDraftByIdOrUrl` muss die Draft-ID zurückgeben, nicht nur `true`.
-Run: `grep -n "attachDraftByIdOrUrl" -A 20 src/stores/useSessionStore.js`
-Gibt sie heute `boolean` zurück: auf `draft_id` (String) bzw. `null` umstellen und die bestehenden Aufrufer in `SetupForm.jsx:253` prüfen (`if (ok)` funktioniert mit einem String weiter, da truthy).
+- [ ] **Step 3b: `attachDraftByIdOrUrl` reparieren — sonst ist der ganze Mock-Fix wirkungslos**
+
+**Verifiziert 2026-07-16, drei echte Defekte in `src/stores/useSessionStore.js:105-121`:**
+
+1. **Sie legt nur einen Stub an:** `{ draft_id: id, metadata: { name: 'Draft <id>' } }` — **ohne
+   `settings`**. Nichts im Code ersetzt ihn später durch echte Daten (`fetchDraft` wird nur in
+   `TradePage` und im Dashboard-Kartenbau genutzt, beide schreiben nicht nach `availableDrafts`
+   zurück). Damit sieht `deriveFormat` bei einem per URL angehängten Mock **kein** `teams`, **kein**
+   `scoring_type`, **keine** `slots_*` — und fällt auf die Defaults zurück. Der komplette B3-Fix aus
+   Task 5 wäre für den wichtigsten Anwendungsfall (Mock per Link) **wirkungslos**.
+2. **Sie gibt nichts zurück** (kein `return`) — der bestehende Aufrufer `SetupForm.jsx:253` prüft
+   `if (ok)`, was folglich **immer** falsy ist; das `setManualDraftInput('')` dort läuft nie.
+3. **Sie ruft `alert('Draft per ID/URL gesetzt.')`** — ein nativer Dialog mitten im Store.
+
+Ersetze die Funktion vollständig:
+
+```js
+      attachDraftByIdOrUrl: async (input, parseDraftId) => {
+        const id = parseDraftId(input)
+        if (!id) return null
+
+        // Den echten Draft holen, nicht nur einen Stub anlegen: ohne settings
+        // (teams, rounds, slots_*, scoring_type) faellt deriveFormat auf die
+        // Defaults zurueck — und genau das war der Mock-Bug.
+        let draft = null
+        try {
+          draft = await fetchDraft(id)
+        } catch {
+          draft = null
+        }
+        if (!draft?.draft_id) return null
+
+        await useLiveStore.getState().loadPicks(id).catch(() => {})
+        set((s) => ({
+          availableDrafts: mergeDraftsUnique([draft], s.availableDrafts || []),
+          selectedDraftId: id,
+        }))
+        return id
+      },
+```
+
+Import ergänzen: `fetchDraft` aus `../services/api`. `mergeDraftsUnique` ist in der Datei bereits
+vorhanden und lässt frische API-Daten bei Duplikaten gewinnen — der echte Draft ersetzt also einen
+etwaigen alten Stub.
+
+**Aufrufer prüfen:** `SetupForm.jsx:253` macht `const ok = await attachDraftByIdOrUrl(manualDraftInput)`
+— das funktioniert mit dem String-Rückgabewert weiter (truthy) und wird durch den Fix sogar **erst
+richtig**. Die Funktion wirft jetzt nicht mehr, sondern gibt `null` zurück; der `try/catch` dort
+bleibt harmlos.
+
+- [ ] **Step 3c: Den Fix belegen**
+
+Run: `npm run dev:api` (Hintergrund), dann in einem zweiten Terminal — ID durch einen echten
+Sleeper-Draft ersetzen, notfalls den aus `availableDrafts`:
+
+```bash
+node -e "
+import('./src/services/api.js').then(async m => {
+  const d = await m.fetchDraft('1234567890123456789').catch(e => null)
+  console.log('settings vorhanden:', !!d?.settings, '| teams:', d?.settings?.teams, '| scoring:', d?.metadata?.scoring_type)
+})"
+```
+Expected: `settings vorhanden: true` mit echten Zahlen — der Beweis, dass der Draft jetzt das
+Format mitbringt, das `deriveFormat` braucht.
 
 - [ ] **Step 4: `zap` in `Icon.jsx` ergänzen**
 
