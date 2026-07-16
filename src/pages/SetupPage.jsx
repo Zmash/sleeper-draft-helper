@@ -9,6 +9,8 @@ import { deriveFormat } from '../services/draftFormat'
 import { loadSetup } from '../services/storage'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
+import Modal from '../components/Modal'
+import ImportResultBanner from '../components/ImportResultBanner'
 
 const noop = () => {}
 
@@ -19,6 +21,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   const [importDone, setImportDone] = useState(null)
   const [importError, setImportError] = useState(null)
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false)
 
   const {
     sleeperUsername, sleeperUserId, seasonYear,
@@ -33,7 +36,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   const {
     csvRawText, draftMode,
     setCsvRawText, setDraftMode,
-    handleCsvLoad, handleAutoImport, handleKtcRookieImport,
+    handleCsvLoad, handleAutoImport, handleKtcRookieImport, undoImport,
   } = useBoardStore()
 
   // Add mode: clear everything except the Sleeper account credentials
@@ -54,24 +57,37 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   const leaguesById = new Map((availableLeagues || []).map((l) => [l.league_id, l]))
 
+  function statsForCount(count) {
+    return { total: count, withAdp: 0, withoutAdp: 0, unmatchedNames: [] }
+  }
+
   async function wrappedCsvLoad() {
     const ok = await handleCsvLoad()
     if (ok) {
       const count = useBoardStore.getState().boardPlayers.length
-      setImportDone({ method: 'CSV', count })
+      setImportDone({ method: 'CSV', stats: statsForCount(count) })
     }
   }
 
-  async function wrappedAutoImport() {
+  async function wrappedAutoImport(force = false) {
     const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
     const res = await handleAutoImport({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
       numTeams: fmt.teams,
       draftMode,
+      force,
     })
+    if (res.needsConfirm) {
+      setConfirmOverwrite(true)
+      return res
+    }
     if (res.ok) {
-      setImportDone({ method: res.marketMissing ? 'FantasyCalc (ohne Marktdaten)' : 'FantasyCalc + FFC', stats: res.stats })
+      setImportDone({
+        method: res.marketMissing ? 'FantasyCalc' : 'FantasyCalc + FFC',
+        stats: res.stats,
+        marketMissing: res.marketMissing,
+      })
     } else if (res.error) {
       setImportError(res.error)
     }
@@ -83,7 +99,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       const ok = await handleKtcRookieImport()
       if (ok) {
         const count = useBoardStore.getState().boardPlayers.length
-        setImportDone({ method: 'KTC', count })
+        setImportDone({ method: 'KTC', stats: statsForCount(count) })
       }
     } catch (e) {
       setImportError(`Fehler beim KTC-Import: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`)
@@ -102,19 +118,14 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   return (
     <>
       {importDone && (
-        <div className="import-done-banner">
-          <span className="import-done-text">
-            {importDone.count ?? importDone.stats?.total} Spieler importiert ({importDone.method}) <Icon name="check" size={14} />
-          </span>
-          <div className="import-done-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/board')}>
-              → Board
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setImportDone(null)} aria-label="Schließen">
-              <Icon name="x" size={14} />
-            </button>
-          </div>
-        </div>
+        <ImportResultBanner
+          stats={importDone.stats}
+          method={importDone.method}
+          marketMissing={importDone.marketMissing}
+          onUndo={useBoardStore.getState().lastBoardSnapshot ? () => { undoImport(); setImportDone(null) } : undefined}
+          onClose={() => setImportDone(null)}
+          onGoToBoard={() => navigate('/board')}
+        />
       )}
       {importError && (
         <div className="import-error-banner">
@@ -126,6 +137,14 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
           </button>
         </div>
       )}
+      <Modal open={confirmOverwrite} onClose={() => setConfirmOverwrite(false)} title="Rankings überschreiben?">
+        <p>Es sind bereits Rankings geladen. Beim Neu-Import geht deine eigene Reihenfolge verloren.</p>
+        <p className="muted text-xs">Nur die Marktdaten aktualisieren? Das geht ohne Datenverlust über „Aktualisieren" am Board.</p>
+        <div className="confirm-overwrite-actions">
+          <button className="btn btn-secondary" onClick={() => setConfirmOverwrite(false)}>Abbrechen</button>
+          <button className="btn btn-primary" onClick={() => { setConfirmOverwrite(false); wrappedAutoImport(true) }}>Überschreiben</button>
+        </div>
+      </Modal>
       <SetupForm
         sleeperUsername={sleeperUsername}
         sleeperUserId={sleeperUserId}

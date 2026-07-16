@@ -1536,6 +1536,12 @@ th.col-pick, td.col-pick { width: 64px; }
   flex-shrink: 0;
 }
 
+.import-done-main { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 12rem; }
+.import-done-warn { font-size: 0.75rem; color: var(--bad); display: inline-flex; align-items: center; gap: 0.3rem; }
+.import-unmatched { flex-basis: 100%; margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.75rem; color: var(--text-muted); max-height: 8rem; overflow-y: auto; }
+.btn-link { background: none; border: 0; padding: 0; color: var(--accent-text); text-decoration: underline; cursor: pointer; font: inherit; }
+.confirm-overwrite-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
+
 .import-error-banner {
   display: flex;
   align-items: center;
