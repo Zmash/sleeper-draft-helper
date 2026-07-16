@@ -39,6 +39,36 @@ describe('Value mit Streuung', () => {
     expect(t).toBeTruthy()
     expect(t.text).not.toMatch(/zwischen Pick/)
   })
+
+  // Regression fuer App.jsx: draftSlot wurde an useRookieDraftTips durchgereicht,
+  // an useDraftTips (Redraft) aber nicht. Ohne draftSlot faellt picksUntilMyNext
+  // vor dem eigenen ersten Pick auf mine.length===0 -> null zurueck, und die
+  // "bis zu deinem naechsten Pick"-Aussage bleibt in Runde 1 tot.
+  it('nennt "naechster Pick" schon vor dem eigenen ersten Pick, wenn draftSlot bekannt ist', () => {
+    const tips = tipsOf({
+      picks: Array.from({ length: 5 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [{ name: 'A B', nname: 'ab', pos: 'RB', rk: '1', adp: 24 }],
+      draftSlot: 1,
+    })
+    const t = tips.find(x => x.type === 'value')
+    expect(t).toBeTruthy()
+    expect(t.text).toMatch(/nächsten Pick/)
+  })
+
+  // Dokumentiert (nicht aendert) das Fallback-Verhalten von picksUntilMyNext:
+  // Vorsicht, Number(null) ist 0 (finite!) und faellt damit NICHT auf den
+  // mine.length-Zweig zurueck. Nur ein wirklich unbestimmbarer Slot (NaN) loest
+  // den echten Fallback (kein eigener Pick -> return null) aus.
+  it('schweigt ganz ohne bestimmbaren draftSlot und ohne eigenen Pick', () => {
+    const tips = tipsOf({
+      picks: Array.from({ length: 5 }, (_, i) => ({ pick_no: i + 1, picked_by: 'u2' })),
+      boardPlayers: [{ name: 'A B', nname: 'ab', pos: 'RB', rk: '1', adp: 24 }],
+      draftSlot: NaN,
+    })
+    const t = tips.find(x => x.type === 'value')
+    expect(t).toBeTruthy()
+    expect(t.text).not.toMatch(/nächsten Pick/)
+  })
 })
 
 describe('pos_need entrauscht', () => {
