@@ -8,7 +8,7 @@ import Icon from './Icon'
 // Ein Mock ist Vorbereitung, kein Neuanfang — die gepflegte Rangliste bleibt.
 export default function MockDraftCard() {
   const navigate = useNavigate()
-  const { attachDraftByIdOrUrl, setSelectedDraftId } = useSessionStore()
+  const { attachDraftByIdOrUrl, setSelectedDraftId, setSelectedLeagueId } = useSessionStore()
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -24,6 +24,9 @@ export default function MockDraftCard() {
         setError('Kein Draft unter diesem Link gefunden — prüfe, ob der Link auf einen Sleeper-Draft zeigt (sleeper.com/draft/nfl/…).')
         return
       }
+      // Ein per Link angehaengter Mock gehoert zu keiner Liga. Ohne das bleibt eine zuvor
+      // gewaehlte Liga stehen und resolveDraftMode erkennt den Mock-Wechsel nicht (Regression B6).
+      setSelectedLeagueId(null)
       setSelectedDraftId(String(draftId))
       setInput('')
       navigate('/board')
@@ -53,7 +56,7 @@ export default function MockDraftCard() {
           {busy ? '…' : 'Starten'}
         </button>
       </div>
-      {error && <p className="lc-mock-error">{error}</p>}
+      {error && <p className="lc-mock-error" role="alert">{error}</p>}
     </div>
   )
 }

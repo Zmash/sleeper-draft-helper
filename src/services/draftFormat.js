@@ -93,6 +93,13 @@ export function deriveFormat({ draft = null, league = null, overrides = {} } = {
 // Modus blieb still auf dem alten Wert stehen — nach einem Rookie-Draft lief
 // der Redraft-Mock mit der Rookie-Tipplogik.
 export function resolveDraftMode({ league = null, draft = null, current = 'redraft' } = {}) {
+  // Rohe Sleeper-Ligen tragen settings.type als Zahl (0=redraft, 1=keeper, 2=dynasty) --
+  // das ist die Konvention, die Produktionsdaten liefern (Muster aus useDashboardStore.js).
+  // Nie gegen String-Literale vergleichen. league_type als String bleibt Fallback fuer
+  // angereicherte Ligen, die das Feld zusaetzlich mitschicken.
+  const t = league?.settings?.type
+  if (t === 2 || t === 1) return 'rookie'
+  if (t === 0) return 'redraft'
   const lt = league?.league_type
   if (lt === 'dynasty' || lt === 'keeper') return 'rookie'
   if (lt === 'redraft') return 'redraft'

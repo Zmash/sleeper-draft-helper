@@ -11,10 +11,11 @@ vi.mock('react-router-dom', async () => ({
 
 const attach = vi.fn()
 const setSelectedDraftId = vi.fn()
+const setSelectedLeagueId = vi.fn()
 const setBoardPlayers = vi.fn()
 
 vi.mock('../stores/useSessionStore', () => ({
-  useSessionStore: () => ({ attachDraftByIdOrUrl: attach, setSelectedDraftId }),
+  useSessionStore: () => ({ attachDraftByIdOrUrl: attach, setSelectedDraftId, setSelectedLeagueId }),
 }))
 vi.mock('../stores/useBoardStore', () => ({
   useBoardStore: { getState: () => ({ setBoardPlayers }) },
@@ -35,6 +36,15 @@ describe('MockDraftCard', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/board'))
     expect(attach).toHaveBeenCalled()
     expect(setSelectedDraftId).toHaveBeenCalledWith('12345')
+  })
+
+  it('haengt einen per Link angefuegten Mock an keine Liga (Regression B6: Redraft-Mock lief mit Rookie-Logik der stehengebliebenen Dynasty-Liga)', async () => {
+    attach.mockResolvedValue('12345')
+    setup()
+    await userEvent.type(screen.getByRole('textbox'), 'https://sleeper.com/draft/nfl/12345')
+    await userEvent.click(screen.getByRole('button', { name: /Starten/i }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/board'))
+    expect(setSelectedLeagueId).toHaveBeenCalledWith(null)
   })
 
   it('fasst das Board nicht an — die gepflegte Rangliste ueberlebt den Mock', async () => {

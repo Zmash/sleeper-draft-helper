@@ -64,14 +64,20 @@ describe('deriveFormat', () => {
 })
 
 describe('resolveDraftMode', () => {
-  it('Dynasty-Liga -> rookie', () => {
+  // league_type wird nirgends im Code gesetzt und kommt nicht von der Sleeper-API.
+  // Rohe Sleeper-Ligen tragen settings.type als Zahl (0=redraft, 1=keeper, 2=dynasty)
+  // -- das ist die Konvention, die Produktionsdaten tatsaechlich liefern.
+  it('Dynasty-Liga (settings.type: 2, echte Sleeper-Konvention) -> rookie', () => {
+    expect(resolveDraftMode({ league: { settings: { type: 2 } }, draft: {}, current: 'redraft' })).toBe('rookie')
+  })
+  it('Keeper-Liga (settings.type: 1) -> rookie', () => {
+    expect(resolveDraftMode({ league: { settings: { type: 1 } }, draft: {}, current: 'redraft' })).toBe('rookie')
+  })
+  it('Redraft-Liga (settings.type: 0) -> redraft', () => {
+    expect(resolveDraftMode({ league: { settings: { type: 0 } }, draft: {}, current: 'rookie' })).toBe('redraft')
+  })
+  it('Fallback: angereicherte Liga mit league_type als String -> rookie', () => {
     expect(resolveDraftMode({ league: { league_type: 'dynasty' }, draft: {}, current: 'redraft' })).toBe('rookie')
-  })
-  it('Keeper-Liga -> rookie', () => {
-    expect(resolveDraftMode({ league: { league_type: 'keeper' }, draft: {}, current: 'redraft' })).toBe('rookie')
-  })
-  it('Redraft-Liga -> redraft', () => {
-    expect(resolveDraftMode({ league: { league_type: 'redraft' }, draft: {}, current: 'rookie' })).toBe('redraft')
   })
   it('Mock ohne Liga -> redraft, statt still auf rookie zu bleiben (Regression B6)', () => {
     expect(resolveDraftMode({ league: null, draft: { draft_id: '1' }, current: 'rookie' })).toBe('redraft')
