@@ -11,11 +11,16 @@ npm run dev:all    # Both concurrently (needed for any AI/rankings feature)
 npm run build      # Vite production build → dist/
 npm run preview    # Preview the production build
 
+npm test          # Vitest einmalig
+npm run test:watch # Vitest im Watch-Modus
+
 npm run cap:copy         # Copy web build into the Android project
 npm run cap:open:android # Open Android Studio (Capacitor)
 ```
 
-There is **no test runner and no linter configured** — do not assume `npm test`/`npm run lint` exist. The `eslint-disable-line` comments in the source are historical and not backed by an ESLint setup.
+`npm test` (Vitest, einmalig) und `npm run test:watch` **existieren und laufen**. Es gibt **keinen
+Linter** — die `eslint-disable-line`-Kommentare im Quelltext sind historisch und durch kein
+ESLint-Setup gedeckt.
 
 The app requires a real Sleeper account/username and a user-supplied Anthropic API key to be fully exercised; there are no fixtures.
 
