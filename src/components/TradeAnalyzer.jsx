@@ -5,18 +5,19 @@ import { buildTradeAnalysisRequest, buildTradeSuggestionsRequest } from '../serv
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { normalizePlayerName } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
+import Icon from './Icon'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const PROFILE_LABELS = { auto: 'Auto', contender: 'Contender', balanced: 'Balanced', rebuild: 'Rebuild' }
-const PROFILE_EMOJIS = { contender: '🏆', balanced: '⚖️', rebuild: '🔨', auto: '🔄' }
+const PROFILE_ICONS = { contender: 'trophy', balanced: 'scale', rebuild: 'hammer', auto: 'refresh' }
 const TIER_LABELS = { early: 'Early (1–4)', mid: 'Mid (5–8)', late: 'Late (9–12)' }
 const VERDICT_CONFIG = {
-  winning:     { label: 'You win',             cls: 'verdict--win',        icon: '✅' },
-  slight_win:  { label: 'Slight win for you',  cls: 'verdict--slight-win', icon: '👍' },
-  fair:        { label: 'Fair trade',          cls: 'verdict--fair',       icon: '⚖️' },
-  slight_lose: { label: 'Slight loss for you', cls: 'verdict--slight-lose',icon: '⚠️' },
-  losing:      { label: 'You lose',            cls: 'verdict--lose',       icon: '❌' },
-  neutral:     { label: 'No data yet',         cls: 'verdict--neutral',    icon: '—'  },
+  winning:     { label: 'You win',             cls: 'verdict--win',        icon: 'check-circle' },
+  slight_win:  { label: 'Slight win for you',  cls: 'verdict--slight-win', icon: 'thumbs-up' },
+  fair:        { label: 'Fair trade',          cls: 'verdict--fair',       icon: 'scale' },
+  slight_lose: { label: 'Slight loss for you', cls: 'verdict--slight-lose',icon: 'warning' },
+  losing:      { label: 'You lose',            cls: 'verdict--lose',       icon: 'x' },
+  neutral:     { label: 'No data yet',         cls: 'verdict--neutral',    icon: null },
 }
 const POS_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE']
 
@@ -87,8 +88,8 @@ function PickForm({ onAdd, onCancel }) {
       <select value={tier} onChange={e => setTier(e.target.value)} className="control control--sm">
         {Object.entries(TIER_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
-      <button className="btn btn-primary btn-sm" onClick={handleAdd}>+</button>
-      <button className="btn btn-ghost btn-sm" onClick={onCancel}>✕</button>
+      <button className="btn btn-primary btn-sm" onClick={handleAdd} aria-label="Hinzufügen"><Icon name="plus" size={15} /></button>
+      <button className="btn btn-ghost btn-sm" onClick={onCancel} aria-label="Abbrechen"><Icon name="x" size={15} /></button>
     </div>
   )
 }
@@ -135,7 +136,7 @@ function PlayerSearch({ allPlayers, onAdd, onCancel, excludeIds }) {
           onChange={e => setQ(e.target.value)}
           autoFocus
         />
-        <button className="btn btn-ghost btn-sm" onClick={onCancel}>✕</button>
+        <button className="btn btn-ghost btn-sm" onClick={onCancel} aria-label="Schließen"><Icon name="x" size={15} /></button>
       </div>
       <div className="player-search-filters">
         {POS_FILTERS.map(pos => (
@@ -669,14 +670,14 @@ export default function TradeAnalyzer({
         <div className="trade-evaluation">
           <ValueBar totalGive={totalGive} totalGet={totalGet} />
           <div className={`trade-verdict ${verdictCfg.cls}`}>
-            <span className="trade-verdict-icon">{verdictCfg.icon}</span>
+            <span className="trade-verdict-icon">{verdictCfg.icon ? <Icon name={verdictCfg.icon} size={16} /> : '—'}</span>
             <span className="trade-verdict-label">{verdictCfg.label}</span>
           </div>
 
           {/* ── Team profile ──────────────────────────────────────── */}
           <div className="trade-profile-row">
             <span className="trade-profile-label">
-              {PROFILE_EMOJIS[profile]} Team profile: <strong>{PROFILE_LABELS[profile]}</strong>
+              <Icon name={PROFILE_ICONS[profile]} size={14} /> Team profile: <strong>{PROFILE_LABELS[profile]}</strong>
               {avgAge && <span className="muted"> · Avg. starter age {Number(avgAge).toFixed(1)}</span>}
             </span>
             <div className="trade-profile-controls">
@@ -700,7 +701,7 @@ export default function TradeAnalyzer({
                 onClick={handleAiAnalysis}
                 disabled={!canAnalyze || aiLoading}
               >
-                {aiLoading ? 'Analyzing…' : '🤖 AI Analysis'}
+                {aiLoading ? 'Analyzing…' : <><Icon name="bot" size={15} /> AI Analysis</>}
               </button>
             )}
             {aiError && <div className="trade-ai-error">{aiError}</div>}
@@ -736,7 +737,7 @@ export default function TradeAnalyzer({
               onClick={handleSuggestTrades}
               disabled={suggestLoading}
             >
-              {suggestLoading ? '🔍 Finding trades…' : '🔍 Suggest Trades'}
+              {suggestLoading ? <><Icon name="search" size={14} /> Finding trades…</> : <><Icon name="search" size={14} /> Suggest Trades</>}
             </button>
           )}
           {suggestResult && (

@@ -1,81 +1,135 @@
-# Sleeper-Draft-Helper
+# Sleeper Draft Helper
 
-Dieses Repository enthält eine React-Webanwendung, die über die Sleeper API kommuniziert.  
-Sie dient als Draft-Helper für NFL Fantasy Sleeper Drafts und ermöglicht es dir, deinen Draft live zu verfolgen, eigene Rankings zu importieren und dein Team im Blick zu behalten.
+Ein Draft-Helper für **NFL Fantasy Sleeper Drafts**. Verfolge deinen Draft live, importiere eigene Rankings, behalte dein Roster im Blick und lass dir per KI den nächsten Pick empfehlen – im Browser oder als Android-App.
 
-## Über
+> **Inoffizielles Community-Tool.** Steht in keiner Verbindung zu Sleeper, FantasyPros, FantasyCalc oder KeepTradeCut und nutzt lediglich deren öffentliche APIs bzw. öffentlich zugängliche Daten.
 
-Der NFL Fantasy Sleeper Draft Helper ist ein webbasiertes Tool zur Automatisierung und Visualisierung von NFL Fantasy Drafts.  
-Mit einer klaren, modernen Benutzeroberfläche hilft er dir, Picks in Echtzeit zu verfolgen, dein Roster im Blick zu behalten und strategische Entscheidungen schnell zu treffen.
+---
 
-## Hauptfunktionen
+## Funktionen
 
-- **Automatischer Fetch:** Verfolgt automatisch alle Picks in deinem Fantasy-Draft.
-- **Echtzeit-Aktualisierung:** Updates werden laufend über die Sleeper API abgerufen.
-- **CSV-Import:** Lade deine Rankings z. B. von FantasyPros als CSV-Datei hoch.
-- **Filter & Suche:** Finde Spieler schnell nach Name oder Position.
-- **Roster-Ansicht:** Behalte dein aktuelles Team jederzeit im Blick.
-- **AI Draft Advice:** Empfiehlt auf Knopfdruck den nächsten Pick – basierend auf deinem Board, deiner Liga und deinem aktuellen Roster.
+- **Live-Draft-Tracking** – ruft Picks laufend über die Sleeper API ab (konfigurierbares Auto-Refresh-Intervall).
+- **Ranking-Import** – CSV (z. B. FantasyPros) sowie direkter Import von **FantasyCalc** und **KeepTradeCut** (Dynasty & Rookies).
+- **Board** – Spielerliste mit Suche, Positions-/Team-Filtern, Tiers und Draft-Status.
+- **Roster-Ansicht** – dein aktuelles Team jederzeit im Überblick.
+- **Dashboard** – Übersicht über deine Ligen und Drafts.
+- **Draft-Tipps** – kontextbasierte Empfehlungen, getrennt für **Redraft** und **Rookie/Dynasty**.
+- **KI-Draft-Advice** – Empfehlung für den nächsten Pick inkl. Begründung und Alternativen (Live-Streaming).
+- **KI-Draft-Review** – Post-Draft-Analyse mit Team-Rankings und Bewertungen.
+- **KI-Trade-Analyse** – Bewertung und Vorschläge für Trades.
+- **Setup-Overrides** – Scoring, Roster-Positionen, Superflex und Strategien manuell übersteuern.
+- **Dark/Light-Theme** und **Android-App** via Capacitor.
 
-## AI Draft Advice
+## Tech-Stack
 
-Die integrierte KI liefert dir im **Board-Tab** eine Empfehlung für deinen nächsten Pick – samt kurzer Begründung und sinnvollen Alternativen.  
-Dabei berücksichtigt sie u. a. dein aktuelles Team, die Ligaeinstellungen (z.B. PPR) sowie die Verfügbarkeit der besten Kandidaten aus deinem Board.
+| Bereich   | Technologie |
+|-----------|-------------|
+| Frontend  | React 18, Vite, React Router, Zustand |
+| Backend   | Express 5 (KI-Proxy), Server-Sent Events (SSE) |
+| KI        | Anthropic SDK (`@anthropic-ai/sdk`), Modell `claude-sonnet-4-6` |
+| Daten     | Sleeper API (öffentlich), FantasyCalc, KeepTradeCut |
+| Mobile    | Capacitor (Android) |
 
-**So funktioniert’s:**  
-1. Importiere dein Ranking (CSV) und wähle Liga & Draft aus.  
-2. Öffne den **Board-Tab** und klicke auf **„🤖 AI Advice“**.  
-3. Beim ersten Mal hinterlegst du deinen **OpenAI API‑Key** (nur lokal im Browser gespeichert).  
-4. Du erhältst eine **Empfehlung**, **Alternativen** und kurze **Strategie‑Hinweise**.
+## Architektur
 
-**Hinweise:**  
-- Der API‑Key wird ausschließlich **lokal** gespeichert.  
-- Etwaige Kosten für KI‑Anfragen fallen über dein **eigenes** OpenAI‑Konto an.  
+Die App besteht aus zwei unabhängig lauffähigen Teilen:
 
-## Einrichtung
+1. **React-SPA** (`src/`) – spricht für alle Draft-, Liga- und Pick-Daten **direkt** die öffentliche Sleeper API an. Für das reine Draft-Tracking wird kein eigenes Backend benötigt.
+2. **Express-KI-Proxy** (`src/server/`) – kapselt die KI-Aufrufe und das Scraping der Ranking-Quellen serverseitig. Das Frontend ruft ihn unter `/api/*` auf; im Dev-Betrieb proxyt Vite `/api` → `127.0.0.1:5175`.
 
-1. **Repository klonen**  
-   ```bash
-   git clone https://github.com/Zmash/sleeper-draft-helper.git
-   cd sleeper-draft-helper
-   ```
+Der Anthropic-API-Key wird **ausschließlich lokal im Browser** gespeichert (`localStorage`) und pro Anfrage über den Header `X-Anthropic-Key` an den Proxy übergeben – er wird **nie serverseitig persistiert**.
 
-2. **Abhängigkeiten installieren**  
-   ```bash
-   npm install
-   ```
+> **Hinweis für Entwicklung:** `src/server/index.js` (Dev, Port `5175`) und `src/server/prod.js` (Prod, Port `8080`, liefert zusätzlich das statische Build aus) definieren dieselben Endpunkte. Änderungen an KI-Endpunkten müssen in **beiden** Dateien erfolgen.
 
-3. **Entwicklung starten**  
-   ```bash
-   npm run dev
-   ```
-   Die App läuft nun lokal, standardmäßig auf `http://localhost:5173/`.
+## Voraussetzungen
 
-4. **Ranking importieren**  
-   - Navigiere zum CSV-Import in der App.  
-   - Lade deine Ranking-Datei hoch oder füge den CSV-Text ein.  
-   - Die App übernimmt automatisch deine Liste.
+- **Node.js** ≥ 18
+- Ein **Sleeper-Benutzername** (für Live-Daten)
+- Ein **Anthropic-API-Key** – nur nötig für die KI-Funktionen (Advice, Review, Trade)
 
-5. **Draft verfolgen**  
-   - Wähle deine Liga und Draft-ID aus.  
-   - Starte den Auto-Fetch oder aktualisiere manuell.  
-   - Beobachte live, wie deine Picks und die der Gegner markiert werden.
+## Installation & Entwicklung
+
+```bash
+git clone https://github.com/Zmash/sleeper-draft-helper.git
+cd sleeper-draft-helper
+npm install
+```
+
+Client und KI-Proxy zusammen starten (empfohlen, damit KI- und Import-Funktionen verfügbar sind):
+
+```bash
+npm run dev:all      # Client (5173) + API (5175)
+```
+
+Einzeln:
+
+```bash
+npm run dev          # nur Vite-Client   → http://localhost:5173
+npm run dev:api      # nur Express-Proxy → http://localhost:5175
+```
+
+## Nutzung
+
+1. **Account** – Sleeper-Benutzername im Setup eingeben und Liga & Draft auswählen.
+2. **Ranking importieren** – CSV hochladen/einfügen oder FantasyCalc / KeepTradeCut importieren.
+3. **Draft verfolgen** – Auto-Fetch aktivieren; Picks werden live auf dem Board markiert.
+4. **KI nutzen** – im **Board-Tab** auf **„🤖 AI Advice“** klicken. Beim ersten Mal wird der Anthropic-API-Key hinterlegt (nur lokal). Nach dem Draft steht die **Draft-Analyse/Review** bereit.
+
+> Etwaige Kosten für KI-Anfragen fallen über dein **eigenes** Anthropic-Konto an.
+
+## Konfiguration (Umgebungsvariablen)
+
+Serverseitig (Express-Proxy):
+
+| Variable      | Standard                       | Beschreibung |
+|---------------|--------------------------------|--------------|
+| `SDH_MODEL`   | `claude-sonnet-4-6`            | Überschreibt das verwendete Claude-Modell. |
+| `CORS_ORIGIN` | `http://localhost:5173`        | Erlaubter Origin für den Dev-Proxy. |
+| `PORT`        | `5175` (dev) / `8080` (prod)   | Port des Express-Servers. |
+
+## Produktion
+
+```bash
+npm run build                    # erzeugt das statische Build in dist/
+PORT=8080 node src/server/prod.js  # liefert dist/ aus und stellt /api bereit
+```
+
+`prod.js` bedient sowohl die statischen Assets als auch die `/api/*`-Endpunkte auf demselben Port.
+
+## Android (Capacitor)
+
+```bash
+npm run build
+npm run cap:copy          # Web-Build in das Android-Projekt kopieren
+npm run cap:open:android  # Android Studio öffnen
+```
+
+App-ID: `eu.zmash.sleeperdrafthelper`, `webDir`: `dist`. Der Ordner `android/` ist ein generiertes Capacitor-Projekt.
+
+## Projektstruktur (Auszug)
+
+```
+src/
+├── components/   UI-Komponenten (Board, Roster, Dialoge, …)
+├── pages/        Routen-Seiten (Dashboard, Setup, Board, Roster, Trade)
+├── stores/       Zustand-Stores (Session, Board, Live, UI, Dynasty, Trade)
+├── services/     Sleeper-API, KI-Payloads, Rankings, Analyse, Storage
+├── hooks/        Draft-Tipp-Hooks
+└── server/       Express-KI-Proxy (index.js = dev, prod.js = prod)
+```
 
 ## Support
 
-Falls du Unterstützung benötigst oder einen Fehler melden möchtest,  
-öffne bitte einen [Issue](https://github.com/Zmash/sleeper-draft-helper/issues).
+Fragen oder Bugs? Bitte ein [Issue](https://github.com/Zmash/sleeper-draft-helper/issues) öffnen.
 
 ## Lizenz
 
-Dieses Projekt steht unter der MIT-Lizenz – siehe die [LICENSE.md](LICENSE.md) Datei für Details.
+MIT – siehe [LICENSE.md](LICENSE.md).
+
+## Haftungsausschluss
+
+Dieses Projekt steht in **keiner Verbindung** zu Sleeper, FantasyPros, FantasyCalc oder KeepTradeCut. Es ist ein **inoffizielles, von der Community erstelltes Tool**, das deren öffentliche APIs bzw. öffentlich zugängliche Daten nutzt. Alle Markennamen, Logos und Produktbezeichnungen sind Eigentum ihrer jeweiligen Inhaber.
 
 ---
 
 Entwickelt mit ❤️ für Fantasy-Football-Fans.
-
-## Haftungsausschluss
-
-Dieses Projekt steht in **keiner Verbindung** zu Sleeper oder FantasyPros.  
-Es handelt sich um ein **inoffizielles, von der Community erstelltes Tool**, das lediglich deren öffentliche APIs nutzt.  
-Alle Markennamen, Logos und Produktbezeichnungen sind Eigentum ihrer jeweiligen Inhaber.

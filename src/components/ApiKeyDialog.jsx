@@ -1,6 +1,7 @@
 // src/components/ApiKeyDialog.jsx
 import React from 'react'
 import { getOpenAIKey, setOpenAIKey, maskKey } from '../services/key'
+import Icon from './Icon'
 
 const STRATEGY_KEY = 'sdh.strategy.v1'
 const MAX_STRATEGY = 4000
@@ -103,7 +104,7 @@ export default function ApiKeyDialog({
               style={btnGhost}
               title={show ? 'Verbergen' : 'Anzeigen'}
             >
-              {show ? '🙈' : '👁️'}
+              {show ? <Icon name="eye-off" size={16} /> : <Icon name="eye" size={16} />}
             </button>
           </div>
 

@@ -1,15 +1,13 @@
-export default function Topbar({ themeMode, onToggleTheme }) {
-    return (
-      <header className="topbar">
-        <h1>Sleeper Draft Helper</h1>
-        <button
-          className="btn"
-          onClick={onToggleTheme}
-          title={themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
-        >
-          {themeMode === 'dark' ? '☀️ Light' : '🌙 Dark'}
-        </button>
-      </header>
-    )
-  }
-  
+import ThemeSelect from './ThemeSelect'
+
+export default function Topbar({ themeId, setTheme }) {
+  return (
+    <header className="topbar">
+      <div className="brand">
+        <b>Draft<span className="brand-accent">Helper</span></b>
+        <small>Sleeper</small>
+      </div>
+      <ThemeSelect themeId={themeId} setTheme={setTheme} />
+    </header>
+  )
+}

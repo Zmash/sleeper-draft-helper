@@ -18,6 +18,9 @@ import { inferMyDraftSlot } from './services/api'
 import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
+import Icon from './components/Icon'
+import OnTheClockBar from './components/OnTheClockBar'
+import { applyTheme } from './theme/applyTheme'
 
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
@@ -50,7 +53,7 @@ export default function App() {
     loadDynastyRoster, loadTradedPicks,
   } = useDynastyStore()
 
-  const { themeMode, toggleTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
+  const { themeId, setTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const selectedLeague = useMemo(
@@ -142,6 +145,16 @@ export default function App() {
   const isRookieMode = draftMode === 'rookie'
   const currentPickNumber = livePicks?.length ? Math.max(...livePicks.map((p) => p.pick_no || 0)) : 0
   const draftFinished = isDraftComplete(livePicks, teamsCount, selectedDraft?.settings?.rounds)
+
+  // Screen-reader announcement for the most recent pick
+  const latestPick = useMemo(() => {
+    let best = null
+    for (const p of boardPlayers || []) {
+      if (p.pick_no && (!best || p.pick_no > best.pick_no)) best = p
+    }
+    return best
+  }, [boardPlayers])
+  const pickAnnouncement = latestPick ? `Pick ${latestPick.pick_no}: ${latestPick.name}` : ''
   const pickedCount = useMemo(() => boardPlayers.filter((p) => p.status).length, [boardPlayers])
 
   // ── DraftAnalysis data (only computed when modal open) ─────────────────────
@@ -237,9 +250,8 @@ export default function App() {
 
   // Theme sync
   useEffect(() => {
-    document.documentElement.dataset.theme = themeMode
-    localStorage.setItem('draft-helper-theme', themeMode)
-  }, [themeMode])
+    applyTheme(themeId)
+  }, [themeId])
 
   // Setup change listener (SetupForm writes sdh.setup.v2 and fires this event)
   useEffect(() => {
@@ -315,7 +327,18 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AppShell tips={tips} themeMode={themeMode} onToggleTheme={toggleTheme}>
+    <>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{pickAnnouncement}</div>
+    <AppShell
+      tips={tips}
+      themeId={themeId}
+      setTheme={setTheme}
+      clockBar={
+        selectedDraft ? (
+          <OnTheClockBar draft={selectedDraft} picks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} />
+        ) : null
+      }
+    >
       <Routes>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
@@ -332,7 +355,7 @@ export default function App() {
           title="Draft Analysis"
           onClick={() => setAnalysisOpen(true)}
         >
-          📊 Draft Analysis
+          <Icon name="chart" size={16} /> Draft Analysis
         </button>
       )}
 
@@ -349,5 +372,6 @@ export default function App() {
         />
       </Modal>
     </AppShell>
+    </>
   )
 }

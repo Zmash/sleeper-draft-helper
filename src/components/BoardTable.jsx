@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey } from '../services/preferences'
+import Icon from './Icon'
 
 export default function BoardTable({
   progressPercent,
@@ -164,12 +165,12 @@ export default function BoardTable({
                       >
                         {pref === PlayerPreference.FAVORITE && (
                           <span className="pref-icon pref-fav" aria-hidden>
-                            ⭐
+                            <Icon name="star" size={13} />
                           </span>
                         )}
                         {pref === PlayerPreference.AVOID && (
                           <span className="pref-icon pref-avoid" aria-hidden>
-                            ❌
+                            <Icon name="x" size={13} />
                           </span>
                         )}
                         <span className="player-name-text">{p.name}</span>
@@ -202,7 +203,9 @@ export default function BoardTable({
                   </td>
 
                   <td className="col-team">{p.team}</td>
-                  <td className="col-pos">{p.pos}</td>
+                  <td className="col-pos">
+                    {p.pos ? <span className={cx('pos-badge', String(p.pos).toLowerCase())}>{p.pos}</span> : null}
+                  </td>
                   {hasBye          && <td className="col-bye">{p.bye}</td>}
                   {hasSos          && <td className="col-sos">{p.sos}</td>}
                   {hasDynastyValue && <td className="col-dyn">{p.dynasty_value ?? ''}</td>}
@@ -228,7 +231,7 @@ export default function BoardTable({
             title="Favorite"
             aria-label="Favorite"
           >
-            ⭐
+            <Icon name="star" size={15} />
           </button>
           <button
             className="pref-action"
@@ -244,7 +247,7 @@ export default function BoardTable({
             title="Avoid"
             aria-label="Avoid"
           >
-            ❌
+            <Icon name="x" size={15} />
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import TradeAnalyzer from '../components/TradeAnalyzer'
+import Icon from '../components/Icon'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useDynastyStore } from '../stores/useDynastyStore'
 import { useBoardStore } from '../stores/useBoardStore'
@@ -320,7 +321,7 @@ export default function TradePage({ selectedLeague }) {
   if (!stateLeagueId) {
     return (
       <section className="card trade-no-league">
-        <div className="trade-no-league-icon">🏈</div>
+        <div className="trade-no-league-icon"><Icon name="swap" size={40} /></div>
         <h2>No League Selected</h2>
         <p className="muted">Open the Trade Analyzer via the "Trade" button on a league in the Dashboard.</p>
         <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>

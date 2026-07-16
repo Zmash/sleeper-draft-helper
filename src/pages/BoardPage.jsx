@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
+import { buildBoardSearch, parseBoardParams } from '../utils/urlState'
 import { useBoardStore } from '../stores/useBoardStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { useDynastyStore } from '../stores/useDynastyStore'
@@ -36,6 +38,23 @@ export default function BoardPage({
   useEffect(() => {
     mergeLivePicksWithBoard(livePicks, sleeperUserId)
   }, [livePicks]) // eslint-disable-line
+
+  // ── Deep-link board filters (position + search) via URL query ──────────────
+  const [searchParams, setSearchParams] = useSearchParams()
+  const hydratedRef = useRef(false)
+  // Hydrate store from URL once on mount
+  useEffect(() => {
+    const { pos, q } = parseBoardParams(window.location.search)
+    if (pos) setPositionFilter(pos)
+    if (q) setSearchQuery(q)
+    hydratedRef.current = true
+  }, []) // eslint-disable-line
+  // Reflect store changes back into the URL (shareable, restored on back)
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    const next = buildBoardSearch({ positionFilter, searchQuery })
+    if (next !== searchParams.toString()) setSearchParams(next, { replace: true })
+  }, [positionFilter, searchQuery]) // eslint-disable-line
 
   // Enrichment: fetch Sleeper metadata for imported players
   const enrichingRef = useRef(false)

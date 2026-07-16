@@ -1,5 +1,6 @@
 // src/components/TipsDock.jsx
 import React, { useState, useMemo } from 'react'
+import Icon from './Icon'
 
 const sevClass = (s) => ({
   info: 'tip tip--info',
@@ -20,14 +21,14 @@ export default function TipsDock({ tips = [] }) {
         aria-expanded={open}
         title="Tipps"
       >
-        💬 Tipps{unread ? ` (${unread})` : ''}
+        <Icon name="message" size={16} /> Tipps{unread ? ` (${unread})` : ''}
       </button>
 
       {open && (
         <div className="tips-dock-panel">
           <div className="tips-dock-header">
             <strong>Live-Tipps</strong>
-            <button onClick={() => setOpen(false)} aria-label="schließen">✕</button>
+            <button onClick={() => setOpen(false)} aria-label="schließen"><Icon name="x" size={15} /></button>
           </div>
           <div className="tips-dock-list">
             {tips.length === 0 && <div className="muted">Keine Tipps aktuell.</div>}

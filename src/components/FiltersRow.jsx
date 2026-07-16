@@ -21,13 +21,19 @@ export default function FiltersRow({
           onChange={onSearchChange}
         />
   
-        <select value={positionFilter} onChange={onPositionChange}>
+        <div className="filter-chips" role="group" aria-label="Position filtern">
           {['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((p) => (
-            <option key={p} value={p}>
+            <button
+              key={p}
+              type="button"
+              className={cx('filter-chip', positionFilter === p && 'active')}
+              aria-pressed={positionFilter === p}
+              onClick={() => onPositionChange({ target: { value: p } })}
+            >
               {p}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
               {/* Team-Filter: wie das Positions-Select stylen -> kein spezieller Wrapper */}
       <select
         value={teamFilter}
