@@ -136,8 +136,12 @@ export const useBoardStore = create(
       },
 
       refreshMarketData: async () => {
-        const { boardPlayers, marketMeta } = get()
+        const { boardPlayers, marketMeta, draftMode } = get()
         if (!boardPlayers.length) return { ok: false, error: 'Kein Board geladen' }
+        // FFC liefert nur NFL-weite Redraft-ADP — im Rookie/Dynasty-Modus waere das ein
+        // Rookie-Rang gegen einen fremden Markt gerechnet, bedeutungslos und nicht
+        // rueckholbar (kein Snapshot hier). handleAutoImport guardet das bereits genauso.
+        if (draftMode === 'rookie') return { ok: false, error: 'Marktdaten-Refresh ist im Rookie-Modus nicht verfügbar (FFC kennt keine Rookie-ADP).' }
         const format = marketMeta?.format || 'ppr'
         try {
           const ffc = await fetchJsonOk(`/api/rankings/ffc-adp?format=${format}`)

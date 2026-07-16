@@ -24,6 +24,25 @@ function mockFetch(routes) {
 beforeEach(() => { localStorage.clear(); vi.resetModules() })
 afterEach(() => { vi.unstubAllGlobals() })
 
+describe('refreshMarketData im Rookie-Modus', () => {
+  // handleAutoImport guardet sorgfaeltig gegen Rookie/Dynasty, bevor es FFC anfasst.
+  // refreshMarketData tat das nicht: ein Klick auf [Aktualisieren] auf einem
+  // Rookie-Board hat NFL-weite Redraft-ADP ueber Rookie-Raenge gelegt. Rookie-Pfad
+  // darf sein Verhalten nicht aendern.
+  it('laesst boardPlayers unveraendert', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { useBoardStore } = await import('./useBoardStore')
+    const before = [{ name: 'Ashton Jeanty', nname: 'ashton jeanty', rk: '1', adp: null }]
+    useBoardStore.getState().setBoardPlayers(before)
+    useBoardStore.getState().setDraftMode('rookie')
+    const res = await useBoardStore.getState().refreshMarketData()
+    expect(res.ok).toBe(false)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(useBoardStore.getState().boardPlayers).toEqual(before)
+  })
+})
+
 describe('refreshMarketData', () => {
   it('fasst rk und Reihenfolge nicht an', async () => {
     vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC }))

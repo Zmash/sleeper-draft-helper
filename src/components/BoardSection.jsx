@@ -400,7 +400,7 @@ export default function BoardSection({
         marketMeta={marketMeta}
         draftMode={draftMode}
         hasCsvBoard={!!csvRawText}
-        onRefresh={handleRefreshMarket}
+        onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
         refreshing={refreshingMarket}
         error={marketError}
       />
