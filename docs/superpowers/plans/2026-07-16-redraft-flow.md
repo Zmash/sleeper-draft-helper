@@ -622,6 +622,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```js
 import { describe, it, expect } from 'vitest'
 import { FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery } from './rankings'
+import { normalizePlayerName } from '../utils/formatting'
 
 describe('normalizeFfcPos', () => {
   it('FFC nennt Kicker PK — wir nennen ihn K', () => {
@@ -656,8 +657,14 @@ describe('normalizeFfcPlayer', () => {
     expect(p.bye).toBe(11)
     expect(p.stdev).toBe(0.7)
   })
-  it('setzt nname fuer den Merge', () => {
-    expect(normalizeFfcPlayer(raw).nname).toBe('bijanrobinson')
+  it('setzt nname fuer den Merge — identisch zur Client-Normalisierung', () => {
+    // Leerzeichen bleiben erhalten! normalizePlayerName strippt nur [^a-z\s]
+    // und die Suffixe jr/sr/ii/iii/iv. Ein zusammengezogenes "bijanrobinson"
+    // wuerde gegen das Board nie matchen.
+    expect(normalizeFfcPlayer(raw).nname).toBe('bijan robinson')
+  })
+  it('strippt Suffixe wie die Client-Funktion', () => {
+    expect(normalizeFfcPlayer({ ...raw, name: 'Marvin Harrison Jr.' }).nname).toBe('marvin harrison')
   })
   it('normalisiert PK zu K', () => {
     expect(normalizeFfcPlayer({ ...raw, position: 'PK' }).pos).toBe('K')
@@ -691,14 +698,11 @@ Expected: FAIL — `Failed to resolve import "./rankings"`
 // Die beiden Server-Dateien sind Near-Duplikate; alles, was hier liegt,
 // kann nicht auseinanderlaufen.
 
-// Muss dieselbe Normalisierung sein wie src/utils/formatting.js — der Merge
-// matcht Server-Daten gegen Board-Daten ueber genau diesen Schluessel.
-export function normalizePlayerNameServer(name) {
-  return String(name || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z]/g, '')
-}
+// Der Merge matcht Server-Daten gegen Board-Daten ueber genau diesen Schluessel.
+// Deshalb wird die Client-Funktion IMPORTIERT und nicht nachgebaut: eine zweite
+// Implementierung wuerde frueher oder spaeter abweichen, und dann matcht nichts
+// mehr. formatting.js ist abhaengigkeitsfrei und laedt unter node.
+import { normalizePlayerName } from '../utils/formatting.js'
 
 export const FFC_FORMATS = ['ppr', 'half-ppr', 'standard', '2qb']
 
@@ -711,7 +715,7 @@ export function normalizeFfcPlayer(raw) {
   const name = raw?.name || ''
   return {
     name,
-    nname: normalizePlayerNameServer(name),
+    nname: normalizePlayerName(name),
     pos: normalizeFfcPos(raw?.position),
     team: raw?.team || '',
     adp: raw?.adp ?? null,
