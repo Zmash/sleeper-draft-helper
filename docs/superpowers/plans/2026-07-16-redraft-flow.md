@@ -21,7 +21,10 @@
 - **Sleeper `league.settings.type` ist eine Zahl** (0=redraft, 1=keeper, 2=dynasty) — niemals gegen String-Literale vergleichen.
 - **Δ-ADP-Konvention ist `adp - rk`** (positiv = Value). Nicht umdrehen — `csv.js:56` und `useDraftTips.js:89` hängen daran.
 - **Der CSV-Import bleibt unverändert.** `parseFantasyProsCsv` und `handleCsvLoad` werden nicht angefasst (Nutzer-Vorgabe).
-- **Der Rookie-/Dynasty-Pfad bleibt unberührt.** `isDynasty` defaultet auf `true`; `handleKtcRookieImport` und `useRookieDraftTips` werden nicht angefasst.
+- **Der Rookie-/Dynasty-Pfad ändert sein Verhalten nicht.** `isDynasty` defaultet auf `true`;
+  `useRookieDraftTips` wird nicht angefasst. **Ausnahme (Nutzer-Entscheidung 2026-07-16):**
+  `handleKtcRookieImport` bekommt den Undo-Snapshot aus Task 4 — rein additiv, ändert kein
+  Rookie-Verhalten. Begründung: sonst rettet das Netz beim Redraft-Import, beim KTC-Import aber nicht.
 - Tests: `npm test` (Vitest, einmalig) bzw. `npm run test:watch`. Dev: `npm run dev:all` (Client **und** API — ohne API keine Rankings).
 
 ---
@@ -41,7 +44,15 @@
 - [ ] **Step 1: Belegen, dass der Test-Runner existiert**
 
 Run: `npm test`
-Expected: `Test Files 10 passed (10)` / `Tests 78 passed (78)` — **und** Zeilen mit `.claude/worktrees/…`, die die Doppelausführung belegen.
+Expected: alle Tests grün.
+
+**Hinweis zur Umgebung:** Im Haupt-Checkout (`F:/sleeper-draft-helper`) liefert das
+`Tests 78 passed (78)`, weil Vitest die Worktrees unter `.claude/worktrees/` mitsammelt und die
+Suite doppelt läuft. **In einem Worktree siehst du diese Doppelung nicht** — dort sind es
+`Tests 39 passed (39)`, weil ein Worktree keine verschachtelten Worktrees enthält. Beide Zahlen
+sind korrekt; die Doppelung ist trotzdem real und der Ausschluss in Step 2 gehört gemacht, damit
+das Haupt-Checkout nicht weiter doppelt testet und ein `npm test` dort nicht auf fremde Arbeitskopien
+schaut.
 
 - [ ] **Step 2: Worktrees aus Vitest ausschließen**
 
@@ -66,7 +77,10 @@ export default defineConfig({
 - [ ] **Step 3: Verifizieren, dass die Doppelausführung weg ist**
 
 Run: `npm test`
-Expected: `Test Files 5 passed (5)` / `Tests 39 passed (39)` — keine `.claude/worktrees/`-Zeilen mehr.
+Expected: `Test Files 5 passed (5)` / `Tests 39 passed (39)` — und **keine** `.claude/worktrees/`-Zeilen.
+Im Worktree war das schon vorher so; entscheidend ist, dass die Zahl sich hier **nicht** ändert
+(der Ausschluss darf nichts kaputt machen) und dass das Haupt-Checkout nach dem Merge nur noch
+einfach testet.
 
 - [ ] **Step 4: Fehlende Test-Abhaengigkeit nachziehen**
 
