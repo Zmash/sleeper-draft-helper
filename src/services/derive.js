@@ -55,7 +55,10 @@ export function picksUntilMyNext({ picks = [], meUserId = '', teamsCount = 12, d
   const cur = currentPickNumber(picks)
   if (!Number.isFinite(cur) || !Number.isFinite(teamsCount) || teamsCount <= 0) return null
 
-  let mySlot = Number(draftSlot)
+  // Explizit gegen null/undefined pruefen statt Number.isFinite() nach der Coercion zu vertrauen:
+  // Number(null) === 0 und Number.isFinite(0) === true, d.h. der Fallback-Zweig wuerde bei
+  // draftSlot: null nie greifen und stattdessen mit dem unsinnigen Slot 0 weiterrechnen.
+  let mySlot = (draftSlot === null || draftSlot === undefined) ? NaN : Number(draftSlot)
   if (!Number.isFinite(mySlot)) {
     // fall back: infer from earliest pick by me
     const mine = (picks || []).filter(p => String(p?.picked_by) === String(meUserId))
