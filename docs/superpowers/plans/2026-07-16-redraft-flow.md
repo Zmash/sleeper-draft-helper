@@ -1528,7 +1528,7 @@ export default function DataProvenanceBar({
         </span>
       ) : (
         <span className="provenance-item provenance-stale">
-          <Icon name="alert-triangle" size={13} /> ADP fehlt
+          <Icon name="warning" size={13} /> ADP fehlt
         </span>
       )}
       <span className="provenance-item">Modus <strong>{mode}</strong></span>
@@ -1543,9 +1543,13 @@ export default function DataProvenanceBar({
 }
 ```
 
-**Icon-Namen prüfen:** `alert-triangle` und `refresh` müssen in `src/components/Icon.jsx` registriert sein.
-Run: `grep -n "alert-triangle\|refresh" src/components/Icon.jsx`
-Fehlt eines: lucide-Icon dort nach bestehendem Muster ergänzen. **Kein Emoji als Ersatz** (`no-emoji.test.js` schlägt sonst fehl).
+**Icon-Namen (verifiziert 2026-07-16 gegen `src/components/Icon.jsx`):** `refresh` (→ `RefreshCw`)
+und `warning` (→ `TriangleAlert`) sind registriert und werden hier genutzt. **`alert-triangle`
+existiert NICHT** — dieser Name hätte still ein falsches Icon gerendert, siehe unten.
+
+**Achtung, stille Falle:** `Icon.jsx` fällt bei unbekanntem Namen auf `MAP[name] || Star` zurück —
+ein Tippfehler im Icon-Namen wirft **keinen Fehler**, sondern zeigt kommentarlos einen Stern.
+Prüfe jeden verwendeten Namen gegen die `MAP` in `src/components/Icon.jsx`, bevor du ihn nutzt.
 
 - [ ] **Step 4: CSS ergänzen**
 
@@ -1929,10 +1933,16 @@ export default function MockDraftCard() {
 Run: `grep -n "attachDraftByIdOrUrl" -A 20 src/stores/useSessionStore.js`
 Gibt sie heute `boolean` zurück: auf `draft_id` (String) bzw. `null` umstellen und die bestehenden Aufrufer in `SetupForm.jsx:253` prüfen (`if (ok)` funktioniert mit einem String weiter, da truthy).
 
-- [ ] **Step 4: `Icon.jsx` prüfen**
+- [ ] **Step 4: `zap` in `Icon.jsx` ergänzen**
 
-Run: `grep -n "zap" src/components/Icon.jsx`
-Fehlt es: lucide `Zap` nach bestehendem Muster ergänzen. Kein Emoji.
+**`zap` ist NICHT registriert** (verifiziert 2026-07-16). Ohne Ergänzung rendert `Icon.jsx` still
+einen **Stern** statt eines Fehlers (`MAP[name] || Star`) — der Fehler fiele niemandem auf.
+
+In `src/components/Icon.jsx` nach bestehendem Muster ergänzen: `Zap` zum `lucide-react`-Import
+hinzufügen und `zap: Zap,` in die `MAP` eintragen. Kein Emoji als Ersatz.
+
+Run: `node -e "const s=require('fs').readFileSync('src/components/Icon.jsx','utf8'); console.log('zap registriert:', /zap:\s*Zap/.test(s) && /Zap/.test(s.split('from')[0]))"`
+Expected: `zap registriert: true`
 
 - [ ] **Step 5: Ins Dashboard-Grid einhängen**
 
@@ -2220,7 +2230,7 @@ export default function ImportResultBanner({
         </span>
         {marketMissing && (
           <span className="import-done-warn">
-            <Icon name="alert-triangle" size={13} /> Marktdaten nicht erreichbar — Rangliste ist da, ADP fehlt.
+            <Icon name="warning" size={13} /> Marktdaten nicht erreichbar — Rangliste ist da, ADP fehlt.
           </span>
         )}
       </div>
