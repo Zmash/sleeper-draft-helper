@@ -547,11 +547,16 @@ th, td {
 .board-table .col-bye,
 .board-table .col-sos,
 .board-table .col-dyn,
-.board-table .col-ecr,
+.board-table .col-adp,
+.board-table .col-delta,
 .board-table .col-pick {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+.col-adp, .col-delta { text-align: right; font-variant-numeric: tabular-nums; }
+.delta-good { color: var(--good); }
+.delta-bad  { color: var(--bad); }
 
 /* Position badges — colour + text (never colour alone) */
 .pos-badge {
@@ -659,7 +664,8 @@ th.col-pos,  td.col-pos  { width: 64px; }
 th.col-bye,  td.col-bye  { width: 64px; }
 th.col-sos,  td.col-sos  { width: 70px; }
 th.col-dyn,  td.col-dyn  { width: 72px; }
-th.col-ecr,  td.col-ecr  { width: 96px; }
+th.col-adp,  td.col-adp  { width: 64px; }
+th.col-delta, td.col-delta { width: 72px; }
 th.col-pick, td.col-pick { width: 64px; }
 
 /* Mobile table simplification */
@@ -671,7 +677,8 @@ th.col-pick, td.col-pick { width: 64px; }
   .board-table .col-bye,
   .board-table .col-sos,
   .board-table .col-dyn,
-  .board-table .col-ecr,
+  .board-table .col-adp,
+  .board-table .col-delta,
   .board-table .col-pick { display: none; }
 
   th.col-rk, td.col-rk { width: 42px; }

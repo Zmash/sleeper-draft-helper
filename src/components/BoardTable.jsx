@@ -4,6 +4,23 @@ import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey } from '../services/preferences'
 import Icon from './Icon'
 
+// Konvention: adp - rk, positiv = Value (faellt dir zu).
+// Nicht umdrehen — csv.js:56 und useDraftTips.js:89 haengen daran.
+export function deltaAdp(p) {
+  const rk = Number(p?.rk)
+  const adp = p?.adp
+  if (Number.isFinite(rk) && Number.isFinite(adp)) return Math.round((adp - rk) * 10) / 10
+  if (!p?.ecrVsAdp) return null
+  const csvDelta = Number(String(p.ecrVsAdp).replace('+', ''))
+  return Number.isFinite(csvDelta) ? csvDelta : null
+}
+
+export function formatDeltaAdp(d) {
+  if (d == null || !Number.isFinite(Number(d))) return '—'
+  const n = Math.round(Number(d) * 10) / 10
+  return n > 0 ? `+${n}` : String(n)
+}
+
 export default function BoardTable({
   progressPercent,
   pickedCount,
@@ -20,7 +37,7 @@ export default function BoardTable({
   const isRookie = draftMode === 'rookie'
   const hasBye          = useMemo(() => (filteredPlayers || []).some(p => p.bye), [filteredPlayers])
   const hasSos          = useMemo(() => (filteredPlayers || []).some(p => p.sos), [filteredPlayers])
-  const hasEcrVsAdp     = useMemo(() => (filteredPlayers || []).some(p => p.ecrVsAdp), [filteredPlayers])
+  const hasAdp          = useMemo(() => (filteredPlayers || []).some(p => p.adp != null || p.ecrVsAdp), [filteredPlayers])
   const hasDynastyValue = useMemo(() => (filteredPlayers || []).some(p => p.dynasty_value != null), [filteredPlayers])
   const toKey = (s) => String(s || '').trim().toLowerCase()
   const highlightSet = useMemo(
@@ -98,10 +115,11 @@ export default function BoardTable({
               <th className="col-name">Name</th>
               <th className="col-team">Team</th>
               <th className="col-pos">Pos</th>
+              {hasAdp          && <th className="col-adp" title="Average Draft Position">ADP</th>}
+              {hasAdp          && <th className="col-delta" title="ADP minus Rang — positiv heisst, er faellt dir zu">Δ ADP</th>}
               {hasBye          && <th className="col-bye">Bye</th>}
               {hasSos          && <th className="col-sos">SOS</th>}
               {hasDynastyValue && <th className="col-dyn" title="Dynasty Value">Dyn.Val</th>}
-              {hasEcrVsAdp     && <th className="col-ecr">ECR±ADP</th>}
               <th className="col-pick">Pick</th>
             </tr>
           </thead>
@@ -195,10 +213,11 @@ export default function BoardTable({
                     {/* Mobile-Subline */}
                     <div className="row-subline mobile-only">
                       {p.team} · {p.pos}
+                      {hasAdp && p.adp != null ? ` · ADP ${Math.round(p.adp * 10) / 10}` : ''}
+                      {hasAdp ? ` · Δ ${formatDeltaAdp(deltaAdp(p))}` : ''}
                       {hasBye && p.bye ? ` · Bye ${p.bye}` : ''}
                       {hasSos && p.sos ? ` · SOS ${p.sos}` : ''}
                       {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
-                      {hasEcrVsAdp && p.ecrVsAdp ? ` · Δ ${p.ecrVsAdp}` : ''}
                     </div>
                   </td>
 
@@ -206,10 +225,18 @@ export default function BoardTable({
                   <td className="col-pos">
                     {p.pos ? <span className={cx('pos-badge', String(p.pos).toLowerCase())}>{p.pos}</span> : null}
                   </td>
+                  {hasAdp && <td className="col-adp">{p.adp != null ? Math.round(p.adp * 10) / 10 : '—'}</td>}
+                  {hasAdp && (() => {
+                    const d = deltaAdp(p)
+                    return (
+                      <td className={`col-delta${d == null ? '' : d > 0 ? ' delta-good' : d < 0 ? ' delta-bad' : ''}`}>
+                        {formatDeltaAdp(d)}
+                      </td>
+                    )
+                  })()}
                   {hasBye          && <td className="col-bye">{p.bye}</td>}
                   {hasSos          && <td className="col-sos">{p.sos}</td>}
                   {hasDynastyValue && <td className="col-dyn">{p.dynasty_value ?? ''}</td>}
-                  {hasEcrVsAdp     && <td className="col-ecr">{p.ecrVsAdp}</td>}
                   <td className="col-pick">{p.pick_no || ''}</td>
                 </tr>
               )
