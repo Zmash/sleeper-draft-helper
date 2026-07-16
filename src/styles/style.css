@@ -319,6 +319,10 @@ body {
 /* =========================================================
    FORM CONTROLS – GLOBAL BASELINE
    ========================================================= */
+/* Felder füllen ihren Container ganz aus; box-sizing rechnet Padding und Rahmen
+   in die Breite ein, statt sie obendrauf zu addieren. Das frühere width:95% war
+   ein Ersatz für das fehlende box-sizing – es machte Felder willkürlich schmal
+   und ließ sie trotzdem überlaufen (95% + Padding + Rahmen > 100%). */
 input, select, textarea {
   background: transparent;
   border: 1px solid var(--border);
@@ -326,8 +330,14 @@ input, select, textarea {
   padding: 0.7rem 0.9rem;
   color: var(--text);
   outline: none;
-  width: 95%;
+  box-sizing: border-box;
+  width: 100%;
   resize: none;
+}
+/* Ankreuzfelder sind keine Textfelder: Sie behalten ihre intrinsische Größe,
+   sonst zieht die Baseline sie auf Containerbreite auf. */
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
 }
 /* Fokus über den Akzent, nicht über einen Schlagschatten: gleiche Sprache wie
    .btn/.filter-chip/.control – und sichtbar in beiden Themes. */
