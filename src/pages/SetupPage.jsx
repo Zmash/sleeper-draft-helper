@@ -14,6 +14,17 @@ import ImportResultBanner from '../components/ImportResultBanner'
 
 const noop = () => {}
 
+// Reine Ableitung, isoliert testbar: Undo darf nur angeboten werden, wenn
+// (a) der Import-Pfad, der DIESES Banner erzeugt hat, ueberhaupt einen
+// Snapshot anlegt (importDone.canUndo) UND (b) im Store tatsaechlich noch
+// ein Snapshot liegt. Sonst wuerde z.B. ein CSV-Import (der nie einen
+// eigenen Snapshot setzt) faelschlich den Snapshot eines frueheren
+// Auto-/KTC-Imports anbieten und beim Klick den falschen Board-Stand
+// wiederherstellen — stiller Datenverlust.
+export function canOfferUndo(importDone, lastBoardSnapshot) {
+  return !!(importDone?.canUndo && lastBoardSnapshot)
+}
+
 export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -65,7 +76,10 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     const ok = await handleCsvLoad()
     if (ok) {
       const count = useBoardStore.getState().boardPlayers.length
-      setImportDone({ method: 'CSV', stats: statsForCount(count) })
+      // handleCsvLoad setzt bewusst keinen lastBoardSnapshot (manueller Import
+      // bleibt unveraendert, sichert sich stattdessen ueber window.confirm ab)
+      // — also darf dieses Banner kein Undo anbieten.
+      setImportDone({ method: 'CSV', stats: statsForCount(count), canUndo: false })
     }
   }
 
@@ -87,6 +101,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         method: res.marketMissing ? 'FantasyCalc' : 'FantasyCalc + FFC',
         stats: res.stats,
         marketMissing: res.marketMissing,
+        canUndo: true, // handleAutoImport setzt lastBoardSnapshot
       })
     } else if (res.error) {
       setImportError(res.error)
@@ -99,7 +114,8 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       const ok = await handleKtcRookieImport()
       if (ok) {
         const count = useBoardStore.getState().boardPlayers.length
-        setImportDone({ method: 'KTC', stats: statsForCount(count) })
+        // handleKtcRookieImport setzt lastBoardSnapshot — Undo ist hier sicher.
+        setImportDone({ method: 'KTC', stats: statsForCount(count), canUndo: true })
       }
     } catch (e) {
       setImportError(`Fehler beim KTC-Import: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`)
@@ -122,7 +138,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
           stats={importDone.stats}
           method={importDone.method}
           marketMissing={importDone.marketMissing}
-          onUndo={useBoardStore.getState().lastBoardSnapshot ? () => { undoImport(); setImportDone(null) } : undefined}
+          onUndo={canOfferUndo(importDone, useBoardStore.getState().lastBoardSnapshot) ? () => { undoImport(); setImportDone(null) } : undefined}
           onClose={() => setImportDone(null)}
           onGoToBoard={() => navigate('/board')}
         />
