@@ -1426,6 +1426,42 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 /* =========================================================
+   MOCK-DRAFT TILE
+   ========================================================= */
+.league-card--mock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.lc-mock-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-primary);
+}
+.lc-mock-title {
+  font-weight: 500;
+}
+.lc-mock-desc {
+  font-size: 0.75rem;
+  margin: 0;
+}
+.lc-mock-row {
+  display: flex;
+  gap: 0.4rem;
+}
+.lc-mock-row .control {
+  flex: 1;
+  min-width: 0;
+}
+.lc-mock-error {
+  font-size: 0.75rem;
+  color: var(--bad);
+  margin: 0;
+}
+
+/* =========================================================
    ADD DRAFT TILE
    ========================================================= */
 .league-card--add {

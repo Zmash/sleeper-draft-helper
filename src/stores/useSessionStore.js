@@ -7,6 +7,7 @@ import {
   fetchLeagueDrafts,
   mergeDraftsUnique,
   fetchLeague,
+  fetchDraft,
 } from '../services/api'
 import { useLiveStore } from './useLiveStore'
 
@@ -103,21 +104,26 @@ export const useSessionStore = create(
       },
 
       attachDraftByIdOrUrl: async (input, parseDraftId) => {
-        const { availableDrafts } = get()
         const id = parseDraftId(input)
-        if (!id) throw new Error('Bitte gültige Draft-ID oder URL eingeben.')
-        await useLiveStore.getState().loadPicks(id)
-        const exists = (availableDrafts || []).some((d) => d.draft_id === id)
-        if (!exists) {
-          set((s) => ({
-            availableDrafts: [
-              { draft_id: id, metadata: { name: `Draft ${id}` } },
-              ...(s.availableDrafts || []),
-            ],
-          }))
+        if (!id) return null
+
+        // Den echten Draft holen, nicht nur einen Stub anlegen: ohne settings
+        // (teams, rounds, slots_*, scoring_type) faellt deriveFormat auf die
+        // Defaults zurueck — und genau das war der Mock-Bug.
+        let draft = null
+        try {
+          draft = await fetchDraft(id)
+        } catch {
+          draft = null
         }
-        set({ selectedDraftId: id })
-        alert('Draft per ID/URL gesetzt.')
+        if (!draft?.draft_id) return null
+
+        await useLiveStore.getState().loadPicks(id).catch(() => {})
+        set((s) => ({
+          availableDrafts: mergeDraftsUnique([draft], s.availableDrafts || []),
+          selectedDraftId: id,
+        }))
+        return id
       },
     }),
     {

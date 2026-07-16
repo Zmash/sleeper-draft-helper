@@ -5,6 +5,7 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { fetchJson, SLEEPER_API_BASE } from '../services/api'
 import LeagueCard, { LeagueCardSkeleton } from '../components/LeagueCard'
+import MockDraftCard from '../components/MockDraftCard'
 import Icon from '../components/Icon'
 
 const SEASON_TYPE_LABEL = {
@@ -199,6 +200,7 @@ export default function DashboardPage() {
           : cards.map((card) => (
               <LeagueCard key={card.leagueId || card.draftId} card={card} />
             ))}
+        <MockDraftCard />
         <button className="league-card league-card--add" onClick={goToAdd}>
           <span className="lc-add-icon">+</span>
           <span className="lc-add-label">Draft / Liga hinzufügen</span>
