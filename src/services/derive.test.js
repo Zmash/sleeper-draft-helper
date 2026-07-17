@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { picksUntilMyNext } from './derive'
+import { picksUntilMyNext, countStarters } from './derive'
 
 // Szenario aus der Bug-Meldung: 12 Teams, 3 Picks bereits gelaufen, ich habe noch nicht gepickt.
 const picksNoOwnPick = [
@@ -74,5 +74,31 @@ describe('picksUntilMyNext', () => {
       draftSlot: 7,
     })
     expect(result).toBe(2)
+  })
+})
+
+describe('countStarters', () => {
+  it('FLEX zaehlt genau einmal, nicht doppelt (Regression)', () => {
+    const req = countStarters(['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'BN'])
+    expect(req.FLEX).toBe(1)
+  })
+
+  it('FLEX und der Alias RB/WR/TE liefern denselben FLEX-Wert', () => {
+    const viaFlex = countStarters(['QB', 'RB', 'WR', 'FLEX'])
+    const viaAlias = countStarters(['QB', 'RB', 'WR', 'RB/WR/TE'])
+    expect(viaFlex.FLEX).toBe(viaAlias.FLEX)
+    expect(viaFlex.FLEX).toBe(1)
+  })
+
+  it('SUPER_FLEX und der Alias SFLEX liefern denselben SUPER_FLEX-Wert', () => {
+    const viaSuperFlex = countStarters(['QB', 'RB', 'WR', 'SUPER_FLEX'])
+    const viaAlias = countStarters(['QB', 'RB', 'WR', 'SFLEX'])
+    expect(viaSuperFlex.SUPER_FLEX).toBe(viaAlias.SUPER_FLEX)
+    expect(viaSuperFlex.SUPER_FLEX).toBe(1)
+  })
+
+  it('QB-Default greift, wenn kein QB-Slot im Roster ist', () => {
+    const req = countStarters(['RB', 'WR'])
+    expect(req.QB).toBe(1)
   })
 })
