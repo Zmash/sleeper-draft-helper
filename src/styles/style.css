@@ -2282,3 +2282,43 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 .apb-label { flex: 1; }
 .apb-val { font-weight: 600; color: var(--accent); font-size: 0.75rem; margin-left: 0.5rem; }
+
+/* =========================================================
+   AI ADVICE DIALOG — Vergleich, Survival, Plan, Warnungen
+   ========================================================= */
+.advice-section { margin-bottom: 14px; }
+.advice-section:last-child { margin-bottom: 0; }
+.advice-section h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.advice-section p { margin: 4px 0; }
+.advice-section ul { margin: 0; padding-left: 18px; }
+.advice-section li { margin-bottom: 8px; }
+.advice-section li:last-child { margin-bottom: 0; }
+
+.advice-tradeoff { margin-top: 2px; font-size: 0.85rem; color: var(--text-muted); }
+
+.advice-warnings {
+  background: color-mix(in srgb, var(--bad) 15%, var(--surface-card));
+  border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent);
+  border-radius: var(--r-card);
+  padding: 0.65rem 1rem;
+  margin-bottom: 12px;
+}
+.advice-warnings p { margin: 0.2rem 0; color: var(--bad); font-size: 0.85rem; }
+.advice-warnings p:first-child { margin-top: 0; }
+.advice-warnings p:last-child { margin-bottom: 0; }
+
+.advice-run {
+  border: 1px solid color-mix(in srgb, var(--accent-fill) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-fill) 12%, var(--surface-card));
+  border-radius: var(--r-card);
+  padding: 0.65rem 1rem;
+}
+
+.advice-usage { margin-top: 10px; font-size: 0.8rem; }
