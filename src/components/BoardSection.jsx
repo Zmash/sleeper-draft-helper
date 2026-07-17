@@ -84,6 +84,26 @@ export default function BoardSection({
 
   const [adviceDebug, setAdviceDebug] = useState(null)
 
+  // Advice ueberlebte bisher einen Draft-Wechsel: aiHighlights markierte nach
+  // einem Wechsel weiter die Spieler des ALTEN Drafts auf dem frisch geleerten
+  // Board. App.jsx resettet reviewResult/livePicks/Board-Status bei Draft-
+  // Wechsel bereits (prevDraftIdRef-Muster) -- hier dasselbe Muster fuer
+  // Advice, nur beim echten Wechsel der draft_id (nicht bei jedem Render und
+  // nicht beim Initial-Mount).
+  const prevAdviceDraftIdRef = useRef(draft?.draft_id ?? null)
+  useEffect(() => {
+    const prev = prevAdviceDraftIdRef.current
+    const next = draft?.draft_id ?? null
+    prevAdviceDraftIdRef.current = next
+    if (prev === next) return // keine Aenderung (inkl. Initial-Mount)
+    setAdvice(null)
+    setAdviceWarnings([])
+    setAdviceUsage(null)
+    setAdviceModel('')
+    setAdviceError(null)
+    setAdviceDebug(null)
+  }, [draft?.draft_id])
+
   const [setupTick, setSetupTick] = useState(0)
   useEffect(() => {
     const onSetup = () => setSetupTick(x => x + 1)
