@@ -10,6 +10,7 @@ import { useBoardStore } from '../stores/useBoardStore'
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { buildAIAdviceRequest } from '../services/ai'
+import { buildAdviceRequestArgs } from '../services/adviceRequestArgs'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { loadPreferences, savePreferences, setPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
@@ -109,19 +110,33 @@ export default function BoardSection({
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
+  // Player Preferences (v2) -- muss vor adviceEstimate deklariert sein, weil
+  // die Schaetzung playerPrefs jetzt (wie der echte Call) mitgibt.
+  const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
+
   // Kostenschaetzung am Button -- nur wenn der Button ueberhaupt sichtbar ist
-  // (hasBoard) neu berechnen, nicht bei jedem Render.
+  // (hasBoard) neu berechnen, nicht bei jedem Render. Baut ueber
+  // buildAdviceRequestArgs() denselben Payload wie der echte Call in
+  // doAskAIWithKey -- sonst zeigt die Schaetzung dem Nutzer weniger Kosten,
+  // als er real zahlt (kleinere Options-Defaults, fehlendes
+  // customStrategyText/playerPreferences).
   const adviceEstimate = useMemo(() => {
     if (!hasBoard) return ''
     try {
-      return formatEstimate(buildAIAdviceRequest({
-        boardPlayers, livePicks, me: meUserId || '', league: league || {},
-        draft: draft || null, currentPickNumber, draftSlot, tips,
-        scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
-        rosterPositions, draftMode, dynastyRoster, myDraftPicks, options: {},
-      }), 'claude-sonnet-5')
+      const args = buildAdviceRequestArgs({
+        boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
+        draftSlot, tips, scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
+        rosterPositions, teamsCount, draftMode, dynastyRoster, myDraftPicks,
+        customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
+        playerPreferences: playerPrefs,
+      })
+      return formatEstimate(buildAIAdviceRequest(args), 'claude-sonnet-5')
     } catch { return '' }
-  }, [boardPlayers, livePicks, currentPickNumber, draftMode])
+  }, [
+    hasBoard, boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
+    draftSlot, tips, draftFormat.scoringType, draftFormat.isSuperflex, rosterPositions,
+    teamsCount, draftMode, dynastyRoster, myDraftPicks, playerPrefs,
+  ])
 
   // Deterministische Quelle fuer "wann bin ich wieder dran": aus dem echten
   // Draft-Zustand berechnet (Task 3), nicht aus dem (moeglicherweise
@@ -159,25 +174,13 @@ export default function BoardSection({
       setAdviceUsage(null)
       setAdviceModel('')
 
-      const payload = buildAIAdviceRequest({
-        boardPlayers: boardPlayers || [],
-        livePicks: livePicks || [],
-        me: meUserId || '',
-        league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
-        scoringType: draftFormat.scoringType,
-        isSuperflex: draftFormat.isSuperflex,
-        rosterPositions,
-        draft: draft || null,
-        currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
+      const payload = buildAIAdviceRequest(buildAdviceRequestArgs({
+        boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
+        draftSlot, tips, scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
+        rosterPositions, teamsCount, draftMode, dynastyRoster, myDraftPicks,
         customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
-        playerPreferences: playerPrefs || {},
-        draftSlot,
-        tips,
-        options: { topNOverall: 60, topPerPos: 20, temperature: 0.2, favBonus: 6, avoidPenalty: 10 },
-        draftMode,
-        dynastyRoster,
-        myDraftPicks,
-      })
+        playerPreferences: playerPrefs,
+      }))
 
       if (DEBUG_AI) {
         console.groupCollapsed('[AI REQUEST -> /api/ai-advice]')
@@ -320,8 +323,6 @@ export default function BoardSection({
   }, [advice])
 
   // ---------- Player Preferences (v2) ----------
-
-  const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
 
   useEffect(() => {
     if (!boardPlayers?.length) return
