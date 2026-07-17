@@ -12,7 +12,7 @@ import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
 import { loadSetup } from './services/storage'
-import { deriveFormat, resolveDraftMode } from './services/draftFormat'
+import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/draftFormat'
 import { computeTeamScores, isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
 
@@ -57,14 +57,24 @@ export default function App() {
   const { themeId, setTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const selectedLeague = useMemo(
-    () => (availableLeagues || []).find((l) => l.league_id === selectedLeagueId) || null,
-    [availableLeagues, selectedLeagueId]
-  )
+  // selectedDraft muss vor selectedLeague stehen: die Standalone-Erkennung unten
+  // braucht den Draft, um zu wissen, ob eine noch ausgewaehlte Liga ignoriert
+  // werden muss (Bug B).
   const selectedDraft = useMemo(
     () => (availableDrafts || []).find((d) => d.draft_id === selectedDraftId) || null,
     [availableDrafts, selectedDraftId]
   )
+  // Ein Standalone-Mock (draft.league_id: null) gehoert zu keiner Liga -- eine
+  // im Store noch ausgewaehlte Liga (selectedLeagueId bleibt dabei unveraendert,
+  // damit sie zurueckkommt, sobald der Mock wieder abgewaehlt wird) darf dann
+  // weder Format noch Modus dieses Drafts bestimmen. Dieses Memo ist die eine
+  // Stelle, an der das greift -- alle Konsumenten unten (deriveFormat,
+  // resolveDraftMode, pageProps, Roh-Zugriffe wie selectedLeague?.scoring_settings)
+  // sehen dadurch automatisch "keine Liga".
+  const selectedLeague = useMemo(() => {
+    if (isStandaloneDraft(selectedDraft)) return null
+    return (availableLeagues || []).find((l) => l.league_id === selectedLeagueId) || null
+  }, [availableLeagues, selectedLeagueId, selectedDraft])
   const teamsCount = useMemo(
     () => getTeamsCount({ draft: selectedDraft, picks: livePicks, league: selectedLeague }),
     [selectedDraft, livePicks, selectedLeague]
@@ -249,7 +259,11 @@ export default function App() {
   useEffect(() => {
     const next = resolveDraftMode({ league: selectedLeague, draft: selectedDraft, current: draftMode })
     if (next !== draftMode) setDraftMode(next)
-  }, [selectedLeague?.league_type, selectedDraft?.draft_id]) // eslint-disable-line
+    // league_type existiert bei Sleeper-Ligen nicht (wird nirgends gesetzt, kommt nicht
+    // von der API) -- die alte Dependency war dauerhaft undefined und loeste bei einem
+    // Liga-Wechsel nie neu aus (Bug C). settings.type ist das echte, sich aendernde Feld.
+    // draftMode bewusst NICHT in den Deps -- die if-Guard oben verhindert die Endlosschleife.
+  }, [selectedLeague?.league_id, selectedLeague?.settings?.type, selectedDraft?.draft_id]) // eslint-disable-line
 
   // Dynasty roster + traded picks
   useEffect(() => {

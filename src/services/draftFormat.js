@@ -37,9 +37,23 @@ export function scoringTypeFromRec(rec) {
   return r >= 0.95 ? 'ppr' : r >= 0.45 ? 'half_ppr' : 'standard'
 }
 
+// Sleeper liefert fuer Standard-Scoring 'std', nicht 'standard' (belegt an
+// GET /v1/draft/1383717351475662848 -> metadata.scoring_type === 'std').
+// 'standard' bleibt als Alias, falls Sleeper es doch mal so schickt. Nur
+// belegte Werte mappen -- unbekannte bleiben null, damit der Liga-Fallback greift.
+const SLEEPER_SCORING_TYPE_MAP = { ppr: 'ppr', half_ppr: 'half_ppr', std: 'standard', standard: 'standard' }
+
 function scoringTypeFromDraft(draft) {
   const t = String(draft?.metadata?.scoring_type || '').toLowerCase()
-  return (t === 'ppr' || t === 'half_ppr' || t === 'standard') ? t : null
+  return SLEEPER_SCORING_TYPE_MAP[t] || null
+}
+
+// Ein Standalone-Draft (z.B. ein Sleeper-Mock) traegt league_id: null -- er
+// gehoert zu keiner Liga. Eine im UI noch ausgewaehlte Liga darf dann weder
+// Format noch Modus dieses Drafts bestimmen (Bug B, empirisch am echten Mock
+// 1383717351475662848 nachgewiesen: league_id war null).
+export function isStandaloneDraft(draft) {
+  return !!(draft && ('league_id' in draft) && draft.league_id == null)
 }
 
 function hasSuper(roster) {
@@ -48,8 +62,11 @@ function hasSuper(roster) {
 
 export function deriveFormat({ draft = null, league = null, overrides = {} } = {}) {
   const o = overrides || {}
+  // Standalone-Draft: eine noch ausgewaehlte Liga (z.B. vom vorherigen Draft)
+  // darf nicht durchschlagen -- siehe isStandaloneDraft oben.
+  const effLeague = isStandaloneDraft(draft) ? null : league
   const draftRoster = draft?.settings ? rosterFromDraftSettings(draft.settings) : []
-  const leagueRoster = league?.roster_positions || league?.settings?.roster_positions || []
+  const leagueRoster = effLeague?.roster_positions || effLeague?.settings?.roster_positions || []
 
   const rosterPositions =
     o.roster_positions ??
@@ -60,13 +77,13 @@ export function deriveFormat({ draft = null, league = null, overrides = {} } = {
   const scoringType =
     o.scoring_type ??
     scoringTypeFromDraft(draft) ??
-    scoringTypeFromRec(league?.scoring_settings?.rec) ??
+    scoringTypeFromRec(effLeague?.scoring_settings?.rec) ??
     FORMAT_DEFAULTS.scoringType
 
   const teams =
     Number(o.teams) ||
     Number(draft?.settings?.teams) || Number(draft?.teams) ||
-    Number(league?.total_rosters) || Number(league?.league_size) ||
+    Number(effLeague?.total_rosters) || Number(effLeague?.league_size) ||
     FORMAT_DEFAULTS.teams
 
   const rounds =
@@ -83,7 +100,7 @@ export function deriveFormat({ draft = null, league = null, overrides = {} } = {
     (o.roster_positions || o.scoring_type || o.teams || o.rounds || o.type || o.superflex != null)
       ? 'override'
       : (draftRoster.length || draft?.settings?.teams || scoringTypeFromDraft(draft)) ? 'draft'
-      : (leagueRoster.length || league?.total_rosters) ? 'league'
+      : (leagueRoster.length || effLeague?.total_rosters) ? 'league'
       : 'default'
 
   return { rosterPositions, scoringType, isSuperflex, teams, rounds, type, source }
@@ -93,16 +110,19 @@ export function deriveFormat({ draft = null, league = null, overrides = {} } = {
 // Modus blieb still auf dem alten Wert stehen — nach einem Rookie-Draft lief
 // der Redraft-Mock mit der Rookie-Tipplogik.
 export function resolveDraftMode({ league = null, draft = null, current = 'redraft' } = {}) {
+  // Standalone-Draft (league_id: null): eine noch ausgewaehlte Liga darf den
+  // Modus nicht bestimmen -- siehe isStandaloneDraft oben (Bug B).
+  const effLeague = isStandaloneDraft(draft) ? null : league
   // Rohe Sleeper-Ligen tragen settings.type als Zahl (0=redraft, 1=keeper, 2=dynasty) --
   // das ist die Konvention, die Produktionsdaten liefern (Muster aus useDashboardStore.js).
   // Nie gegen String-Literale vergleichen. league_type als String bleibt Fallback fuer
   // angereicherte Ligen, die das Feld zusaetzlich mitschicken.
-  const t = league?.settings?.type
+  const t = effLeague?.settings?.type
   if (t === 2 || t === 1) return 'rookie'
   if (t === 0) return 'redraft'
-  const lt = league?.league_type
+  const lt = effLeague?.league_type
   if (lt === 'dynasty' || lt === 'keeper') return 'rookie'
   if (lt === 'redraft') return 'redraft'
-  if (draft && !league) return 'redraft'
+  if (draft && !effLeague) return 'redraft'
   return current
 }
