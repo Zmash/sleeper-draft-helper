@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
+import DataProvenanceBar from './DataProvenanceBar'
 import Icon from './Icon'
+import { useBoardStore } from '../stores/useBoardStore'
 
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -13,6 +15,7 @@ import { loadPreferences, savePreferences, setPreference, PlayerPreference, play
 import { getTeamsCount } from '../services/derive'
 import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer"
 import { exportBoardAsCsv } from '../services/csv'
+import { deriveFormat } from '../services/draftFormat'
 
 const DEBUG_AI = false
 
@@ -47,6 +50,18 @@ export default function BoardSection({
   onBoardReorder,
 }) {
   const navigate = useNavigate()
+  const { marketMeta, boardSource, refreshMarketData } = useBoardStore()
+  const [refreshingMarket, setRefreshingMarket] = useState(false)
+  const [marketError, setMarketError] = useState(null)
+
+  async function handleRefreshMarket() {
+    setRefreshingMarket(true)
+    setMarketError(null)
+    const res = await refreshMarketData()
+    if (!res.ok) setMarketError(res.error)
+    setRefreshingMarket(false)
+  }
+
   const [adviceOpen, setAdviceOpen] = useState(false)
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [advice, setAdvice] = useState(null)
@@ -78,22 +93,11 @@ export default function BoardSection({
   const fileRef = useRef(null)
   const [status, setStatus] = useState('')
 
-  function mapSlotsToRoster(settings = {}) {
-    const m = { slots_qb: 'QB', slots_rb: 'RB', slots_wr: 'WR', slots_te: 'TE', slots_k: 'K', slots_def: 'DEF', slots_flex: 'FLEX', slots_wr_rb: 'WR/RB', slots_wr_te: 'WR/TE', slots_rb_te: 'RB/TE', slots_super_flex: 'SUPER_FLEX', slots_idp_flex: 'IDP_FLEX', slots_dl: 'DL', slots_lb: 'LB', slots_db: 'DB', slots_bn: 'BN' }
-    const out = []
-    for (const [k, v] of Object.entries(settings || {})) {
-      if (!k.startsWith('slots_')) continue
-      const name = m[k]; const n = Number(v)
-      if (!name || !Number.isFinite(n) || n <= 0) continue
-      for (let i = 0; i < n; i++) out.push(name)
-    }
-    return out
-  }
-
-  const rosterPositions =
-    setupOverrides.roster_positions
-    ?? (draft?.settings ? mapSlotsToRoster(draft.settings) : null)
-    ?? (Array.isArray(league?.roster_positions) ? league.roster_positions : [])
+  // Das ganze Format, nicht nur der Kader: scoringType und isSuperflex gingen
+  // hier verloren, sodass die AI beim Mock immer den PPR-Default und "1 QB"
+  // beschrieben bekam — und Setup-Overrides gar nicht sah.
+  const draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
+  const { rosterPositions } = draftFormat
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
@@ -123,6 +127,9 @@ export default function BoardSection({
         livePicks: livePicks || [],
         me: meUserId || '',
         league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
+        scoringType: draftFormat.scoringType,
+        isSuperflex: draftFormat.isSuperflex,
+        rosterPositions,
         draft: draft || null,
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
         customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
@@ -394,6 +401,15 @@ export default function BoardSection({
         ownerLabels={ownerLabels}
         teamFilter={teamFilter}
         onTeamFilterChange={onTeamFilterChange}
+      />
+
+      <DataProvenanceBar
+        marketMeta={marketMeta}
+        draftMode={draftMode}
+        hasCsvBoard={boardSource === 'csv'}
+        onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
+        refreshing={refreshingMarket}
+        error={marketError}
       />
 
       {draftMode === 'rookie' && myDraftPicks.length > 0 && (

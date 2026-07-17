@@ -87,44 +87,8 @@ export async function fetchLeagueRosters(leagueId) {
   return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/rosters`)
 }
 
-/**
- * Convert Sleeper draft.settings 'slots_*' into roster positions array like:
- * ["QB","RB","RB","WR","WR","TE","FLEX","SUPER_FLEX", ...]
- * Falls back to league.roster_positions if needed.
- */
-export function rosterPositionsFromDraft(draft = {}, league = null) {
-  const s = draft?.settings || {}
-  const map = {
-    slots_qb: 'QB',
-    slots_rb: 'RB',
-    slots_wr: 'WR',
-    slots_te: 'TE',
-    slots_k: 'K',
-    slots_def: 'DEF',
-    slots_flex: 'FLEX',               // WR/RB/TE
-    slots_wr_rb: 'WR/RB',
-    slots_wr_te: 'WR/TE',
-    slots_rb_te: 'RB/TE',
-    slots_super_flex: 'SUPER_FLEX',
-    slots_bn: 'BN',
-    slots_taxi: 'TAXI',
-    slots_idp_flex: 'IDP_FLEX',
-    slots_dl: 'DL',
-    slots_lb: 'LB',
-    slots_db: 'DB',
-  }
-  const out = []
-  for (const [k, v] of Object.entries(s)) {
-    if (!k.startsWith('slots_')) continue
-    const name = map[k]
-    const n = Number(v)
-    if (!name || !Number.isFinite(n) || n <= 0) continue
-    for (let i=0;i<n;i++) out.push(name)
-  }
-  if (out.length) return out
-  // Fallback to league (rarely needed)
-  return Array.isArray(league?.roster_positions) ? league.roster_positions : []
-}
+// Ehemals hier: rosterPositionsFromDraft (vierte, ungenutzte Kopie der slots_*-Logik).
+// Ersetzt durch deriveFormat() in services/draftFormat.js — dort ist die einzige Quelle.
 
 /** Basic scoring meta from draft metadata; fallback to league.scoring_settings */
 export function scoringFromDraft(draft = {}, league = null) {

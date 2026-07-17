@@ -10,6 +10,7 @@ import express from 'express'
 import cors from 'cors'
 import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
+import { FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery } from './rankings.js'
 
 const app = express()
 app.disable('x-powered-by')
@@ -123,12 +124,43 @@ const REVIEW_TOOL = {
   },
 }
 
+// ---------- Rankings: Fantasy Football Calculator (ADP) ----------
+app.get('/api/rankings/ffc-adp', async (req, res) => {
+  const format = FFC_FORMATS.includes(String(req.query.format)) ? String(req.query.format) : 'ppr'
+  const teams = parseInt(req.query.teams) || 12
+  const year = parseInt(req.query.year) || new Date().getFullYear()
+  const url = `https://fantasyfootballcalculator.com/api/v1/adp/${format}?teams=${teams}&year=${year}`
+  try {
+    const upstream = await fetch(url)
+    if (!upstream.ok) return res.status(502).json({ ok: false, error: `FFC antwortete mit ${upstream.status}` })
+    const json = await upstream.json()
+    if (json?.status !== 'Success' || !Array.isArray(json?.players)) {
+      return res.status(502).json({ ok: false, error: 'FFC lieferte keine verwertbaren Daten' })
+    }
+    res.json({
+      ok: true,
+      meta: {
+        source: 'ffc',
+        format,
+        total_drafts: json?.meta?.total_drafts ?? null,
+        start_date: json?.meta?.start_date ?? null,
+        end_date: json?.meta?.end_date ?? null,
+        fetched_at: new Date().toISOString(),
+      },
+      players: json.players.map(normalizeFfcPlayer),
+    })
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e?.message || 'FFC nicht erreichbar' })
+  }
+})
+
 // ---------- Rankings: FantasyCalc ----------
 app.get('/api/rankings/fantasycalc', async (req, res) => {
   const numQbs = parseInt(req.query.numQbs) === 2 ? 2 : 1
   const numTeams = parseInt(req.query.numTeams) || 12
   const ppr = req.query.ppr !== undefined ? Number(req.query.ppr) : 1
-  const url = `https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}&includeAdp=false`
+  const isDynasty = isDynastyFromQuery(req.query.isDynasty)
+  const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}&includeAdp=false`
   try {
     const upstream = await fetch(url)
     if (!upstream.ok) return res.status(502).json({ ok: false, error: `FantasyCalc returned ${upstream.status}` })
@@ -137,7 +169,6 @@ app.get('/api/rankings/fantasycalc', async (req, res) => {
       id: idx + 1,
       rk: String(fc.overallRank ?? idx + 1),
       ecr: fc.overallRank ?? idx + 1,
-      tier: '',
       name: fc.player?.name ?? '',
       team: fc.player?.maybeTeam ?? fc.player?.team ?? '',
       pos: fc.player?.position ?? '',
@@ -150,8 +181,14 @@ app.get('/api/rankings/fantasycalc', async (req, res) => {
       redraft_value: fc.redraftValue ?? null,
       age: fc.player?.age ?? null,
       years_exp: null,
+      sleeperId: fc?.player?.sleeperId ?? null,
+      tier: fc?.maybeTier ?? null,
     }))
-    res.json({ ok: true, players })
+    res.json({
+      ok: true,
+      meta: { source: 'fantasycalc', isDynasty, numQbs, numTeams, ppr, fetched_at: new Date().toISOString() },
+      players,
+    })
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message || 'Failed to fetch FantasyCalc rankings' })
   }

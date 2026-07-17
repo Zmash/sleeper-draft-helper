@@ -5,10 +5,25 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
+import { deriveFormat } from '../services/draftFormat'
+import { loadSetup } from '../services/storage'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
+import Modal from '../components/Modal'
+import ImportResultBanner from '../components/ImportResultBanner'
 
 const noop = () => {}
+
+// Reine Ableitung, isoliert testbar: Undo darf nur angeboten werden, wenn
+// (a) der Import-Pfad, der DIESES Banner erzeugt hat, ueberhaupt einen
+// Snapshot anlegt (importDone.canUndo) UND (b) im Store tatsaechlich noch
+// ein Snapshot liegt. Sonst wuerde z.B. ein CSV-Import (der nie einen
+// eigenen Snapshot setzt) faelschlich den Snapshot eines frueheren
+// Auto-/KTC-Imports anbieten und beim Klick den falschen Board-Stand
+// wiederherstellen — stiller Datenverlust.
+export function canOfferUndo(importDone, lastBoardSnapshot) {
+  return !!(importDone?.canUndo && lastBoardSnapshot)
+}
 
 export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) {
   const navigate = useNavigate()
@@ -16,6 +31,8 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   const mode = location.state?.mode // 'add' | 'edit' | undefined
 
   const [importDone, setImportDone] = useState(null)
+  const [importError, setImportError] = useState(null)
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false)
 
   const {
     sleeperUsername, sleeperUserId, seasonYear,
@@ -29,8 +46,8 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   const {
     csvRawText, draftMode,
-    setCsvRawText, setDraftMode,
-    handleCsvLoad, handleAutoImport, handleKtcRookieImport,
+    setCsvRawText, setDraftMode, setBoardSource,
+    handleCsvLoad, handleAutoImport, handleKtcRookieImport, undoImport,
   } = useBoardStore()
 
   // Add mode: clear everything except the Sleeper account credentials
@@ -44,6 +61,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       setManualDraftInput('')
       setCsvRawText('')
       useBoardStore.getState().setBoardPlayers([])
+      useBoardStore.getState().setBoardSource(null)
       useLiveStore.getState().setLivePicks([])
       setImportDone(null)
     }
@@ -51,30 +69,49 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   const leaguesById = new Map((availableLeagues || []).map((l) => [l.league_id, l]))
 
+  function statsForCount(count) {
+    return { total: count, withAdp: 0, withoutAdp: 0, unmatchedNames: [] }
+  }
+
   async function wrappedCsvLoad() {
     const ok = await handleCsvLoad()
     if (ok) {
+      // handleCsvLoad selbst ist tabu (bleibt wie es ist) — die Herkunft wird hier vom
+      // Aufrufer gesetzt, und zwar nur bei tatsaechlichem Erfolg. Tippen im Setup-Feld
+      // oder ein abgebrochener Overwrite-Dialog aendern boardSource dadurch nicht.
+      setBoardSource('csv')
       const count = useBoardStore.getState().boardPlayers.length
-      setImportDone({ method: 'CSV', count })
+      // handleCsvLoad setzt bewusst keinen lastBoardSnapshot (manueller Import
+      // bleibt unveraendert, sichert sich stattdessen ueber window.confirm ab)
+      // — also darf dieses Banner kein Undo anbieten.
+      setImportDone({ method: 'CSV', stats: statsForCount(count), canUndo: false })
     }
   }
 
-  async function wrappedAutoImport() {
-    try {
-      const numQbs = selectedLeague?.roster_positions?.some((r) =>
-        String(r).toUpperCase().includes('SUPER')
-      ) ? 2 : 1
-      const rec = Number(selectedLeague?.scoring_settings?.rec ?? 1)
-      const effScoringType = rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
-      const numTeams = selectedLeague?.total_rosters || 12
-      const ok = await handleAutoImport({ isSuperflex: numQbs === 2, effScoringType, numTeams })
-      if (ok) {
-        const count = useBoardStore.getState().boardPlayers.length
-        setImportDone({ method: 'FantasyCalc', count })
-      }
-    } catch (e) {
-      alert('Fehler beim Auto-Import: ' + (e.message || e))
+  async function wrappedAutoImport(force = false) {
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const res = await handleAutoImport({
+      isSuperflex: fmt.isSuperflex,
+      effScoringType: fmt.scoringType,
+      numTeams: fmt.teams,
+      draftMode,
+      force,
+    })
+    if (res.needsConfirm) {
+      setConfirmOverwrite(true)
+      return res
     }
+    if (res.ok) {
+      setImportDone({
+        method: res.marketMissing ? 'FantasyCalc' : 'FantasyCalc + FFC',
+        stats: res.stats,
+        marketMissing: res.marketMissing,
+        canUndo: true, // handleAutoImport setzt lastBoardSnapshot
+      })
+    } else if (res.error) {
+      setImportError(res.error)
+    }
+    return res
   }
 
   async function wrappedKtcImport() {
@@ -82,10 +119,11 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       const ok = await handleKtcRookieImport()
       if (ok) {
         const count = useBoardStore.getState().boardPlayers.length
-        setImportDone({ method: 'KTC', count })
+        // handleKtcRookieImport setzt lastBoardSnapshot — Undo ist hier sicher.
+        setImportDone({ method: 'KTC', stats: statsForCount(count), canUndo: true })
       }
     } catch (e) {
-      alert('Fehler beim KTC-Import: ' + (e.message || e))
+      setImportError(`Fehler beim KTC-Import: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`)
     }
   }
 
@@ -101,20 +139,33 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   return (
     <>
       {importDone && (
-        <div className="import-done-banner">
-          <span className="import-done-text">
-            {importDone.count} Spieler importiert ({importDone.method}) <Icon name="check" size={14} />
+        <ImportResultBanner
+          stats={importDone.stats}
+          method={importDone.method}
+          marketMissing={importDone.marketMissing}
+          onUndo={canOfferUndo(importDone, useBoardStore.getState().lastBoardSnapshot) ? () => { undoImport(); setImportDone(null) } : undefined}
+          onClose={() => setImportDone(null)}
+          onGoToBoard={() => navigate('/board')}
+        />
+      )}
+      {importError && (
+        <div className="import-error-banner">
+          <span className="import-error-text">
+            Import fehlgeschlagen: {importError}
           </span>
-          <div className="import-done-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/board')}>
-              → Board
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setImportDone(null)} aria-label="Schließen">
-              <Icon name="x" size={14} />
-            </button>
-          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setImportError(null)} aria-label="Schließen">
+            <Icon name="x" size={14} />
+          </button>
         </div>
       )}
+      <Modal open={confirmOverwrite} onClose={() => setConfirmOverwrite(false)} title="Rankings überschreiben?">
+        <p>Es sind bereits Rankings geladen. Beim Neu-Import geht deine eigene Reihenfolge verloren.</p>
+        <p className="muted text-xs">Nur die Marktdaten aktualisieren? Das geht ohne Datenverlust über „Aktualisieren" am Board.</p>
+        <div className="confirm-overwrite-actions">
+          <button className="btn btn-secondary" onClick={() => setConfirmOverwrite(false)}>Abbrechen</button>
+          <button className="btn btn-primary" onClick={() => { setConfirmOverwrite(false); wrappedAutoImport(true) }}>Überschreiben</button>
+        </div>
+      </Modal>
       <SetupForm
         sleeperUsername={sleeperUsername}
         sleeperUserId={sleeperUserId}

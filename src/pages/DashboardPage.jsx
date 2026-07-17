@@ -5,6 +5,7 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { fetchJson, SLEEPER_API_BASE } from '../services/api'
 import LeagueCard, { LeagueCardSkeleton } from '../components/LeagueCard'
+import MockDraftCard from '../components/MockDraftCard'
 import Icon from '../components/Icon'
 
 const SEASON_TYPE_LABEL = {
@@ -149,11 +150,18 @@ export default function DashboardPage() {
 
   if (!loading && !cards.length && sleeperUserId && !availableLeagues?.length) {
     return (
-      <section className="card dashboard-empty">
-        <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
-        <h2>Keine Ligen geladen</h2>
-        <p className="muted">Lade deine Ligen im Setup.</p>
-        <button className="btn btn-primary" onClick={goToAdd}>Setup öffnen</button>
+      <section className="dashboard">
+        <div className="card dashboard-empty">
+          <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
+          <h2>Keine Ligen geladen</h2>
+          <p className="muted">Lade deine Ligen im Setup — oder häng direkt einen Mock-Draft an.</p>
+          <button className="btn btn-primary" onClick={goToAdd}>Setup öffnen</button>
+        </div>
+        {/* Ohne Liga ist der Mock der einzige Weg ins Board. Die Karte gehoert
+            deshalb gerade hier hin und nicht nur in die gefuellte Ansicht. */}
+        <div className="dashboard-grid">
+          <MockDraftCard />
+        </div>
       </section>
     )
   }
@@ -199,6 +207,7 @@ export default function DashboardPage() {
           : cards.map((card) => (
               <LeagueCard key={card.leagueId || card.draftId} card={card} />
             ))}
+        <MockDraftCard />
         <button className="league-card league-card--add" onClick={goToAdd}>
           <span className="lc-add-icon">+</span>
           <span className="lc-add-label">Draft / Liga hinzufügen</span>

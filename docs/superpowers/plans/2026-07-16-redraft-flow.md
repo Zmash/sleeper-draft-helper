@@ -21,7 +21,10 @@
 - **Sleeper `league.settings.type` ist eine Zahl** (0=redraft, 1=keeper, 2=dynasty) — niemals gegen String-Literale vergleichen.
 - **Δ-ADP-Konvention ist `adp - rk`** (positiv = Value). Nicht umdrehen — `csv.js:56` und `useDraftTips.js:89` hängen daran.
 - **Der CSV-Import bleibt unverändert.** `parseFantasyProsCsv` und `handleCsvLoad` werden nicht angefasst (Nutzer-Vorgabe).
-- **Der Rookie-/Dynasty-Pfad bleibt unberührt.** `isDynasty` defaultet auf `true`; `handleKtcRookieImport` und `useRookieDraftTips` werden nicht angefasst.
+- **Der Rookie-/Dynasty-Pfad ändert sein Verhalten nicht.** `isDynasty` defaultet auf `true`;
+  `useRookieDraftTips` wird nicht angefasst. **Ausnahme (Nutzer-Entscheidung 2026-07-16):**
+  `handleKtcRookieImport` bekommt den Undo-Snapshot aus Task 4 — rein additiv, ändert kein
+  Rookie-Verhalten. Begründung: sonst rettet das Netz beim Redraft-Import, beim KTC-Import aber nicht.
 - Tests: `npm test` (Vitest, einmalig) bzw. `npm run test:watch`. Dev: `npm run dev:all` (Client **und** API — ohne API keine Rankings).
 
 ---
@@ -41,7 +44,15 @@
 - [ ] **Step 1: Belegen, dass der Test-Runner existiert**
 
 Run: `npm test`
-Expected: `Test Files 10 passed (10)` / `Tests 78 passed (78)` — **und** Zeilen mit `.claude/worktrees/…`, die die Doppelausführung belegen.
+Expected: alle Tests grün.
+
+**Hinweis zur Umgebung:** Im Haupt-Checkout (`F:/sleeper-draft-helper`) liefert das
+`Tests 78 passed (78)`, weil Vitest die Worktrees unter `.claude/worktrees/` mitsammelt und die
+Suite doppelt läuft. **In einem Worktree siehst du diese Doppelung nicht** — dort sind es
+`Tests 39 passed (39)`, weil ein Worktree keine verschachtelten Worktrees enthält. Beide Zahlen
+sind korrekt; die Doppelung ist trotzdem real und der Ausschluss in Step 2 gehört gemacht, damit
+das Haupt-Checkout nicht weiter doppelt testet und ein `npm test` dort nicht auf fremde Arbeitskopien
+schaut.
 
 - [ ] **Step 2: Worktrees aus Vitest ausschließen**
 
@@ -66,7 +77,10 @@ export default defineConfig({
 - [ ] **Step 3: Verifizieren, dass die Doppelausführung weg ist**
 
 Run: `npm test`
-Expected: `Test Files 5 passed (5)` / `Tests 39 passed (39)` — keine `.claude/worktrees/`-Zeilen mehr.
+Expected: `Test Files 5 passed (5)` / `Tests 39 passed (39)` — und **keine** `.claude/worktrees/`-Zeilen.
+Im Worktree war das schon vorher so; entscheidend ist, dass die Zahl sich hier **nicht** ändert
+(der Ausschluss darf nichts kaputt machen) und dass das Haupt-Checkout nach dem Merge nur noch
+einfach testet.
 
 - [ ] **Step 4: Fehlende Test-Abhaengigkeit nachziehen**
 
@@ -608,6 +622,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```js
 import { describe, it, expect } from 'vitest'
 import { FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery } from './rankings'
+import { normalizePlayerName } from '../utils/formatting'
 
 describe('normalizeFfcPos', () => {
   it('FFC nennt Kicker PK — wir nennen ihn K', () => {
@@ -642,8 +657,14 @@ describe('normalizeFfcPlayer', () => {
     expect(p.bye).toBe(11)
     expect(p.stdev).toBe(0.7)
   })
-  it('setzt nname fuer den Merge', () => {
-    expect(normalizeFfcPlayer(raw).nname).toBe('bijanrobinson')
+  it('setzt nname fuer den Merge — identisch zur Client-Normalisierung', () => {
+    // Leerzeichen bleiben erhalten! normalizePlayerName strippt nur [^a-z\s]
+    // und die Suffixe jr/sr/ii/iii/iv. Ein zusammengezogenes "bijanrobinson"
+    // wuerde gegen das Board nie matchen.
+    expect(normalizeFfcPlayer(raw).nname).toBe('bijan robinson')
+  })
+  it('strippt Suffixe wie die Client-Funktion', () => {
+    expect(normalizeFfcPlayer({ ...raw, name: 'Marvin Harrison Jr.' }).nname).toBe('marvin harrison')
   })
   it('normalisiert PK zu K', () => {
     expect(normalizeFfcPlayer({ ...raw, position: 'PK' }).pos).toBe('K')
@@ -677,14 +698,11 @@ Expected: FAIL — `Failed to resolve import "./rankings"`
 // Die beiden Server-Dateien sind Near-Duplikate; alles, was hier liegt,
 // kann nicht auseinanderlaufen.
 
-// Muss dieselbe Normalisierung sein wie src/utils/formatting.js — der Merge
-// matcht Server-Daten gegen Board-Daten ueber genau diesen Schluessel.
-export function normalizePlayerNameServer(name) {
-  return String(name || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z]/g, '')
-}
+// Der Merge matcht Server-Daten gegen Board-Daten ueber genau diesen Schluessel.
+// Deshalb wird die Client-Funktion IMPORTIERT und nicht nachgebaut: eine zweite
+// Implementierung wuerde frueher oder spaeter abweichen, und dann matcht nichts
+// mehr. formatting.js ist abhaengigkeitsfrei und laedt unter node.
+import { normalizePlayerName } from '../utils/formatting.js'
 
 export const FFC_FORMATS = ['ppr', 'half-ppr', 'standard', '2qb']
 
@@ -697,7 +715,7 @@ export function normalizeFfcPlayer(raw) {
   const name = raw?.name || ''
   return {
     name,
-    nname: normalizePlayerNameServer(name),
+    nname: normalizePlayerName(name),
     pos: normalizeFfcPos(raw?.position),
     team: raw?.team || '',
     adp: raw?.adp ?? null,
@@ -1510,7 +1528,7 @@ export default function DataProvenanceBar({
         </span>
       ) : (
         <span className="provenance-item provenance-stale">
-          <Icon name="alert-triangle" size={13} /> ADP fehlt
+          <Icon name="warning" size={13} /> ADP fehlt
         </span>
       )}
       <span className="provenance-item">Modus <strong>{mode}</strong></span>
@@ -1525,9 +1543,13 @@ export default function DataProvenanceBar({
 }
 ```
 
-**Icon-Namen prüfen:** `alert-triangle` und `refresh` müssen in `src/components/Icon.jsx` registriert sein.
-Run: `grep -n "alert-triangle\|refresh" src/components/Icon.jsx`
-Fehlt eines: lucide-Icon dort nach bestehendem Muster ergänzen. **Kein Emoji als Ersatz** (`no-emoji.test.js` schlägt sonst fehl).
+**Icon-Namen (verifiziert 2026-07-16 gegen `src/components/Icon.jsx`):** `refresh` (→ `RefreshCw`)
+und `warning` (→ `TriangleAlert`) sind registriert und werden hier genutzt. **`alert-triangle`
+existiert NICHT** — dieser Name hätte still ein falsches Icon gerendert, siehe unten.
+
+**Achtung, stille Falle:** `Icon.jsx` fällt bei unbekanntem Namen auf `MAP[name] || Star` zurück —
+ein Tippfehler im Icon-Namen wirft **keinen Fehler**, sondern zeigt kommentarlos einen Stern.
+Prüfe jeden verwendeten Namen gegen die `MAP` in `src/components/Icon.jsx`, bevor du ihn nutzt.
 
 - [ ] **Step 4: CSS ergänzen**
 
@@ -1907,14 +1929,81 @@ export default function MockDraftCard() {
 }
 ```
 
-**Wichtig:** `attachDraftByIdOrUrl` muss die Draft-ID zurückgeben, nicht nur `true`.
-Run: `grep -n "attachDraftByIdOrUrl" -A 20 src/stores/useSessionStore.js`
-Gibt sie heute `boolean` zurück: auf `draft_id` (String) bzw. `null` umstellen und die bestehenden Aufrufer in `SetupForm.jsx:253` prüfen (`if (ok)` funktioniert mit einem String weiter, da truthy).
+- [ ] **Step 3b: `attachDraftByIdOrUrl` reparieren — sonst ist der ganze Mock-Fix wirkungslos**
 
-- [ ] **Step 4: `Icon.jsx` prüfen**
+**Verifiziert 2026-07-16, drei echte Defekte in `src/stores/useSessionStore.js:105-121`:**
 
-Run: `grep -n "zap" src/components/Icon.jsx`
-Fehlt es: lucide `Zap` nach bestehendem Muster ergänzen. Kein Emoji.
+1. **Sie legt nur einen Stub an:** `{ draft_id: id, metadata: { name: 'Draft <id>' } }` — **ohne
+   `settings`**. Nichts im Code ersetzt ihn später durch echte Daten (`fetchDraft` wird nur in
+   `TradePage` und im Dashboard-Kartenbau genutzt, beide schreiben nicht nach `availableDrafts`
+   zurück). Damit sieht `deriveFormat` bei einem per URL angehängten Mock **kein** `teams`, **kein**
+   `scoring_type`, **keine** `slots_*` — und fällt auf die Defaults zurück. Der komplette B3-Fix aus
+   Task 5 wäre für den wichtigsten Anwendungsfall (Mock per Link) **wirkungslos**.
+2. **Sie gibt nichts zurück** (kein `return`) — der bestehende Aufrufer `SetupForm.jsx:253` prüft
+   `if (ok)`, was folglich **immer** falsy ist; das `setManualDraftInput('')` dort läuft nie.
+3. **Sie ruft `alert('Draft per ID/URL gesetzt.')`** — ein nativer Dialog mitten im Store.
+
+Ersetze die Funktion vollständig:
+
+```js
+      attachDraftByIdOrUrl: async (input, parseDraftId) => {
+        const id = parseDraftId(input)
+        if (!id) return null
+
+        // Den echten Draft holen, nicht nur einen Stub anlegen: ohne settings
+        // (teams, rounds, slots_*, scoring_type) faellt deriveFormat auf die
+        // Defaults zurueck — und genau das war der Mock-Bug.
+        let draft = null
+        try {
+          draft = await fetchDraft(id)
+        } catch {
+          draft = null
+        }
+        if (!draft?.draft_id) return null
+
+        await useLiveStore.getState().loadPicks(id).catch(() => {})
+        set((s) => ({
+          availableDrafts: mergeDraftsUnique([draft], s.availableDrafts || []),
+          selectedDraftId: id,
+        }))
+        return id
+      },
+```
+
+Import ergänzen: `fetchDraft` aus `../services/api`. `mergeDraftsUnique` ist in der Datei bereits
+vorhanden und lässt frische API-Daten bei Duplikaten gewinnen — der echte Draft ersetzt also einen
+etwaigen alten Stub.
+
+**Aufrufer prüfen:** `SetupForm.jsx:253` macht `const ok = await attachDraftByIdOrUrl(manualDraftInput)`
+— das funktioniert mit dem String-Rückgabewert weiter (truthy) und wird durch den Fix sogar **erst
+richtig**. Die Funktion wirft jetzt nicht mehr, sondern gibt `null` zurück; der `try/catch` dort
+bleibt harmlos.
+
+- [ ] **Step 3c: Den Fix belegen**
+
+Run: `npm run dev:api` (Hintergrund), dann in einem zweiten Terminal — ID durch einen echten
+Sleeper-Draft ersetzen, notfalls den aus `availableDrafts`:
+
+```bash
+node -e "
+import('./src/services/api.js').then(async m => {
+  const d = await m.fetchDraft('1234567890123456789').catch(e => null)
+  console.log('settings vorhanden:', !!d?.settings, '| teams:', d?.settings?.teams, '| scoring:', d?.metadata?.scoring_type)
+})"
+```
+Expected: `settings vorhanden: true` mit echten Zahlen — der Beweis, dass der Draft jetzt das
+Format mitbringt, das `deriveFormat` braucht.
+
+- [ ] **Step 4: `zap` in `Icon.jsx` ergänzen**
+
+**`zap` ist NICHT registriert** (verifiziert 2026-07-16). Ohne Ergänzung rendert `Icon.jsx` still
+einen **Stern** statt eines Fehlers (`MAP[name] || Star`) — der Fehler fiele niemandem auf.
+
+In `src/components/Icon.jsx` nach bestehendem Muster ergänzen: `Zap` zum `lucide-react`-Import
+hinzufügen und `zap: Zap,` in die `MAP` eintragen. Kein Emoji als Ersatz.
+
+Run: `node -e "const s=require('fs').readFileSync('src/components/Icon.jsx','utf8'); console.log('zap registriert:', /zap:\s*Zap/.test(s) && /Zap/.test(s.split('from')[0]))"`
+Expected: `zap registriert: true`
 
 - [ ] **Step 5: Ins Dashboard-Grid einhängen**
 
@@ -2202,7 +2291,7 @@ export default function ImportResultBanner({
         </span>
         {marketMissing && (
           <span className="import-done-warn">
-            <Icon name="alert-triangle" size={13} /> Marktdaten nicht erreichbar — Rangliste ist da, ADP fehlt.
+            <Icon name="warning" size={13} /> Marktdaten nicht erreichbar — Rangliste ist da, ADP fehlt.
           </span>
         )}
       </div>

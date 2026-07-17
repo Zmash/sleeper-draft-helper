@@ -286,6 +286,20 @@ body {
 .btn-compact:hover { border-color: var(--accent-fill); }
 .btn-compact:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
+/* Herkunfts-Zeile: beantwortet Herkunft, Alter und Modus an einer Stelle. */
+.provenance-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  padding: 0.4rem 0.6rem; margin-top: 0.5rem;
+  border: 1px solid var(--border); border-radius: 2px;
+  background: var(--surface-raised);
+  font-size: 0.75rem; color: var(--text-muted);
+}
+.provenance-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.provenance-item strong { color: var(--text-primary); font-weight: 500; }
+.provenance-item :is(strong) { font-variant-numeric: tabular-nums; }
+.provenance-stale { color: var(--bad); }
+.provenance-stale strong { color: var(--bad); }
+
 /* Consistent visual hierarchy */
 .btn-primary { background: var(--accent-fill); color: var(--accent-on); border: 1px solid transparent; }
 .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border); }
@@ -545,11 +559,16 @@ th, td {
 .board-table .col-bye,
 .board-table .col-sos,
 .board-table .col-dyn,
-.board-table .col-ecr,
+.board-table .col-adp,
+.board-table .col-delta,
 .board-table .col-pick {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+.col-adp, .col-delta { text-align: right; font-variant-numeric: tabular-nums; }
+.delta-good { color: var(--good); }
+.delta-bad  { color: var(--bad); }
 
 /* Position badges — colour + text (never colour alone) */
 .pos-badge {
@@ -663,7 +682,8 @@ th.col-pos,  td.col-pos  { width: 64px; }
 th.col-bye,  td.col-bye  { width: 64px; }
 th.col-sos,  td.col-sos  { width: 70px; }
 th.col-dyn,  td.col-dyn  { width: 72px; }
-th.col-ecr,  td.col-ecr  { width: 96px; }
+th.col-adp,  td.col-adp  { width: 64px; }
+th.col-delta, td.col-delta { width: 72px; }
 th.col-pick, td.col-pick { width: 64px; }
 
 /* Mobile table simplification */
@@ -675,7 +695,8 @@ th.col-pick, td.col-pick { width: 64px; }
   .board-table .col-bye,
   .board-table .col-sos,
   .board-table .col-dyn,
-  .board-table .col-ecr,
+  .board-table .col-adp,
+  .board-table .col-delta,
   .board-table .col-pick { display: none; }
 
   th.col-rk, td.col-rk { width: 42px; }
@@ -1057,6 +1078,7 @@ th.col-pick, td.col-pick { width: 64px; }
   border-radius: var(--r-card);
   background: rgba(255,255,255,0.02);
 }
+.summary-card--sticky { margin-bottom: 14px; }
 .summary-grid {
   display: grid; gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1065,6 +1087,16 @@ th.col-pick, td.col-pick { width: 64px; }
 .summary-item { display: flex; justify-content: space-between; gap: 8px; }
 .summary-item .k { color: var(--muted); }
 .summary-item .v { font-weight: 600; }
+
+/* Fehler inline am ausloesenden Element — kein alert(). */
+.form-error {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--bad);
+  border-radius: var(--r-ctl);
+  color: var(--bad);
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
 
 /* =========================================================
    ROOKIE DRAFT — Dynasty Roster & Picks Banner
@@ -1424,6 +1456,42 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 /* =========================================================
+   MOCK-DRAFT TILE
+   ========================================================= */
+.league-card--mock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.lc-mock-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-primary);
+}
+.lc-mock-title {
+  font-weight: 500;
+}
+.lc-mock-desc {
+  font-size: 0.75rem;
+  margin: 0;
+}
+.lc-mock-row {
+  display: flex;
+  gap: 0.4rem;
+}
+.lc-mock-row .control {
+  flex: 1;
+  min-width: 0;
+}
+.lc-mock-error {
+  font-size: 0.75rem;
+  color: var(--bad);
+  margin: 0;
+}
+
+/* =========================================================
    ADD DRAFT TILE
    ========================================================= */
 .league-card--add {
@@ -1485,6 +1553,31 @@ th.col-pick, td.col-pick { width: 64px; }
   display: flex;
   gap: 0.4rem;
   flex-shrink: 0;
+}
+
+.import-done-main { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 12rem; }
+.import-done-warn { font-size: 0.75rem; color: var(--bad); display: inline-flex; align-items: center; gap: 0.3rem; }
+.import-unmatched { flex-basis: 100%; margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.75rem; color: var(--text-muted); max-height: 8rem; overflow-y: auto; }
+.btn-link { background: none; border: 0; padding: 0; color: var(--accent-text); text-decoration: underline; cursor: pointer; font: inherit; }
+.confirm-overwrite-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
+
+.import-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: color-mix(in srgb, var(--bad) 15%, var(--surface-card));
+  border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import-error-text {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--bad);
 }
 
 /* =========================================================

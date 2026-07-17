@@ -66,7 +66,7 @@ function inferMySlot({ draft, livePicks, me }) {
   } catch { return null }
 }
 
-function minifyBoardPlayer(p) {
+function minifyBoardPlayer(p, isRookie = false) {
   const base = {
     rk: numericRank(p.rk),
     tier: p.tier || '',
@@ -78,11 +78,23 @@ function minifyBoardPlayer(p) {
     sos: p.sos || '',
     ecrVsAdp: p.ecrVsAdp || '',
   }
-  if (p.dynasty_value != null) base.dynasty_value = p.dynasty_value
+  // adp kommt aus dem Markt-Merge (FFC) und ist im Redraft das zentrale Signal.
+  // ecrVsAdp traegt es nur beim CSV-Import — ohne adp beriet die AI auf einem
+  // Markt-Board voellig ohne Marktbezug. null heisst "kein Marktwert", nicht 0.
+  if (p.adp != null) base.adp = p.adp
+  // Das Feld heisst historisch dynasty_value, traegt im Redraft aber den
+  // FantasyCalc-Redraft-Wert (isDynasty=false). Unter dem alten Namen schrieb
+  // die AI woertlich "elite dynasty value" ueber einen Redraft-Mock.
+  if (p.dynasty_value != null) {
+    if (isRookie) base.dynasty_value = p.dynasty_value
+    else base.market_value = p.dynasty_value
+  }
   if (p.age != null) base.age = p.age
   if (p.years_exp != null) base.years_exp = p.years_exp
   return base
 }
+
+const PPR_TYPE_LABEL = { ppr: 'PPR', half_ppr: 'Half PPR', standard: 'Standard/Non-PPR' }
 
 /**
  * For each RB on the user's roster, find available backups on the same NFL team.
@@ -140,7 +152,7 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
 
 // ---------- Context builder ----------
 
-function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks }) {
+function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType }) {
   const { topNOverall = 40, topPerPos = 10 } = options
 
   const pickedByName = new Set(
@@ -157,10 +169,14 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
     })
     .sort((a, b) => numericRank(a.rk) - numericRank(b.rk))
 
-  const topOverall = available.slice(0, topNOverall).map(minifyBoardPlayer)
+  const isRookie = draftMode === 'rookie'
+
+  // Nicht .map(minifyBoardPlayer): map reicht den Index als zweites Argument
+  // durch, wodurch jeder Spieler ab Index 1 als Rookie gaelte.
+  const topOverall = available.slice(0, topNOverall).map(p => minifyBoardPlayer(p, isRookie))
   const byPos = groupBy(available, p => normalizePos(p.pos || 'OTHER'))
   const topByPosition = Object.fromEntries(
-    Object.entries(byPos).map(([pos, arr]) => [pos, arr.slice(0, topPerPos).map(minifyBoardPlayer)])
+    Object.entries(byPos).map(([pos, arr]) => [pos, arr.slice(0, topPerPos).map(p => minifyBoardPlayer(p, isRookie))])
   )
 
   const myPicks = (livePicks || []).filter(p => p.picked_by === me)
@@ -175,22 +191,35 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
 
   const rosterReq = summarizeRosterRequirements(league?.roster_positions || [])
 
+  // Das aufgeloeste Draft-Format hat Vorrang vor der Liga: beim Standalone-Mock
+  // gibt es gar keine scoring_settings, und ein Setup-Override soll die Liga
+  // schlagen. Sonst meldete league.ppr_type "Standard/Non-PPR", waehrend
+  // format.scoring_type im selben Payload 'ppr' sagte.
   const recPoints =
     league?.scoring_settings && typeof league.scoring_settings.rec === 'number'
       ? league.scoring_settings.rec
       : 0
   const pprType =
-    recPoints >= 0.95 ? 'PPR' : recPoints >= 0.45 ? 'Half PPR' : 'Standard/Non-PPR'
+    PPR_TYPE_LABEL[scoringType] ||
+    (recPoints >= 0.95 ? 'PPR' : recPoints >= 0.45 ? 'Half PPR' : 'Standard/Non-PPR')
+
+  // currentPickNumber ist der hoechste BEREITS gemachte Pick. Unter dem Namen
+  // current_pick_number beriet die AI konsequent fuer genau diesen — also einen
+  // Pick zu frueh. Der Name sagt jetzt, was gemeint ist. null bleibt null:
+  // lieber keine Angabe als eine erfundene (Number(null) + 1 === 1).
+  const upcomingPick = Number.isFinite(currentPickNumber) && currentPickNumber != null
+    ? currentPickNumber + 1
+    : null
 
   const draftContext = {
-    current_pick_number: currentPickNumber,
+    upcoming_pick_number: upcomingPick,
+    completed_picks: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
     rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
     teams: league?.total_rosters ?? null,
     slot: inferMySlot({ draft, livePicks, me }),
     is_snake: true,
   }
 
-  const isRookie = draftMode === 'rookie'
   const handcuffOpps = isRookie ? [] : findHandcuffs({ myRoster, available })
 
   // Dynasty-Kader: Positionszählung für AI-Kontext
@@ -358,7 +387,7 @@ export function buildAIAdviceRequest(params) {
   } = params || {}
 
   const { draftMode, dynastyRoster, myDraftPicks } = params || {}
-  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks })
+  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType })
 
   context.format = {
     scoring_type:

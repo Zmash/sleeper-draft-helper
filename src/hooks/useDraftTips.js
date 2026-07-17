@@ -5,10 +5,14 @@ import { picksUntilMyNext } from '../services/derive'
 
 // helper
 function groupBy(arr, fn){ const m=new Map(); for (const x of arr||[]) { const k=fn(x); if(!m.has(k)) m.set(k, []); m.get(k).push(x) } return m }
-function isTEpremium(sc) { const rec = Number(sc?.rec ?? 1); const teRec = Number(sc?.rec_te ?? rec); return Number.isFinite(teRec) && teRec > rec }
 function hashId(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h<<5)-h+s.charCodeAt(i); h|=0 } return String(h>>>0) }
 
 const POS = ['QB','RB','WR','TE']
+
+// Der pos_need-Tip feuert erst, wenn die verbleibenden eigenen Picks die
+// offenen Startplaetze kaum noch decken. Vorher war er ab Pick 1 aktiv und
+// damit trivial wahr ("Du brauchst noch RB-Starter" — ja, es ist Pick 1).
+export const POS_NEED_SLACK = 2
 
 export function useDraftTips({
   picks = [],
@@ -21,6 +25,7 @@ export function useDraftTips({
   draftType = 'snake',    // 'snake' | 'auction' | ...
   strategies = ['balanced'],
   draftSlot = null,       // optional; enables exact On-the-Clock if present
+  draftRounds = null,     // Rundenzahl fuer die pos_need-Restpick-Rechnung
   enabled = true,
 } = {}) {
   return useMemo(() => {
@@ -30,7 +35,6 @@ export function useDraftTips({
       ? picksUntilMyNext({ picks, meUserId, teamsCount, draftSlot })
       : null
 
-    const tePrem = isTEpremium(scoringSettings)
     const isSF = (rosterPositions || []).some(r => String(r).toUpperCase().includes('SUPER'))
     const avail = (boardPlayers || []).filter(p => !p.status)
     const byPos = groupBy(avail, p => (normalizePos(p.pos || p.position || 'OTHER')))
@@ -70,14 +74,14 @@ export function useDraftTips({
           id: hashId(`otc-${curPick}`),
           type: 'on_the_clock',
           severity: 'critical',
-          text: `You're on the clock next. Decide now.`
+          text: `Du bist gleich dran. Entscheidung treffen.`
         })
       } else if (window <= 3) {
         tips.push({
           id: hashId(`soon-${curPick}`),
           type: 'on_the_clock',
           severity: 'warn',
-          text: `You're up in ~${window} picks. Shortlist 2–3 names.`
+          text: `Du bist in ~${window} Picks dran. 2–3 Namen vormerken.`
         })
       }
     }
@@ -85,20 +89,41 @@ export function useDraftTips({
     // 1) Value (rk vs ADP & survival)
     const top = avail.slice(0, 30).sort((a,b)=> Number(a.rk) - Number(b.rk))
     for (const p of top) {
-      const adp = Number(p.adp)
+      // Explizit gegen null/undefined pruefen statt Number.isFinite() nach der Coercion zu
+      // vertrauen: Number(null) === 0 und Number.isFinite(0) === true. mergeRankingsWithMarket
+      // setzt fuer jeden Nicht-Treffer bewusst adp/high/low auf null — ohne diesen Guard wuerde
+      // ein Spieler ohne ADP ein erfundenes Delta, eine erfundene Dringlichkeit und das Wort
+      // "null" im UI-Text bekommen.
+      const adp = (p.adp === null || p.adp === undefined) ? NaN : Number(p.adp)
       const delta = Number.isFinite(adp) ? Math.round((adp - Number(p.rk)) * 10) / 10 : null
-      const survive =
-        (Number.isFinite(adp) && Number.isFinite(window) && (adp > (curPick + window))) ? 'likely' :
-        (Number.isFinite(adp) && Number.isFinite(window) && (adp <= (curPick + window))) ? 'unlikely' :
-        null
-      if ((delta != null && delta >= 6) || survive === 'unlikely') {
+      const myNext = Number.isFinite(window) ? curPick + window : null
+
+      // Mit Streuung koennen wir eine Spanne nennen statt eines Muenzwurf-Labels.
+      const high = (p.high === null || p.high === undefined) ? NaN : Number(p.high)
+      const low = (p.low === null || p.low === undefined) ? NaN : Number(p.low)
+      const hasSpread = Number.isFinite(high) && Number.isFinite(low)
+      let reachText = ''
+      if (hasSpread && myNext != null) {
+        // Die Spanne allein zwingt zum Selbst-Vergleich. Das Urteil nimmt die Arbeit ab:
+        // faellt myNext unter high, ist der Spieler frueher weg als man selbst dran ist —
+        // "duerfte da sein". Ueber low ist er schon vorher vergriffen — "duerfte weg sein".
+        const verdict = myNext < high ? 'dürfte da sein' : myNext > low ? 'dürfte weg sein' : 'ein Münzwurf'
+        reachText = ` Wird typisch zwischen Pick ${high} und ${low} gezogen — bis zu deinem nächsten Pick (${myNext}): ${verdict}.`
+      } else if (Number.isFinite(adp) && myNext != null) {
+        reachText = adp > myNext
+          ? ` Überlebt wahrscheinlich bis zu deinem nächsten Pick (${myNext}).`
+          : ` Ist bis zu deinem nächsten Pick (${myNext}) wahrscheinlich weg.`
+      }
+
+      const survivesUnlikely = Number.isFinite(adp) && myNext != null && adp <= myNext
+      if ((delta != null && delta >= 6) || survivesUnlikely) {
         tips.push({
-          id: hashId(`value-${p.id||p.nname}`),
+          id: hashId(`value-${p.id || p.nname}`),
           type: 'value',
           severity: 'info',
-          text: `Value on board: ${p.name} (${p.pos}) ${delta != null ? `is ${delta} under ADP` : ''}${survive ? ` — ${survive} to reach your next pick` : ''}.`,
+          text: `Value auf dem Board: ${p.name} (${p.pos})${delta != null ? ` liegt ${delta} unter ADP.` : '.'}${reachText}`,
           player_id: p.player_id, pos: p.pos,
-          _features: { delta, risk: survive === 'unlikely' ? 0.9 : 0.3 }
+          _features: { delta, risk: survivesUnlikely ? 0.9 : 0.3 },
         })
       }
     }
@@ -121,7 +146,7 @@ export function useDraftTips({
           id: hashId(`tier-${P}-${cand.id||cand.nname}`),
           type: 'run_warning',
           severity: 'warn',
-          text: `Only ${leftInTier} ${P} left in current tier. Next tier ~${gap} ranks back — consider ${cand.name}.`,
+          text: `Letzter ${P} im Tier. Nächste Gruppe ~${gap} Plätze zurück — ${cand.name} nicht liegenlassen.`,
           pos: P, player_id: cand.player_id,
           _features: { leftInTier, gap }
         })
@@ -129,29 +154,28 @@ export function useDraftTips({
     }
 
     // 3) Positional need (with gates based on format & strategies)
-    const round = (teamsCount && curPick) ? Math.ceil(curPick / teamsCount) : null
-    const qbGate = !isSF && !tePrem && (round != null && round < 7) && (need.RB > 0 || need.WR > 0) && !preferQBearly
-    if (need.QB > 0 && !qbGate) {
-      const qb = topByPos('QB', 1)[0]
-      if (qb) tips.push({
-        id: hashId(`need-qb-${qb.id||qb.nname}`),
-        type: 'pos_need',
-        severity: 'info',
-        text: `You still need a starting QB. ${qb.name} is the best available.`,
-        pos: 'QB', player_id: qb.player_id,
-        _features: { need: need.QB }
-      })
-    }
-    for (const P of ['RB','WR','TE']) {
-      if (need[P] > 0) {
-        const best = topByPos(P,1)[0]
-        if (best) tips.push({
-          id: hashId(`need-${P}-${best.id||best.nname}`),
+    // Wie viele eigene Picks bleiben, und wie viele Startplaetze sind offen?
+    const rounds = Number(draftRounds) || 16
+    const myPickCount = (picks || []).filter(p => String(p?.picked_by) === String(meUserId)).length
+    const remainingOwnPicks = Math.max(0, rounds - myPickCount)
+    const openStarterSlots = Math.max(0, (need.QB > 0 ? need.QB : 0) + (need.RB > 0 ? need.RB : 0) +
+                                        (need.WR > 0 ? need.WR : 0) + (need.TE > 0 ? need.TE : 0))
+    const needIsReal = (remainingOwnPicks - openStarterSlots) <= POS_NEED_SLACK
+
+    if (needIsReal) {
+      for (const P of ['QB', 'RB', 'WR', 'TE']) {
+        if (need[P] <= 0) continue
+        const best = topByPos(P, 1)[0]
+        if (!best) continue
+        tips.push({
+          id: hashId(`need-${P}-${best.id || best.nname}`),
           type: 'pos_need',
           severity: 'info',
-          text: `You still need ${P} starters. Best available: ${best.name}.`,
+          text: P === 'QB'
+            ? `Dir fehlt noch ein Start-QB. ${best.name} ist der beste Verfügbare.`
+            : `Dir fehlen noch ${P}-Starter. Bester Verfügbarer: ${best.name}.`,
           pos: P, player_id: best.player_id,
-          _features: { need: need[P] }
+          _features: { need: need[P] },
         })
       }
     }
@@ -164,18 +188,41 @@ export function useDraftTips({
           id: hashId(`inj-${p.id||p.nname}-${st}`),
           type: 'injury',
           severity: 'warn',
-          text: `${p.name} carries an injury tag (${st}). Discount or plan a contingency.`,
+          text: `${p.name} hat einen Verletzungsstatus (${st}). Abwerten oder Plan B vorbereiten.`,
           player_id: p.player_id, pos: p.pos
         })
       }
     }
 
+    // Im Kommentar seit jeher als "Injury & Bye cluster" angekuendigt, nie gebaut.
+    const myPlayers = (boardPlayers || []).filter(p => p.status === 'me')
+    const byeByPos = new Map()
+    for (const p of myPlayers) {
+      const pos = normalizePos(p.pos || p.position || '')
+      const bye = Number(p.bye)
+      if (!POS.includes(pos) || !Number.isFinite(bye)) continue
+      const key = `${pos}:${bye}`
+      byeByPos.set(key, (byeByPos.get(key) || 0) + 1)
+    }
+    for (const [key, count] of byeByPos) {
+      if (count < 2) continue
+      const [pos, bye] = key.split(':')
+      tips.push({
+        id: hashId(`bye-${key}`),
+        type: 'bye_cluster',
+        severity: 'warn',
+        text: `${count} deiner ${pos} haben Bye in Woche ${bye}. In dieser Woche wird es dünn — bei weiteren ${pos} auf eine andere Bye achten.`,
+        pos,
+        _features: { count, bye: Number(bye) },
+      })
+    }
+
     // Strategy nudges (cheap & clear, used by prioritizer via _features)
-    if (preferZeroRB) tips.push({ id: 'strategy-zero-rb', type: 'strategy', severity: 'info', text: 'Strategy active: Zero RB — lean WR/TE early; take RB discounts later.' })
-    if (preferHeroRB) tips.push({ id: 'strategy-hero-rb', type: 'strategy', severity: 'info', text: 'Strategy active: Hero RB — anchor RB early, then pivot to WR/TE.' })
-    if (preferEliteTE) tips.push({ id: 'strategy-elite-te', type: 'strategy', severity: 'info', text: 'Strategy active: Elite TE — take a top TE if tier is about to drop; otherwise punt.' })
-    if (preferQBearly) tips.push({ id: 'strategy-qb-early-sf', type: 'strategy', severity: 'info', text: 'Strategy active: Early QB (SF) — prioritize securing two starters.' })
+    if (preferZeroRB) tips.push({ id: 'strategy-zero-rb', type: 'strategy', severity: 'info', text: 'Strategie aktiv: Zero RB — früh WR/TE, RB-Schnäppchen später.' })
+    if (preferHeroRB) tips.push({ id: 'strategy-hero-rb', type: 'strategy', severity: 'info', text: 'Strategie aktiv: Hero RB — ein RB früh als Anker, danach WR/TE.' })
+    if (preferEliteTE) tips.push({ id: 'strategy-elite-te', type: 'strategy', severity: 'info', text: 'Strategie aktiv: Elite TE — Top-TE nehmen, wenn das Tier kippt; sonst punten.' })
+    if (preferQBearly) tips.push({ id: 'strategy-qb-early-sf', type: 'strategy', severity: 'info', text: 'Strategie aktiv: Früher QB (SF) — zwei Starter sichern hat Vorrang.' })
 
     return tips
-  }, [enabled, JSON.stringify(picks), JSON.stringify(boardPlayers), meUserId, teamsCount, JSON.stringify(rosterPositions), JSON.stringify(scoringSettings), scoringType, draftType, JSON.stringify(strategies), draftSlot])
+  }, [enabled, JSON.stringify(picks), JSON.stringify(boardPlayers), meUserId, teamsCount, JSON.stringify(rosterPositions), JSON.stringify(scoringSettings), scoringType, draftType, JSON.stringify(strategies), draftSlot, draftRounds])
 }

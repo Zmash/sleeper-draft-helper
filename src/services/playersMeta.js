@@ -4,6 +4,8 @@ import { SLEEPER_API_BASE, fetchJson } from './api'
 const CACHE_KEY = 'sdh.playersMeta.v2'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
+// Sleeper liefert kein ADP und keine bye_week (verifiziert 2026-07-16: 0 von
+// 3221 aktiven Spielern). ADP kommt aus /api/rankings/ffc-adp, Bye ebenfalls.
 const SLIM_KEYS = [
   'player_id',
   'full_name',
@@ -13,8 +15,6 @@ const SLIM_KEYS = [
   'position',
   'fantasy_positions',
   'bye_week',
-  'adp_ppr',
-  'adp',
   'injury_status',
   'age',
 ]
