@@ -61,13 +61,18 @@ function matchAsset(assetStr, assets) {
   return null
 }
 
-export function validateTradeSuggestions(parsed, { myAssets, opponentAssetsByName }) {
+export function validateTradeSuggestions(parsed, { myAssets, opponentAssetsByName } = {}) {
   const warnings = []
   if (!parsed) return { cleaned: null, warnings: ['Die AI-Antwort war leer.'] }
 
+  // Guard-Schicht im Render-Pfad: ein gebrochener Vertrag des Aufrufers (fehlende
+  // Gegner-Map) darf die UI nicht mit einem TypeError reissen. Fehlt die Map, ist
+  // kein you_get gegen echte Daten pruefbar — dann faellt jeder Vorschlag ueber den
+  // „Team unbekannt"-Pfad sauber durch, statt ungeprueft als gueltig zu gelten.
+  const oppByName = opponentAssetsByName || new Map()
   const suggestions = []
   for (const s of parsed.suggestions || []) {
-    const opp = opponentAssetsByName.get(String(s.opponent || '').toLowerCase())
+    const opp = oppByName.get(String(s.opponent || '').toLowerCase())
     if (!opp) {
       warnings.push(`Vorschlag gegen „${s.opponent}" aussortiert — Team unbekannt.`)
       continue

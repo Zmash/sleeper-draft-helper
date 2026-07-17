@@ -214,4 +214,20 @@ describe('validateTradeSuggestions — Suffixe & robuste Eingaben', () => {
     expect(cleaned.suggestions).toEqual([])
     expect(warnings).toEqual([])
   })
+
+  it('wirft nicht, wenn opponentAssetsByName fehlt, aber Vorschlaege da sind — verwirft sie', () => {
+    // Ohne Gegner-Assets ist kein you_get gegen echte Daten pruefbar: verwerfen,
+    // nicht ungeprueft als gueltig durchreichen (leere Map != „alles erfunden ok").
+    const parsed = { suggestions: [{ opponent: 'Team Blitz', you_give: ['Bijan Robinson'], you_get: ['Puka Nacua'], rationale: 'r' }] }
+    const { cleaned, warnings } = validateTradeSuggestions(parsed, { myAssets: undefined, opponentAssetsByName: undefined })
+    expect(cleaned.suggestions).toEqual([])
+    expect(warnings.length).toBeGreaterThan(0)
+  })
+
+  it('wirft nicht, wenn das Options-Argument ganz fehlt', () => {
+    const parsed = { suggestions: [{ opponent: 'Team Blitz', you_give: ['Bijan Robinson'], you_get: ['Puka Nacua'], rationale: 'r' }] }
+    const { cleaned, warnings } = validateTradeSuggestions(parsed)
+    expect(cleaned.suggestions).toEqual([])
+    expect(warnings.length).toBeGreaterThan(0)
+  })
 })
