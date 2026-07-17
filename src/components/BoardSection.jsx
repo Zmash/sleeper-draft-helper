@@ -16,6 +16,10 @@ import { getTeamsCount } from '../services/derive'
 import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer"
 import { exportBoardAsCsv } from '../services/csv'
 import { deriveFormat } from '../services/draftFormat'
+import { validateAdvice } from '../services/aiValidate'
+import { formatEstimate } from '../services/aiCost'
+import { opponentsUntilMyNext } from '../services/draftFlow'
+import { isAdviceButtonDisabled } from '../services/boardGate'
 
 const DEBUG_AI = false
 
@@ -48,6 +52,8 @@ export default function BoardSection({
   myDraftPicks = [],
   dynastyRoster = [],
   onBoardReorder,
+  draftSlot = null,
+  tips,
 }) {
   const navigate = useNavigate()
   const { marketMeta, boardSource, refreshMarketData } = useBoardStore()
@@ -66,7 +72,9 @@ export default function BoardSection({
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [advice, setAdvice] = useState(null)
   const [adviceError, setAdviceError] = useState(null)
-  const [streamingText, setStreamingText] = useState('')
+  const [adviceWarnings, setAdviceWarnings] = useState([])
+  const [adviceUsage, setAdviceUsage] = useState(null)
+  const [adviceModel, setAdviceModel] = useState('')
 
   const [keyDialogOpen, setKeyDialogOpen] = useState(false)
   const [keyValidating, setKeyValidating] = useState(false)
@@ -101,6 +109,33 @@ export default function BoardSection({
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
+  // Kostenschaetzung am Button -- nur wenn der Button ueberhaupt sichtbar ist
+  // (hasBoard) neu berechnen, nicht bei jedem Render.
+  const adviceEstimate = useMemo(() => {
+    if (!hasBoard) return ''
+    try {
+      return formatEstimate(buildAIAdviceRequest({
+        boardPlayers, livePicks, me: meUserId || '', league: league || {},
+        draft: draft || null, currentPickNumber, draftSlot, tips,
+        scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
+        rosterPositions, draftMode, dynastyRoster, myDraftPicks, options: {},
+      }), 'claude-sonnet-5')
+    } catch { return '' }
+  }, [boardPlayers, livePicks, currentPickNumber, draftMode])
+
+  // Deterministische Quelle fuer "wann bin ich wieder dran": aus dem echten
+  // Draft-Zustand berechnet (Task 3), nicht aus dem (moeglicherweise
+  // halluzinierten) plan_next_picks-Feld der AI-Antwort.
+  const myNextPick = useMemo(
+    () => opponentsUntilMyNext({
+      picks: livePicks, teamsCount, mySlot: draftSlot,
+      upcomingPick: (currentPickNumber ?? 0) + 1, rosterPositions,
+    })?.my_next_pick ?? null,
+    [livePicks, teamsCount, draftSlot, currentPickNumber]
+  )
+
+  const adviceButtonDisabled = isAdviceButtonDisabled({ draft, livePicks })
+
   // ---------- AI Advice ----------
 
   async function handleAskAI() {
@@ -120,7 +155,9 @@ export default function BoardSection({
       setAdviceError(null)
       setAdvice(null)
       setAdviceDebug(null)
-      setStreamingText('')
+      setAdviceWarnings([])
+      setAdviceUsage(null)
+      setAdviceModel('')
 
       const payload = buildAIAdviceRequest({
         boardPlayers: boardPlayers || [],
@@ -134,9 +171,9 @@ export default function BoardSection({
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
         customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
         playerPreferences: playerPrefs || {},
-        options: { topNOverall: 60, topPerPos: 20, temperature: 0.2 },
-        favBonus: 6,
-        avoidPenalty: 10,
+        draftSlot,
+        tips,
+        options: { topNOverall: 60, topPerPos: 20, temperature: 0.2, favBonus: 6, avoidPenalty: 10 },
         draftMode,
         dynastyRoster,
         myDraftPicks,
@@ -194,11 +231,18 @@ export default function BoardSection({
           let data
           try { data = JSON.parse(dataLine.slice(6)) } catch { continue }
 
-          if (eventType === 'text') {
-            setStreamingText(prev => prev + data.text)
-          } else if (eventType === 'result') {
+          if (eventType === 'result') {
             if (!data.ok) throw new Error(data.message || 'AI error')
-            setAdvice(data.parsed || null)
+            const availableNnames = new Set(
+              (boardPlayers || [])
+                .filter(p => !p.status)
+                .map(p => String(p.nname || '').trim().toLowerCase())
+            )
+            const { cleaned, warnings } = validateAdvice(data.parsed, availableNnames)
+            setAdvice(cleaned)
+            setAdviceWarnings(warnings)
+            setAdviceUsage(data.usage || null)
+            setAdviceModel(data.model || '')
             setAdviceDebug({
               request: requestSummary,
               request_payload: payload,
@@ -375,9 +419,15 @@ export default function BoardSection({
         />
 
         <div className="btn-group-compact">
-          <button onClick={handleAskAI} className="btn-compact" title="AI-Empfehlung für den nächsten Pick">
+          <button
+            onClick={handleAskAI}
+            className="btn-compact"
+            disabled={adviceButtonDisabled}
+            title={adviceButtonDisabled ? 'Picks werden geladen — gleich verfügbar' : 'AI-Empfehlung für den nächsten Pick'}
+          >
             <Icon name="bot" size={15} /> AI-Advice
           </button>
+          {adviceEstimate && <span className="muted text-xs">{adviceEstimate}</span>}
           <button
             onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
             className="btn-compact"
@@ -489,7 +539,10 @@ export default function BoardSection({
         advice={advice}
         error={adviceError}
         debug={adviceDebug}
-        streamingText={streamingText}
+        warnings={adviceWarnings}
+        usage={adviceUsage}
+        model={adviceModel}
+        myNextPick={myNextPick}
       />
 
       <ApiKeyDialog

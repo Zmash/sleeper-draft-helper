@@ -310,7 +310,7 @@ export default function App() {
   }, [selectedDraftId]) // eslint-disable-line
 
   // ── Shared page props ──────────────────────────────────────────────────────
-  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source }
+  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source, draftSlot, tips }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
