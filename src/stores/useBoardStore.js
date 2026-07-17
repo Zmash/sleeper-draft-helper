@@ -34,7 +34,11 @@ export const useBoardStore = create(
       enriching: false,
       marketMeta: null,          // { source, format, total_drafts, end_date, fetched_at }
       lastImportStats: null,     // { total, withAdp, withoutAdp, unmatchedNames }
-      lastBoardSnapshot: null,   // Ein Level Undo — bewusst nicht persistiert
+      // Ein Level Undo — bewusst nicht persistiert. Haelt neben boardPlayers auch
+      // boardSource/marketMeta fest: die Herkunfts-Zeile liest diese direkt aus dem
+      // Store, und ein Undo, das nur boardPlayers zurueckdreht, wuerde sie luegen
+      // lassen (z. B. "FantasyCalc" fuer ein Board, das wieder CSV ist).
+      lastBoardSnapshot: null,
       // Herkunft des AKTUELLEN Boards: 'csv' | 'market' | null. Haengt bewusst nicht an
       // csvRawText (das aendert sich bei jedem Tastendruck im Setup-Feld, auch ohne dass
       // ein CSV-Import stattfand) — sonst luegt die Herkunfts-Zeile, sobald jemand nur
@@ -68,7 +72,7 @@ export const useBoardStore = create(
       },
 
       handleKtcRookieImport: async () => {
-        const { boardPlayers } = get()
+        const { boardPlayers, boardSource, marketMeta } = get()
         if (boardPlayers.length) {
           const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
           if (!ok) return false
@@ -84,19 +88,26 @@ export const useBoardStore = create(
           pick_no: null,
           picked_by: null,
         }))
-        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: boardPlayers.length ? boardPlayers : null, boardSource: 'market' })
+        // Snapshot sichert die Herkunft des Boards VOR diesem Import mit (siehe
+        // Kommentar bei lastBoardSnapshot oben) — sonst luegt die Herkunfts-Zeile
+        // nach einem Undo.
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
+        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market' })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
       },
 
       handleAutoImport: async ({ isSuperflex, effScoringType, numTeams, draftMode = 'redraft', force = false } = {}) => {
-        const { boardPlayers } = get()
+        const { boardPlayers, boardSource, marketMeta } = get()
         if (boardPlayers.length && !force) {
           // Bestaetigung liegt beim Aufrufer (Modal, Task 8) — der Store fragt nicht.
           return { ok: false, needsConfirm: true }
         }
-        const snapshot = boardPlayers.length ? boardPlayers : null
+        // Snapshot sichert die Herkunft des Boards VOR diesem Import mit (siehe
+        // Kommentar bei lastBoardSnapshot oben) — sonst luegt die Herkunfts-Zeile
+        // nach einem Undo.
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
         const numQbs = isSuperflex ? 2 : 1
         const pprVal = effScoringType === 'ppr' ? 1 : effScoringType === 'half_ppr' ? 0.5 : 0
         const isDynasty = draftMode === 'rookie'
@@ -164,7 +175,11 @@ export const useBoardStore = create(
       undoImport: () => {
         const { lastBoardSnapshot } = get()
         if (!lastBoardSnapshot) return false
-        set({ boardPlayers: lastBoardSnapshot, lastBoardSnapshot: null, lastImportStats: null })
+        // boardSource/marketMeta gehoeren zum Snapshot, nicht nur boardPlayers —
+        // sonst behauptet die Herkunfts-Zeile nach dem Undo weiter die Herkunft
+        // des rueckgaengig gemachten Imports (siehe Kommentar bei lastBoardSnapshot).
+        const { boardPlayers, boardSource, marketMeta } = lastBoardSnapshot
+        set({ boardPlayers, boardSource, marketMeta, lastBoardSnapshot: null, lastImportStats: null })
         return true
       },
 

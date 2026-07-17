@@ -197,6 +197,25 @@ describe('undoImport', () => {
     expect(useBoardStore.getState().undoImport()).toBe(false)
   })
 
+  // Die Herkunfts-Zeile ("Die Zeile luegt nie") liest boardSource/marketMeta direkt
+  // aus dem Store. Undo darf nur boardPlayers wiederherstellen, wenn es auch
+  // boardSource/marketMeta mit zurueckdreht — sonst behauptet die Zeile nach einem
+  // Undo weiterhin FantasyCalc-Marktdaten fuer ein Board, das wieder CSV ist.
+  it('stellt boardSource und marketMeta zusammen mit boardPlayers wieder her', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC, 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Handsortiert', nname: 'handsortiert', rk: '1' }])
+    useBoardStore.getState().setBoardSource('csv')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft', force: true,
+    })
+    expect(useBoardStore.getState().boardSource).toBe('market')
+    expect(useBoardStore.getState().marketMeta).not.toBeNull()
+    expect(useBoardStore.getState().undoImport()).toBe(true)
+    expect(useBoardStore.getState().boardSource).toBe('csv')
+    expect(useBoardStore.getState().marketMeta).toBeNull()
+  })
+
   it('der Snapshot wird nicht persistiert', async () => {
     const { useBoardStore } = await import('./useBoardStore')
     useBoardStore.getState().setBoardPlayers([{ name: 'A', nname: 'a', rk: '1' }])
