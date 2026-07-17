@@ -3,6 +3,7 @@
 // Output format: { system, messages, tools, tool_choice, max_tokens, temperature }
 
 import { normalizePlayerName, normalizePos } from '../utils/formatting'
+import { detectRuns, opponentsUntilMyNext } from './draftFlow'
 
 // ---------- Pure helpers ----------
 
@@ -82,6 +83,9 @@ function minifyBoardPlayer(p, isRookie = false) {
   // ecrVsAdp traegt es nur beim CSV-Import — ohne adp beriet die AI auf einem
   // Markt-Board voellig ohne Marktbezug. null heisst "kein Marktwert", nicht 0.
   if (p.adp != null) base.adp = p.adp
+  if (p.high != null) base.high = p.high
+  if (p.low != null) base.low = p.low
+  if (p.stdev != null) base.stdev = p.stdev
   // Das Feld heisst historisch dynasty_value, traegt im Redraft aber den
   // FantasyCalc-Redraft-Wert (isDynasty=false). Unter dem alten Namen schrieb
   // die AI woertlich "elite dynasty value" ueber einen Redraft-Mock.
@@ -152,7 +156,7 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
 
 // ---------- Context builder ----------
 
-function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType }) {
+function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType, draftSlot, tips }) {
   const { topNOverall = 40, topPerPos = 10 } = options
 
   const pickedByName = new Set(
@@ -211,13 +215,30 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
     ? currentPickNumber + 1
     : null
 
+  const teamsForMath = league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null
+  const draftType = String(draft?.type || 'snake').toLowerCase()
+  const isSnake = draftType === 'snake'
+  // draftSlot (aus App.jsx) schlaegt die Pick-Ableitung — die kennt den Slot
+  // erst nach dem ersten eigenen Pick.
+  const mySlot = draftSlot != null ? Number(draftSlot) : inferMySlot({ draft, livePicks, me })
+
+  const opponents = isSnake
+    ? opponentsUntilMyNext({
+        picks: livePicks, teamsCount: teamsForMath, mySlot,
+        upcomingPick, rosterPositions: league?.roster_positions || [],
+      })
+    : null
+
   const draftContext = {
     upcoming_pick_number: upcomingPick,
     completed_picks: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
+    my_slot: mySlot,
+    my_next_pick_number: opponents?.my_next_pick ?? null,
+    picks_until_my_next: opponents && upcomingPick != null ? opponents.my_next_pick - upcomingPick : null,
+    draft_type: draftType,
+    is_snake: isSnake,
     rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
-    teams: league?.total_rosters ?? null,
-    slot: inferMySlot({ draft, livePicks, me }),
-    is_snake: true,
+    teams: teamsForMath,
   }
 
   const handcuffOpps = isRookie ? [] : findHandcuffs({ myRoster, available })
@@ -248,10 +269,21 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
       ...draftContext,
       ...(myPicksInDraft ? { my_picks: myPicksInDraft } : {}),
     },
+    draft_flow: detectRuns(livePicks),
+    ...(opponents ? { opponents_before_my_next: opponents } : {}),
     me: { user_id: me },
     my_team: {
       picks: myRoster,
       position_counts: myCounts,
+      bye_weeks: (() => {
+        const byes = {}
+        for (const p of boardPlayers || []) {
+          if (p?.status !== 'me' || p?.bye == null) continue
+          const b = Number(p.bye)
+          if (Number.isFinite(b)) byes[b] = (byes[b] || 0) + 1
+        }
+        return byes
+      })(),
       ...(existingRosterCounts ? { existing_dynasty_roster_counts: existingRosterCounts } : {}),
     },
     board: { overall_top: topOverall, by_position: topByPosition },
@@ -263,6 +295,9 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
       avoid_nnames: Array.from(pickedByName),
     },
     ...(handcuffOpps.length > 0 ? { handcuff_opportunities: handcuffOpps } : {}),
+    ...(Array.isArray(tips) && tips.length
+      ? { tips_signals: tips.slice(0, 7).map(t => ({ type: t.type, text: t.text })) }
+      : {}),
     timestamp_iso: new Date().toISOString(),
   }
 }
@@ -384,10 +419,12 @@ export function buildAIAdviceRequest(params) {
     isSuperflex,
     customStrategyText,
     playerPreferences = {},
+    draftSlot = null,
+    tips,
   } = params || {}
 
   const { draftMode, dynastyRoster, myDraftPicks } = params || {}
-  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType })
+  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType, draftSlot, tips })
 
   context.format = {
     scoring_type:
@@ -418,8 +455,10 @@ export function buildAIAdviceRequest(params) {
     favorites_nnames: favorites,
     avoids_nnames: avoids,
     weights: {
-      fav_bonus: Number.isFinite(options.favBonus) ? options.favBonus : 5,
-      avoid_penalty: Number.isFinite(options.avoidPenalty) ? options.avoidPenalty : 8,
+      fav_bonus: Number.isFinite(options.favBonus) ? options.favBonus
+        : Number.isFinite(params?.favBonus) ? params.favBonus : 5,
+      avoid_penalty: Number.isFinite(options.avoidPenalty) ? options.avoidPenalty
+        : Number.isFinite(params?.avoidPenalty) ? params.avoidPenalty : 8,
     },
   }
 
