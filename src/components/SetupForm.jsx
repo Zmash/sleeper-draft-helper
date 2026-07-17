@@ -413,8 +413,8 @@ export default function SetupForm(props) {
             {draftMode !== 'rookie' && (
               <div className="form-row">
                 <label className="field">
-                  <span>Auto-Import (FantasyCalc)</span>
-                  <div className="muted text-xs mb-1">Holt Dynasty-Rankings automatisch von FantasyCalc – kein CSV nötig.</div>
+                  <span>Auto-Import (FantasyCalc + FFC)</span>
+                  <div className="muted text-xs mb-1">Rangliste von FantasyCalc, ADP &amp; Byes von Fantasy Football Calculator – kein CSV nötig.</div>
                   <button
                     className="btn btn-primary control"
                     disabled={busyAutoImport}
