@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { buildDraftReviewContext, buildDraftReviewPayload } from './aiDraftReviewClient'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { buildDraftReviewContext, buildDraftReviewPayload, callAiDraftReview } from './aiDraftReviewClient'
 
 const baseCtxArgs = {
   league: { league_id: 'l1', name: 'Test', total_rosters: 10, roster_positions: ['QB','RB'], scoring_settings: { rec: 0 }, draft_order: { u1: 1 } },
@@ -35,5 +35,43 @@ describe('buildDraftReviewPayload — Format statt Raten', () => {
     const p = buildDraftReviewPayload({ draft_mode: 'redraft' }, { format: { scoringType: 'ppr', teams: 12, isSuperflex: true } })
     expect(p.messages[0].content).toMatch(/lessonsForNextMock/)
     expect(p.messages[0].content).not.toMatch(/myWeek1StartSit/)
+  })
+})
+
+describe('callAiDraftReview — usage/model aus dem result-Event', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.removeItem('sdh_api_key')
+  })
+
+  it('gibt { parsed, usage, model } zurueck, nicht mehr nur parsed', async () => {
+    localStorage.setItem('sdh_api_key', 'test-key')
+    const eventPayload = {
+      ok: true,
+      parsed: { overallSummary: 'x' },
+      usage: { input_tokens: 12, output_tokens: 3 },
+      model: 'claude-sonnet-5',
+    }
+    const sse = `event: result\ndata: ${JSON.stringify(eventPayload)}\n\n`
+    const bytes = new TextEncoder().encode(sse)
+    let sent = false
+    const reader = {
+      read: async () => {
+        if (sent) return { done: true, value: undefined }
+        sent = true
+        return { done: false, value: bytes }
+      },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const result = await callAiDraftReview({ system: 's', messages: [] })
+    expect(result).toEqual({
+      parsed: { overallSummary: 'x' },
+      usage: { input_tokens: 12, output_tokens: 3 },
+      model: 'claude-sonnet-5',
+    })
   })
 })

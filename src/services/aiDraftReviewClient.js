@@ -105,6 +105,8 @@ async function readSSEResult(response) {
   const decoder = new TextDecoder()
   let buffer = ''
   let result = null
+  let lastUsage = null
+  let lastModel = null
   let lastError = null
 
   while (true) {
@@ -128,7 +130,11 @@ async function readSSEResult(response) {
 
       if (eventType === 'result') {
         if (!data.ok) lastError = data.error || data.message || 'Review failed'
-        else result = data.parsed
+        else {
+          result = data.parsed
+          lastUsage = data.usage || null
+          lastModel = data.model || null
+        }
       } else if (eventType === 'error') {
         lastError = data.message || 'AI error'
       }
@@ -137,11 +143,11 @@ async function readSSEResult(response) {
 
   if (lastError) throw new Error(lastError)
   if (!result) throw new Error('No result received from AI')
-  return result
+  return { parsed: result, usage: lastUsage, model: lastModel }
 }
 
 /**
- * Calls /api/ai-draft-review and returns the parsed review object.
+ * Calls /api/ai-draft-review and returns { parsed, usage, model }.
  */
 export async function callAiDraftReview(payload) {
   const key = getOpenAIKey()

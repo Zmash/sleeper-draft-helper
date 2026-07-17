@@ -2322,3 +2322,21 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 .advice-usage { margin-top: 10px; font-size: 0.8rem; }
+
+/* =========================================================
+   DRAFT REVIEW — Start-Button + Learnings-Sektion
+   ========================================================= */
+.review-start { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+
+.review-lessons { margin-top: 0.25rem; }
+.review-lessons h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.review-lessons ul { margin: 0; padding-left: 18px; }
+.review-lessons li { margin-bottom: 8px; }
+.review-lessons li:last-child { margin-bottom: 0; }
