@@ -31,15 +31,19 @@ Two independently-runnable pieces:
 1. **React 18 + Vite SPA** (`src/`, everything except `src/server/`). Talks directly to the public **Sleeper API** (`https://api.sleeper.app/v1`, see `src/services/api.js`) for all league/draft/pick data — no backend needed for core draft tracking.
 2. **Express 5 AI proxy** (`src/server/`). Exists so the user's Anthropic key and web-scraping live server-side. The client calls it under `/api/*`; Vite proxies `/api` → `127.0.0.1:5175` in dev.
 
-### Dev vs. prod server split (keep in sync)
+### Server-Routen: eine Quelle
 
-`src/server/index.js` (dev, port **5175**) and `src/server/prod.js` (prod, port **8080**, also serves the static `dist/` build) are **near-duplicate files**. They define the same endpoints and the same Anthropic tool schemas. **Any change to an AI endpoint or tool schema must be applied to both files.** Endpoints:
+`src/server/apiRoutes.js` enthält **alle** `/api/*`-Routen (Rankings, validate-key,
+ai-advice, ai-draft-review, ai-trade) samt Tool-Schemas. `index.js` (dev, Port 5175,
+CORS) und `prod.js` (prod, Port 8080, serviert `dist/`) sind dünne Entrypoints, die
+`registerApiRoutes(app, { model })` aufrufen. **Endpoint-Änderungen passieren nur
+noch in `apiRoutes.js`.** AI-Modell-Default: `claude-sonnet-5` (`SDH_MODEL` überschreibt).
 
 - `GET /api/rankings/{fantasycalc,ktc-dynasty,ktc-rookies}` — fetch/scrape third-party rankings (uses `cheerio`).
 - `POST /api/validate-key` — validates the Anthropic key (uses `claude-haiku-4-5-20251001`).
 - `POST /api/ai-advice`, `POST /api/ai-draft-review`, `POST /api/ai-trade` — all return **SSE streams** with `event: text | result | error`.
 
-AI model defaults to `claude-sonnet-4-6`, overridable via the `SDH_MODEL` env var. The user's key travels in the `X-Anthropic-Key` header and is stored only in browser localStorage under `sdh_api_key` (`src/services/key.js`). Payloads are Anthropic-native (top-level `system`, tools as `{name, description, input_schema}`, forced `tool_choice`).
+The user's key travels in the `X-Anthropic-Key` header and is stored only in browser localStorage under `sdh_api_key` (`src/services/key.js`). Payloads are Anthropic-native (top-level `system`, tools as `{name, description, input_schema}`, forced `tool_choice`).
 
 ### State: split Zustand stores
 
