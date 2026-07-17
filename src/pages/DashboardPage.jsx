@@ -150,11 +150,18 @@ export default function DashboardPage() {
 
   if (!loading && !cards.length && sleeperUserId && !availableLeagues?.length) {
     return (
-      <section className="card dashboard-empty">
-        <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
-        <h2>Keine Ligen geladen</h2>
-        <p className="muted">Lade deine Ligen im Setup.</p>
-        <button className="btn btn-primary" onClick={goToAdd}>Setup öffnen</button>
+      <section className="dashboard">
+        <div className="card dashboard-empty">
+          <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
+          <h2>Keine Ligen geladen</h2>
+          <p className="muted">Lade deine Ligen im Setup — oder häng direkt einen Mock-Draft an.</p>
+          <button className="btn btn-primary" onClick={goToAdd}>Setup öffnen</button>
+        </div>
+        {/* Ohne Liga ist der Mock der einzige Weg ins Board. Die Karte gehoert
+            deshalb gerade hier hin und nicht nur in die gefuellte Ansicht. */}
+        <div className="dashboard-grid">
+          <MockDraftCard />
+        </div>
       </section>
     )
   }
