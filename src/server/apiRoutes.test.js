@@ -30,6 +30,16 @@ describe('apiRoutes — Modul-Vertrag', () => {
   })
 })
 
+describe('REVIEW_TOOL — Learnings statt Week-1', () => {
+  it('verlangt lessonsForNextMock und kennt kein myWeek1StartSit mehr', () => {
+    const props = REVIEW_TOOL.input_schema.properties
+    expect(props.myWeek1StartSit).toBeUndefined()
+    expect(props.lessonsForNextMock.items.required).toEqual(['lesson', 'evidence'])
+    expect(REVIEW_TOOL.input_schema.required).toContain('lessonsForNextMock')
+    expect(REVIEW_TOOL.input_schema.required).not.toContain('myWeek1StartSit')
+  })
+})
+
 describe('applyPromptCaching', () => {
   it('macht aus String-system einen gecachten Text-Block', () => {
     const out = applyPromptCaching({ system: 'Du bist Analyst.', messages: [] })

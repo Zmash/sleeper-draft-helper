@@ -22,7 +22,7 @@ function sendSSE(res, event, data) {
 // ---------- Review Tool Schema (Anthropic format) ----------
 export const REVIEW_TOOL = {
   name: 'return_draft_review',
-  description: 'Final draft review with rankings, one-liners, global summary, deep dive for the user, steals/reaches and week-1 start/sit for the user team.',
+  description: 'Final draft review with rankings, one-liners, global summary, deep dive for the user, steals/reaches and learnings for the next mock draft.',
   input_schema: {
     type: 'object',
     properties: {
@@ -94,18 +94,20 @@ export const REVIEW_TOOL = {
           required: ['pick_no', 'player', 'teamId', 'displayName', 'rationale'],
         },
       },
-      myWeek1StartSit: {
-        type: 'object',
-        description: 'Week-1 Start/Sit preview for the user team only.',
-        properties: {
-          starters: { type: 'array', items: { type: 'string' } },
-          sits: { type: 'array', items: { type: 'string' } },
-          notes: { type: 'string' },
+      lessonsForNextMock: {
+        type: 'array', minItems: 2, maxItems: 4,
+        description: 'Konkrete, belegbare Learnings fuer den naechsten Mock-Draft des Nutzers.',
+        items: {
+          type: 'object',
+          properties: {
+            lesson:   { type: 'string', description: 'Das Learning, Deutsch (du-Form), handlungsleitend formuliert' },
+            evidence: { type: 'string', description: 'Beleg mit konkreten Picks/Raengen aus dem Kontext (z. B. "Picks 28 und 52 je >6 Plaetze ueber ADP")' },
+          },
+          required: ['lesson', 'evidence'],
         },
-        required: ['starters', 'sits', 'notes'],
       },
     },
-    required: ['overallRankings', 'teamOneLiners', 'overallSummary', 'myTeamDeepDive', 'steals', 'reaches', 'myWeek1StartSit'],
+    required: ['overallRankings', 'teamOneLiners', 'overallSummary', 'myTeamDeepDive', 'steals', 'reaches', 'lessonsForNextMock'],
   },
 }
 
