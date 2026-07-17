@@ -119,7 +119,14 @@ export default function BoardTable({
               {hasAdp          && <th className="col-delta" title="ADP minus Rang — positiv heisst, er faellt dir zu">Δ ADP</th>}
               {hasBye          && <th className="col-bye">Bye</th>}
               {hasSos          && <th className="col-sos">SOS</th>}
-              {hasDynastyValue && <th className="col-dyn" title="Dynasty Value">Dyn.Val</th>}
+              {/* Das Feld heisst historisch dynasty_value, traegt im Redraft aber den
+                  FantasyCalc-Redraft-Wert (isDynasty=false). "Dyn.Val" waere dort schlicht
+                  gelogen — der Kopf richtet sich deshalb nach dem Modus, nicht nach dem Feldnamen. */}
+              {hasDynastyValue && (
+                <th className="col-dyn" title={isRookie ? 'Dynasty-Wert (FantasyCalc)' : 'Marktwert (FantasyCalc)'}>
+                  {isRookie ? 'Dyn.Val' : 'Wert'}
+                </th>
+              )}
               <th className="col-pick">Pick</th>
             </tr>
           </thead>
