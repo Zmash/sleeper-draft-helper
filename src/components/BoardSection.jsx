@@ -93,7 +93,11 @@ export default function BoardSection({
   const fileRef = useRef(null)
   const [status, setStatus] = useState('')
 
-  const rosterPositions = deriveFormat({ draft, league, overrides: setupOverrides }).rosterPositions
+  // Das ganze Format, nicht nur der Kader: scoringType und isSuperflex gingen
+  // hier verloren, sodass die AI beim Mock immer den PPR-Default und "1 QB"
+  // beschrieben bekam — und Setup-Overrides gar nicht sah.
+  const draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
+  const { rosterPositions } = draftFormat
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
@@ -123,6 +127,9 @@ export default function BoardSection({
         livePicks: livePicks || [],
         me: meUserId || '',
         league: { ...(league || {}), roster_positions: rosterPositions, total_rosters: teamsCount },
+        scoringType: draftFormat.scoringType,
+        isSuperflex: draftFormat.isSuperflex,
+        rosterPositions,
         draft: draft || null,
         currentPickNumber: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
         customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
