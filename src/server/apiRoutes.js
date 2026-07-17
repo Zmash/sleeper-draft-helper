@@ -109,6 +109,22 @@ export const REVIEW_TOOL = {
   },
 }
 
+// Statische Payload-Teile (System-Prompt, Tool-Schemas) fuer Anthropic-Prompt-Caching
+// markieren. Greift erst ab ~1024 Token Praefix — darunter passiert schlicht nichts,
+// das ist KEIN Fehlerfall. Cache-TTL ~5 min, passt zum Advice-Rhythmus im Draft.
+export function applyPromptCaching(payload = {}) {
+  const out = { ...payload }
+  if (typeof out.system === 'string' && out.system) {
+    out.system = [{ type: 'text', text: out.system, cache_control: { type: 'ephemeral' } }]
+  }
+  if (Array.isArray(out.tools) && out.tools.length) {
+    out.tools = out.tools.map((t, i, arr) =>
+      i === arr.length - 1 ? { ...t, cache_control: { type: 'ephemeral' } } : t
+    )
+  }
+  return out
+}
+
 export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   const MODEL = model
 
@@ -326,15 +342,16 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     setSSEHeaders(res)
 
     try {
+      const p = applyPromptCaching(payload)
       const client = new Anthropic({ apiKey: userKey })
       const stream = client.messages.stream({
         model: MODEL,
-        max_tokens: payload.max_tokens || 1024,
-        temperature: payload.temperature ?? 0.2,
-        ...(payload.system ? { system: payload.system } : {}),
-        messages: payload.messages,
-        tools: Array.isArray(payload.tools) ? payload.tools : [],
-        tool_choice: payload.tool_choice || { type: 'auto' },
+        max_tokens: p.max_tokens || 1024,
+        temperature: p.temperature ?? 0.2,
+        ...(p.system ? { system: p.system } : {}),
+        messages: p.messages,
+        tools: Array.isArray(p.tools) ? p.tools : [],
+        tool_choice: p.tool_choice || { type: 'auto' },
       })
 
       const finalMessage = await stream.finalMessage()
@@ -369,14 +386,15 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     setSSEHeaders(res)
 
     try {
+      const p = applyPromptCaching({ ...payload, tools: [REVIEW_TOOL] })
       const client = new Anthropic({ apiKey: userKey })
       const stream = client.messages.stream({
         model: MODEL,
-        max_tokens: payload.max_tokens || 4096,
-        temperature: payload.temperature ?? 0.3,
-        ...(payload.system ? { system: payload.system } : {}),
-        messages: payload.messages,
-        tools: [REVIEW_TOOL],
+        max_tokens: p.max_tokens || 4096,
+        temperature: p.temperature ?? 0.3,
+        ...(p.system ? { system: p.system } : {}),
+        messages: p.messages,
+        tools: p.tools,
         tool_choice: { type: 'tool', name: 'return_draft_review' },
       })
 
@@ -413,19 +431,20 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     setSSEHeaders(res)
 
     try {
+      const p = applyPromptCaching(payload)
       const client = new Anthropic({ apiKey: userKey })
       const stream = client.messages.stream({
         model: MODEL,
-        max_tokens: payload.max_tokens || 1400,
-        temperature: payload.temperature ?? 0.25,
-        ...(payload.system ? { system: payload.system } : {}),
-        messages: payload.messages,
-        tools: Array.isArray(payload.tools) ? payload.tools : [],
-        tool_choice: payload.tool_choice || { type: 'auto' },
+        max_tokens: p.max_tokens || 1400,
+        temperature: p.temperature ?? 0.25,
+        ...(p.system ? { system: p.system } : {}),
+        messages: p.messages,
+        tools: Array.isArray(p.tools) ? p.tools : [],
+        tool_choice: p.tool_choice || { type: 'auto' },
       })
 
       const finalMessage = await stream.finalMessage()
-      const expectedTool = payload.tool_choice?.name || 'return_trade_analysis'
+      const expectedTool = p.tool_choice?.name || 'return_trade_analysis'
       const toolBlock = (finalMessage.content || []).find(
         b => b.type === 'tool_use' && b.name === expectedTool
       )

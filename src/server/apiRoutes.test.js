@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL } from './apiRoutes.js'
+import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
 
 describe('apiRoutes — Modul-Vertrag', () => {
   it('exportiert registerApiRoutes als Funktion', () => {
@@ -27,5 +27,32 @@ describe('apiRoutes — Modul-Vertrag', () => {
 
   it('REVIEW_TOOL ist das Draft-Review-Schema', () => {
     expect(REVIEW_TOOL.name).toBe('return_draft_review')
+  })
+})
+
+describe('applyPromptCaching', () => {
+  it('macht aus String-system einen gecachten Text-Block', () => {
+    const out = applyPromptCaching({ system: 'Du bist Analyst.', messages: [] })
+    expect(out.system).toEqual([
+      { type: 'text', text: 'Du bist Analyst.', cache_control: { type: 'ephemeral' } },
+    ])
+  })
+
+  it('markiert nur das letzte Tool', () => {
+    const tools = [{ name: 'a', input_schema: {} }, { name: 'b', input_schema: {} }]
+    const out = applyPromptCaching({ tools })
+    expect(out.tools[0].cache_control).toBeUndefined()
+    expect(out.tools[1].cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('laesst Payloads ohne system/tools unangetastet und mutiert nie das Original', () => {
+    const p = { messages: [{ role: 'user', content: 'x' }] }
+    const out = applyPromptCaching(p)
+    expect(out.system).toBeUndefined()
+    expect(out.tools).toBeUndefined()
+    const q = { system: 's', tools: [{ name: 'a' }] }
+    applyPromptCaching(q)
+    expect(q.system).toBe('s')
+    expect(q.tools[0].cache_control).toBeUndefined()
   })
 })
