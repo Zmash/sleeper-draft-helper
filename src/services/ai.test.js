@@ -170,3 +170,26 @@ describe('buildAIAdviceRequest — erweiterter Kontext', () => {
     expect(b.user_bias.weights.fav_bonus).toBe(6)
   })
 })
+
+describe('buildAIAdviceRequest — Schema & Prompt', () => {
+  it('das Tool verlangt Vergleich, Survival und Plan', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    const schema = req.tools[0].input_schema
+    expect(schema.required).toEqual(expect.arrayContaining(['primary', 'alternatives', 'survival', 'plan_next_picks']))
+    expect(schema.properties.alternatives.items.required).toContain('tradeoff_vs_primary')
+    expect(schema.properties.survival.items.properties.verdict.enum)
+      .toEqual(['duerfte_da_sein', 'muenzwurf', 'duerfte_weg_sein'])
+  })
+  it('der Prompt erzwingt Deutsch und verbietet erfundene Survival-Gruende', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    expect(req.system).toMatch(/Deutsch/)
+    expect(req.system).toMatch(/du-Form/)
+    expect(req.system).toMatch(/high.*low|low.*high/)
+    expect(req.max_tokens).toBe(2000)
+  })
+  it('auch der Rookie-Prompt ist deutsch und behaelt die Rookie-Regeln', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, draftMode: 'rookie' })
+    expect(req.system).toMatch(/Deutsch/)
+    expect(req.system).toMatch(/[Tt]axi/)
+  })
+})
