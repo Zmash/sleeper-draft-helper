@@ -1942,6 +1942,16 @@ th.col-pick, td.col-pick { width: 64px; }
   border-radius: var(--r-card);
 }
 
+.trade-ai-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trade-ai-estimate {
+  font-size: 0.78rem;
+}
+
 .trade-ai-result {
   display: flex;
   flex-direction: column;

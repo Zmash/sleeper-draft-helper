@@ -2,6 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTradeStore } from '../stores/useTradeStore'
 import { evaluateTrade, buildTradeablePlayers, pickDynastyValue, stripSuffix } from '../services/tradeValue'
 import { buildTradeAnalysisRequest, buildTradeSuggestionsRequest } from '../services/aiTrade'
+import { validateTradeSuggestions } from '../services/aiValidate'
+import { formatEstimate, formatUsage } from '../services/aiCost'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { normalizePlayerName } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -314,7 +316,7 @@ function ValueBar({ totalGive, totalGet }) {
 }
 
 // ── AI result display ─────────────────────────────────────────────────────────
-function AiResult({ result }) {
+function AiResult({ result, usage = null }) {
   const recColor = { accept: 'badge--info', decline: 'badge--danger', counter: 'badge--warn' }
   const recLabel = { accept: 'Accept', decline: 'Decline', counter: 'Counter' }
   return (
@@ -357,15 +359,21 @@ function AiResult({ result }) {
           )}
         </div>
       )}
+      {usage && <div className="advice-usage muted">Verbraucht: {formatUsage(usage, 'claude-sonnet-5')}</div>}
     </div>
   )
 }
 
 // ── Trade suggestions panel ───────────────────────────────────────────────────
-function TradeSuggestions({ result }) {
+function TradeSuggestions({ result, warnings = [], usage = null }) {
   const { team_summary, suggestions = [] } = result
   return (
     <div className="trade-suggestions">
+      {warnings.length > 0 && (
+        <div className="advice-warnings">
+          {warnings.map((w, i) => <p key={i}>{w}</p>)}
+        </div>
+      )}
       {team_summary && <p className="trade-suggestions-summary muted">{team_summary}</p>}
       {suggestions.map((s, i) => {
         const give = s.value_you_give
@@ -400,6 +408,7 @@ function TradeSuggestions({ result }) {
           </div>
         )
       })}
+      {usage && <div className="advice-usage muted">Verbraucht: {formatUsage(usage, 'claude-sonnet-5')}</div>}
     </div>
   )
 }
@@ -417,12 +426,15 @@ export default function TradeAnalyzer({
   } = useTradeStore()
 
   const [aiResult, setAiResult]         = useState(null)
+  const [aiUsage, setAiUsage]           = useState(null)
   const [aiLoading, setAiLoading]       = useState(false)
   const [aiError, setAiError]           = useState(null)
   const [keyDialogOpen, setKeyDialogOpen] = useState(false)
   const [pendingAi, setPendingAi]       = useState(false)
 
   const [suggestResult, setSuggestResult] = useState(null)
+  const [suggestWarnings, setSuggestWarnings] = useState([])
+  const [suggestUsage, setSuggestUsage]   = useState(null)
   const [suggestLoading, setSuggestLoading] = useState(false)
   const [suggestError, setSuggestError]   = useState(null)
   const [pendingSuggest, setPendingSuggest] = useState(false)
@@ -476,6 +488,38 @@ export default function TradeAnalyzer({
   const { totalGive, totalGet, verdict, profile, avgAge, enrichedGive, enrichedGet } = evalResult
   const verdictCfg = VERDICT_CONFIG[verdict] || VERDICT_CONFIG.neutral
 
+  // ── Kostenschaetzung ─────────────────────────────────────────────────────────
+  const aiEstimate = useMemo(() => {
+    if (!(tradeGive.length > 0 && tradeGet.length > 0)) return ''
+    try {
+      const payload = buildTradeAnalysisRequest({
+        tradeGive: enrichedGive,
+        tradeGet: enrichedGet,
+        evalResult,
+        dynastyRoster,
+        league,
+        managerGiveRoster,
+        managerGetRoster,
+      })
+      return formatEstimate(payload, 'claude-sonnet-5')
+    } catch { return '' }
+  }, [tradeGive.length, tradeGet.length, enrichedGive, enrichedGet, evalResult, dynastyRoster, league, managerGiveRoster, managerGetRoster])
+
+  const suggestEstimate = useMemo(() => {
+    const myRoster = managerGiveRoster || enrichedRosters?.[myRosterId]
+    if (!myRoster) return ''
+    try {
+      const payload = buildTradeSuggestionsRequest({
+        myRoster,
+        enrichedRosters,
+        myRosterId: managerGive || myRosterId,
+        league,
+        profile,
+      })
+      return formatEstimate(payload, 'claude-sonnet-5')
+    } catch { return '' }
+  }, [managerGiveRoster, enrichedRosters, myRosterId, managerGive, league, profile])
+
   // ── AI call ──────────────────────────────────────────────────────────────────
   async function handleAiAnalysis() {
     const key = getOpenAIKey()
@@ -484,7 +528,7 @@ export default function TradeAnalyzer({
   }
 
   async function doAiWithKey(key) {
-    setAiLoading(true); setAiError(null); setAiResult(null)
+    setAiLoading(true); setAiError(null); setAiResult(null); setAiUsage(null)
     try {
       const payload = buildTradeAnalysisRequest({
         tradeGive: enrichedGive,
@@ -525,6 +569,7 @@ export default function TradeAnalyzer({
           if (eventType === 'result') {
             if (!data.ok) throw new Error(data.message || 'AI error')
             setAiResult(data.parsed || null)
+            setAiUsage(data.usage || null)
           } else if (eventType === 'error') {
             throw new Error(data.message || 'AI error')
           }
@@ -551,7 +596,7 @@ export default function TradeAnalyzer({
   }
 
   async function doSuggestWithKey(key) {
-    setSuggestLoading(true); setSuggestError(null); setSuggestResult(null)
+    setSuggestLoading(true); setSuggestError(null); setSuggestResult(null); setSuggestWarnings([]); setSuggestUsage(null)
     try {
       const myRoster = managerGiveRoster || enrichedRosters?.[myRosterId]
       if (!myRoster) throw new Error('Select your team on the left side first.')
@@ -594,7 +639,16 @@ export default function TradeAnalyzer({
             if (!data.ok) throw new Error(data.message || 'AI error')
             if (!data.parsed) throw new Error('AI returned no suggestions — restart the API server and try again.')
             found = true
-            setSuggestResult(data.parsed)
+            const opponentAssetsByName = new Map(
+              Object.entries(enrichedRosters || {})
+                .filter(([rid]) => rid !== (managerGive || myRosterId))
+                .map(([, d]) => [String(d.displayName || '').toLowerCase(), { players: d.players, picks: d.picks }])
+            )
+            const myAssets = { players: myRoster.players, picks: myRoster.picks }
+            const { cleaned, warnings } = validateTradeSuggestions(data.parsed, { myAssets, opponentAssetsByName })
+            setSuggestResult(cleaned)
+            setSuggestWarnings(warnings)
+            setSuggestUsage(data.usage || null)
           } else if (eventType === 'error') {
             throw new Error(data.message || 'AI error')
           }
@@ -696,19 +750,22 @@ export default function TradeAnalyzer({
           {/* ── AI analysis ───────────────────────────────────────── */}
           <div className="trade-ai-section-wrap">
             {!aiResult && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleAiAnalysis}
-                disabled={!canAnalyze || aiLoading}
-              >
-                {aiLoading ? 'Analyzing…' : <><Icon name="bot" size={15} /> AI Analysis</>}
-              </button>
+              <div className="trade-ai-action-row">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleAiAnalysis}
+                  disabled={!canAnalyze || aiLoading}
+                >
+                  {aiLoading ? 'Analyzing…' : <><Icon name="bot" size={15} /> AI Analysis</>}
+                </button>
+                {aiEstimate && <span className="muted trade-ai-estimate">{aiEstimate}</span>}
+              </div>
             )}
             {aiError && <div className="trade-ai-error">{aiError}</div>}
             {aiResult && (
               <>
-                <AiResult result={aiResult} />
-                <button className="btn btn-ghost btn-sm" onClick={() => setAiResult(null)}>
+                <AiResult result={aiResult} usage={aiUsage} />
+                <button className="btn btn-ghost btn-sm" onClick={() => { setAiResult(null); setAiUsage(null) }}>
                   Close analysis
                 </button>
               </>
@@ -732,18 +789,21 @@ export default function TradeAnalyzer({
           </div>
           {suggestError && <div className="trade-ai-error">{suggestError}</div>}
           {!suggestResult && (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleSuggestTrades}
-              disabled={suggestLoading}
-            >
-              {suggestLoading ? <><Icon name="search" size={14} /> Finding trades…</> : <><Icon name="search" size={14} /> Suggest Trades</>}
-            </button>
+            <div className="trade-ai-action-row">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleSuggestTrades}
+                disabled={suggestLoading}
+              >
+                {suggestLoading ? <><Icon name="search" size={14} /> Finding trades…</> : <><Icon name="search" size={14} /> Suggest Trades</>}
+              </button>
+              {suggestEstimate && <span className="muted trade-ai-estimate">{suggestEstimate}</span>}
+            </div>
           )}
           {suggestResult && (
             <>
-              <TradeSuggestions result={suggestResult} />
-              <button className="btn btn-ghost btn-sm" onClick={() => setSuggestResult(null)}>
+              <TradeSuggestions result={suggestResult} warnings={suggestWarnings} usage={suggestUsage} />
+              <button className="btn btn-ghost btn-sm" onClick={() => { setSuggestResult(null); setSuggestWarnings([]); setSuggestUsage(null) }}>
                 Clear suggestions
               </button>
             </>
