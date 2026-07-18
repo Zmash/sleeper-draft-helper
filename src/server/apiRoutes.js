@@ -349,7 +349,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const stream = client.messages.stream({
         model: MODEL,
         max_tokens: p.max_tokens || 1024,
-        temperature: p.temperature ?? 0.2,
+        // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: Array.isArray(p.tools) ? p.tools : [],
@@ -393,7 +393,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const stream = client.messages.stream({
         model: MODEL,
         max_tokens: p.max_tokens || 4096,
-        temperature: p.temperature ?? 0.3,
+        // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: p.tools,
@@ -438,7 +438,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const stream = client.messages.stream({
         model: MODEL,
         max_tokens: p.max_tokens || 1400,
-        temperature: p.temperature ?? 0.25,
+        // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: Array.isArray(p.tools) ? p.tools : [],
