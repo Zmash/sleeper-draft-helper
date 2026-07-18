@@ -59,9 +59,15 @@ jobs:
 
       - name: Upload server code to release
         run: |
-          rsync -az \
-            ./src/server/prod.js \
+          # prod.js importiert apiRoutes.js -> rankings.js -> ../utils/formatting.js.
+          # Alle Laufzeit-Abhaengigkeiten muessen mit hoch, sonst crasht prod.js beim
+          # Start mit ERR_MODULE_NOT_FOUND (NPM liefert dann 503 fuer /api/*).
+          rsync -az --exclude='*.test.js' \
+            ./src/server/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/server/
+          rsync -az --exclude='*.test.js' \
+            ./src/utils/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/utils/
           rsync -az \
             ./package.json ./package-lock.json \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/zmash/releases/${{ steps.rel.outputs.REL }}/
