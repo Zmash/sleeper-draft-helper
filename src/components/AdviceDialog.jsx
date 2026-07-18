@@ -92,6 +92,7 @@ function AdviceBody({ advice, warnings = [], usage = null, model = '', myNextPic
 export default function AdviceDialog({
   open, onClose, loading, advice, error, debug,
   warnings = [], usage = null, model = '', myNextPick = null,
+  onRecompute = null,
 }) {
   if (!open) return null
 
@@ -100,7 +101,18 @@ export default function AdviceDialog({
       <div style={dialogStyle} role="dialog" aria-modal="true" aria-label="AI Advice">
         <div style={headRow}>
           <h3 style={{ margin: 0 }}>AI Draft Advice</h3>
-          <button onClick={onClose} style={btnGhost} aria-label="Close">×</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {onRecompute && advice && !loading && (
+              <button
+                onClick={onRecompute}
+                className="btn btn-ghost btn-sm"
+                title="Antwort verwerfen und neu berechnen (kostet einen neuen AI-Call)"
+              >
+                Neu berechnen
+              </button>
+            )}
+            <button onClick={onClose} style={btnGhost} aria-label="Close">×</button>
+          </div>
         </div>
 
         {loading && (

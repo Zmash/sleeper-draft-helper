@@ -87,6 +87,10 @@ export default function BoardSection({
   const [pendingAskAfterKey, setPendingAskAfterKey] = useState(false)
 
   const [adviceDebug, setAdviceDebug] = useState(null)
+  // Signatur des Board-/Draft-Zustands, fuer den die aktuelle Advice berechnet
+  // wurde. Solange sie zum aktuellen Zustand passt, zeigt ein erneuter Klick die
+  // vorhandene Antwort statt eines neuen (kostenpflichtigen) Calls.
+  const [adviceSig, setAdviceSig] = useState(null)
 
   // Advice ueberlebte bisher einen Draft-Wechsel: aiHighlights markierte nach
   // einem Wechsel weiter die Spieler des ALTEN Drafts auf dem frisch geleerten
@@ -106,6 +110,7 @@ export default function BoardSection({
     setAdviceModel('')
     setAdviceError(null)
     setAdviceDebug(null)
+    setAdviceSig(null)
   }, [draft?.draft_id])
 
   const [setupTick, setSetupTick] = useState(0)
@@ -240,9 +245,45 @@ export default function BoardSection({
 
   const adviceButtonDisabled = isAdviceButtonDisabled({ draft, livePicks })
 
+  // Signatur alles dessen, was die Empfehlung veraendern wuerde: Draft, aktueller
+  // Pick, Reihenfolge UND Draft-Status je Spieler (ein Pick kippt den Status),
+  // sowie die Praeferenzen. Aendert sich nichts davon, ist ein neuer Call
+  // ueberfluessig — die vorhandene Antwort gilt weiter.
+  const currentAdviceSig = useMemo(() => {
+    if (!hasBoard) return null
+    const order = (boardPlayers || [])
+      .map((p) => `${String(p.nname || '').toLowerCase()}:${p.status ? 1 : 0}`)
+      .join('|')
+    return JSON.stringify({
+      draft: draft?.draft_id ?? null,
+      pick: currentPickNumber ?? null,
+      picks: (livePicks || []).length,
+      slot: draftSlot ?? null,
+      mode: draftMode,
+      prefs: playerPrefs || {},
+      order,
+    })
+  }, [hasBoard, boardPlayers, draft?.draft_id, currentPickNumber, livePicks, draftSlot, draftMode, playerPrefs])
+
   // ---------- AI Advice ----------
 
   async function handleAskAI() {
+    const key = getOpenAIKey()
+    if (!key) {
+      setKeyDialogOpen(true)
+      setPendingAskAfterKey(true)
+      return
+    }
+    // Cache: unveraendertes Board + gueltige Advice → nur wieder anzeigen.
+    if (advice && !adviceError && adviceSig != null && adviceSig === currentAdviceSig) {
+      setAdviceOpen(true)
+      return
+    }
+    await doAskAIWithKey(key)
+  }
+
+  // "Neu berechnen": erzwingt einen frischen Call und umgeht den Cache bewusst.
+  async function handleAskAIForce() {
     const key = getOpenAIKey()
     if (!key) {
       setKeyDialogOpen(true)
@@ -253,6 +294,10 @@ export default function BoardSection({
   }
 
   async function doAskAIWithKey(userKey) {
+    // Zustand, fuer den DIESE Anfrage gebaut wird — festhalten, damit die Antwort
+    // exakt dieser Signatur zugeordnet wird (auch wenn waehrend des Calls ein Pick
+    // reinkommt: dann greift beim naechsten Klick korrekt der Cache-Miss).
+    const sigAtRequest = currentAdviceSig
     try {
       setAdviceOpen(true)
       setAdviceLoading(true)
@@ -262,6 +307,7 @@ export default function BoardSection({
       setAdviceWarnings([])
       setAdviceUsage(null)
       setAdviceModel('')
+      setAdviceSig(null)
 
       const payload = buildAIAdviceRequest(buildAdviceRequestArgs({
         boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
@@ -335,6 +381,7 @@ export default function BoardSection({
             setAdviceWarnings(warnings)
             setAdviceUsage(data.usage || null)
             setAdviceModel(data.model || '')
+            setAdviceSig(sigAtRequest)
             setAdviceDebug({
               request: requestSummary,
               request_payload: payload,
@@ -694,6 +741,7 @@ export default function BoardSection({
         usage={adviceUsage}
         model={adviceModel}
         myNextPick={myNextPick}
+        onRecompute={handleAskAIForce}
       />
 
       <ApiKeyDialog
