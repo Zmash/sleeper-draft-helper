@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { loadSetup, saveSetup } from '../services/storage'
 import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
 
+// Scoring-Label fuer den FantasyPros-Button: der Import laedt die zum aktiven
+// Format passende Cheatsheet-Variante (half_ppr -> half etc.), das Label soll
+// das sichtbar machen statt eines generischen "Consensus".
+function fpScoringLabel(scoringType) {
+  if (scoringType === 'half_ppr') return 'Half-PPR'
+  if (scoringType === 'standard') return 'Standard'
+  if (scoringType === 'ppr') return 'PPR'
+  return String(scoringType || 'PPR').toUpperCase()
+}
+
 export default function SetupForm(props) {
   const {
     sleeperUsername, sleeperUserId, seasonYear,
@@ -435,7 +445,7 @@ export default function SetupForm(props) {
                         try { await handleFantasyProsImport() } finally { setBusyFpImport(false) }
                       }}
                     >
-                      {busyFpImport ? 'Wird geladen…' : 'FantasyPros (Consensus ECR)'}
+                      {busyFpImport ? 'Wird geladen…' : `FantasyPros (${fpScoringLabel(eff.scoring_type)} ECR)`}
                     </button>
                   </div>
                 </label>
