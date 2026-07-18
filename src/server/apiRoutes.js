@@ -31,8 +31,8 @@ export const REVIEW_TOOL = {
         items: {
           type: 'object',
           properties: {
-            teamId: { type: 'string' },
-            displayName: { type: 'string' },
+            teamId: { type: 'string', description: "Die owner_id des Rosters aus dem Kontext." },
+            displayName: { type: 'string', description: "Der menschenlesbare display_name des Rosters (nie die rohe owner_id)." },
             rank: { type: 'integer' },
             score: { type: 'number' },
           },
@@ -44,8 +44,8 @@ export const REVIEW_TOOL = {
         items: {
           type: 'object',
           properties: {
-            teamId: { type: 'string' },
-            displayName: { type: 'string' },
+            teamId: { type: 'string', description: "Die owner_id des Rosters aus dem Kontext." },
+            displayName: { type: 'string', description: "Der menschenlesbare display_name des Rosters (nie die rohe owner_id)." },
             comment: { type: 'string' },
           },
           required: ['teamId', 'displayName', 'comment'],
@@ -72,8 +72,8 @@ export const REVIEW_TOOL = {
           properties: {
             pick_no: { type: 'integer' },
             player: { type: 'string' },
-            teamId: { type: 'string' },
-            displayName: { type: 'string' },
+            teamId: { type: 'string', description: "Die owner_id des Rosters aus dem Kontext." },
+            displayName: { type: 'string', description: "Der menschenlesbare display_name des Rosters (nie die rohe owner_id)." },
             rationale: { type: 'string' },
           },
           required: ['pick_no', 'player', 'teamId', 'displayName', 'rationale'],
@@ -87,8 +87,8 @@ export const REVIEW_TOOL = {
           properties: {
             pick_no: { type: 'integer' },
             player: { type: 'string' },
-            teamId: { type: 'string' },
-            displayName: { type: 'string' },
+            teamId: { type: 'string', description: "Die owner_id des Rosters aus dem Kontext." },
+            displayName: { type: 'string', description: "Der menschenlesbare display_name des Rosters (nie die rohe owner_id)." },
             rationale: { type: 'string' },
           },
           required: ['pick_no', 'player', 'teamId', 'displayName', 'rationale'],

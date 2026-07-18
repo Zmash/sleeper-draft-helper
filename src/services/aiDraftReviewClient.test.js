@@ -36,6 +36,17 @@ describe('buildDraftReviewPayload — Format statt Raten', () => {
     expect(p.messages[0].content).toMatch(/lessonsForNextMock/)
     expect(p.messages[0].content).not.toMatch(/myWeek1StartSit/)
   })
+  it('weist das Modell an, Teams per display_name statt roher owner_id zu benennen', () => {
+    // Regression: Der Review benannte Teams mit rohen Sleeper-owner-IDs
+    // (z. B. "Team 848588368362205184", "Dein Team (344032843661434880)"),
+    // weil der Prompt nie sagte, dass der display_name des Rosters gemeint ist.
+    const p = buildDraftReviewPayload({ draft_mode: 'redraft' })
+    const prompt = `${p.system}\n${p.messages[0].content}`
+    expect(prompt).toContain('display_name')
+    expect(prompt).toContain('owner_id')
+    // Negativ-Anweisung: die rohe owner_id darf nie im Text erscheinen.
+    expect(prompt).toMatch(/nie.*owner_id|owner_id.*nie/i)
+  })
 })
 
 describe('callAiDraftReview — usage/model aus dem result-Event', () => {

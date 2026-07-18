@@ -76,6 +76,12 @@ export function buildDraftReviewPayload(context, { temperature = 0.3, format = n
     'Alle Freitexte auf Deutsch (du-Form). Sei praezise und handlungsorientiert.',
     'Ranke strikt (1 = am besten), Scores 0-100 monoton zu den Raengen.',
     'Stuetze jede Aussage auf den mitgelieferten Kontext; erfinde nichts.',
+    // Team-Benennung: Jedes Roster hat eine owner_id UND einen display_name.
+    // Teams intern per owner_id fuehren, aber im Text immer per display_name benennen.
+    'Jedes Roster im Kontext hat eine owner_id und einen menschenlesbaren display_name.',
+    'Identifiziere Teams intern ueber die owner_id, benenne sie aber IMMER mit ihrem display_name',
+    '(in teamId steckt die owner_id, in displayName der display_name; im Freitext gilt der display_name).',
+    'Zeige die rohe owner_id nie im Text (overallSummary, teamOneLiners, myTeamDeepDive, steals, reaches).',
     fmtLine,
     context?.draft_mode === 'rookie'
       ? 'Rookie-Draft: bewerte Value gegen den Board-Rang, nicht gegen ADP.'
