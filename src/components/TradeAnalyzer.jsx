@@ -8,6 +8,7 @@ import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { normalizePlayerName } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
 import Icon from './Icon'
+import { CostHint } from './CostHint'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const PROFILE_LABELS = { auto: 'Auto', contender: 'Contender', balanced: 'Balanced', rebuild: 'Rebuild' }
@@ -359,7 +360,7 @@ function AiResult({ result, usage = null }) {
           )}
         </div>
       )}
-      {usage && <div className="advice-usage muted">Verbraucht: {formatUsage(usage, 'claude-sonnet-5')}</div>}
+      {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, 'claude-sonnet-5')} prefix="Verbraucht: " /></div>}
     </div>
   )
 }
@@ -408,7 +409,7 @@ function TradeSuggestions({ result, warnings = [], usage = null }) {
           </div>
         )
       })}
-      {usage && <div className="advice-usage muted">Verbraucht: {formatUsage(usage, 'claude-sonnet-5')}</div>}
+      {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, 'claude-sonnet-5')} prefix="Verbraucht: " /></div>}
     </div>
   )
 }
@@ -758,7 +759,7 @@ export default function TradeAnalyzer({
                 >
                   {aiLoading ? 'Analyzing…' : <><Icon name="bot" size={15} /> AI Analysis</>}
                 </button>
-                {aiEstimate && <span className="muted trade-ai-estimate">{aiEstimate}</span>}
+                <CostHint text={aiEstimate} />
               </div>
             )}
             {aiError && <div className="trade-ai-error">{aiError}</div>}
@@ -797,7 +798,7 @@ export default function TradeAnalyzer({
               >
                 {suggestLoading ? <><Icon name="search" size={14} /> Finding trades…</> : <><Icon name="search" size={14} /> Suggest Trades</>}
               </button>
-              {suggestEstimate && <span className="muted trade-ai-estimate">{suggestEstimate}</span>}
+              <CostHint text={suggestEstimate} />
             </div>
           )}
           {suggestResult && (

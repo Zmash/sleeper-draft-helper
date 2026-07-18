@@ -2333,6 +2333,15 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .advice-usage { margin-top: 10px; font-size: 0.8rem; }
 
+.cost-hint { display: inline-flex; align-items: center; gap: 6px; }
+.cost-hint-toggle {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 0.85rem; line-height: 1; opacity: 0.55;
+  color: var(--text-muted); transition: opacity 0.15s ease;
+}
+.cost-hint-toggle:hover, .cost-hint-toggle:focus-visible { opacity: 1; }
+.cost-hint-text { font-size: 0.8rem; }
+
 /* =========================================================
    DRAFT REVIEW — Start-Button + Learnings-Sektion
    ========================================================= */

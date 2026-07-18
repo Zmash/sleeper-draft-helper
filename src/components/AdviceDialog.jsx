@@ -1,5 +1,6 @@
 import React from 'react'
 import { formatUsage } from '../services/aiCost'
+import { CostHint } from './CostHint'
 
 const SURVIVAL_LABEL = {
   duerfte_da_sein: 'dürfte da sein',
@@ -83,7 +84,7 @@ function AdviceBody({ advice, warnings = [], usage = null, model = '', myNextPic
         </section>
       )}
 
-      {usage && <div className="advice-usage muted">Verbraucht: {formatUsage(usage, model)}</div>}
+      {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, model)} prefix="Verbraucht: " /></div>}
     </>
   )
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import AdviceDialog from './AdviceDialog'
 
 const advice = {
@@ -32,8 +33,10 @@ describe('AdviceDialog', () => {
     expect(screen.getByText(/Geist/)).toBeTruthy()
   })
 
-  it('zeigt den echten Verbrauch im Footer', () => {
+  it('zeigt den echten Verbrauch im Footer erst nach Klick auf den Kosten-Hinweis', async () => {
     render(<AdviceDialog open advice={advice} usage={{ input_tokens: 9234, output_tokens: 811 }} model="claude-sonnet-5" onClose={() => {}} />)
+    expect(screen.queryByText(/9,2k in/)).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /Kosten anzeigen/i }))
     expect(screen.getByText(/9,2k in/)).toBeTruthy()
   })
 

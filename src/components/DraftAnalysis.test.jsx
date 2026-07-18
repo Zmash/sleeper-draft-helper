@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import DraftAnalysis from './DraftAnalysis'
 
 vi.mock('../services/key', () => ({ getOpenAIKey: () => 'test-key' }))
@@ -108,12 +109,15 @@ describe('DraftAnalysis — Button statt Auto-Call', () => {
     expect(screen.queryByText(/Dein Team konnte nicht sicher erkannt werden/)).toBeNull()
   })
 
-  it('zeigt den echten Verbrauch im Footer, wenn usage vorhanden ist', () => {
+  it('zeigt den echten Verbrauch im Footer erst nach Klick auf den Kosten-Hinweis, wenn usage vorhanden ist', async () => {
     render(<DraftAnalysis {...baseProps} reviewResult={{
       parsed: emptyParsed,
       usage: { input_tokens: 9234, output_tokens: 811 },
       model: 'claude-sonnet-5',
     }} />)
+    expect(screen.queryByText(/9,2k in/)).toBeNull()
+    const toggles = screen.getAllByRole('button', { name: /Kosten anzeigen/i })
+    await userEvent.click(toggles[toggles.length - 1])
     expect(screen.getByText(/9,2k in/)).toBeTruthy()
   })
 })

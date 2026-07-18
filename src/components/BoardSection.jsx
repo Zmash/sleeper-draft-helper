@@ -19,6 +19,7 @@ import { exportBoardAsCsv } from '../services/csv'
 import { deriveFormat } from '../services/draftFormat'
 import { validateAdvice } from '../services/aiValidate'
 import { formatEstimate } from '../services/aiCost'
+import { CostHint } from './CostHint'
 import { opponentsUntilMyNext } from '../services/draftFlow'
 import { isAdviceButtonDisabled } from '../services/boardGate'
 
@@ -448,7 +449,7 @@ export default function BoardSection({
           >
             <Icon name="bot" size={15} /> AI-Advice
           </button>
-          {adviceEstimate && <span className="muted text-xs">{adviceEstimate}</span>}
+          <CostHint text={adviceEstimate} />
           <button
             onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
             className="btn-compact"

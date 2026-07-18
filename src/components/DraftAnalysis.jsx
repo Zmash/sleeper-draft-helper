@@ -3,6 +3,7 @@ import React from 'react'
 import { buildDraftReviewContext, buildDraftReviewPayload, callAiDraftReview } from '../services/aiDraftReviewClient'
 import { getOpenAIKey } from '../services/key'
 import { formatEstimate, formatUsage } from '../services/aiCost'
+import { CostHint } from './CostHint'
 
 export default function DraftAnalysis({
   scores = [],
@@ -124,7 +125,7 @@ export default function DraftAnalysis({
           <button className="btn btn-primary" onClick={runAI} disabled={!canAI}>
             Review starten
           </button>
-          <span className="muted text-xs">{estimate}</span>
+          <CostHint text={estimate} />
         </div>
       )}
       {data && (
@@ -266,7 +267,7 @@ export default function DraftAnalysis({
             </section>
           )}
 
-          {usage && <div className="advice-usage muted text-xs">Verbraucht: {formatUsage(usage, usageModel)}</div>}
+          {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, usageModel)} prefix="Verbraucht: " /></div>}
 
         </div>
       )}
