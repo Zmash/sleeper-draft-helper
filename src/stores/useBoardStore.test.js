@@ -161,6 +161,62 @@ describe('handleKtcRookieImport', () => {
     await useBoardStore.getState().handleKtcRookieImport()
     expect(useBoardStore.getState().boardSource).toBe('market')
   })
+
+  it('ueberspringt bei force=true die Overwrite-Rueckfrage', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ktc-rookies': KTC }))
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Alt', nname: 'alt', rk: '1' }])
+    const ok = await useBoardStore.getState().handleKtcRookieImport(true)
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(ok).toBe(true)
+    expect(useBoardStore.getState().boardPlayers[0].name).toBe('Ashton Jeanty')
+    confirmSpy.mockRestore()
+  })
+})
+
+describe('boardMode-Typmarkierung (Draft-Typ-Guard)', () => {
+  const KTC = { ok: true, players: [{ name: 'Ashton Jeanty', pos: 'RB', team: 'LV', rk: 1 }] }
+
+  it('startet als null (alte Boards ohne Markierung loesen keine Warnung aus)', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    expect(useBoardStore.getState().boardMode).toBeNull()
+  })
+
+  it('handleAutoImport markiert ein Redraft-Board als "redraft"', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC, 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft',
+    })
+    expect(useBoardStore.getState().boardMode).toBe('redraft')
+  })
+
+  it('handleAutoImport markiert ein Dynasty-Board als "rookie"', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'rookie',
+    })
+    expect(useBoardStore.getState().boardMode).toBe('rookie')
+  })
+
+  it('handleKtcRookieImport markiert das Board als "rookie"', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ktc-rookies': KTC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleKtcRookieImport()
+    expect(useBoardStore.getState().boardMode).toBe('rookie')
+  })
+
+  it('handleCsvLoad uebernimmt den aktuellen draftMode', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setDraftMode('rookie')
+    useBoardStore.getState().setCsvRawText(
+      'RK,PLAYER NAME,TEAM,POS,BYE WEEK\n1,Ashton Jeanty,LV,RB,10'
+    )
+    await useBoardStore.getState().handleCsvLoad()
+    expect(useBoardStore.getState().boardMode).toBe('rookie')
+  })
 })
 
 describe('boardSource-Herkunftsmerkmal', () => {

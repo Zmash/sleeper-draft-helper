@@ -58,7 +58,10 @@ export default function BoardSection({
   tips,
 }) {
   const navigate = useNavigate()
-  const { marketMeta, boardSource, refreshMarketData } = useBoardStore()
+  const {
+    marketMeta, boardSource, refreshMarketData, boardMode,
+    handleAutoImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
+  } = useBoardStore()
   const [refreshingMarket, setRefreshingMarket] = useState(false)
   const [marketError, setMarketError] = useState(null)
 
@@ -123,6 +126,65 @@ export default function BoardSection({
   const fileRef = useRef(null)
   const [status, setStatus] = useState('')
 
+  // Direkt-Import vom leeren Board / Draft-Typ-Guard: erspart den Umweg zurueck
+  // ins Setup, wenn man nach dem Einfuegen eines Mock-Links ohne (oder mit dem
+  // falschen) Board auf dem Board landet.
+  const [importing, setImporting] = useState(false)
+  const [importErr, setImportErr] = useState(null)
+
+  // Importiert die zum gewuenschten Modus passenden Rankings. force=true, wenn ein
+  // bestehendes (unpassendes) Board ersetzt werden soll — der Aufrufer hat dann
+  // bereits zugestimmt, daher keine zweite Rueckfrage.
+  async function runImportForMode(mode, force = false) {
+    setImporting(true)
+    setImportErr(null)
+    try {
+      if (mode === 'rookie') {
+        await handleKtcRookieImport(force)
+      } else {
+        const res = await handleAutoImport({
+          isSuperflex: draftFormat.isSuperflex,
+          effScoringType: draftFormat.scoringType,
+          numTeams: draftFormat.teams,
+          draftMode: mode,
+          force,
+        })
+        if (res && res.error) setImportErr(res.error)
+      }
+    } catch (e) {
+      setImportErr(e?.message || String(e))
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  function handleImportCsvFile(e) {
+    const file = e.target.files?.[0]
+    // Gleiches Auswahlfeld erneut waehlbar machen (onChange feuert sonst nicht
+    // zweimal fuer dieselbe Datei).
+    e.target.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async () => {
+      setImporting(true)
+      setImportErr(null)
+      try {
+        // Store synchron befuellen, dann laden — dasselbe Muster wie im Setup.
+        setCsvRawText(String(reader.result || ''))
+        const ok = await handleCsvLoad()
+        if (ok) setBoardSource('csv')
+      } catch (err) {
+        setImportErr(err?.message || String(err))
+      } finally {
+        setImporting(false)
+      }
+    }
+    reader.onerror = () => setImportErr('Datei konnte nicht gelesen werden.')
+    reader.readAsText(file)
+  }
+
+  const [dismissedMismatchKey, setDismissedMismatchKey] = useState(null)
+
   // Das ganze Format, nicht nur der Kader: scoringType und isSuperflex gingen
   // hier verloren, sodass die AI beim Mock immer den PPR-Default und "1 QB"
   // beschrieben bekam — und Setup-Overrides gar nicht sah.
@@ -130,6 +192,12 @@ export default function BoardSection({
   const { rosterPositions } = draftFormat
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
+
+  // Draft-Typ-Guard: passt der Typ des geladenen Boards nicht zum aktuellen Draft?
+  // boardMode null (alte Boards) loest bewusst keine Warnung aus.
+  const boardTypeMismatch = boardMode != null && hasBoard && boardMode !== draftMode
+  const mismatchKey = boardTypeMismatch ? `${boardMode}->${draftMode}` : null
+  const showMismatchBanner = boardTypeMismatch && dismissedMismatchKey !== mismatchKey
 
   // Player Preferences (v2) -- muss vor adviceEstimate deklariert sein, weil
   // die Schaetzung playerPrefs jetzt (wie der echte Call) mitgibt.
@@ -415,20 +483,81 @@ export default function BoardSection({
   }
 
   if (!boardPlayers || boardPlayers.length === 0) {
+    const rookie = draftMode === 'rookie'
     return (
       <section className="card dashboard-empty">
         <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
         <h2>Noch kein Ranking importiert</h2>
-        <p className="muted">Importiere im Setup deine Rankings (CSV, FantasyCalc oder KeepTradeCut), um das Board zu füllen.</p>
-        <button className="btn btn-primary" onClick={() => navigate('/setup', { state: { mode: 'edit' } })}>
-          <Icon name="upload" size={16} /> Zum Setup
-        </button>
+        <p className="muted">Importiere direkt hier oder im Setup, um das Board zu füllen.</p>
+        {importErr && (
+          <p className="muted" role="alert" style={{ color: 'var(--danger, #e0564f)' }}>
+            Import fehlgeschlagen: {importErr}
+          </p>
+        )}
+        <div className="row items-center wrap" style={{ gap: 8, justifyContent: 'center' }}>
+          <button className="btn btn-primary" onClick={() => runImportForMode(draftMode)} disabled={importing}>
+            <Icon name="upload" size={16} />{' '}
+            {importing ? 'Wird geladen…' : (rookie ? 'Rookies auto-importieren' : 'Auto-Import (FantasyCalc)')}
+          </button>
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={importing}>
+            CSV-Datei
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCsvFile}
+          />
+          <button
+            className="btn btn-ghost"
+            onClick={() => navigate('/setup', { state: { mode: 'edit' } })}
+            disabled={importing}
+          >
+            Zum Setup
+          </button>
+        </div>
       </section>
     )
   }
 
   return (
     <section className="card">
+      {showMismatchBanner && (
+        <div className="board-type-warning" role="alert">
+          <span className="board-type-warning-text">
+            <Icon name="warning" size={15} />{' '}
+            Dieses Board ist für <strong>{boardMode === 'rookie' ? 'Rookie-Drafts' : 'Redraft'}</strong> —
+            der aktuelle Draft ist ein <strong>{draftMode === 'rookie' ? 'Rookie-Draft' : 'Redraft-Draft'}</strong>.
+          </span>
+          <span className="board-type-warning-actions">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => runImportForMode(draftMode, true)}
+              disabled={importing}
+            >
+              {importing
+                ? 'Wird geladen…'
+                : `${draftMode === 'rookie' ? 'Rookie' : 'Redraft'}-Rankings importieren`}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setDismissedMismatchKey(mismatchKey)}
+              disabled={importing}
+            >
+              Trotzdem behalten <Icon name="x" size={13} />
+            </button>
+          </span>
+        </div>
+      )}
+      {importErr && (
+        <div className="import-error-banner">
+          <span className="import-error-text">Import fehlgeschlagen: {importErr}</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setImportErr(null)} aria-label="Schließen">
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      )}
       <div className="row between items-center wrap" style={{ gap: 8 }}>
         <BoardToolbar
           currentPickNumber={currentPickNumber}

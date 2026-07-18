@@ -31,6 +31,11 @@ export const useBoardStore = create(
       positionFilter: 'ALL',
       teamFilter: 'ALL',
       draftMode: 'redraft',
+      // Typ des GELADENEN Boards: 'redraft' | 'rookie' | null. Wird beim Import
+      // gesetzt und dient dem Draft-Typ-Guard (BoardSection warnt, wenn das Board
+      // nicht zum aktuellen Draft passt). null = unbekannt (alte Boards ohne
+      // Markierung) → loest bewusst KEINE Warnung aus.
+      boardMode: null,
       enriching: false,
       marketMeta: null,          // { source, format, total_drafts, end_date, fetched_at }
       lastImportStats: null,     // { total, withAdp, withoutAdp, unmatchedNames }
@@ -65,15 +70,19 @@ export const useBoardStore = create(
         const rows = parseFantasyProsCsv(csvRawText)
         if (!rows.length) { alert('CSV konnte nicht gelesen werden.'); return false }
         const fresh = rows.map((r) => ({ ...r, status: null, pick_no: null, picked_by: null }))
-        set({ boardPlayers: fresh })
+        // CSV traegt keinen eigenen Typ — der aktuelle Modus ist die beste
+        // verfuegbare Zuordnung fuer den Draft-Typ-Guard.
+        set({ boardPlayers: fresh, boardMode: get().draftMode })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
       },
 
-      handleKtcRookieImport: async () => {
+      handleKtcRookieImport: async (force = false) => {
         const { boardPlayers, boardSource, marketMeta } = get()
-        if (boardPlayers.length) {
+        // force=true: der Aufrufer (z. B. Draft-Typ-Guard-Banner) hat die
+        // Zustimmung bereits eingeholt — kein doppelter window.confirm.
+        if (boardPlayers.length && !force) {
           const ok = window.confirm('Es sind bereits Rankings geladen. Aktuelle Daten überschreiben?')
           if (!ok) return false
         }
@@ -92,7 +101,7 @@ export const useBoardStore = create(
         // Kommentar bei lastBoardSnapshot oben) — sonst luegt die Herkunfts-Zeile
         // nach einem Undo.
         const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
-        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market' })
+        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market', boardMode: 'rookie' })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
@@ -147,6 +156,7 @@ export const useBoardStore = create(
           lastImportStats: stats,
           lastBoardSnapshot: snapshot,
           boardSource: 'market',
+          boardMode: isDynasty ? 'rookie' : 'redraft',
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
@@ -229,6 +239,7 @@ export const useBoardStore = create(
         positionFilter: s.positionFilter,
         teamFilter: s.teamFilter,
         draftMode: s.draftMode,
+        boardMode: s.boardMode,
         marketMeta: s.marketMeta,
         boardSource: s.boardSource,
         // lastBoardSnapshot bleibt in-memory: ein Undo ueber Sessions hinweg
