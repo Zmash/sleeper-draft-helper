@@ -33,6 +33,9 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   const [importDone, setImportDone] = useState(null)
   const [importError, setImportError] = useState(null)
   const [confirmOverwrite, setConfirmOverwrite] = useState(false)
+  // Welcher Import den Overwrite-Dialog ausgeloest hat — der Bestaetigen-Button
+  // muss genau diese Quelle mit force=true erneut aufrufen.
+  const [overwriteSource, setOverwriteSource] = useState('fantasycalc')
 
   const {
     sleeperUsername, sleeperUserId, seasonYear,
@@ -47,7 +50,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   const {
     csvRawText, draftMode,
     setCsvRawText, setDraftMode, setBoardSource,
-    handleCsvLoad, handleAutoImport, handleKtcRookieImport, undoImport,
+    handleCsvLoad, handleAutoImport, handleKtcRookieImport, handleFantasyProsImport, undoImport,
   } = useBoardStore()
 
   // Add mode: clear everything except the Sleeper account credentials
@@ -98,6 +101,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       force,
     })
     if (res.needsConfirm) {
+      setOverwriteSource('fantasycalc')
       setConfirmOverwrite(true)
       return res
     }
@@ -107,6 +111,32 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         stats: res.stats,
         marketMissing: res.marketMissing,
         canUndo: true, // handleAutoImport setzt lastBoardSnapshot
+      })
+    } else if (res.error) {
+      setImportError(res.error)
+    }
+    return res
+  }
+
+  async function wrappedFantasyProsImport(force = false) {
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const res = await handleFantasyProsImport({
+      isSuperflex: fmt.isSuperflex,
+      effScoringType: fmt.scoringType,
+      numTeams: fmt.teams,
+      force,
+    })
+    if (res.needsConfirm) {
+      setOverwriteSource('fantasypros')
+      setConfirmOverwrite(true)
+      return res
+    }
+    if (res.ok) {
+      setImportDone({
+        method: res.marketMissing ? 'FantasyPros' : 'FantasyPros + FFC',
+        stats: res.stats,
+        marketMissing: res.marketMissing,
+        canUndo: true, // handleFantasyProsImport setzt lastBoardSnapshot
       })
     } else if (res.error) {
       setImportError(res.error)
@@ -163,7 +193,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         <p className="muted text-xs">Nur die Marktdaten aktualisieren? Das geht ohne Datenverlust über „Aktualisieren" am Board.</p>
         <div className="confirm-overwrite-actions">
           <button className="btn btn-secondary" onClick={() => setConfirmOverwrite(false)}>Abbrechen</button>
-          <button className="btn btn-primary" onClick={() => { setConfirmOverwrite(false); wrappedAutoImport(true) }}>Überschreiben</button>
+          <button className="btn btn-primary" onClick={() => { setConfirmOverwrite(false); overwriteSource === 'fantasypros' ? wrappedFantasyProsImport(true) : wrappedAutoImport(true) }}>Überschreiben</button>
         </div>
       </Modal>
       <SetupForm
@@ -193,6 +223,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         attachDraftByIdOrUrl={wrappedAttachDraft}
         handleCsvLoad={wrappedCsvLoad}
         handleAutoImport={wrappedAutoImport}
+        handleFantasyProsImport={wrappedFantasyProsImport}
         handleKtcRookieImport={wrappedKtcImport}
         formatDraftLabel={formatDraftLabel}
         draftMode={draftMode}

@@ -20,6 +20,7 @@ describe('apiRoutes — Modul-Vertrag', () => {
     for (const r of [
       'GET /api/rankings/ffc-adp', 'GET /api/rankings/fantasycalc',
       'GET /api/rankings/ktc-dynasty', 'GET /api/rankings/ktc-rookies',
+      'GET /api/rankings/fantasypros',
       'GET /api/health', 'POST /api/validate-key',
       'POST /api/ai-advice', 'POST /api/ai-draft-review', 'POST /api/ai-trade',
     ]) expect(registered).toContain(r)

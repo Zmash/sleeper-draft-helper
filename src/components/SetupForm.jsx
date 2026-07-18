@@ -12,7 +12,7 @@ export default function SetupForm(props) {
     setSleeperUsername, setSleeperUserId, setSeasonYear,
     setSelectedLeagueId, setSelectedDraftId, setManualDraftInput, setCsvRawText,
     saveToLocalStorage, resolveUserId, loadLeagues, loadDraftOptions,
-    attachDraftByIdOrUrl, handleCsvLoad, handleAutoImport, handleKtcRookieImport, formatDraftLabel,
+    attachDraftByIdOrUrl, handleCsvLoad, handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, formatDraftLabel,
     draftMode, setDraftMode, selectedLeague: selectedLeagueProp,
   } = props
 
@@ -27,6 +27,7 @@ export default function SetupForm(props) {
   const [busyResolveAndLoad, setBusyResolveAndLoad] = useState(false)
   const [busyAutoImport, setBusyAutoImport] = useState(false)
   const [busyKtcImport, setBusyKtcImport] = useState(false)
+  const [busyFpImport, setBusyFpImport] = useState(false)
   const [formError, setFormError] = useState(null)
 
   // --- CSV
@@ -413,18 +414,30 @@ export default function SetupForm(props) {
             {draftMode !== 'rookie' && (
               <div className="form-row">
                 <label className="field">
-                  <span>Auto-Import (FantasyCalc + FFC)</span>
-                  <div className="muted text-xs mb-1">Rangliste von FantasyCalc, ADP &amp; Byes von Fantasy Football Calculator – kein CSV nötig.</div>
-                  <button
-                    className="btn btn-primary control"
-                    disabled={busyAutoImport}
-                    onClick={async () => {
-                      setBusyAutoImport(true)
-                      try { await handleAutoImport() } finally { setBusyAutoImport(false) }
-                    }}
-                  >
-                    {busyAutoImport ? 'Wird geladen…' : 'Rankings auto-importieren'}
-                  </button>
+                  <span>Auto-Import – Quelle wählen</span>
+                  <div className="muted text-xs mb-1">Rangliste direkt importieren, ADP &amp; Byes von Fantasy Football Calculator – kein CSV nötig.</div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <button
+                      className="btn btn-primary control"
+                      disabled={busyAutoImport || busyFpImport}
+                      onClick={async () => {
+                        setBusyAutoImport(true)
+                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
+                      }}
+                    >
+                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
+                    </button>
+                    <button
+                      className="btn btn-secondary control"
+                      disabled={busyFpImport || busyAutoImport}
+                      onClick={async () => {
+                        setBusyFpImport(true)
+                        try { await handleFantasyProsImport() } finally { setBusyFpImport(false) }
+                      }}
+                    >
+                      {busyFpImport ? 'Wird geladen…' : 'FantasyPros (Consensus ECR)'}
+                    </button>
+                  </div>
                 </label>
               </div>
             )}

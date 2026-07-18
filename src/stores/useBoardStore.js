@@ -163,6 +163,56 @@ export const useBoardStore = create(
         return { ok: true, stats, marketMissing: !isDynasty && !ffc }
       },
 
+      // FantasyPros Consensus-ECR als Redraft-Rang-Quelle (Alternative zum
+      // FantasyCalc-Auto-Import). Laeuft durch dieselbe Pipeline: FantasyPros-Rang
+      // + FFC-ADP-Overlay + Verletzungen. Immer 'redraft' (FantasyPros liefert hier
+      // keine Rookie-/Dynasty-Werte).
+      handleFantasyProsImport: async ({ isSuperflex, effScoringType, numTeams, force = false } = {}) => {
+        const { boardPlayers, boardSource, marketMeta } = get()
+        if (boardPlayers.length && !force) {
+          // Bestaetigung liegt beim Aufrufer (wie handleAutoImport).
+          return { ok: false, needsConfirm: true }
+        }
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
+        const fpScoring = effScoringType === 'half_ppr' ? 'half' : effScoringType === 'standard' ? 'std' : 'ppr'
+
+        // Rangliste ist Pflicht — ohne sie gibt es kein Board.
+        let fp
+        try {
+          fp = await fetchJsonOk(`/api/rankings/fantasypros?scoring=${fpScoring}`)
+        } catch (e) {
+          return { ok: false, error: e.message || 'FantasyPros nicht erreichbar' }
+        }
+
+        // Markt (FFC-ADP) ist Kuer — ein Board ohne ADP ist besser als kein Board.
+        let ffc = null
+        try {
+          ffc = await fetchJsonOk(`/api/rankings/ffc-adp?format=${ffcFormatFor({ isSuperflex, effScoringType })}&teams=${numTeams}`)
+        } catch { ffc = null }
+
+        const { players, stats } = mergeRankingsWithMarket(fp.players, ffc?.players || [])
+
+        // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
+        let withInjuries = players
+        try {
+          const meta = await loadPlayersMetaCached({ season: new Date().getFullYear() })
+          withInjuries = enrichWithInjuries(players, meta)
+        } catch { /* Verletzungsdaten sind Kuer, kein Grund den Import zu kippen */ }
+
+        set({
+          csvRawText: '',
+          boardPlayers: withInjuries,
+          marketMeta: ffc?.meta || null,
+          lastImportStats: stats,
+          lastBoardSnapshot: snapshot,
+          boardSource: 'market',
+          boardMode: 'redraft',
+        })
+        const { selectedDraftId } = useSessionStore.getState()
+        if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
+        return { ok: true, stats, marketMissing: !ffc }
+      },
+
       refreshMarketData: async () => {
         const { boardPlayers, marketMeta, draftMode } = get()
         if (!boardPlayers.length) return { ok: false, error: 'Kein Board geladen' }

@@ -2,7 +2,10 @@
 // die alte Regel "index.js und prod.js synchron halten" ist damit Geschichte.
 import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
-import { FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery } from './rankings.js'
+import {
+  FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
+  FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
+} from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
 
@@ -300,6 +303,43 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       res.json({ ok: true, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })
+    }
+  })
+
+  // ---------- Rankings: FantasyPros Consensus (Redraft, gescraped) ----------
+  // scoring: ppr | half | std -> passende Cheatsheet-Seite. Wir ziehen den
+  // eingebetteten ecrData-Blob (volle Rangliste) statt der auf 10 Spieler/Position
+  // limitierten oeffentlichen API. Antwortform wie die KTC-Routen.
+  app.get('/api/rankings/fantasypros', async (req, res) => {
+    const scoring = ['ppr', 'half', 'std'].includes(String(req.query.scoring)) ? String(req.query.scoring) : 'ppr'
+    const url = FP_SCORING_URLS[scoring]
+    const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    try {
+      const upstream = await fetch(url, { headers: HEADERS })
+      if (!upstream.ok) return res.status(502).json({ ok: false, error: `FantasyPros returned ${upstream.status}` })
+      const html = await upstream.text()
+      const data = extractEcrData(html)
+      const rawPlayers = Array.isArray(data?.players) ? data.players : []
+      const players = rawPlayers
+        .filter((p) => FP_POSITIONS.includes(String(p?.player_position_id || '').toUpperCase()))
+        .map((p, idx) => ({ id: idx + 1, ...normalizeFantasyProsPlayer(p) }))
+      if (!players.length) {
+        return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – FantasyPros-Struktur möglicherweise geändert' })
+      }
+      res.json({
+        ok: true,
+        meta: {
+          source: 'fantasypros',
+          scoring,
+          type: data?.type ?? null,
+          total_experts: data?.total_experts ?? null,
+          last_updated: data?.last_updated ?? null,
+          fetched_at: new Date().toISOString(),
+        },
+        players,
+      })
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message || 'FantasyPros-Scraping fehlgeschlagen' })
     }
   })
 

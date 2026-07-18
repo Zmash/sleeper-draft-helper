@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery } from './rankings'
+import {
+  FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery,
+  extractEcrData, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
+} from './rankings'
 import { normalizePlayerName } from '../utils/formatting'
 
 describe('normalizeFfcPos', () => {
@@ -46,6 +49,76 @@ describe('normalizeFfcPlayer', () => {
   })
   it('normalisiert PK zu K', () => {
     expect(normalizeFfcPlayer({ ...raw, position: 'PK' }).pos).toBe('K')
+  })
+})
+
+describe('extractEcrData', () => {
+  it('extrahiert das eingebettete ecrData-Objekt aus dem Seiten-HTML', () => {
+    const html = `<script>window.foo=1; var ecrData = {"type":"Draft PPR","count":2,"players":[{"player_name":"A"},{"player_name":"B"}]}; more();</script>`
+    const d = extractEcrData(html)
+    expect(d.type).toBe('Draft PPR')
+    expect(d.players).toHaveLength(2)
+    expect(d.players[1].player_name).toBe('B')
+  })
+
+  it('kommt mit verschachtelten Objekten und geschweiften Klammern in Strings klar', () => {
+    // Ein naives Regex bis zur ersten schliessenden Klammer wuerde hier abbrechen.
+    const html = `var ecrData = {"a":{"b":1},"note":"nicht } hier","players":[{"x":"}{"}]};`
+    const d = extractEcrData(html)
+    expect(d.a.b).toBe(1)
+    expect(d.note).toBe('nicht } hier')
+    expect(d.players[0].x).toBe('}{')
+  })
+
+  it('liefert null, wenn kein ecrData vorhanden ist', () => {
+    expect(extractEcrData('<html>nichts</html>')).toBeNull()
+  })
+})
+
+describe('FP_POSITIONS', () => {
+  it('ist eine Whitelist der relevanten Offensiv-Positionen + K/DST', () => {
+    expect(FP_POSITIONS).toEqual(expect.arrayContaining(['QB', 'RB', 'WR', 'TE', 'K', 'DST']))
+    // IDP-Positionen gehoeren nicht ins Redraft-Board
+    expect(FP_POSITIONS).not.toContain('LB')
+    expect(FP_POSITIONS).not.toContain('DB')
+  })
+})
+
+describe('FP_SCORING_URLS', () => {
+  it('mappt die drei Scoring-Varianten auf die Cheatsheet-Seiten', () => {
+    expect(FP_SCORING_URLS.ppr).toContain('ppr-cheatsheets.php')
+    expect(FP_SCORING_URLS.half).toContain('half-point-ppr-cheatsheets.php')
+    expect(FP_SCORING_URLS.std).toContain('consensus-cheatsheets.php')
+  })
+})
+
+describe('normalizeFantasyProsPlayer', () => {
+  const raw = {
+    player_id: 17298, player_name: 'Ja\'Marr Chase', player_team_id: 'CIN',
+    player_position_id: 'WR', pos_rank: 'WR1', tier: 1, rank_ecr: 3,
+    player_bye_week: '6',
+  }
+  it('bildet auf die Board-Rang-Form ab (wie FantasyCalc/KTC)', () => {
+    const p = normalizeFantasyProsPlayer(raw)
+    expect(p.name).toBe('Ja\'Marr Chase')
+    expect(p.team).toBe('CIN')
+    expect(p.pos).toBe('WR')
+    expect(p.posRank).toBe('WR1')
+    expect(p.tier).toBe(1)
+    expect(p.ecr).toBe(3)
+    expect(p.rk).toBe('3')
+    expect(p.bye).toBe('6')
+  })
+  it('setzt Redraft-Leerfelder (kein ADP/Dynasty/Alter aus der Quelle)', () => {
+    const p = normalizeFantasyProsPlayer(raw)
+    expect(p.adp).toBeNull()
+    expect(p.dynasty_value).toBeNull()
+    expect(p.age).toBeNull()
+    expect(p.years_exp).toBeNull()
+  })
+  it('setzt nname fuer den Markt-Merge — strippt Suffixe wie die Client-Funktion', () => {
+    expect(normalizeFantasyProsPlayer(raw).nname).toBe(normalizePlayerName('Ja\'Marr Chase'))
+    expect(normalizeFantasyProsPlayer({ ...raw, player_name: 'Marvin Harrison Jr.' }).nname).toBe('marvin harrison')
   })
 })
 
