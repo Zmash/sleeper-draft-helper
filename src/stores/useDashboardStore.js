@@ -203,12 +203,15 @@ export const useDashboardStore = create((set, get) => ({
         buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta)
       )
 
-      // Standalone drafts: not tied to any of the user's loaded leagues
-      const leagueIds = new Set((leagues || []).map((l) => l.league_id))
-      const standaloneDrafts = (availableDrafts || []).filter((d) => {
-        const draftLeagueId = d.league_id || d.metadata?.league_id
-        return !draftLeagueId || !leagueIds.has(String(draftLeagueId))
-      })
+      // Standalone-Drafts = echte Mocks. Ein Mock hat KEINE Liga (league_id === null,
+      // vgl. formatDraftLabel/isStandaloneDraft). Ein Draft MIT league_id gehoert zu
+      // einer echten Liga und darf nie als "Mock" erscheinen — auch nicht, wenn seine
+      // Liga gerade nicht geladen ist (Bug: Dynasty-Ligen bekommen pro Saison eine neue
+      // league_id, ein alter persistierter Liga-Draft schlug sonst als Mock durch).
+      // Aktuelle Liga-Drafts kommen ueber die Liga-Karte (buildLeagueCard) rein.
+      const standaloneDrafts = (availableDrafts || []).filter(
+        (d) => !(d.league_id || d.metadata?.league_id)
+      )
       const draftCardPromises = standaloneDrafts.map(buildDraftCard)
 
       const [leagueCards, draftCards] = await Promise.all([
