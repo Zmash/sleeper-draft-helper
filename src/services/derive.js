@@ -94,12 +94,19 @@ export function countStarters(rosterPositions = []) {
   for (const slot of rosterPositions || []) {
     const s = String(slot || '').toUpperCase()
 
-    // Direct position slots
-    if (req[s] != null) req[s] += 1
-
-    // Common flexible slots
-    if (s === 'RB/WR/TE' || s === 'FLEX') req.FLEX += 1
-    if (s === 'SUPER_FLEX' || s === 'SFLEX') req.SUPER_FLEX += 1
+    // 'FLEX' und 'SUPER_FLEX' sind selbst schon Keys in req (mit 0 initialisiert)
+    // UND haben Alias-Schreibweisen ('RB/WR/TE', 'SFLEX'). Der generische Zweig
+    // unten (req[s] != null) und der explizite Alias-Zweig muessen sich daher
+    // gegenseitig ausschliessen — sonst zaehlt 'FLEX' zweimal (einmal je Zweig),
+    // waehrend der Alias 'RB/WR/TE' (kein req-Key) korrekt nur einmal zaehlt.
+    if (s === 'RB/WR/TE' || s === 'FLEX') {
+      req.FLEX += 1
+    } else if (s === 'SUPER_FLEX' || s === 'SFLEX') {
+      req.SUPER_FLEX += 1
+    } else if (req[s] != null) {
+      // Direct position slots (QB, RB, WR, TE)
+      req[s] += 1
+    }
   }
 
   // Sane default: at least 1 QB starter in typical leagues

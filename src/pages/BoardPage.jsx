@@ -17,6 +17,8 @@ export default function BoardPage({
   effRoster,
   isSuperflex,
   effScoringType,
+  draftSlot,
+  tips,
 }) {
 
   const { sleeperUserId } = useSessionStore()
@@ -191,6 +193,8 @@ export default function BoardPage({
       myDraftPicks={myDraftPicks}
       dynastyRoster={dynastyRoster}
       onBoardReorder={onBoardReorder}
+      draftSlot={draftSlot}
+      tips={tips}
     />
     </>
   )

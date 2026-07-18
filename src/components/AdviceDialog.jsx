@@ -1,11 +1,99 @@
 import React from 'react'
+import { formatUsage } from '../services/aiCost'
+import { CostHint } from './CostHint'
 
-export default function AdviceDialog({ open, onClose, loading, advice, error, debug, streamingText }) {
+const SURVIVAL_LABEL = {
+  duerfte_da_sein: 'dürfte da sein',
+  muenzwurf: 'ein Münzwurf',
+  duerfte_weg_sein: 'dürfte weg sein',
+}
+
+function AdviceBody({ advice, warnings = [], usage = null, model = '', myNextPick = null }) {
+  if (!advice) {
+    return warnings.length
+      ? <div className="advice-warnings">{warnings.map((w, i) => <p key={i}>{w}</p>)}</div>
+      : null
+  }
+  return (
+    <>
+      {warnings.length > 0 && (
+        <div className="advice-warnings">
+          {warnings.map((w, i) => <p key={i}>{w}</p>)}
+        </div>
+      )}
+
+      <section className="advice-section">
+        <h3>Empfehlung</h3>
+        <p><strong>{advice.primary.player_display || advice.primary.player_nname}</strong>
+          {' '}· {advice.primary.pos}{advice.primary.rk != null ? ` · RK ${advice.primary.rk}` : ''}</p>
+        <p>{advice.primary.why}</p>
+      </section>
+
+      {advice.alternatives?.length > 0 && (
+        <section className="advice-section">
+          <h3>Vergleich</h3>
+          <ul>
+            {advice.alternatives.map(a => (
+              <li key={a.player_nname}>
+                <strong>{a.player_display || a.player_nname}</strong> · {a.pos}
+                {a.rk != null ? ` · RK ${a.rk}` : ''} — {a.why}
+                <div className="advice-tradeoff">{a.tradeoff_vs_primary}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {advice.survival?.length > 0 && (
+        <section className="advice-section">
+          <h3>{myNextPick ? `Überlebt bis Pick ${myNextPick}?` : 'Überlebt bis zu deinem nächsten Pick?'}</h3>
+          <ul>
+            {advice.survival.map(s => (
+              <li key={s.player_nname}>
+                <strong>{s.player_nname}</strong>: {SURVIVAL_LABEL[s.verdict] || s.verdict} — {s.reason}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {advice.plan_next_picks?.length > 0 && (
+        <section className="advice-section">
+          <h3>Plan für deine nächsten Picks</h3>
+          <ul>
+            {advice.plan_next_picks.map(p => (
+              <li key={p.pick_number}>
+                <strong>Pick {p.pick_number}</strong> · {(p.target_positions || []).join('/')} — {p.note}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {advice.run_alert && (
+        <section className="advice-section advice-run">
+          <h3>Run-Hinweis: {advice.run_alert.pos}</h3>
+          <p>{advice.run_alert.note}</p>
+        </section>
+      )}
+
+      {advice.strategy_notes && (
+        <section className="advice-section">
+          <h3>Strategie-Notizen</h3>
+          <p>{advice.strategy_notes}</p>
+        </section>
+      )}
+
+      {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, model)} prefix="Verbraucht: " /></div>}
+    </>
+  )
+}
+
+export default function AdviceDialog({
+  open, onClose, loading, advice, error, debug,
+  warnings = [], usage = null, model = '', myNextPick = null,
+}) {
   if (!open) return null
-
-  const hasAdvice =
-    advice && typeof advice === 'object' &&
-    (advice.primary || (Array.isArray(advice.alternatives) && advice.alternatives.length > 0))
 
   return (
     <div style={backdropStyle}>
@@ -16,65 +104,15 @@ export default function AdviceDialog({ open, onClose, loading, advice, error, de
         </div>
 
         {loading && (
-          <div style={{ padding: '8px 0' }}>
-            {streamingText
-              ? <div style={{ fontStyle: 'italic', opacity: 0.85, whiteSpace: 'pre-wrap' }}>{streamingText}</div>
-              : 'Analysiere Board, Liga und Roster …'}
-          </div>
+          <div style={{ padding: '8px 0' }}>Analysiere Board, Liga und Roster …</div>
         )}
 
         {!loading && error && (
           <div style={{ color: 'crimson', marginBottom: 8 }}>{String(error)}</div>
         )}
 
-        {!loading && !error && hasAdvice && (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {advice?.primary && (
-              <section>
-                <h4 style={h4}>Empfehlung</h4>
-                <p style={{ margin: 0 }}>
-                  <strong>{advice?.primary?.player_display || advice?.primary?.player_nname}</strong>
-                  {advice?.primary?.pos ? ` · ${advice.primary.pos}` : ''}
-                  {Number.isFinite(advice?.primary?.rk) ? ` · RK ${advice.primary.rk}` : ''}
-                </p>
-                {advice?.primary?.why && <p style={{ marginTop: 6 }}>{advice.primary.why}</p>}
-              </section>
-            )}
-
-            {Array.isArray(advice?.alternatives) && advice.alternatives.length > 0 && (
-              <section>
-                <h4 style={h4}>Alternativen</h4>
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {advice.alternatives.map((alt, i) => (
-                    <li key={i} style={{ marginBottom: 6 }}>
-                      <strong>{alt.player_display || alt.player_nname}</strong>
-                      {alt.pos ? ` · ${alt.pos}` : ''}
-                      {Number.isFinite(alt.rk) ? ` · RK ${alt.rk}` : ''}
-                      {alt.why ? ` — ${alt.why}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {advice?.strategy_notes && (
-              <section>
-                <h4 style={h4}>Strategie-Notizen</h4>
-                <p style={{ marginTop: 6 }}>{advice.strategy_notes}</p>
-              </section>
-            )}
-          </div>
-        )}
-
-        {!loading && !error && !hasAdvice && (
-          <div style={{ opacity: 0.85 }}>
-            Keine strukturierte Empfehlung empfangen.
-            {debug?.raw && (
-              <p style={{ marginTop: 8 }}>
-                Das Modell hat keinen parsebaren JSON-Inhalt geliefert.
-              </p>
-            )}
-          </div>
+        {!loading && !error && (
+          <AdviceBody advice={advice} warnings={warnings} usage={usage} model={model} myNextPick={myNextPick} />
         )}
 
         {/* Debug-Details */}
@@ -169,7 +207,6 @@ const btnGhost = {
   background: 'transparent', border: '1px solid #444', color: 'inherit',
   borderRadius: 6, width: 28, height: 28, lineHeight: '28px', cursor: 'pointer'
 }
-const h4 = { margin: '8px 0' }
 const preStyle = {
   margin: 0, padding: 10, border: '1px solid #333', borderRadius: 8,
   background: '#0f0f0f', color: '#ddd', whiteSpace: 'pre-wrap', wordBreak: 'break-word'

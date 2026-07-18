@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 
 import { useSessionStore } from './stores/useSessionStore'
@@ -55,6 +55,12 @@ export default function App() {
   } = useDynastyStore()
 
   const { themeId, setTheme, analysisOpen, setAnalysisOpen, setupVersion, incrementSetupVersion } = useUIStore()
+
+  // AI-Draft-Review-Ergebnis lebt hier, nicht in DraftAnalysis: das Modal
+  // remounted beim Oeffnen (Modal.jsx: "if (!open) return null"), Component-
+  // State ginge beim Schliessen verloren und der teure Call wuerde bei
+  // jedem erneuten Oeffnen unnoetig nochmal bezahlt.
+  const [reviewResult, setReviewResult] = useState(null)
 
   // ── Derived values ─────────────────────────────────────────────────────────
   // selectedDraft muss vor selectedLeague stehen: die Standalone-Erkennung unten
@@ -298,6 +304,8 @@ export default function App() {
     if (prev === selectedDraftId) return   // no change (incl. initial mount)
     // Clear stale live picks immediately so board shows clean state
     useLiveStore.getState().setLivePicks([])
+    // Ein Review vom alten Draft darf nicht fuer den neuen stehen bleiben
+    setReviewResult(null)
     // Clear pick status markings on board players
     const bp = useBoardStore.getState().boardPlayers
     if (bp.some((p) => p.status)) {
@@ -310,7 +318,7 @@ export default function App() {
   }, [selectedDraftId]) // eslint-disable-line
 
   // ── Shared page props ──────────────────────────────────────────────────────
-  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source }
+  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source, draftSlot, tips }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -356,6 +364,10 @@ export default function App() {
           myOwnerId={myOwnerId}
           myRosterId={myRosterId}
           board={{ players: boardPlayers, metadata: { season: selectedLeague?.season } }}
+          draftMode={draftMode}
+          format={{ scoringType: effScoringType, teams: teamsCount, isSuperflex }}
+          reviewResult={reviewResult}
+          onReviewResult={setReviewResult}
         />
       </Modal>
     </AppShell>

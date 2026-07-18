@@ -1,3 +1,19 @@
+import { deriveFormat } from './draftFormat'
+
+const SCORING_LABEL = { ppr: 'PPR', half_ppr: '0.5 PPR', standard: 'Standard' }
+
+// settings.type ist eine Zahl (0=redraft, 1=keeper, 2=dynasty) — nie gegen
+// String-Literale vergleichen (siehe CLAUDE.md).
+function deriveLeagueContext(league) {
+  const leagueType = Number(league?.settings?.type)
+  const format = leagueType === 2 ? 'dynasty' : 'redraft'
+  const keeper = leagueType === 1
+  const scoringType = deriveFormat({ league }).scoringType
+  const scoring = SCORING_LABEL[scoringType] || scoringType
+  const isSuperflex = (league?.roster_positions || []).some(r => String(r).toUpperCase().includes('SUPER'))
+  return { format, keeper, scoring, isSuperflex }
+}
+
 export const TRADE_TOOL = {
   name: 'return_trade_analysis',
   description: 'Structured dynasty trade analysis with verdict, reasoning and recommendation.',
@@ -102,9 +118,7 @@ export const TRADE_SUGGESTIONS_TOOL = {
 }
 
 export function buildTradeSuggestionsRequest({ myRoster, enrichedRosters, myRosterId, league, profile }) {
-  const scoringRec   = Number(league?.scoring_settings?.rec ?? 1)
-  const scoringType  = scoringRec >= 0.95 ? 'PPR' : scoringRec >= 0.45 ? '0.5 PPR' : 'Standard'
-  const isSuperflex  = (league?.roster_positions || []).some(r => String(r).toUpperCase().includes('SUPER'))
+  const { format, keeper, scoring, isSuperflex } = deriveLeagueContext(league)
 
   function compactRoster(data, maxPlayers) {
     const players = (data.players || [])
@@ -131,7 +145,7 @@ export function buildTradeSuggestionsRequest({ myRoster, enrichedRosters, myRost
     .map(([, data]) => ({ name: data.displayName, ...compactRoster(data, 8) }))
 
   const context = {
-    league: { format: 'dynasty', scoring: scoringType, superflex: isSuperflex, teams: league?.total_rosters || null },
+    league: { format, ...(keeper ? { keeper: true } : {}), scoring, superflex: isSuperflex, teams: league?.total_rosters || null },
     my_team: {
       name: myRoster.displayName,
       profile,
@@ -144,22 +158,22 @@ export function buildTradeSuggestionsRequest({ myRoster, enrichedRosters, myRost
     instruction: 'Propose 2–4 FAIR trades (value within ±10%). Use ONLY names from the provided roster data. Each trade must address a real positional need for both sides.',
   }
 
-  const system = `You are an expert Dynasty Fantasy Football analyst. Identify smart, mutually beneficial trade opportunities.
+  const system = `Du bist ein erfahrener Fantasy-Football-Analyst (${format === 'dynasty' ? 'Dynasty' : 'Redraft'}). Identifiziere kluge, fuer beide Seiten vorteilhafte Trade-Moeglichkeiten.
 
-Rules:
-- Only propose trades where both teams genuinely benefit.
-- Keep value roughly balanced — within ±10% of total dynasty value.
-- Use ONLY player and pick names that appear in the provided data.
-- Consider positional surplus/need on both sides.
-- Factor in team profile (Contender vs. Rebuild).
-- Respond in English.`
+Regeln:
+- Schlage nur Trades vor, von denen beide Teams wirklich profitieren.
+- Halte den Wert ausgeglichen — innerhalb von ±10 % des Gesamtwerts.
+- Nutze AUSSCHLIESSLICH Spieler- und Pick-Namen aus den mitgelieferten Daten.
+- Beruecksichtige positionellen Ueberschuss/Bedarf auf beiden Seiten.
+- Beziehe das Team-Profil ein (Contender vs. Rebuild).
+- Alle Freitexte auf Deutsch (du-Form).`
 
   return {
     system,
     messages: [{ role: 'user', content: `Suggest fair trades for my team:\n\n${JSON.stringify(context, null, 2)}` }],
     tools: [TRADE_SUGGESTIONS_TOOL],
     tool_choice: { type: 'tool', name: 'return_trade_suggestions' },
-    max_tokens: 2000,
+    max_tokens: 2500,
     temperature: 0.35,
   }
 }
@@ -170,9 +184,7 @@ export function buildTradeAnalysisRequest({
 }) {
   const { totalGive, totalGet, ratio, verdict, profile, avgAge } = evalResult
 
-  const scoringRec = Number(league?.scoring_settings?.rec ?? 1)
-  const scoringType = scoringRec >= 0.95 ? 'PPR' : scoringRec >= 0.45 ? '0.5 PPR' : 'Standard'
-  const isSuperflex = (league?.roster_positions || []).some(r => String(r).toUpperCase().includes('SUPER'))
+  const { format, keeper, scoring, isSuperflex } = deriveLeagueContext(league)
 
   // Fallback starters from dynastyRoster when no manager roster available
   const fallbackStarters = (dynastyRoster || [])
@@ -182,8 +194,9 @@ export function buildTradeAnalysisRequest({
 
   const context = {
     league: {
-      format: 'dynasty',
-      scoring: scoringType,
+      format,
+      ...(keeper ? { keeper: true } : {}),
+      scoring,
       superflex: isSuperflex,
       teams: league?.total_rosters || null,
     },
@@ -219,14 +232,14 @@ export function buildTradeAnalysisRequest({
     instruction: 'Do NOT overvalue future picks. Use ONLY the provided values. Consider the roster context of both teams.',
   }
 
-  const system = `You are an experienced Dynasty Fantasy Football analyst. Analyze the trade from the user's perspective ("you give" / "you receive").
+  const system = `Du bist ein erfahrener Fantasy-Football-Analyst (${format === 'dynasty' ? 'Dynasty' : 'Redraft'}). Analysiere den Trade aus Sicht des Nutzers ("you give" / "you receive").
 
-Rules:
-- Use ONLY the provided dynasty_values.
-- Do NOT overvalue future picks.
-- Consider the roster strengths and needs of both teams.
-- Factor in the team profile (Contender vs. Rebuild).
-- Always respond in English.`
+Regeln:
+- Nutze AUSSCHLIESSLICH die mitgelieferten Werte (dynasty_value/adjusted_value).
+- Ueberbewerte zukuenftige Picks nicht.
+- Beruecksichtige Kaderstaerken und Beduerfnisse beider Teams.
+- Beziehe das Team-Profil ein (Contender vs. Rebuild).
+- Alle Freitexte auf Deutsch (du-Form).`
 
   return {
     system,

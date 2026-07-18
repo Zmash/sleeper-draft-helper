@@ -2,6 +2,8 @@
 import React from 'react'
 import { buildDraftReviewContext, buildDraftReviewPayload, callAiDraftReview } from '../services/aiDraftReviewClient'
 import { getOpenAIKey } from '../services/key'
+import { formatEstimate, formatUsage } from '../services/aiCost'
+import { CostHint } from './CostHint'
 
 export default function DraftAnalysis({
   scores = [],
@@ -12,25 +14,35 @@ export default function DraftAnalysis({
   myOwnerId = null,
   myRosterId = null,
   board = null,
+  draftMode = 'redraft',
+  format = null,
+  reviewResult = null,
+  onReviewResult = () => {},
 }) {
-  const [ai, setAi] = React.useState({ loading: false, data: null, error: '', ran: false })
+  const [ai, setAi] = React.useState({ loading: false, error: '' })
   const canAI = !!getOpenAIKey() &&
                 !!league &&
                 Array.isArray(picks) && picks.length > 0 &&
                 teamByRosterId && Object.keys(teamByRosterId || {}).length > 0
 
+  const data = reviewResult?.parsed || null
+  const usage = reviewResult?.usage || null
+  const usageModel = reviewResult?.model || null
+
+  // Fallback: wenn myOwnerId/myRosterId fehlen bzw. nicht (mehr) im Kader-Mapping
+  // stecken, nimm das erste vorhandene Team -- und mach das im UI transparent,
+  // statt still ein falsches Team zu analysieren.
+  const rosterKeys = Object.keys(teamByRosterId || {})
+  const usedFallback = !myRosterId || !rosterKeys.includes(myRosterId)
+  const fallbackRosterId = usedFallback ? rosterKeys[0] : myRosterId
+  const fallbackOwnerId = fallbackRosterId
+    ? String(teamByRosterId[fallbackRosterId]?.owner_id || '')
+    : (myOwnerId || '')
 
   const runAI = React.useCallback(async () => {
     if (!canAI) return
-    setAi({ loading: true, data: null, error: '', ran: true })
+    setAi({ loading: true, error: '' })
     try {
-      // Fallback: wenn myOwnerId/myRosterId fehlen, nimm das erste vorhandene Team
-      const rosterKeys = Object.keys(teamByRosterId || {})
-      const fallbackRosterId = (myRosterId && rosterKeys.includes(myRosterId)) ? myRosterId : rosterKeys[0]
-      const fallbackOwnerId = fallbackRosterId
-        ? String(teamByRosterId[fallbackRosterId]?.owner_id || '')
-        : (myOwnerId || '')
-
       const ctx = buildDraftReviewContext({
         league,
         picks,
@@ -38,19 +50,25 @@ export default function DraftAnalysis({
         ownerLabels,
         myOwnerId: myOwnerId || fallbackOwnerId,
         myRosterId: myRosterId || fallbackRosterId,
-        board
+        board,
+        draftMode,
       })
-      const payload = buildDraftReviewPayload(ctx, { temperature: 0.3 })
-      const parsed = await callAiDraftReview(payload)
-      setAi({ loading: false, data: parsed, error: '', ran: true })
+      const payload = buildDraftReviewPayload(ctx, { temperature: 0.3, format })
+      const result = await callAiDraftReview(payload)
+      setAi({ loading: false, error: '' })
+      onReviewResult(result)
     } catch (e) {
-      setAi({ loading: false, data: null, error: String(e?.message || e), ran: true })
+      setAi({ loading: false, error: String(e?.message || e) })
     }
-  }, [canAI, league, picks, teamByRosterId, ownerLabels, myOwnerId, myRosterId, board])
+  }, [canAI, league, picks, teamByRosterId, ownerLabels, myOwnerId, myRosterId, board, draftMode, format, fallbackOwnerId, fallbackRosterId, onReviewResult])
 
-  React.useEffect(() => {
-    if (canAI && !ai.ran && !ai.loading) runAI()
-  }, [canAI, ai.ran, ai.loading, runAI])
+  const estimate = React.useMemo(() => {
+    if (!canAI) return ''
+    try {
+      const ctx = buildDraftReviewContext({ league, picks, teamByRosterId, ownerLabels, myOwnerId, myRosterId, board, draftMode })
+      return formatEstimate(buildDraftReviewPayload(ctx, { format }), 'claude-sonnet-5')
+    } catch { return '' }
+  }, [canAI, picks?.length, draftMode])
 
   return (
     <section className="card">
@@ -99,13 +117,22 @@ export default function DraftAnalysis({
       {/* ---- AI Review Header / Actions ---- */}
       <div className="mt-6 flex items-center justify-between">
         <h3 className="text-lg font-semibold">AI Draft Review</h3>
-        <div className="flex items-center gap-2">
-          {!canAI && <span className="muted text-sm">(Add an Anthropic key to enable the AI review)</span>}
-          <button className="btn" disabled={!canAI || ai.loading} onClick={runAI}>
-            {ai.loading ? 'Analyzing…' : (ai.ran ? 'Re-run' : 'Run')}
-          </button>
-        </div>
+        {!canAI && <span className="muted text-sm">(Add an Anthropic key to enable the AI review)</span>}
       </div>
+
+      {!data && !ai.loading && (
+        <div className="review-start">
+          <button className="btn btn-primary" onClick={runAI} disabled={!canAI}>
+            Review starten
+          </button>
+          <CostHint text={estimate} />
+        </div>
+      )}
+      {data && (
+        <button className="btn btn-ghost btn-sm" onClick={runAI} disabled={ai.loading}>
+          Neu berechnen
+        </button>
+      )}
 
       {ai.error && (
         <div className="alert error mt-2">
@@ -114,17 +141,17 @@ export default function DraftAnalysis({
         </div>
       )}
 
-      {canAI && ai.loading && !ai.data && (
+      {canAI && ai.loading && !data && (
         <div className="muted mt-2">Crunching numbers, looking at rosters and picks…</div>
       )}
 
-      {canAI && ai.data && (
+      {canAI && data && (
         <div className="mt-4 grid gap-4">
 
           {/* Overall Summary */}
           <div className="card p-3">
             <div className="text-sm uppercase muted mb-1">Overall</div>
-            <p className="whitespace-pre-wrap">{ai.data.overallSummary}</p>
+            <p className="whitespace-pre-wrap">{data.overallSummary}</p>
           </div>
 
           {/* AI Rankings + One-liners */}
@@ -141,8 +168,8 @@ export default function DraftAnalysis({
                   </tr>
                 </thead>
                 <tbody>
-                  {(ai.data.overallRankings || []).slice().sort((a,b)=>a.rank-b.rank).map((row, i) => {
-                    const comment = (ai.data.teamOneLiners || []).find(t => t.teamId === row.teamId)
+                  {(data.overallRankings || []).slice().sort((a,b)=>a.rank-b.rank).map((row, i) => {
+                    const comment = (data.teamOneLiners || []).find(t => t.teamId === row.teamId)
                     return (
                       <tr key={row.teamId || i}>
                         <td>{row.rank}</td>
@@ -162,7 +189,7 @@ export default function DraftAnalysis({
             <div className="card p-3">
               <div className="text-sm uppercase muted mb-2">Top Steals</div>
               <ul className="list-disc pl-5">
-                {(ai.data.steals || []).map((s, idx) => (
+                {(data.steals || []).map((s, idx) => (
                   <li key={idx}>
                     <span className="font-semibold">Pick #{s.pick_no} – {s.player}</span>
                     {' '}(<span className="muted">{s.displayName}</span>): {s.rationale}
@@ -173,7 +200,7 @@ export default function DraftAnalysis({
             <div className="card p-3">
               <div className="text-sm uppercase muted mb-2">Top Reaches</div>
               <ul className="list-disc pl-5">
-                {(ai.data.reaches || []).map((r, idx) => (
+                {(data.reaches || []).map((r, idx) => (
                   <li key={idx}>
                     <span className="font-semibold">Pick #{r.pick_no} – {r.player}</span>
                     {' '}(<span className="muted">{r.displayName}</span>): {r.rationale}
@@ -186,15 +213,18 @@ export default function DraftAnalysis({
           {/* My Team Deep Dive */}
           <div className="card p-3">
             <div className="text-sm uppercase muted mb-2">My Team Deep Dive</div>
+            {usedFallback && (
+              <p className="muted text-xs">Hinweis: Dein Team konnte nicht sicher erkannt werden — der Deep-Dive beschreibt das erste Team der Liste.</p>
+            )}
             <div className="grid md:grid-cols-2 gap-3">
               <div>
                 <div className="font-semibold mb-1">Grade</div>
-                <div className="text-xl">{ai.data.myTeamDeepDive?.grade || '-'}</div>
+                <div className="text-xl">{data.myTeamDeepDive?.grade || '-'}</div>
               </div>
               <div>
                 <div className="font-semibold mb-1">Recommended Moves</div>
                 <ul className="list-disc pl-5">
-                  {(ai.data.myTeamDeepDive?.recommendedMoves || []).map((m, idx) => <li key={idx}>{m}</li>)}
+                  {(data.myTeamDeepDive?.recommendedMoves || []).map((m, idx) => <li key={idx}>{m}</li>)}
                 </ul>
               </div>
             </div>
@@ -202,45 +232,42 @@ export default function DraftAnalysis({
               <div>
                 <div className="font-semibold mb-1">Strengths</div>
                 <ul className="list-disc pl-5">
-                  {(ai.data.myTeamDeepDive?.strengths || []).map((s, idx) => <li key={idx}>{s}</li>)}
+                  {(data.myTeamDeepDive?.strengths || []).map((s, idx) => <li key={idx}>{s}</li>)}
                 </ul>
               </div>
               <div>
                 <div className="font-semibold mb-1">Weaknesses</div>
                 <ul className="list-disc pl-5">
-                  {(ai.data.myTeamDeepDive?.weaknesses || []).map((w, idx) => <li key={idx}>{w}</li>)}
+                  {(data.myTeamDeepDive?.weaknesses || []).map((w, idx) => <li key={idx}>{w}</li>)}
                 </ul>
               </div>
               <div>
                 <div className="font-semibold mb-1">Risks</div>
                 <ul className="list-disc pl-5">
-                  {(ai.data.myTeamDeepDive?.risks || []).map((r, idx) => <li key={idx}>{r}</li>)}
+                  {(data.myTeamDeepDive?.risks || []).map((r, idx) => <li key={idx}>{r}</li>)}
                 </ul>
               </div>
             </div>
-            <div className="mt-3 whitespace-pre-wrap">{ai.data.myTeamDeepDive?.longText || ''}</div>
-            <div className="muted text-xs mt-2">Model: {ai.data.meta?.model || 'n/a'}</div>
+            <div className="mt-3 whitespace-pre-wrap">{data.myTeamDeepDive?.longText || ''}</div>
+            <div className="muted text-xs mt-2">Model: {data.meta?.model || 'n/a'}</div>
           </div>
 
-          {/* Week 1 Start/Sit (My Team) */}
-          <div className="card p-3">
-            <div className="text-sm uppercase muted mb-2">Week 1 Start/Sit (My Team)</div>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <div className="font-semibold mb-1">Starters</div>
-                <ul className="list-disc pl-5">
-                  {(ai.data.myWeek1StartSit?.starters || []).map((s, idx) => <li key={idx}>{s}</li>)}
-                </ul>
-              </div>
-              <div>
-                <div className="font-semibold mb-1">Sits</div>
-                <ul className="list-disc pl-5">
-                  {(ai.data.myWeek1StartSit?.sits || []).map((s, idx) => <li key={idx}>{s}</li>)}
-                </ul>
-              </div>
-            </div>
-            <div className="mt-2 whitespace-pre-wrap">{ai.data.myWeek1StartSit?.notes || ''}</div>
-          </div>
+          {/* Learnings fuer den naechsten Mock */}
+          {data?.lessonsForNextMock?.length > 0 && (
+            <section className="review-lessons">
+              <h3>Learnings für den nächsten Mock</h3>
+              <ul>
+                {data.lessonsForNextMock.map((l, i) => (
+                  <li key={i}>
+                    <strong>{l.lesson}</strong>
+                    <div className="muted text-xs">{l.evidence}</div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {usage && <div className="advice-usage"><CostHint text={formatUsage(usage, usageModel)} prefix="Verbraucht: " /></div>}
 
         </div>
       )}

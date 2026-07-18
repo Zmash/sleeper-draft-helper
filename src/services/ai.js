@@ -3,6 +3,7 @@
 // Output format: { system, messages, tools, tool_choice, max_tokens, temperature }
 
 import { normalizePlayerName, normalizePos } from '../utils/formatting'
+import { detectRuns, opponentsUntilMyNext } from './draftFlow'
 
 // ---------- Pure helpers ----------
 
@@ -82,6 +83,9 @@ function minifyBoardPlayer(p, isRookie = false) {
   // ecrVsAdp traegt es nur beim CSV-Import — ohne adp beriet die AI auf einem
   // Markt-Board voellig ohne Marktbezug. null heisst "kein Marktwert", nicht 0.
   if (p.adp != null) base.adp = p.adp
+  if (p.high != null) base.high = p.high
+  if (p.low != null) base.low = p.low
+  if (p.stdev != null) base.stdev = p.stdev
   // Das Feld heisst historisch dynasty_value, traegt im Redraft aber den
   // FantasyCalc-Redraft-Wert (isDynasty=false). Unter dem alten Namen schrieb
   // die AI woertlich "elite dynasty value" ueber einen Redraft-Mock.
@@ -152,7 +156,7 @@ function deriveFavAvoid({ boardPlayers = [], playerPreferences = {} }) {
 
 // ---------- Context builder ----------
 
-function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType }) {
+function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType, draftSlot, tips }) {
   const { topNOverall = 40, topPerPos = 10 } = options
 
   const pickedByName = new Set(
@@ -211,13 +215,30 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
     ? currentPickNumber + 1
     : null
 
+  const teamsForMath = league?.total_rosters ?? draft?.settings?.teams ?? draft?.teams ?? null
+  const draftType = String(draft?.type || 'snake').toLowerCase()
+  const isSnake = draftType === 'snake'
+  // draftSlot (aus App.jsx) schlaegt die Pick-Ableitung — die kennt den Slot
+  // erst nach dem ersten eigenen Pick.
+  const mySlot = draftSlot != null ? Number(draftSlot) : inferMySlot({ draft, livePicks, me })
+
+  const opponents = isSnake
+    ? opponentsUntilMyNext({
+        picks: livePicks, teamsCount: teamsForMath, mySlot,
+        upcomingPick, rosterPositions: league?.roster_positions || [],
+      })
+    : null
+
   const draftContext = {
     upcoming_pick_number: upcomingPick,
     completed_picks: Number.isFinite(currentPickNumber) ? currentPickNumber : null,
+    my_slot: mySlot,
+    my_next_pick_number: opponents?.my_next_pick ?? null,
+    picks_until_my_next: opponents && upcomingPick != null ? opponents.my_next_pick - upcomingPick : null,
+    draft_type: draftType,
+    is_snake: isSnake,
     rounds: draft?.settings?.rounds ?? draft?.rounds ?? null,
-    teams: league?.total_rosters ?? null,
-    slot: inferMySlot({ draft, livePicks, me }),
-    is_snake: true,
+    teams: teamsForMath,
   }
 
   const handcuffOpps = isRookie ? [] : findHandcuffs({ myRoster, available })
@@ -248,10 +269,21 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
       ...draftContext,
       ...(myPicksInDraft ? { my_picks: myPicksInDraft } : {}),
     },
+    draft_flow: detectRuns(livePicks),
+    ...(opponents ? { opponents_before_my_next: opponents } : {}),
     me: { user_id: me },
     my_team: {
       picks: myRoster,
       position_counts: myCounts,
+      bye_weeks: (() => {
+        const byes = {}
+        for (const p of boardPlayers || []) {
+          if (p?.status !== 'me' || p?.bye == null) continue
+          const b = Number(p.bye)
+          if (Number.isFinite(b)) byes[b] = (byes[b] || 0) + 1
+        }
+        return byes
+      })(),
       ...(existingRosterCounts ? { existing_dynasty_roster_counts: existingRosterCounts } : {}),
     },
     board: { overall_top: topOverall, by_position: topByPosition },
@@ -263,6 +295,9 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
       avoid_nnames: Array.from(pickedByName),
     },
     ...(handcuffOpps.length > 0 ? { handcuff_opportunities: handcuffOpps } : {}),
+    ...(Array.isArray(tips) && tips.length
+      ? { tips_signals: tips.slice(0, 7).map(t => ({ type: t.type, text: t.text })) }
+      : {}),
     timestamp_iso: new Date().toISOString(),
   }
 }
@@ -271,93 +306,125 @@ function makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNu
 
 function buildSystemPrompt(draftMode) {
   const shared = [
-    'Hard constraints:',
-    '- Never recommend a player listed in constraints.avoid_nnames (already picked).',
-    '- Only recommend players from board.overall_top or board.by_position.',
-    '- Respect context.user_bias: prefer favorites, strongly avoid "avoid" players unless the value gap is extreme.',
-    '- If context.custom_strategy is provided, treat it as high-level user guidance and follow it unless it conflicts with hard constraints.',
-    'Return your answer by calling tool `return_draft_advice`.',
+    'Harte Regeln:',
+    '- Alle Freitext-Felder (why, tradeoff_vs_primary, reason, note, strategy_notes) auf Deutsch, du-Form.',
+    '- Empfiehl niemals Spieler aus constraints.avoid_nnames (bereits gepickt).',
+    '- Nur Spieler aus board.overall_top oder board.by_position nennen — auch in plan_next_picks.',
+    '- survival: Begruendung ausschliesslich aus high/low/adp des Spielers und opponents_before_my_next. Keine erfundenen Faktoren.',
+    '- plan_next_picks: nutze draft.my_next_pick_number und die folgenden eigenen Picks; beruecksichtige opponents_before_my_next (wer schnappt was weg?) und my_team.bye_weeks.',
+    '- Wenn draft_flow.run gesetzt ist, erklaere in run_alert, was der Run fuer diesen Pick bedeutet — sonst run_alert weglassen.',
+    '- tips_signals sind Heuristik-Hinweise der App: bestaetige oder widersprich ihnen explizit, statt sie zu ignorieren.',
+    '- Respektiere context.user_bias (Favoriten bevorzugen, Avoids nur bei extremem Value).',
+    '- Wenn context.custom_strategy existiert, folge ihr, solange sie den harten Regeln nicht widerspricht.',
+    'Antworte durch Aufruf des Tools `return_draft_advice`.',
   ]
 
   if (draftMode === 'rookie') {
     return [
-      'You are a veteran Dynasty Fantasy Football advisor specialized in annual Rookie Drafts on Sleeper.',
-      'Task: Recommend the next best rookie pick for the USER given their existing dynasty roster and the current rookie board.',
+      'Du bist ein erfahrener Dynasty-Fantasy-Football-Berater, spezialisiert auf Rookie-Drafts bei Sleeper.',
+      'Aufgabe: Empfiehl den naechsten Rookie-Pick unter Beruecksichtigung des bestehenden Dynasty-Kaders.',
       ...shared,
-      'Rookie Draft specifics:',
-      '- All available players are NFL rookies. Prioritize long-term dynasty value over immediate starter impact.',
-      '- Key evaluation factors: NFL landing spot (depth chart opportunity), college production, age/athleticism, positional value (WR > RB long-term).',
-      '- Picks often land on the Taxi Squad — immediate starter value is NOT required.',
-      '- context.my_team.existing_dynasty_roster_counts shows positions already on the dynasty roster. Fill positional weaknesses.',
-      '- context.draft.my_picks lists which rounds the user has picks in (some may be traded). Adjust urgency accordingly.',
-      '- Bye weeks are irrelevant for dynasty. Do NOT mention bye weeks.',
-      '- No handcuff logic applies — skip handcuff reasoning entirely.',
-      '- Scarcity: the eligible player pool is small (20–60 players total). Be precise about tier drops.',
+      'Rookie-Spezifika:',
+      '- Alle verfuegbaren Spieler sind NFL-Rookies. Langfristiger Dynasty-Wert schlaegt Sofort-Impact.',
+      '- Bewertungsfaktoren: Landing Spot (Depth Chart), College-Produktion, Alter/Athletik, Positionswert (WR > RB langfristig).',
+      '- Picks landen oft auf dem Taxi Squad — Sofort-Starter-Wert ist NICHT noetig.',
+      '- my_team.existing_dynasty_roster_counts zeigt den Bestand: fuelle Positions-Schwaechen.',
+      '- draft.my_picks zeigt, in welchen Runden du Picks hast — passe die Dringlichkeit an.',
+      '- Bye-Weeks sind irrelevant, erwaehne sie nicht. Kein Handcuff-Denken.',
+      '- Der Pool ist klein (20-60 Spieler): sei praezise bei Tier-Abbruechen.',
     ].join('\n')
   }
 
   return [
-    'You are a veteran Fantasy Football draft advisor specialized in Sleeper drafts.',
-    'Task: Recommend the next best pick for the USER given league settings, roster needs, and the provided ranking board.',
+    'Du bist ein erfahrener Fantasy-Football-Draft-Berater, spezialisiert auf Sleeper-Drafts.',
+    'Aufgabe: Empfiehl den naechsten Pick fuer den Nutzer — mit echtem Vergleich der Alternativen, nicht nur einer Nennung.',
     ...shared,
-    '- Respect league scoring and roster requirements from context.league.',
-    '- Consider positional scarcity, roster balance, and tier pressure; use bye weeks only as tie-breakers.',
-    '- In 1-QB leagues, de-emphasize QB before Round 7 unless elite value; in Superflex, prioritize securing QBs.',
-    '- Use context.strategies as soft tie-breakers (e.g., Zero RB, Hero RB, Elite TE).',
-    '- Handcuffs: if context.handcuff_opportunities lists an available RB backup, consider recommending it in rounds 8+ when roster depth allows.',
+    '- Respektiere Scoring und Kaderanforderungen aus context.league und context.format.',
+    '- Positionsknappheit, Kader-Balance und Tier-Druck zaehlen; Byes nur als Tie-Breaker.',
+    '- In 1-QB-Ligen QB vor Runde 7 abwerten (ausser Elite-Value); in Superflex QBs priorisieren.',
+    '- context.strategies sind weiche Tie-Breaker (Zero RB, Hero RB, Elite TE).',
+    '- Handcuffs aus handcuff_opportunities ab Runde 8 erwaegen, wenn die Kadertiefe es erlaubt.',
   ].join('\n')
 }
 
 // ---------- Tool definition (Anthropic format) ----------
 
 function buildAdviceTool() {
+  const playerCore = {
+    player_nname: { type: 'string', description: 'Normalisierter Name, exakt wie board.nname' },
+    player_display: { type: 'string' },
+    pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
+    rk: { type: 'integer' },
+  }
   return {
     name: 'return_draft_advice',
-    description: 'Return the next-pick recommendation and alternatives for the user based on the provided context.',
+    description: 'Naechster-Pick-Empfehlung mit Vergleich, Survival-Einschaetzung und Plan fuer die kommenden eigenen Picks.',
     input_schema: {
       type: 'object',
       additionalProperties: false,
       properties: {
         primary: {
-          type: 'object',
-          additionalProperties: false,
+          type: 'object', additionalProperties: false,
           properties: {
-            player_nname: { type: 'string', description: 'Normalized name matching board.nname' },
-            player_display: { type: 'string', description: 'Human-readable "First Last"' },
-            pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
-            tier: { type: 'string' },
-            rk: { type: 'integer' },
+            ...playerCore,
             fit_score: { type: 'number', minimum: 0, maximum: 100 },
-            why: { type: 'string', description: 'Short reasoning: fit, scarcity, risk' },
+            why: { type: 'string', description: 'Begruendung auf Deutsch (du-Form): Fit, Knappheit, Risiko' },
           },
           required: ['player_nname', 'pos', 'why'],
         },
         alternatives: {
-          type: 'array',
-          minItems: 2,
-          maxItems: 5,
+          type: 'array', minItems: 2, maxItems: 4,
           items: {
-            type: 'object',
-            additionalProperties: false,
+            type: 'object', additionalProperties: false,
             properties: {
-              player_nname: { type: 'string' },
-              player_display: { type: 'string' },
-              pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
-              tier: { type: 'string' },
-              rk: { type: 'integer' },
-              why: { type: 'string' },
+              ...playerCore,
+              why: { type: 'string', description: 'Deutsch (du-Form)' },
+              tradeoff_vs_primary: { type: 'string', description: 'Was gebe ich auf, wenn ich stattdessen primary nehme? Deutsch (du-Form)' },
             },
-            required: ['player_nname', 'pos', 'why'],
+            required: ['player_nname', 'pos', 'why', 'tradeoff_vs_primary'],
           },
         },
-        strategy_notes: {
-          type: 'string',
-          description: '1-3 short bullets about overall strategy going forward',
+        survival: {
+          type: 'array',
+          description: 'Je ein Eintrag fuer primary und jede Alternative: ueberlebt der Spieler bis my_next_pick_number?',
+          items: {
+            type: 'object', additionalProperties: false,
+            properties: {
+              player_nname: { type: 'string' },
+              verdict: { type: 'string', enum: ['duerfte_da_sein', 'muenzwurf', 'duerfte_weg_sein'] },
+              reason: { type: 'string', description: 'Nur aus high/low/adp und den Gegner-Luecken begruenden. Deutsch (du-Form)' },
+            },
+            required: ['player_nname', 'verdict', 'reason'],
+          },
         },
+        plan_next_picks: {
+          type: 'array', maxItems: 3,
+          description: 'Plan fuer die naechsten eigenen Picks (Pick-Nummern aus dem Kontext).',
+          items: {
+            type: 'object', additionalProperties: false,
+            properties: {
+              pick_number: { type: 'integer' },
+              target_positions: { type: 'array', items: { type: 'string' } },
+              candidate_nnames: { type: 'array', items: { type: 'string' } },
+              note: { type: 'string', description: 'Deutsch (du-Form)' },
+            },
+            required: ['pick_number', 'target_positions', 'note'],
+          },
+        },
+        run_alert: {
+          type: 'object', additionalProperties: false,
+          description: 'Nur setzen, wenn draft_flow.run gesetzt ist.',
+          properties: {
+            pos: { type: 'string' },
+            note: { type: 'string', description: 'Deutsch (du-Form)' },
+          },
+          required: ['pos', 'note'],
+        },
+        strategy_notes: { type: 'string', description: '1-3 kurze Punkte, Deutsch (du-Form)' },
         risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
         confidence: { type: 'number', minimum: 0, maximum: 1 },
       },
-      required: ['primary', 'alternatives'],
+      required: ['primary', 'alternatives', 'survival', 'plan_next_picks'],
     },
   }
 }
@@ -384,10 +451,12 @@ export function buildAIAdviceRequest(params) {
     isSuperflex,
     customStrategyText,
     playerPreferences = {},
+    draftSlot = null,
+    tips,
   } = params || {}
 
   const { draftMode, dynastyRoster, myDraftPicks } = params || {}
-  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType })
+  const context = makeContext({ boardPlayers, livePicks, me, league, draft, currentPickNumber, options, draftMode, dynastyRoster, myDraftPicks, scoringType, draftSlot, tips })
 
   context.format = {
     scoring_type:
@@ -418,8 +487,10 @@ export function buildAIAdviceRequest(params) {
     favorites_nnames: favorites,
     avoids_nnames: avoids,
     weights: {
-      fav_bonus: Number.isFinite(options.favBonus) ? options.favBonus : 5,
-      avoid_penalty: Number.isFinite(options.avoidPenalty) ? options.avoidPenalty : 8,
+      fav_bonus: Number.isFinite(options.favBonus) ? options.favBonus
+        : Number.isFinite(params?.favBonus) ? params.favBonus : 5,
+      avoid_penalty: Number.isFinite(options.avoidPenalty) ? options.avoidPenalty
+        : Number.isFinite(params?.avoidPenalty) ? params.avoidPenalty : 8,
     },
   }
 
@@ -433,7 +504,7 @@ export function buildAIAdviceRequest(params) {
     ],
     tools: [buildAdviceTool()],
     tool_choice: { type: 'tool', name: 'return_draft_advice' },
-    max_tokens: 1024,
+    max_tokens: 2000,
     temperature: options.temperature ?? 0.2,
   }
 }

@@ -106,3 +106,90 @@ describe('buildAIAdviceRequest — Format-Treue', () => {
     expect(ctx.league.total_rosters).toBe(10)
   })
 })
+
+const ctxOf = (req) => JSON.parse(req.messages[0].content.match(/<CONTEXT_JSON>\n([\s\S]*)\n<\/CONTEXT_JSON>/)[1])
+
+describe('buildAIAdviceRequest — erweiterter Kontext', () => {
+  it('gibt Markt-Spannen mit, aber nur wenn vorhanden', () => {
+    const board = [
+      { ...mockBoard[0], high: 12, low: 24, stdev: 2.7 },
+      { ...mockBoard[1] },
+    ]
+    const ctx = ctxOf(buildAIAdviceRequest({ ...baseParams, boardPlayers: board, scoringType: 'standard' }))
+    const [a, b] = ctx.board.overall_top
+    expect([a.high, a.low, a.stdev]).toEqual([12, 24, 2.7])
+    expect('high' in b).toBe(false)
+  })
+
+  it('draftSlot hat Vorrang vor der Ableitung aus den Picks', () => {
+    const ctx = ctxOf(buildAIAdviceRequest({ ...baseParams, draftSlot: 4, scoringType: 'standard' }))
+    expect(ctx.draft.my_slot).toBe(4)
+  })
+
+  it('kennt meinen naechsten Pick und die Gegner dazwischen', () => {
+    const ctx = ctxOf(buildAIAdviceRequest({
+      ...baseParams, draftSlot: 4, currentPickNumber: 3, scoringType: 'standard',
+      draft: { settings: { teams: 10, rounds: 15 }, type: 'snake' },
+    }))
+    expect(ctx.draft.my_next_pick_number).toBe(17)
+    expect(ctx.draft.picks_until_my_next).toBe(13)   // 17 - upcoming(4)
+    expect(ctx.opponents_before_my_next.between).toHaveLength(12)
+  })
+
+  it('draft_type kommt aus dem Draft, is_snake wird abgeleitet — nie hardcodiert', () => {
+    const ctx = ctxOf(buildAIAdviceRequest({
+      ...baseParams, scoringType: 'standard',
+      draft: { settings: { teams: 10, rounds: 15 }, type: 'auction' },
+    }))
+    expect(ctx.draft.draft_type).toBe('auction')
+    expect(ctx.draft.is_snake).toBe(false)
+    expect(ctx.opponents_before_my_next).toBeUndefined()   // keine Snake-Mathe fuer Auctions
+  })
+
+  it('zaehlt die Byes meiner markierten Spieler', () => {
+    const board = [
+      { ...mockBoard[0], status: 'me', bye: 6 },
+      { ...mockBoard[1], status: 'me', bye: 6 },
+      { ...mockBoard[2], status: 'me', bye: 11 },
+    ]
+    const ctx = ctxOf(buildAIAdviceRequest({ ...baseParams, boardPlayers: board, scoringType: 'standard' }))
+    expect(ctx.my_team.bye_weeks).toEqual({ 6: 2, 11: 1 })
+  })
+
+  it('reicht die Gratis-Tipps gekappt als Signale durch', () => {
+    const tips = Array.from({ length: 10 }, (_, i) => ({ type: 'value', text: `Tipp ${i}`, severity: 'info' }))
+    const ctx = ctxOf(buildAIAdviceRequest({ ...baseParams, tips, scoringType: 'standard' }))
+    expect(ctx.tips_signals).toHaveLength(7)
+    expect(ctx.tips_signals[0]).toEqual({ type: 'value', text: 'Tipp 0' })
+  })
+
+  it('favBonus wirkt — egal ob in options oder top-level uebergeben', () => {
+    const a = ctxOf(buildAIAdviceRequest({ ...baseParams, options: { favBonus: 6 }, scoringType: 'standard' }))
+    const b = ctxOf(buildAIAdviceRequest({ ...baseParams, favBonus: 6, scoringType: 'standard' }))
+    expect(a.user_bias.weights.fav_bonus).toBe(6)
+    expect(b.user_bias.weights.fav_bonus).toBe(6)
+  })
+})
+
+describe('buildAIAdviceRequest — Schema & Prompt', () => {
+  it('das Tool verlangt Vergleich, Survival und Plan', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    const schema = req.tools[0].input_schema
+    expect(schema.required).toEqual(expect.arrayContaining(['primary', 'alternatives', 'survival', 'plan_next_picks']))
+    expect(schema.properties.alternatives.items.required).toContain('tradeoff_vs_primary')
+    expect(schema.properties.survival.items.properties.verdict.enum)
+      .toEqual(['duerfte_da_sein', 'muenzwurf', 'duerfte_weg_sein'])
+  })
+  it('der Prompt erzwingt Deutsch und verbietet erfundene Survival-Gruende', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    expect(req.system).toMatch(/Deutsch/)
+    expect(req.system).toMatch(/du-Form/)
+    expect(req.system).toMatch(/high.*low|low.*high/)
+    expect(req.max_tokens).toBe(2000)
+  })
+  it('auch der Rookie-Prompt ist deutsch und behaelt die Rookie-Regeln', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, draftMode: 'rookie' })
+    expect(req.system).toMatch(/Deutsch/)
+    expect(req.system).toMatch(/[Tt]axi/)
+  })
+})
