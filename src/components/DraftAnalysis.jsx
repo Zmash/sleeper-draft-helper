@@ -20,10 +20,13 @@ export default function DraftAnalysis({
   onReviewResult = () => {},
 }) {
   const [ai, setAi] = React.useState({ loading: false, error: '' })
-  const canAI = !!getOpenAIKey() &&
-                !!league &&
-                Array.isArray(picks) && picks.length > 0 &&
-                teamByRosterId && Object.keys(teamByRosterId || {}).length > 0
+  // Liga ist NICHT nötig: buildDraftReviewContext verkraftet league=null, und das
+  // Format kommt separat über die format-Prop. Mock-/Gast-Drafts sollen genauso
+  // reviewbar sein wie das Advice (das ebenfalls keine Liga verlangt).
+  const hasKey = !!getOpenAIKey()
+  const hasDraftData = Array.isArray(picks) && picks.length > 0 &&
+                       teamByRosterId && Object.keys(teamByRosterId || {}).length > 0
+  const canAI = hasKey && hasDraftData
 
   const data = reviewResult?.parsed || null
   const usage = reviewResult?.usage || null
@@ -117,7 +120,13 @@ export default function DraftAnalysis({
       {/* ---- AI Review Header / Actions ---- */}
       <div className="mt-6 flex items-center justify-between">
         <h3 className="text-lg font-semibold">AI Draft Review</h3>
-        {!canAI && <span className="muted text-sm">(Add an Anthropic key to enable the AI review)</span>}
+        {!canAI && (
+          <span className="muted text-sm">
+            {!hasKey
+              ? '(Anthropic-Key hinterlegen, um das AI-Review zu nutzen)'
+              : '(Noch keine Draft-Picks — Review sobald gepickt wurde)'}
+          </span>
+        )}
       </div>
 
       {!data && !ai.loading && (

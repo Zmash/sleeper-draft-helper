@@ -72,6 +72,13 @@ describe('DraftAnalysis — Button statt Auto-Call', () => {
     }))
   })
 
+  it('erlaubt das Review auch ohne Liga (Mock-/Gast-Draft): Button aktiv, keine Key-Meldung', () => {
+    render(<DraftAnalysis {...baseProps} league={null} />)
+    const btn = screen.getByRole('button', { name: 'Review starten' })
+    expect(btn.disabled).toBe(false)
+    expect(screen.queryByText(/Anthropic-Key hinterlegen/)).toBeNull()
+  })
+
   it('rendert ein gecachtes Ergebnis ohne erneuten Call und zeigt "Neu berechnen"', () => {
     render(<DraftAnalysis {...baseProps} reviewResult={{
       parsed: { ...emptyParsed, overallSummary: 'Zusammenfassung' }, usage: null, model: null,

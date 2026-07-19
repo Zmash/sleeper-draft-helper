@@ -115,6 +115,7 @@ export default function AdviceDialog({
           </div>
         </div>
 
+        <div style={bodyScrollStyle}>
         {loading && (
           <div style={{ padding: '8px 0' }}>Analysiere Board, Liga und Roster …</div>
         )}
@@ -199,6 +200,7 @@ export default function AdviceDialog({
     </div>
   </details>
 )}
+        </div>
 
       </div>
     </div>
@@ -213,8 +215,10 @@ const dialogStyle = {
   background: 'var(--bg, #161616)', color: 'var(--fg, #eaeaea)',
   minWidth: 420, maxWidth: 900, width: '90%',
   borderRadius: 10, padding: 16, boxShadow: '0 10px 24px rgba(0,0,0,0.4)',
+  maxHeight: '90vh', display: 'flex', flexDirection: 'column',
 }
-const headRow = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }
+const bodyScrollStyle = { overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }
+const headRow = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }
 const btnGhost = {
   background: 'transparent', border: '1px solid #444', color: 'inherit',
   borderRadius: 6, width: 28, height: 28, lineHeight: '28px', cursor: 'pointer'
