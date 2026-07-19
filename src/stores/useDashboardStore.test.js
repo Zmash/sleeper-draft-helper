@@ -86,4 +86,26 @@ describe('useDashboardStore.loadDashboard — Mock-Erkennung', () => {
     expect(mockCards).toHaveLength(1)
     expect(mockCards[0].draftId).toBe('MOCK1')
   })
+
+  // Bug: ein Mock, der beim Import 'drafting' war, blieb im Store fuer immer 'drafting'
+  // (buildDraftCard holte nur bei fehlendem/pre_draft-Status frisch). Nach Draft-Ende
+  // zeigte die Karte weiter LIVE + den "N Drafts Live"-Zaehler. Fix: solange nicht
+  // 'complete', immer den echten Live-Status nachladen.
+  it('aktualisiert einen persistierten "drafting"-Mock auf den echten Live-Status', async () => {
+    vi.stubGlobal('fetch', mockFetch({
+      '/state/nfl': NFL_STATE,
+      '/draft/MOCK1': { ...REAL_MOCK, status: 'complete' },
+    }))
+    const { useDashboardStore } = await import('./useDashboardStore')
+
+    await useDashboardStore.getState().loadDashboard({
+      leagues: [],
+      availableDrafts: [REAL_MOCK], // im Store noch als 'drafting' persistiert
+      sleeperUserId: 'U1',
+      seasonYear: '2026',
+    })
+
+    const card = useDashboardStore.getState().cards.find((c) => c.type === 'draft')
+    expect(card.draftStatus).toBe('complete')
+  })
 })

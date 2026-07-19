@@ -122,9 +122,11 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
 // Standalone / mock draft: fetch fresh status from API
 async function buildDraftCard(draft) {
   try {
-    // Fetch live status if not already 'complete'
+    // 'complete' ist ein Endzustand -> gecachten Draft nehmen. Jeder andere
+    // (persistierte) Status kann veraltet sein (ein Mock, der beim Import 'drafting'
+    // war, ist inzwischen evtl. fertig) -> echten Live-Status nachladen.
     const live =
-      draft.status && draft.status !== 'pre_draft'
+      draft.status === 'complete'
         ? draft
         : await fetchDraft(draft.draft_id).catch(() => draft)
 

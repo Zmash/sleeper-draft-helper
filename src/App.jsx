@@ -329,7 +329,7 @@ export default function App() {
       themeId={themeId}
       setTheme={setTheme}
       clockBar={
-        selectedDraft ? (
+        selectedDraft && !draftFinished ? (
           <OnTheClockBar draft={selectedDraft} picks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} />
         ) : null
       }
