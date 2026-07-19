@@ -30,6 +30,7 @@ export function isStale(dateStr, now = new Date()) {
 
 export default function DataProvenanceBar({
   marketMeta = null,
+  rankingSource = null,
   draftMode = 'redraft',
   hasCsvBoard = false,
   csvFileName = '',
@@ -58,7 +59,9 @@ export default function DataProvenanceBar({
 
   return (
     <div className="provenance-bar">
-      <span className="provenance-item">Rangliste <strong>FantasyCalc</strong></span>
+      {/* Alt-Boards ohne gespeicherte Quelle: fallback FantasyCalc, das war
+          vor dem FantasyPros-Import die einzige Markt-Rangliste. */}
+      <span className="provenance-item">Rangliste <strong>{rankingSource || 'FantasyCalc'}</strong></span>
       {marketMeta ? (
         <span className={`provenance-item${stale ? ' provenance-stale' : ''}`}>
           ADP <strong>Fantasy Football Calculator</strong>

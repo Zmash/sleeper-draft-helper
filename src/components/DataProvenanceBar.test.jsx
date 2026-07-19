@@ -31,6 +31,18 @@ describe('DataProvenanceBar', () => {
     expect(screen.getByText(/Redraft/)).toBeTruthy()
   })
 
+  it('nennt die uebergebene Rangliste-Quelle (FantasyPros) statt hart FantasyCalc', () => {
+    render(<DataProvenanceBar marketMeta={meta} rankingSource="FantasyPros" draftMode="redraft" now={new Date('2026-07-16')} />)
+    expect(screen.getByText(/Rangliste/).textContent).toMatch(/FantasyPros/)
+    // ADP bleibt FFC — nur die Rangliste-Quelle ist eine andere
+    expect(screen.getByText(/Fantasy Football Calculator/)).toBeTruthy()
+  })
+
+  it('faellt ohne rankingSource auf FantasyCalc zurueck (Alt-Boards)', () => {
+    render(<DataProvenanceBar marketMeta={meta} draftMode="redraft" now={new Date('2026-07-16')} />)
+    expect(screen.getByText(/Rangliste/).textContent).toMatch(/FantasyCalc/)
+  })
+
   it('CSV-Board: keine Auto-Quellen, kein Aktualisieren-Button', () => {
     render(<DataProvenanceBar marketMeta={null} hasCsvBoard csvFileName="ranks.csv" draftMode="redraft" />)
     expect(screen.getByText(/ranks\.csv/)).toBeTruthy()

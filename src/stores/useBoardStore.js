@@ -49,6 +49,11 @@ export const useBoardStore = create(
       // ein CSV-Import stattfand) — sonst luegt die Herkunfts-Zeile, sobald jemand nur
       // CSV-Text eintippt und den Overwrite-Dialog dann abbricht.
       boardSource: null,
+      // Welche Markt-Rangliste das AKTUELLE Board speist: 'FantasyCalc' |
+      // 'FantasyPros' | 'KeepTradeCut' | null. Getrennt von boardSource (das nur
+      // csv|market kennt), damit die Herkunfts-Zeile die echte Quelle nennt statt
+      // hart "FantasyCalc". null = Alt-Board ohne Markierung (Fallback in der UI).
+      rankingSource: null,
 
       setCsvRawText: (v) => set({ csvRawText: v }),
       setBoardSource: (v) => set({ boardSource: v }),
@@ -72,14 +77,14 @@ export const useBoardStore = create(
         const fresh = rows.map((r) => ({ ...r, status: null, pick_no: null, picked_by: null }))
         // CSV traegt keinen eigenen Typ — der aktuelle Modus ist die beste
         // verfuegbare Zuordnung fuer den Draft-Typ-Guard.
-        set({ boardPlayers: fresh, boardMode: get().draftMode })
+        set({ boardPlayers: fresh, boardMode: get().draftMode, rankingSource: null })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
       },
 
       handleKtcRookieImport: async (force = false) => {
-        const { boardPlayers, boardSource, marketMeta } = get()
+        const { boardPlayers, boardSource, marketMeta, rankingSource } = get()
         // force=true: der Aufrufer (z. B. Draft-Typ-Guard-Banner) hat die
         // Zustimmung bereits eingeholt — kein doppelter window.confirm.
         if (boardPlayers.length && !force) {
@@ -100,15 +105,15 @@ export const useBoardStore = create(
         // Snapshot sichert die Herkunft des Boards VOR diesem Import mit (siehe
         // Kommentar bei lastBoardSnapshot oben) — sonst luegt die Herkunfts-Zeile
         // nach einem Undo.
-        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
-        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market', boardMode: 'rookie' })
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta, rankingSource } : null
+        set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market', boardMode: 'rookie', rankingSource: 'KeepTradeCut' })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
       },
 
       handleAutoImport: async ({ isSuperflex, effScoringType, numTeams, draftMode = 'redraft', force = false } = {}) => {
-        const { boardPlayers, boardSource, marketMeta } = get()
+        const { boardPlayers, boardSource, marketMeta, rankingSource } = get()
         if (boardPlayers.length && !force) {
           // Bestaetigung liegt beim Aufrufer (Modal, Task 8) — der Store fragt nicht.
           return { ok: false, needsConfirm: true }
@@ -116,7 +121,7 @@ export const useBoardStore = create(
         // Snapshot sichert die Herkunft des Boards VOR diesem Import mit (siehe
         // Kommentar bei lastBoardSnapshot oben) — sonst luegt die Herkunfts-Zeile
         // nach einem Undo.
-        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta, rankingSource } : null
         const numQbs = isSuperflex ? 2 : 1
         const pprVal = effScoringType === 'ppr' ? 1 : effScoringType === 'half_ppr' ? 0.5 : 0
         const isDynasty = draftMode === 'rookie'
@@ -157,6 +162,7 @@ export const useBoardStore = create(
           lastBoardSnapshot: snapshot,
           boardSource: 'market',
           boardMode: isDynasty ? 'rookie' : 'redraft',
+          rankingSource: 'FantasyCalc',
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
@@ -168,12 +174,12 @@ export const useBoardStore = create(
       // + FFC-ADP-Overlay + Verletzungen. Immer 'redraft' (FantasyPros liefert hier
       // keine Rookie-/Dynasty-Werte).
       handleFantasyProsImport: async ({ isSuperflex, effScoringType, numTeams, force = false } = {}) => {
-        const { boardPlayers, boardSource, marketMeta } = get()
+        const { boardPlayers, boardSource, marketMeta, rankingSource } = get()
         if (boardPlayers.length && !force) {
           // Bestaetigung liegt beim Aufrufer (wie handleAutoImport).
           return { ok: false, needsConfirm: true }
         }
-        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta } : null
+        const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta, rankingSource } : null
         const fpScoring = effScoringType === 'half_ppr' ? 'half' : effScoringType === 'standard' ? 'std' : 'ppr'
 
         // Rangliste ist Pflicht — ohne sie gibt es kein Board.
@@ -207,6 +213,7 @@ export const useBoardStore = create(
           lastBoardSnapshot: snapshot,
           boardSource: 'market',
           boardMode: 'redraft',
+          rankingSource: 'FantasyPros',
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
@@ -238,8 +245,8 @@ export const useBoardStore = create(
         // boardSource/marketMeta gehoeren zum Snapshot, nicht nur boardPlayers —
         // sonst behauptet die Herkunfts-Zeile nach dem Undo weiter die Herkunft
         // des rueckgaengig gemachten Imports (siehe Kommentar bei lastBoardSnapshot).
-        const { boardPlayers, boardSource, marketMeta } = lastBoardSnapshot
-        set({ boardPlayers, boardSource, marketMeta, lastBoardSnapshot: null, lastImportStats: null })
+        const { boardPlayers, boardSource, marketMeta, rankingSource } = lastBoardSnapshot
+        set({ boardPlayers, boardSource, marketMeta, rankingSource: rankingSource ?? null, lastBoardSnapshot: null, lastImportStats: null })
         return true
       },
 
@@ -292,6 +299,7 @@ export const useBoardStore = create(
         boardMode: s.boardMode,
         marketMeta: s.marketMeta,
         boardSource: s.boardSource,
+        rankingSource: s.rankingSource,
         // lastBoardSnapshot bleibt in-memory: ein Undo ueber Sessions hinweg
         // waere ueberraschend, und der Snapshot verdoppelt den Speicherbedarf.
       }),

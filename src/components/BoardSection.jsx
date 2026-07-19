@@ -59,7 +59,7 @@ export default function BoardSection({
 }) {
   const navigate = useNavigate()
   const {
-    marketMeta, boardSource, refreshMarketData, boardMode,
+    marketMeta, boardSource, rankingSource, refreshMarketData, boardMode,
     handleAutoImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
   } = useBoardStore()
   const [refreshingMarket, setRefreshingMarket] = useState(false)
@@ -653,6 +653,7 @@ export default function BoardSection({
 
       <DataProvenanceBar
         marketMeta={marketMeta}
+        rankingSource={rankingSource}
         draftMode={draftMode}
         hasCsvBoard={boardSource === 'csv'}
         onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
