@@ -2,7 +2,7 @@ import { normalizePlayerName } from '../utils/formatting'
 
 // Ein Board braucht zwei Meinungen: eine Rangliste (wen sollte man nehmen) und
 // einen Markt (wen nehmen die anderen). Nur aus der Differenz entsteht Value.
-// Rang + Tier: FantasyCalc. Markt (ADP/Bye/Streuung) + K/DEF: FFC.
+// Rang + Tier: FantasyCalc/FantasyPros. Markt (ADP/Streuung) + K/DEF: Sleeper/FFC.
 
 const MARKET_FIELDS = ['adp', 'bye', 'stdev', 'high', 'low', 'times_drafted']
 
@@ -15,9 +15,14 @@ function marketIndex(ffcPlayers) {
   return m
 }
 
-function marketFieldsOf(src) {
+// Markt-Felder ueber einen Basis-Spieler legen: der Markt gewinnt pro Feld, aber
+// wo er nichts liefert (null/undefined), bleibt der Wert der Rang-Quelle stehen.
+// "Aus allen Quellen das Beste nehmen." Konkret: die Bye aus dem FantasyPros-
+// Cheatsheet ueberlebt einen Sleeper-ADP-Merge, der selbst keine Bye kennt —
+// ein hartes ueberschreiben wuerde sie sonst wegnullen.
+function mergeMarketFields(base, hit) {
   const out = {}
-  for (const f of MARKET_FIELDS) out[f] = src?.[f] ?? null
+  for (const f of MARKET_FIELDS) out[f] = hit?.[f] ?? base?.[f] ?? null
   return out
 }
 
@@ -39,7 +44,7 @@ export function mergeRankingsWithMarket(fcPlayers, ffcPlayers) {
         nname,
         tier: p.tier ?? null,
         sleeperId: p.sleeperId ?? null,
-        ...marketFieldsOf(hit),
+        ...mergeMarketFields(p, hit),
         status: null, pick_no: null, picked_by: null,
       }
     })
@@ -58,7 +63,7 @@ export function mergeRankingsWithMarket(fcPlayers, ffcPlayers) {
       nname: p.nname || normalizePlayerName(p.name || ''),
       tier: null,
       sleeperId: null,
-      ...marketFieldsOf(p),
+      ...mergeMarketFields(p, p),
       status: null, pick_no: null, picked_by: null,
     }))
 
@@ -87,7 +92,9 @@ export function overlayMarketData(boardPlayers, ffcPlayers) {
     const nname = p?.nname || normalizePlayerName(p?.name || '')
     const hit = market.get(nname)
     if (!hit) return p
-    return { ...p, ...marketFieldsOf(hit) }
+    // Coalescing: neue Marktwerte gewinnen, aber ein bestehendes Feld (z. B. Bye
+    // aus dem letzten Import) wird nicht weggenullt, wenn der neue Markt es nicht kennt.
+    return { ...p, ...mergeMarketFields(p, hit) }
   })
 
   // Ein Markt-TREFFER ist kein Beleg fuer ADP -- der Treffer selbst kann adp: null

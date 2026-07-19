@@ -22,6 +22,21 @@ describe('mergeRankingsWithMarket', () => {
     expect(bijan.stdev).toBe(0.7)
   })
 
+  it('Bye der Rang-Quelle (FantasyPros) ueberlebt, wenn der Markt (Sleeper) keine liefert', () => {
+    const fpRank = [{ name: 'Bijan Robinson', pos: 'RB', team: 'ATL', overallRank: 1, tier: 1, bye: '11' }]
+    const sleeperMarket = [{ name: 'Bijan Robinson', nname: 'bijan robinson', pos: 'RB', team: 'ATL', adp: 1.4, bye: null, high: null, low: null, stdev: null }]
+    const { players } = mergeRankingsWithMarket(fpRank, sleeperMarket)
+    expect(players[0].adp).toBe(1.4)   // adp gewinnt der Markt
+    expect(players[0].bye).toBe('11')  // Bye der Rang-Quelle bleibt erhalten
+  })
+
+  it('hat der Markt selbst eine Bye, gewinnt der Markt-Wert', () => {
+    const rank = [{ name: 'Bijan Robinson', pos: 'RB', overallRank: 1, bye: '99' }]
+    const market = [{ name: 'Bijan Robinson', nname: 'bijan robinson', adp: 1.4, bye: 11 }]
+    const { players } = mergeRankingsWithMarket(rank, market)
+    expect(players[0].bye).toBe(11)
+  })
+
   it('Union: FFC-only Spieler (K/DEF) werden hinten angehaengt', () => {
     const { players } = mergeRankingsWithMarket(fc, ffc)
     expect(players).toHaveLength(4)
@@ -91,6 +106,14 @@ describe('overlayMarketData', () => {
   it('haengt keine neuen Spieler an', () => {
     const { players } = overlayMarketData(board, ffc)
     expect(players).toHaveLength(2)
+  })
+
+  it('nullt eine bestehende Bye nicht weg, wenn der neue Markt (Sleeper) keine hat', () => {
+    const boardWithBye = [{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', pos: 'RB', adp: 1.7, bye: 11 }]
+    const sleeperMarket = [{ name: 'Bijan Robinson', nname: 'bijan robinson', adp: 1.4, bye: null }]
+    const { players } = overlayMarketData(boardWithBye, sleeperMarket)
+    expect(players[0].adp).toBe(1.4)  // neue adp uebernommen
+    expect(players[0].bye).toBe(11)   // altes bye bleibt stehen
   })
 
   // Minor 6: withAdp++ feuerte bisher schon bei einem Markt-TREFFER, auch wenn
