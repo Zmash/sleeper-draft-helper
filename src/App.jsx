@@ -296,12 +296,16 @@ export default function App() {
     return () => clearInterval(pollingRef.current)
   }, [autoRefreshEnabled, selectedDraftId, refreshIntervalSeconds]) // eslint-disable-line
 
-  // Draft change → auto-reset picks + board statuses, then load fresh
-  const prevDraftIdRef = useRef(selectedDraftId)
+  // Draft change → auto-reset picks + board statuses, then load fresh.
+  // Ref startet auf null, damit auch der erste Mount (Seiten-Reload) als
+  // "Wechsel" gilt: livePicks sind nicht persistiert, also muss der aktuelle
+  // Draft-Stand einmal frisch geladen werden, sonst zeigt die Clockbar den
+  // Default (Pick 1) statt des laufenden Picks.
+  const prevDraftIdRef = useRef(null)
   useEffect(() => {
     const prev = prevDraftIdRef.current
     prevDraftIdRef.current = selectedDraftId
-    if (prev === selectedDraftId) return   // no change (incl. initial mount)
+    if (prev === selectedDraftId) return   // no change
     // Clear stale live picks immediately so board shows clean state
     useLiveStore.getState().setLivePicks([])
     // Ein Review vom alten Draft darf nicht fuer den neuen stehen bleiben
