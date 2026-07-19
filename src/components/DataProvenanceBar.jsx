@@ -7,6 +7,9 @@ const STALE_AFTER_DAYS = 7
 
 const MODE_LABEL = { redraft: 'Redraft', rookie: 'Rookie Draft' }
 const FORMAT_LABEL = { ppr: 'PPR', 'half-ppr': 'Half-PPR', standard: 'Standard', '2qb': '2QB / Superflex' }
+// Welche ADP-Quelle das Board speist. Alt-Boards ohne marketMeta.source: Fallback
+// FFC, das war vor der Sleeper-Quelle die einzige ADP-Herkunft. Die Zeile luegt nie.
+const ADP_SOURCE_LABEL = { ffc: 'Fantasy Football Calculator', sleeper: 'Sleeper (RotoWire)' }
 
 function daysBetween(dateStr, now) {
   if (!dateStr) return null
@@ -64,7 +67,7 @@ export default function DataProvenanceBar({
       <span className="provenance-item">Rangliste <strong>{rankingSource || 'FantasyCalc'}</strong></span>
       {marketMeta ? (
         <span className={`provenance-item${stale ? ' provenance-stale' : ''}`}>
-          ADP <strong>Fantasy Football Calculator</strong>
+          ADP <strong>{ADP_SOURCE_LABEL[marketMeta.source] || 'Fantasy Football Calculator'}</strong>
           {marketMeta.total_drafts ? <>, {marketMeta.total_drafts} Mocks</> : null}
           {marketMeta.format ? <> ({FORMAT_LABEL[marketMeta.format] || marketMeta.format})</> : null}
           {age ? <> · Stand <strong>{age}</strong></> : null}

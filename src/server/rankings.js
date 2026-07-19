@@ -38,6 +38,45 @@ export function isDynastyFromQuery(v) {
   return String(v) !== 'false'
 }
 
+// ---------- Sleeper ADP (RotoWire, format-spezifisch) ----------
+// Sleeper bettet in seinen Projections pro Spieler format-spezifische ADP-Felder
+// ein (Quelle: RotoWire — NICHT gecrowdsourcte Sleeper-Draft-ADP). Wir nutzen
+// dieselbe format-Whitelist wie FFC (FFC_FORMATS) und mappen auf das passende
+// Stat-Feld. 999 ist der Sentinel fuer "in diesem Format ungerankt" (z. B. K/DEF,
+// die RotoWire nicht mit ADP versieht) — der wird zu null.
+export const SLEEPER_ADP_FIELD = {
+  ppr: 'adp_ppr',
+  'half-ppr': 'adp_half_ppr',
+  standard: 'adp_std',
+  '2qb': 'adp_2qb',
+}
+
+const SLEEPER_ADP_SENTINEL = 999
+
+// Ein Sleeper-Projection-Objekt -> Board-Markt-Form (identisch zu normalizeFfcPlayer).
+// adpField ist das pro Format aufgeloeste Stat-Feld (siehe SLEEPER_ADP_FIELD).
+// Sleeper liefert nur die ADP-Zahl — bye/stdev/high/low/times_drafted kennt die
+// Quelle nicht und bleiben null (der Tip-Engine degradiert dafuer sauber).
+export function normalizeSleeperAdpPlayer(raw, adpField = 'adp_ppr') {
+  const p = raw?.player || {}
+  const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ')
+  const rawAdp = Number(raw?.stats?.[adpField])
+  const adp = Number.isFinite(rawAdp) && rawAdp < SLEEPER_ADP_SENTINEL ? rawAdp : null
+  return {
+    name,
+    nname: normalizePlayerName(name),
+    pos: normalizeFfcPos(p?.position),
+    team: p?.team || '',
+    adp,
+    adp_formatted: null,
+    bye: null,
+    stdev: null,
+    high: null,
+    low: null,
+    times_drafted: null,
+  }
+}
+
 // ---------- FantasyPros Consensus-Rankings (Redraft, gescraped) ----------
 // Der oeffentliche API-Key ist auf 10 Spieler/Position limitiert. Die
 // Cheatsheet-Seiten betten dagegen die vollstaendige Rangliste als

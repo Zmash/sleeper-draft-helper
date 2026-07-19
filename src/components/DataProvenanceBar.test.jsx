@@ -31,6 +31,18 @@ describe('DataProvenanceBar', () => {
     expect(screen.getByText(/Redraft/)).toBeTruthy()
   })
 
+  it('nennt Sleeper (RotoWire) als ADP-Quelle, nicht FFC', () => {
+    render(<DataProvenanceBar marketMeta={{ source: 'sleeper', format: 'half-ppr' }} draftMode="redraft" now={new Date('2026-07-16')} />)
+    expect(screen.getByText(/Sleeper \(RotoWire\)/)).toBeTruthy()
+    expect(screen.queryByText(/Fantasy Football Calculator/)).toBeNull()
+    expect(screen.getByText(/Half-PPR/)).toBeTruthy()
+  })
+
+  it('faellt ohne marketMeta.source auf FFC zurueck (Alt-Boards)', () => {
+    render(<DataProvenanceBar marketMeta={{ format: 'ppr' }} draftMode="redraft" now={new Date('2026-07-16')} />)
+    expect(screen.getByText(/Fantasy Football Calculator/)).toBeTruthy()
+  })
+
   it('nennt die uebergebene Rangliste-Quelle (FantasyPros) statt hart FantasyCalc', () => {
     render(<DataProvenanceBar marketMeta={meta} rankingSource="FantasyPros" draftMode="redraft" now={new Date('2026-07-16')} />)
     expect(screen.getByText(/Rangliste/).textContent).toMatch(/FantasyPros/)

@@ -22,6 +22,19 @@ async function fetchJsonOk(url) {
   return data
 }
 
+// Markt-ADP fuer ein Format. Hauptquelle ist Sleeper (RotoWire, format-spezifisch);
+// faellt sie aus, uebernimmt FFC als Fallback. Beide liefern dieselbe normalisierte
+// Form, nur marketMeta.source unterscheidet sie — die Herkunfts-Zeile nennt darueber
+// die echte Quelle. null = beide Quellen weg (Board bleibt ohne ADP, das ist Kuer).
+async function fetchMarketAdp(format, numTeams = 12) {
+  try {
+    return await fetchJsonOk(`/api/rankings/sleeper-adp?format=${format}`)
+  } catch { /* Sleeper aus — FFC ist der Fallback */ }
+  try {
+    return await fetchJsonOk(`/api/rankings/ffc-adp?format=${format}&teams=${numTeams}`)
+  } catch { return null }
+}
+
 export const useBoardStore = create(
   persist(
     (set, get) => ({
@@ -137,15 +150,13 @@ export const useBoardStore = create(
         }
 
         // Markt ist Kuer — ein Board ohne ADP ist besser als kein Board.
-        // Fuer Rookie/Dynasty liefert FFC nichts, deshalb gar nicht erst fragen.
-        let ffc = null
+        // Fuer Rookie/Dynasty gibt es keine Redraft-ADP, deshalb gar nicht erst fragen.
+        let market = null
         if (!isDynasty) {
-          try {
-            ffc = await fetchJsonOk(`/api/rankings/ffc-adp?format=${ffcFormatFor({ isSuperflex, effScoringType })}&teams=${numTeams}`)
-          } catch { ffc = null }
+          market = await fetchMarketAdp(ffcFormatFor({ isSuperflex, effScoringType }), numTeams)
         }
 
-        const { players, stats } = mergeRankingsWithMarket(fc.players, ffc?.players || [])
+        const { players, stats } = mergeRankingsWithMarket(fc.players, market?.players || [])
 
         // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
         let withInjuries = players
@@ -157,7 +168,7 @@ export const useBoardStore = create(
         set({
           csvRawText: '',
           boardPlayers: withInjuries,
-          marketMeta: ffc?.meta || null,
+          marketMeta: market?.meta || null,
           lastImportStats: stats,
           lastBoardSnapshot: snapshot,
           boardSource: 'market',
@@ -166,7 +177,7 @@ export const useBoardStore = create(
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
-        return { ok: true, stats, marketMissing: !isDynasty && !ffc }
+        return { ok: true, stats, marketMissing: !isDynasty && !market }
       },
 
       // FantasyPros Consensus-ECR als Redraft-Rang-Quelle (Alternative zum
@@ -190,13 +201,10 @@ export const useBoardStore = create(
           return { ok: false, error: e.message || 'FantasyPros nicht erreichbar' }
         }
 
-        // Markt (FFC-ADP) ist Kuer — ein Board ohne ADP ist besser als kein Board.
-        let ffc = null
-        try {
-          ffc = await fetchJsonOk(`/api/rankings/ffc-adp?format=${ffcFormatFor({ isSuperflex, effScoringType })}&teams=${numTeams}`)
-        } catch { ffc = null }
+        // Markt-ADP ist Kuer — ein Board ohne ADP ist besser als kein Board.
+        const market = await fetchMarketAdp(ffcFormatFor({ isSuperflex, effScoringType }), numTeams)
 
-        const { players, stats } = mergeRankingsWithMarket(fp.players, ffc?.players || [])
+        const { players, stats } = mergeRankingsWithMarket(fp.players, market?.players || [])
 
         // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
         let withInjuries = players
@@ -208,7 +216,7 @@ export const useBoardStore = create(
         set({
           csvRawText: '',
           boardPlayers: withInjuries,
-          marketMeta: ffc?.meta || null,
+          marketMeta: market?.meta || null,
           lastImportStats: stats,
           lastBoardSnapshot: snapshot,
           boardSource: 'market',
@@ -217,26 +225,23 @@ export const useBoardStore = create(
         })
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
-        return { ok: true, stats, marketMissing: !ffc }
+        return { ok: true, stats, marketMissing: !market }
       },
 
       refreshMarketData: async () => {
         const { boardPlayers, marketMeta, draftMode } = get()
         if (!boardPlayers.length) return { ok: false, error: 'Kein Board geladen' }
-        // FFC liefert nur NFL-weite Redraft-ADP — im Rookie/Dynasty-Modus waere das ein
+        // Markt-ADP ist NFL-weite Redraft-ADP — im Rookie/Dynasty-Modus waere das ein
         // Rookie-Rang gegen einen fremden Markt gerechnet, bedeutungslos und nicht
         // rueckholbar (kein Snapshot hier). handleAutoImport guardet das bereits genauso.
-        if (draftMode === 'rookie') return { ok: false, error: 'Marktdaten-Refresh ist im Rookie-Modus nicht verfügbar (FFC kennt keine Rookie-ADP).' }
+        if (draftMode === 'rookie') return { ok: false, error: 'Marktdaten-Refresh ist im Rookie-Modus nicht verfügbar (Redraft-ADP passt nicht auf Rookie-Raenge).' }
         const format = marketMeta?.format || 'ppr'
-        try {
-          const ffc = await fetchJsonOk(`/api/rankings/ffc-adp?format=${format}`)
-          const { players, stats } = overlayMarketData(boardPlayers, ffc.players)
-          // rk und Reihenfolge bleiben unberuehrt — der Nutzer pflegt sein Board.
-          set({ boardPlayers: players, marketMeta: ffc.meta })
-          return { ok: true, stats }
-        } catch (e) {
-          return { ok: false, error: e.message || 'Marktdaten nicht erreichbar' }
-        }
+        const market = await fetchMarketAdp(format)
+        if (!market) return { ok: false, error: 'Marktdaten nicht erreichbar' }
+        const { players, stats } = overlayMarketData(boardPlayers, market.players)
+        // rk und Reihenfolge bleiben unberuehrt — der Nutzer pflegt sein Board.
+        set({ boardPlayers: players, marketMeta: market.meta })
+        return { ok: true, stats }
       },
 
       undoImport: () => {

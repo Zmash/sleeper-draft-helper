@@ -18,7 +18,7 @@ describe('apiRoutes — Modul-Vertrag', () => {
     }
     registerApiRoutes(fakeApp, { model: DEFAULT_MODEL })
     for (const r of [
-      'GET /api/rankings/ffc-adp', 'GET /api/rankings/fantasycalc',
+      'GET /api/rankings/ffc-adp', 'GET /api/rankings/sleeper-adp', 'GET /api/rankings/fantasycalc',
       'GET /api/rankings/ktc-dynasty', 'GET /api/rankings/ktc-rookies',
       'GET /api/rankings/fantasypros',
       'GET /api/health', 'POST /api/validate-key',

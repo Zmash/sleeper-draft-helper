@@ -5,6 +5,7 @@ import { load as cheerioLoad } from 'cheerio'
 import {
   FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
+  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
 } from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
@@ -160,6 +161,46 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       })
     } catch (e) {
       res.status(502).json({ ok: false, error: e?.message || 'FFC nicht erreichbar' })
+    }
+  })
+
+  // ---------- Rankings: Sleeper ADP (RotoWire, Hauptquelle) ----------
+  // Format-spezifische ADP aus Sleepers Projections. Quelle ist RotoWire, nicht
+  // echte Sleeper-Draft-Crowd — die Herkunfts-Zeile weist das als "Sleeper
+  // (RotoWire)" aus. Serverseitig auf adp != null gefiltert: von ~3100 Spielern
+  // tragen die meisten den 999-Sentinel; ungefiltert wuerde der Union-Tail im
+  // Merge das Board mit tausenden rang- und ADP-losen Spielern fluten.
+  app.get('/api/rankings/sleeper-adp', async (req, res) => {
+    const format = FFC_FORMATS.includes(String(req.query.format)) ? String(req.query.format) : 'ppr'
+    const adpField = SLEEPER_ADP_FIELD[format] || 'adp_ppr'
+    const year = parseInt(req.query.year) || new Date().getFullYear()
+    const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((p) => `position%5B%5D=${p}`).join('&')
+    const url = `https://api.sleeper.com/projections/nfl/${year}?season_type=regular&${positions}&order_by=${adpField}`
+    try {
+      const upstream = await fetch(url)
+      if (!upstream.ok) return res.status(502).json({ ok: false, error: `Sleeper antwortete mit ${upstream.status}` })
+      const json = await upstream.json()
+      if (!Array.isArray(json)) {
+        return res.status(502).json({ ok: false, error: 'Sleeper lieferte keine verwertbaren Daten' })
+      }
+      const players = json
+        .map((p) => normalizeSleeperAdpPlayer(p, adpField))
+        .filter((p) => p.adp != null)
+        .sort((a, b) => a.adp - b.adp)
+      res.json({
+        ok: true,
+        meta: {
+          source: 'sleeper',
+          provider: 'rotowire',
+          format,
+          total_drafts: null,
+          end_date: null,
+          fetched_at: new Date().toISOString(),
+        },
+        players,
+      })
+    } catch (e) {
+      res.status(502).json({ ok: false, error: e?.message || 'Sleeper nicht erreichbar' })
     }
   })
 

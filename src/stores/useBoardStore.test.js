@@ -10,6 +10,13 @@ const FC = {
   meta: { source: 'fantasycalc', isDynasty: false },
   players: [{ name: 'Bijan Robinson', pos: 'RB', team: 'ATL', overallRank: 1, tier: 1, sleeperId: '9509' }],
 }
+// Sleeper ist die ADP-Hauptquelle. Bewusst anderer adp-Wert als FFC (1.4 vs 1.7),
+// damit Tests sehen koennen, welche Quelle das Board tatsaechlich gespeist hat.
+const SLEEPER = {
+  ok: true,
+  meta: { source: 'sleeper', provider: 'rotowire', format: 'ppr', total_drafts: null, end_date: null },
+  players: [{ name: 'Bijan Robinson', nname: 'bijan robinson', pos: 'RB', team: 'ATL', adp: 1.4, bye: null, high: null, low: null, stdev: null }],
+}
 
 function mockFetch(routes) {
   return vi.fn((url) => {
@@ -91,6 +98,41 @@ describe('handleAutoImport (redraft)', () => {
     expect(p.rk).toBe('1')
     expect(p.adp).toBe(1.7)
     expect(p.tier).toBe(1)
+  })
+
+  it('nutzt Sleeper als ADP-Hauptquelle (nicht FFC)', async () => {
+    const f = mockFetch({ 'sleeper-adp': SLEEPER, 'ffc-adp': FFC, 'fantasycalc': FC })
+    vi.stubGlobal('fetch', f)
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft',
+    })
+    // adp 1.4 stammt aus SLEEPER, 1.7 waere FFC gewesen
+    expect(useBoardStore.getState().boardPlayers[0].adp).toBe(1.4)
+    expect(useBoardStore.getState().marketMeta.source).toBe('sleeper')
+    expect(f.mock.calls.map(c => String(c[0])).some(u => u.includes('sleeper-adp'))).toBe(true)
+  })
+
+  it('Sleeper aus, FFC da: faellt auf FFC zurueck', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'sleeper-adp': new Error('offline'), 'ffc-adp': FFC, 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    const res = await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft',
+    })
+    expect(res.ok).toBe(true)
+    expect(useBoardStore.getState().boardPlayers[0].adp).toBe(1.7)
+    expect(useBoardStore.getState().marketMeta.source).toBe('ffc')
+  })
+
+  it('Superflex: das 2qb-Format geht an die Sleeper-ADP-Quelle', async () => {
+    const f = mockFetch({ 'sleeper-adp': SLEEPER, 'ffc-adp': FFC, 'fantasycalc': FC })
+    vi.stubGlobal('fetch', f)
+    const { useBoardStore } = await import('./useBoardStore')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: true, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft',
+    })
+    const sleeperCall = f.mock.calls.map(c => String(c[0])).find(u => u.includes('sleeper-adp'))
+    expect(sleeperCall).toContain('format=2qb')
   })
 
   // Blocker 4: die Herkunfts-Zeile darf nie an csvRawText haengen (das aendert

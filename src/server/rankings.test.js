@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery,
   extractEcrData, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
+  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
 } from './rankings'
 import { normalizePlayerName } from '../utils/formatting'
 
@@ -119,6 +120,52 @@ describe('normalizeFantasyProsPlayer', () => {
   it('setzt nname fuer den Markt-Merge — strippt Suffixe wie die Client-Funktion', () => {
     expect(normalizeFantasyProsPlayer(raw).nname).toBe(normalizePlayerName('Ja\'Marr Chase'))
     expect(normalizeFantasyProsPlayer({ ...raw, player_name: 'Marvin Harrison Jr.' }).nname).toBe('marvin harrison')
+  })
+})
+
+describe('SLEEPER_ADP_FIELD', () => {
+  it('mappt die vier App-Formate auf die Sleeper-Stat-Felder', () => {
+    expect(SLEEPER_ADP_FIELD.ppr).toBe('adp_ppr')
+    expect(SLEEPER_ADP_FIELD['half-ppr']).toBe('adp_half_ppr')
+    expect(SLEEPER_ADP_FIELD.standard).toBe('adp_std')
+    expect(SLEEPER_ADP_FIELD['2qb']).toBe('adp_2qb')
+  })
+  it('deckt genau die FFC-Format-Whitelist ab (gleicher format-Parameter)', () => {
+    expect(Object.keys(SLEEPER_ADP_FIELD).sort()).toEqual([...FFC_FORMATS].sort())
+  })
+})
+
+describe('normalizeSleeperAdpPlayer', () => {
+  const raw = {
+    player: { first_name: 'Bijan', last_name: 'Robinson', position: 'RB', team: 'ATL' },
+    stats: { adp_ppr: 1.4, adp_half_ppr: 1.5, adp_std: 1.2, adp_2qb: 2.4 },
+  }
+  it('liest das format-spezifische ADP-Feld', () => {
+    expect(normalizeSleeperAdpPlayer(raw, 'adp_ppr').adp).toBe(1.4)
+    expect(normalizeSleeperAdpPlayer(raw, 'adp_half_ppr').adp).toBe(1.5)
+    expect(normalizeSleeperAdpPlayer(raw, 'adp_2qb').adp).toBe(2.4)
+  })
+  it('bildet auf die FFC-Markt-Form ab (Name/Pos/Team + nname)', () => {
+    const p = normalizeSleeperAdpPlayer(raw, 'adp_ppr')
+    expect(p.name).toBe('Bijan Robinson')
+    expect(p.pos).toBe('RB')
+    expect(p.team).toBe('ATL')
+    expect(p.nname).toBe('bijan robinson')
+  })
+  it('999 ist der Sentinel fuer "ungerankt" und wird null (z. B. K/DEF)', () => {
+    const dst = { player: { first_name: 'Washington', last_name: 'Commanders', position: 'DEF', team: 'WAS' }, stats: { adp_ppr: 999.0 } }
+    expect(normalizeSleeperAdpPlayer(dst, 'adp_ppr').adp).toBeNull()
+  })
+  it('fehlendes/ungueltiges ADP-Feld wird null', () => {
+    expect(normalizeSleeperAdpPlayer({ player: { first_name: 'X' }, stats: {} }, 'adp_ppr').adp).toBeNull()
+  })
+  it('kennt keine Streuung/Bye — die Quelle liefert sie nicht (bleiben null)', () => {
+    const p = normalizeSleeperAdpPlayer(raw, 'adp_ppr')
+    expect(p.bye).toBeNull()
+    expect(p.high).toBeNull()
+    expect(p.low).toBeNull()
+    expect(p.stdev).toBeNull()
+    expect(p.times_drafted).toBeNull()
   })
 })
 
