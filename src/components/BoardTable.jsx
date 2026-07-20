@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey } from '../services/preferences'
 import Icon from './Icon'
+import useTouchReorder from '../hooks/useTouchReorder'
 
 // Konvention: adp - rk, positiv = Value (faellt dir zu).
 // Nicht umdrehen — csv.js:56 und useDraftTips.js:89 haengen daran.
@@ -51,9 +52,25 @@ export default function BoardTable({
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
   const menuRef = useRef(null)
 
-  // DnD State
+  // DnD State (Desktop-HTML5-DnD)
   const [draggedNname, setDraggedNname] = useState(null)
   const [dragOverNname, setDragOverNname] = useState(null)
+
+  // Touch-Drag fuer Mobil. Der Hook liefert { nname, dy } fuer die
+  // Ghost-Zeile und { nname, dir } fuer die Einfuegeposition. Die
+  // States werden unten ueber draggedNname/dragOverNname mit der
+  // bestehenden Desktop-Anzeige synchronisiert, damit kein zweites
+  // CSS noetig ist.
+  const touch = useTouchReorder({ onReorder: onReorder ? (src, tgt) => onReorder(src, tgt) : undefined })
+  // Touch-Zustand in die Desktop-DnD-States spiegeln, damit das
+  // vorhandene .row-dragging / .row-drag-over-CSS greift.
+  useEffect(() => {
+    if (touch.ghost) setDraggedNname(touch.ghost.nname)
+    else if (!draggedNname || touch.ghost === null) setDraggedNname(null)
+  }, [touch.ghost])
+  useEffect(() => {
+    setDragOverNname(touch.insert ? touch.insert.nname : null)
+  }, [touch.insert])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -143,6 +160,23 @@ export default function BoardTable({
               const isDragOver = dragOverNname === p.nname
               const isDragging = draggedNname === p.nname
 
+              // Touch-Ro-Row-Style: die Quellzeile soll am Finger "kleben".
+              // position:sticky+translateY verschiebt sie vertikal innerhalb
+              // des table-Flows, andere Zeilen bleiben in Position — das
+              // visuelle Feedback kommt ausschliesslich vom Ghost + der
+              // Einfuegelinie (.row-drag-over).
+              const isTouchGhost = touch.ghost && touch.ghost.nname === p.nname
+              const touchStyle = isTouchGhost
+                ? {
+                    transform: `translateY(${touch.ghost.dy}px)`,
+                    zIndex: 50,
+                    position: 'sticky',
+                    top: 0,
+                    boxShadow: '0 6px 20px rgba(0,0,0,.25)',
+                    transition: 'transform 10ms linear',
+                  }
+                : undefined
+
               return (
                 <tr
                   key={playerKey(p)}
@@ -152,9 +186,11 @@ export default function BoardTable({
                     p.status === 'other' && 'row-other',
                     isHighlighted && 'row-ai',
                     isPrimary && 'row-ai-primary',
-                    isDragging && 'row-dragging',
+                    isDragging && !isTouchGhost && 'row-dragging',
+                    isDragging && isTouchGhost && 'row-dragging-touch',
                     isDragOver && 'row-drag-over',
                   )}
+                  style={touchStyle}
                   title={reason || undefined}
                   data-nname={p.nname || ''}
                   data-pos={p.pos ? String(p.pos).toLowerCase() : undefined}
@@ -169,6 +205,7 @@ export default function BoardTable({
                     setDraggedNname(null)
                     setDragOverNname(null)
                   } : undefined}
+                  {...(canDrag ? touch.handlers(p.nname) : {})}
                 >
                   {canDrag && (
                     <td className="col-drag" style={{ cursor: 'grab', color: 'var(--text-muted, #888)', userSelect: 'none' }}>

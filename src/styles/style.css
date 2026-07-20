@@ -671,8 +671,15 @@ th, td {
 
 /* Drag-and-Drop */
 th.col-drag, td.col-drag { width: 24px; text-align: center; padding: 0 4px; }
+/* Desktop: halbtransparent, Zeilen bleiben im Layout */
 .row-dragging { opacity: 0.4; }
-.row-drag-over td { border-top: 2px solid var(--accent, #6366f1); }
+/* Mobile Touch-Ghost: volle Sichtbarkeit, eigene Optik */
+.row-dragging-touch {
+  background: var(--surface-raised, var(--surface));
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+/* Einfuegelinie: 2px dicker Strich am oberen Rand des Ziel-TDs */
+.row-drag-over td { border-top: 3px solid var(--accent, #6366f1); }
 
 /* Column widths */
 th.col-rk,   td.col-rk   { width: 48px; }  /* # */
