@@ -425,20 +425,10 @@ export default function SetupForm(props) {
               <div className="form-row">
                 <label className="field">
                   <span>Auto-Import – Quelle wählen</span>
-                  <div className="muted text-xs mb-1">Rangliste direkt importieren, ADP &amp; Byes von Fantasy Football Calculator – kein CSV nötig.</div>
+                  <div className="muted text-xs mb-1">Rangliste direkt importieren, ADP &amp; Byes inklusive – kein CSV nötig.</div>
                   <div className="row" style={{ gap: 8 }}>
                     <button
                       className="btn btn-primary control"
-                      disabled={busyAutoImport || busyFpImport}
-                      onClick={async () => {
-                        setBusyAutoImport(true)
-                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
-                      }}
-                    >
-                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
-                    </button>
-                    <button
-                      className="btn btn-secondary control"
                       disabled={busyFpImport || busyAutoImport}
                       onClick={async () => {
                         setBusyFpImport(true)
@@ -446,6 +436,16 @@ export default function SetupForm(props) {
                       }}
                     >
                       {busyFpImport ? 'Wird geladen…' : `FantasyPros (${fpScoringLabel(eff.scoring_type)} ECR)`}
+                    </button>
+                    <button
+                      className="btn btn-secondary control"
+                      disabled={busyAutoImport || busyFpImport}
+                      onClick={async () => {
+                        setBusyAutoImport(true)
+                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
+                      }}
+                    >
+                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
                     </button>
                   </div>
                 </label>
