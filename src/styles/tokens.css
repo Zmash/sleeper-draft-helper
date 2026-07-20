@@ -8,7 +8,7 @@
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
   --dur: 180ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --z-dropdown: 10; --z-sticky: 20; --z-backdrop: 40; --z-modal: 50; --z-toast: 60; --z-tooltip: 70;
+  --z-sticky: 10; --z-dropdown: 20; --z-backdrop: 40; --z-modal: 50; --z-toast: 60; --z-tooltip: 70;
 }
 
 /* Broadcast Dark (default) */
