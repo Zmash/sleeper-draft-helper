@@ -3,7 +3,6 @@ import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey } from '../services/preferences'
 import Icon from './Icon'
-import useTouchReorder from '../hooks/useTouchReorder'
 
 // Konvention: adp - rk, positiv = Value (faellt dir zu).
 // Nicht umdrehen — csv.js:56 und useDraftTips.js:89 haengen daran.
@@ -56,21 +55,93 @@ export default function BoardTable({
   const [draggedNname, setDraggedNname] = useState(null)
   const [dragOverNname, setDragOverNname] = useState(null)
 
-  // Touch-Drag fuer Mobil. Der Hook liefert { nname, dy } fuer die
-  // Ghost-Zeile und { nname, dir } fuer die Einfuegeposition. Die
-  // States werden unten ueber draggedNname/dragOverNname mit der
-  // bestehenden Desktop-Anzeige synchronisiert, damit kein zweites
-  // CSS noetig ist.
-  const touch = useTouchReorder({ onReorder: onReorder ? (src, tgt) => onReorder(src, tgt) : undefined })
-  // Touch-Zustand in die Desktop-DnD-States spiegeln, damit das
-  // vorhandene .row-dragging / .row-drag-over-CSS greift.
+  // Mobile Reorder per Long-Press + Pfeil-Menu.
+  // Long-Press (>= 350 ms) auf einer Zeile oeffnet ein kleines Overlay mit
+  // Pfeil-Buttons zum Hoch-/Runterschieben. Einfacher als freier Drag —
+  // kein Ghost, kein Scroll-Konflikt.
+  const [reorderMenu, setReorderMenu] = useState(null) // { nname, top, bottom } oder null
+  const longPressTimer = useRef(null)
+  const longPressStartY = useRef(0)
+  const longPressActive = useRef(false)
+  const reorderMenuRef = useRef(null)
+
+  function openReorderMenu(tr, nname) {
+    const rect = tr.getBoundingClientRect()
+    setReorderMenu({ nname, top: rect.top, bottom: rect.bottom })
+  }
+  function closeReorderMenu() {
+    setReorderMenu(null)
+  }
+  // Per-Zeile pointer handler. pointerdown (nur touch) startet den Timer;
+  // bewegt sich der Finger zu weit oder kommt pointerup zu frueh, wird der
+  // Timer abgebrochen.
+  function onRowPointerDown(e, nname) {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+    const tr = e.currentTarget
+    clearTimeout(longPressTimer.current)
+    longPressActive.current = false
+    longPressStartY.current = e.clientY
+    longPressTimer.current = setTimeout(() => {
+      longPressActive.current = true
+      // Haptisches Feedback, wenn verfuegbar — macht das "Menue ist offen"
+      // spuerbar ohne ein lauter Vibrieren.
+      if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(25)
+      openReorderMenu(tr, nname)
+    }, 350)
+  }
+  function onRowPointerMove(e) {
+    if (!longPressTimer.current) return
+    // Finger weiter als 10px bewegt -> kein Long-Press, Timer abbrechen
+    if (Math.abs(e.clientY - longPressStartY.current) > 10) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+  function onRowPointerUp() {
+    clearTimeout(longPressTimer.current)
+    longPressTimer.current = null
+  }
+  // prevRow / nextRow der Ziel-Zeile im gefilterten Array
+  const reorderNeighbors = useMemo(() => {
+    if (!reorderMenu) return { prev: null, next: null }
+    const arr = filteredPlayers || []
+    const idx = arr.findIndex((p) => p.nname === reorderMenu.nname)
+    if (idx === -1) return { prev: null, next: null }
+    return {
+      prev: idx > 0 ? arr[idx - 1] : null,
+      next: idx < arr.length - 1 ? arr[idx + 1] : null,
+    }
+  }, [reorderMenu, filteredPlayers])
+  function moveStep(direction) {
+    if (!reorderMenu || !onReorder) return
+    const target = direction === 'up' ? reorderNeighbors.prev : reorderNeighbors.next
+    if (target) onReorder(reorderMenu.nname, target.nname)
+    // Menu bleibt offen, damit der User mehrfach schieben kann
+  }
   useEffect(() => {
-    if (touch.ghost) setDraggedNname(touch.ghost.nname)
-    else if (!draggedNname || touch.ghost === null) setDraggedNname(null)
-  }, [touch.ghost])
-  useEffect(() => {
-    setDragOverNname(touch.insert ? touch.insert.nname : null)
-  }, [touch.insert])
+    function onDocPointer(e) {
+      if (!reorderMenu) return
+      const target = e.target
+      // Klick innerhalb des Menues ignoriert
+      if (reorderMenuRef.current && reorderMenuRef.current.contains(target)) return
+      closeReorderMenu()
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') closeReorderMenu()
+    }
+    function onScroll() {
+      // Bei Scroll das Menu schliessen, damit es nicht an der alten Position haengt
+      closeReorderMenu()
+    }
+    document.addEventListener('pointerdown', onDocPointer)
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('scroll', onScroll, { capture: true })
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointer)
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('scroll', onScroll, true)
+    }
+  }, [reorderMenu])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -159,23 +230,8 @@ export default function BoardTable({
               const pref = playerPrefs[playerKey(p)] || null
               const isDragOver = dragOverNname === p.nname
               const isDragging = draggedNname === p.nname
-
-              // Touch-Ro-Row-Style: die Quellzeile soll am Finger "kleben".
-              // position:sticky+translateY verschiebt sie vertikal innerhalb
-              // des table-Flows, andere Zeilen bleiben in Position — das
-              // visuelle Feedback kommt ausschliesslich vom Ghost + der
-              // Einfuegelinie (.row-drag-over).
-              const isTouchGhost = touch.ghost && touch.ghost.nname === p.nname
-              const touchStyle = isTouchGhost
-                ? {
-                    transform: `translateY(${touch.ghost.dy}px)`,
-                    zIndex: 50,
-                    position: 'sticky',
-                    top: 0,
-                    boxShadow: '0 6px 20px rgba(0,0,0,.25)',
-                    transition: 'transform 10ms linear',
-                  }
-                : undefined
+              // Mobile-Reorder: lange gedrueckte Zeile hervorheben
+              const isReorderTarget = reorderMenu && reorderMenu.nname === p.nname
 
               return (
                 <tr
@@ -186,11 +242,10 @@ export default function BoardTable({
                     p.status === 'other' && 'row-other',
                     isHighlighted && 'row-ai',
                     isPrimary && 'row-ai-primary',
-                    isDragging && !isTouchGhost && 'row-dragging',
-                    isDragging && isTouchGhost && 'row-dragging-touch',
+                    isDragging && 'row-dragging',
                     isDragOver && 'row-drag-over',
+                    isReorderTarget && 'row-reorder-active',
                   )}
-                  style={touchStyle}
                   title={reason || undefined}
                   data-nname={p.nname || ''}
                   data-pos={p.pos ? String(p.pos).toLowerCase() : undefined}
@@ -205,7 +260,17 @@ export default function BoardTable({
                     setDraggedNname(null)
                     setDragOverNname(null)
                   } : undefined}
-                  {...(canDrag ? touch.handlers(p.nname) : {})}
+                  // Long-Press auf Touch: oeffnet das Reorder-Pfeil-Menue.
+                  // Wir nutzen Pointer-Events (statt Touch-Events), weil die
+                  // auch auf Tablet/Stylus funktionieren und zuverlässiger
+                  // gebubblt werden als reine Touch-Events auf <tr>.
+                  onPointerDown={(e) => {
+                    if (!canDrag) return
+                    onRowPointerDown(e, p.nname)
+                  }}
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={onRowPointerUp}
+                  onPointerCancel={onRowPointerUp}
                 >
                   {canDrag && (
                     <td className="col-drag" style={{ cursor: 'grab', color: 'var(--text-muted, #888)', userSelect: 'none' }}>
@@ -340,6 +405,52 @@ export default function BoardTable({
             aria-label="Avoid"
           >
             <Icon name="x" size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Reorder-Pfeil-Menue (Mobile): erscheint nach Long-Press auf einer
+          Zeile und bietet ↑/↓-Buttons zum schrittweisen Verschieben.
+          Position: fixed rechts neben der Zeile (bei Platzmangel links). */}
+      {reorderMenu && (
+        <div
+          ref={reorderMenuRef}
+          className="reorder-menu"
+          style={{
+            position: 'fixed',
+            right: 8,
+            top: (reorderMenu.top + reorderMenu.bottom) / 2 - 36,
+            zIndex: 80,
+          }}
+        >
+          <button
+            type="button"
+            className="reorder-btn"
+            onClick={() => moveStep('up')}
+            disabled={!reorderNeighbors.prev}
+            aria-label="Player eine Position nach oben"
+            title="Hoch"
+          >
+            <Icon name="chevron-up" size={22} />
+          </button>
+          <button
+            type="button"
+            className="reorder-btn"
+            onClick={() => moveStep('down')}
+            disabled={!reorderNeighbors.next}
+            aria-label="Player eine Position nach unten"
+            title="Runter"
+          >
+            <Icon name="chevron-down" size={22} />
+          </button>
+          <button
+            type="button"
+            className="reorder-btn reorder-close"
+            onClick={closeReorderMenu}
+            aria-label="Verschieben beenden"
+            title="Schließen"
+          >
+            <Icon name="x" size={18} />
           </button>
         </div>
       )}

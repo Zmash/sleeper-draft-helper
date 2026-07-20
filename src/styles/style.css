@@ -673,13 +673,51 @@ th, td {
 th.col-drag, td.col-drag { width: 24px; text-align: center; padding: 0 4px; }
 /* Desktop: halbtransparent, Zeilen bleiben im Layout */
 .row-dragging { opacity: 0.4; }
-/* Mobile Touch-Ghost: volle Sichtbarkeit, eigene Optik */
-.row-dragging-touch {
-  background: var(--surface-raised, var(--surface));
-  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+.row-drag-over td {
+  border-top: 3px solid var(--accent, #6366f1);
 }
-/* Einfuegelinie: 2px dicker Strich am oberen Rand des Ziel-TDs */
-.row-drag-over td { border-top: 3px solid var(--accent, #6366f1); }
+
+/* Mobile Reorder per Long-Press + Pfeil-Menu. Die aktiv gedragte Zeile
+   bekommt einen leichten Hintergrund, damit klar ist, welche Zeile jetzt
+   verschoben wird. Das Menu sitzt fixed rechts neben der Zeile. */
+.row-reorder-active td {
+  background: linear-gradient(90deg, rgba(99, 102, 241, .18) 0%, rgba(99, 102, 241, .05) 100%);
+  outline: 1px solid rgba(99, 102, 241, .35);
+  outline-offset: -1px;
+}
+.reorder-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--surface-card, #0f172a);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45), 0 4px 12px rgba(99, 102, 241, .25);
+}
+.reorder-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised, #111a2e);
+  color: var(--text-primary, #f1f5f9);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), transform 100ms var(--ease);
+}
+.reorder-btn:hover:not(:disabled) { background: var(--surface-hover, #1b2a44); }
+.reorder-btn:active:not(:disabled) { transform: scale(0.96); background: var(--accent-fill, #6366f1); color: #fff; }
+.reorder-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.reorder-close {
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  padding-top: 2px;
+}
 
 /* Column widths */
 th.col-rk,   td.col-rk   { width: 48px; }  /* # */

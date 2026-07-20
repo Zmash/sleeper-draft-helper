@@ -3,6 +3,7 @@ import {
   Trophy, Star, X, Check, CircleCheck, ThumbsUp, Scale, Hammer, TriangleAlert,
   ArrowLeftRight, Search, Eye, EyeOff, ChartColumn, MessageCircle, Radio, Plus, ClipboardCheck,
   Home, Users, LayoutList, Zap, Menu, SlidersHorizontal, ArrowDownToLine, Settings,
+  ChevronUp, ChevronDown,
 } from 'lucide-react'
 
 const MAP = {
@@ -14,6 +15,7 @@ const MAP = {
   chart: ChartColumn, message: MessageCircle, radio: Radio, plus: Plus,
   home: Home, roster: Users, board: LayoutList, zap: Zap,
   menu: Menu, filter: SlidersHorizontal, 'arrow-down': ArrowDownToLine, settings: Settings,
+  'chevron-up': ChevronUp, 'chevron-down': ChevronDown,
 }
 
 export default function Icon({ name, size = 18, label, className, strokeWidth = 2 }) {
