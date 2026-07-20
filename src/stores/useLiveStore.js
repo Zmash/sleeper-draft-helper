@@ -9,7 +9,7 @@ export const useLiveStore = create(
       lastSyncAt: null,
       picksLoading: false,
       autoRefreshEnabled: true,
-      refreshIntervalSeconds: 10,
+      refreshIntervalSeconds: 30,
 
       setLivePicks: (picks) => set({ livePicks: picks }),
       setLastSyncAt: (date) => set({ lastSyncAt: date }),

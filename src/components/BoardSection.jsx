@@ -4,7 +4,9 @@ import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
 import DataProvenanceBar from './DataProvenanceBar'
+import BoardMobileBar from './BoardMobileBar'
 import Icon from './Icon'
+import { cx } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 
 import AdviceDialog from './AdviceDialog'
@@ -131,6 +133,9 @@ export default function BoardSection({
   const fileRef = useRef(null)
   const [status, setStatus] = useState('')
 
+  // Mobile: Filter liegen in einem Bottom-Sheet statt dauerhaft in der Zeile.
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
   // Direkt-Import vom leeren Board / Draft-Typ-Guard: erspart den Umweg zurueck
   // ins Setup, wenn man nach dem Einfuegen eines Mock-Links ohne (oder mit dem
   // falschen) Board auf dem Board landet.
@@ -197,6 +202,16 @@ export default function BoardSection({
   const { rosterPositions } = draftFormat
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
+
+  // Solange ein Board sichtbar ist (und damit die Bottom-Bar rendert), markiert
+  // eine Body-Klasse den Mobile-Board-Modus: nur dann werden auf dem Handy die
+  // Haupt-Tabs, der Floating-TipsDock und die Toolbar ausgeblendet. Ohne Board
+  // (Empty-State) bleibt die normale Navigation erhalten.
+  useEffect(() => {
+    if (!hasBoard) return
+    document.body.classList.add('board-mobile-active')
+    return () => document.body.classList.remove('board-mobile-active')
+  }, [hasBoard])
 
   // Draft-Typ-Guard: passt der Typ des geladenen Boards nicht zum aktuellen Draft?
   // boardMode null (alte Boards) loest bewusst keine Warnung aus.
@@ -605,7 +620,7 @@ export default function BoardSection({
           </button>
         </div>
       )}
-      <div className="row between items-center wrap" style={{ gap: 8 }}>
+      <div className="row between items-center wrap board-actions-row" style={{ gap: 8 }}>
         <BoardToolbar
           currentPickNumber={currentPickNumber}
           autoRefreshEnabled={autoRefreshEnabled}
@@ -636,19 +651,43 @@ export default function BoardSection({
         </div>
       </div>
 
-      <FiltersRow
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        positionFilter={positionFilter}
-        onPositionChange={onPositionChange}
-        onJumpToNext={scrollToNextUndrafted}
-        playerPrefs={playerPrefs}
-        PlayerPreference={PlayerPreference}
-        hideAvoid={hideAvoid}
-        setHideAvoid={setHideAvoid}
-        ownerLabels={ownerLabels}
-        teamFilter={teamFilter}
-        onTeamFilterChange={onTeamFilterChange}
+      {/* Auf dem Desktop fliesst diese Zeile normal; unter dem Mobile-Breakpoint
+          wird derselbe Knoten per CSS zum Bottom-Sheet (is-open aus dem Filter-
+          Button der Bottom-Bar). Ein Knoten, eine Quelle der Wahrheit. */}
+      <div
+        className={cx('board-sheet', 'board-filters-host', mobileFilterOpen && 'is-open')}
+        role="group"
+        aria-label="Filter"
+      >
+        <div className="board-sheet-head">
+          <strong>Filter</strong>
+          <button
+            type="button"
+            className="board-sheet-close"
+            onClick={() => setMobileFilterOpen(false)}
+            aria-label="Schließen"
+          >
+            <Icon name="x" size={18} />
+          </button>
+        </div>
+        <FiltersRow
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          positionFilter={positionFilter}
+          onPositionChange={onPositionChange}
+          onJumpToNext={scrollToNextUndrafted}
+          playerPrefs={playerPrefs}
+          PlayerPreference={PlayerPreference}
+          hideAvoid={hideAvoid}
+          setHideAvoid={setHideAvoid}
+          ownerLabels={ownerLabels}
+          teamFilter={teamFilter}
+          onTeamFilterChange={onTeamFilterChange}
+        />
+      </div>
+      <div
+        className={cx('board-sheet-scrim', mobileFilterOpen && 'is-open')}
+        onClick={() => setMobileFilterOpen(false)}
       />
 
       <DataProvenanceBar
@@ -660,6 +699,25 @@ export default function BoardSection({
         refreshing={refreshingMarket}
         error={marketError}
       />
+
+      {/* Kompakte Status-Zeile (nur Mobile): Fortschritt + Quelle in EINER Zeile,
+          ersetzt die verbose Herkunfts-Zeile und die Progress-Zeile der Tabelle. */}
+      <div className="board-status-line">
+        <div className="bsl-bar">
+          <div style={{ width: `${totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}%` }} />
+        </div>
+        <span className="bsl-count">{pickedCount}/{totalCount}</span>
+        <span className="bsl-src">
+          {rankingSource || 'FantasyPros'}
+          {(() => {
+            const adp = boardSource === 'csv' ? 'CSV'
+              : marketMeta?.source === 'sleeper' ? 'Sleeper ADP'
+              : marketMeta?.source === 'ffc' ? 'FFC ADP'
+              : marketMeta ? 'ADP' : null
+            return adp ? <> · {adp}</> : null
+          })()}
+        </span>
+      </div>
 
       {draftMode === 'rookie' && myDraftPicks.length > 0 && (
         <div className="my-picks-banner">
@@ -695,7 +753,7 @@ export default function BoardSection({
         <p className="muted center mt-3">Keine Spieler für die aktuellen Filter.</p>
       )}
 
-      <div className="row end" style={{ gap: 8, marginTop: '1rem' }}>
+      <div className="row end board-export-row" style={{ gap: 8, marginTop: '1rem' }}>
         <button
           className="btn-compact"
           onClick={() => exportBoardAsCsv(filteredBoardPlayers)}
@@ -730,6 +788,18 @@ export default function BoardSection({
       </div>
 
       {status && <p className="text-xs muted">{status}</p>}
+
+      <BoardMobileBar
+        onSync={onSync}
+        onFilter={() => setMobileFilterOpen(true)}
+        onAiAdvice={handleAskAI}
+        aiDisabled={adviceButtonDisabled}
+        tips={tips}
+        autoRefreshEnabled={autoRefreshEnabled}
+        refreshIntervalSeconds={refreshIntervalSeconds}
+        onToggleAutoRefresh={onToggleAutoRefresh}
+        onChangeInterval={onChangeInterval}
+      />
 
       <AdviceDialog
         open={adviceOpen}

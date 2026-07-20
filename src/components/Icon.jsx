@@ -2,7 +2,7 @@ import {
   Sun, Moon, Palette, Bot, Key, RefreshCw, Save, Upload, ClipboardList, ClipboardCopy,
   Trophy, Star, X, Check, CircleCheck, ThumbsUp, Scale, Hammer, TriangleAlert,
   ArrowLeftRight, Search, Eye, EyeOff, ChartColumn, MessageCircle, Radio, Plus, ClipboardCheck,
-  Home, Users, LayoutList, Zap,
+  Home, Users, LayoutList, Zap, Menu, SlidersHorizontal, ArrowDownToLine, Settings,
 } from 'lucide-react'
 
 const MAP = {
@@ -13,6 +13,7 @@ const MAP = {
   warning: TriangleAlert, swap: ArrowLeftRight, search: Search, eye: Eye, 'eye-off': EyeOff,
   chart: ChartColumn, message: MessageCircle, radio: Radio, plus: Plus,
   home: Home, roster: Users, board: LayoutList, zap: Zap,
+  menu: Menu, filter: SlidersHorizontal, 'arrow-down': ArrowDownToLine, settings: Settings,
 }
 
 export default function Icon({ name, size = 18, label, className, strokeWidth = 2 }) {

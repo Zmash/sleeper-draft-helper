@@ -2389,3 +2389,281 @@ th.col-pick, td.col-pick { width: 64px; }
 .review-lessons ul { margin: 0; padding-left: 18px; }
 .review-lessons li { margin-bottom: 8px; }
 .review-lessons li:last-child { margin-bottom: 0; }
+
+/* =========================================================
+   MOBILE BOARD CHROME (<=560px)
+   Schmale angedockte Clock, Bottom-Action-Bar statt Tabs auf dem Board,
+   Filter im Bottom-Sheet. Der Desktop bleibt unberuehrt: alle Umbauten
+   stehen entweder in der Media-Query oder betreffen nur mobile Klassen.
+   ========================================================= */
+
+/* Desktop-Baseline: mobile Chrome unsichtbar. .board-filters-host bleibt
+   ganz bewusst ungestylt -> es fliesst als normale Filterzeile. */
+.board-mobile-bar { display: none; }
+.board-sheet-head { display: none; }
+.board-sheet-scrim { display: none; }
+.bmb-tips-sheet { display: none; }
+.board-status-line { display: none; }
+
+/* Bottom-Bar-Items (rendern nur im mobilen Bar-Container, daher hier neutral) */
+.bmb-item {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: transparent; border: 0; color: var(--text-muted);
+  padding: 5px 2px; border-radius: var(--r-ctl); cursor: pointer;
+}
+.bmb-item > span:last-child {
+  font-family: var(--font-display);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1;
+}
+.bmb-item:active { transform: translateY(1px); }
+.bmb-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.bmb-badge-wrap { position: relative; display: inline-flex; }
+.bmb-badge {
+  position: absolute; top: -4px; right: -8px;
+  min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box;
+  background: var(--live); color: #fff;
+  font-family: var(--font-mono); font-size: 9px; line-height: 15px;
+  border-radius: 999px; text-align: center;
+}
+
+/* Sheet-Kopf + Navigations-/Tipps-Sheet-Inhalt */
+.board-sheet-head strong {
+  font-family: var(--font-display); text-transform: uppercase;
+  letter-spacing: 0.04em; font-size: 14px;
+}
+.board-sheet-close {
+  background: transparent; border: 0; color: var(--text-muted);
+  cursor: pointer; padding: 4px; display: inline-flex;
+}
+
+/* Erhoehter Center-Button (nur Symbol) — der manuelle Sync. Rendert nur im
+   mobilen Bar-Container, daher hier ausserhalb der Media-Query definierbar. */
+.bmb-fab {
+  flex: 0 0 auto;
+  width: 62px; height: 62px; margin-top: -26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 4px solid var(--surface-page);
+  border-radius: var(--r-ctl);
+  background: var(--accent-fill); color: var(--accent-on);
+  cursor: pointer;
+  transition: transform 0.05s ease, filter var(--dur) var(--ease);
+}
+.bmb-fab:hover { filter: brightness(1.05); }
+.bmb-fab:active { transform: translateY(1px); }
+.bmb-fab:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 3px; }
+/* Punkt oben rechts am FAB = Auto-Sync aktiv */
+.bmb-fab { position: relative; }
+.bmb-fab-auto {
+  position: absolute; top: 6px; right: 6px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--good); border: 2px solid var(--accent-fill);
+}
+
+/* Auto-Sync-Sheet: Preset-Buttons */
+.bmb-sync-presets { display: flex; gap: 8px; }
+.bmb-sync-preset {
+  flex: 1 1 0;
+  padding: 10px 6px;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--surface-card); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 13px; cursor: pointer;
+}
+.bmb-sync-preset.active {
+  background: var(--accent-fill); color: var(--accent-on); border-color: transparent;
+}
+
+@media (max-width: 560px) {
+  /* --- Angedockte, schmale Clock-Leiste (alle Seiten) --- */
+  .clockbar {
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    align-items: center; margin-bottom: 10px;
+  }
+  .oc-tag {
+    flex-direction: row; align-items: center; gap: 8px;
+    padding: 6px 16px 6px 10px;
+  }
+  .oc-lab { font-size: 8px; letter-spacing: 0.1em; }
+  .oc-pick { font-size: 18px; }
+  .oc-mid { gap: 10px; padding: 0 10px; flex-wrap: nowrap; overflow: hidden; }
+  .oc-stat .k { font-size: 8px; }
+  .oc-stat .v { font-size: 12px; }
+  .oc-mock { margin-left: auto; padding: 2px 6px; font-size: 10px; }
+
+  /* --- Auf dem Board: Tabs, Floating-Tipps, Aktionszeile & Co. weg ---
+     Die Aktionszeile (Toolbar + AI/Key) traegt die Klasse `wrap` (fuer
+     flex-wrap) und schluckte darueber faelschlich das Padding des Seiten-
+     Containers `.wrap` -> als leere, aber 116px hohe Zeile. Ganze Zeile
+     ausblenden statt nur der Kinder. */
+  body.board-mobile-active .tabs,
+  body.board-mobile-active .tips-dock-toggle,
+  body.board-mobile-active .tips-dock-panel,
+  body.board-mobile-active .board-actions-row,
+  body.board-mobile-active .board-export-row,
+  /* Footer ("… by Zmash") mobil weg — das Board soll bis ganz nach unten */
+  body.board-mobile-active footer,
+  /* Drag-Reorder ist auf dem Touch-Board unbrauchbar und frisst nur Breite */
+  body.board-mobile-active .board-table .col-drag { display: none; }
+
+  /* --- Vollbreite & wenig Chrome ---
+     Seiten-Container randlos (`:not(.row)`, damit NUR der echte Container
+     getroffen wird, nicht die Flex-Zeilen mit Klasse `wrap`), Platz unten
+     fuer die fixe Bottom-Bar. */
+  body.board-mobile-active .wrap:not(.row) {
+    padding: 6px 0 4px;
+  }
+  /* Topbar + Clock als randlose, angedockte Leisten */
+  body.board-mobile-active .topbar,
+  body.board-mobile-active .clockbar {
+    border-left: 0; border-right: 0; border-radius: 0;
+  }
+  body.board-mobile-active .topbar { margin-bottom: 6px; border-top: 0; }
+  body.board-mobile-active .clockbar { margin-bottom: 6px; }
+  /* Board-Card ohne Rahmen/Radius, Tabelle bleedet bis an den Bildschirmrand */
+  body.board-mobile-active .card {
+    padding: 6px 10px 0;
+    border-left: 0; border-right: 0; border-radius: 0;
+  }
+  /* Tabelle fuellt die restliche Hoehe bis kurz ueber die Bottom-Bar
+     (Konstante = Topbar+Clock+Status+Bar+Abstaende; per dvh phone-unabhaengig). */
+  body.board-mobile-active .table-wrap {
+    margin: 6px -10px 0;
+    border-left: 0; border-right: 0; border-radius: 0;
+    max-height: calc(100dvh - 210px - env(safe-area-inset-bottom, 0px));
+  }
+
+  /* --- Herkunft + Fortschritt zu EINER kompakten Zeile (Mock-Look):
+         [Balken] 168/783 · FANTASYPROS · SLEEPER ADP --- */
+  body.board-mobile-active .provenance-bar,
+  body.board-mobile-active .board-progress-head { display: none; }
+  body.board-mobile-active .board-status-line {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 10px; margin-top: 0;
+  }
+  .bsl-bar {
+    flex: 0 0 60px; height: 4px; border-radius: 2px; overflow: hidden;
+    background: var(--border);
+  }
+  .bsl-bar > div { height: 100%; background: var(--accent-fill); }
+  .bsl-count {
+    flex: 0 0 auto;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .bsl-src {
+    margin-left: auto; min-width: 0;
+    font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: 0.04em; font-weight: 600; font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* --- Bottom-Action-Bar: 2 Items | Center-FAB | 2 Items --- */
+  .board-mobile-bar {
+    display: flex; align-items: flex-start; gap: 2px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-backdrop);
+    background: var(--surface-nav); border-top: 1px solid var(--border);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* --- Gemeinsame Bottom-Sheet-Mechanik (Filter, Menue, Tipps) --- */
+  .board-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 46;
+    background: var(--surface-nav); border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(115%);
+    transition: transform var(--dur) var(--ease);
+    max-height: 72vh; overflow-y: auto;
+  }
+  .board-sheet.is-open { transform: none; }
+  .bmb-tips-sheet { display: block; }
+  .board-sheet-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .board-sheet-scrim {
+    display: block; position: fixed; inset: 0; z-index: 45;
+    background: rgba(3, 7, 20, 0.5); opacity: 0; pointer-events: none;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .board-sheet-scrim.is-open { opacity: 1; pointer-events: auto; }
+
+  /* Filterzeile im Sheet: vertikal statt in einer Zeile */
+  .board-filters-host .filters-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .board-filters-host .filters-toolbar > * { width: 100%; max-width: none; }
+  .board-filters-host .filter-chips { flex-wrap: wrap; }
+  .board-filters-host .filter-chip { flex: 1 1 auto; text-align: center; }
+
+}
+
+/* --- Board-Tabelle im Mock-Stil ---
+   Bei <=768px greift bereits die bestehende Spalten-Vereinfachung (col-team/
+   -pos/-adp/... aus, .mobile-only an). Genau dort setzt der Zeilen-Umbau an,
+   damit es keinen kaputten Zwischenzustand zwischen 561-768px gibt.
+   Sticky-Header kommt aus der globalen Regel (`thead{position:sticky;top:0}`
+   bezogen auf .table-wraps eigene Scroll-Box) — hier NICHT duplizieren. */
+@media (max-width: 768px) {
+  /* Zebra, aber Status-Zeilen (gepickt) behalten ihren Farbstich */
+  body.board-mobile-active .board-table tbody tr:nth-child(even):not(.row-me):not(.row-other) td {
+    background: var(--surface-card);
+  }
+  /* Werte vertikal zentriert, mehr Zeilenhoehe */
+  body.board-mobile-active .board-table td { vertical-align: middle; padding: 8px 6px; }
+  body.board-mobile-active .board-table td.col-rk {
+    text-align: center; font-size: 14px; color: var(--text-muted);
+  }
+
+  /* Kurzer, vertikal zentrierter Positions-Balken (nicht volle Hoehe) */
+  body.board-mobile-active .board-table td.col-name {
+    position: relative; padding-left: 16px;
+  }
+  body.board-mobile-active tr[data-pos] td.col-name::before {
+    content: ''; position: absolute; left: 5px; top: 50%;
+    transform: translateY(-50%);
+    width: 4px; height: 26px; border-radius: 2px; background: var(--text-dim);
+  }
+  body.board-mobile-active tr[data-pos="rb"]  td.col-name::before { background: var(--pos-rb); }
+  body.board-mobile-active tr[data-pos="wr"]  td.col-name::before { background: var(--pos-wr); }
+  body.board-mobile-active tr[data-pos="qb"]  td.col-name::before { background: var(--pos-qb); }
+  body.board-mobile-active tr[data-pos="te"]  td.col-name::before { background: var(--pos-te); }
+  body.board-mobile-active tr[data-pos="k"]   td.col-name::before { background: var(--pos-k); }
+  body.board-mobile-active tr[data-pos="def"] td.col-name::before { background: var(--pos-def); }
+
+  /* 2-Spalten-Zeile: Name/Team·Pos links, ADP/Δ·Bye rechts */
+  body.board-mobile-active .mcol {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  body.board-mobile-active .mcol-main { min-width: 0; flex: 1 1 auto; }
+  body.board-mobile-active .player-name-text {
+    font-weight: 600; font-size: 15px; color: var(--text-primary);
+  }
+  /* AI-Badge auf Mobile inline statt absolut (sonst ueberdeckt es die Stats) */
+  body.board-mobile-active .board-table td.col-name .ai-badge-wrap { position: static; }
+  body.board-mobile-active .board-table td.col-name:has(.ai-badge-wrap) .player-name-btn {
+    max-width: none;
+  }
+  body.board-mobile-active .mcol-teampos {
+    display: block; margin-top: 2px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  body.board-mobile-active .mcol-stats {
+    flex: 0 0 auto; text-align: right;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  body.board-mobile-active .mcol-adp {
+    font-size: 15px; font-weight: 500; color: var(--text-primary);
+  }
+  body.board-mobile-active .mcol-sub { margin-top: 2px; font-size: 11px; color: var(--text-dim); }
+  body.board-mobile-active .rs-delta-good { color: var(--good); }
+  body.board-mobile-active .rs-delta-bad  { color: var(--bad); }
+
+  /* Header: NAME links, ADP · Bye rechts */
+  body.board-mobile-active .board-table thead th.col-name { position: relative; }
+  body.board-mobile-active .board-table thead th.col-name::after {
+    content: 'ADP · Bye';
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-weight: 400;
+  }
+}

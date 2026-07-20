@@ -97,12 +97,14 @@ export default function BoardTable({
 
   return (
     <>
-      {/* Progress */}
-      <div className="progress mt-2">
-        <div style={{ width: `${progressPercent}%` }} />
-      </div>
-      <div className="muted text-xs mt-1">
-        {pickedCount} von {totalCount} Spielern markiert
+      {/* Progress — auf Mobile durch die kompakte .board-status-line ersetzt */}
+      <div className="board-progress-head">
+        <div className="progress mt-2">
+          <div style={{ width: `${progressPercent}%` }} />
+        </div>
+        <div className="muted text-xs mt-1">
+          {pickedCount} von {totalCount} Spielern markiert
+        </div>
       </div>
 
       {/* Table */}
@@ -155,6 +157,7 @@ export default function BoardTable({
                   )}
                   title={reason || undefined}
                   data-nname={p.nname || ''}
+                  data-pos={p.pos ? String(p.pos).toLowerCase() : undefined}
                   data-ai={isHighlighted ? (isPrimary ? 'primary' : 'alt') : 'none'}
                   draggable={canDrag}
                   onDragStart={canDrag ? () => setDraggedNname(p.nname) : undefined}
@@ -175,56 +178,74 @@ export default function BoardTable({
                   <td className="col-rk">{p.rk}</td>
 
                   <td className="col-name">
-                    <div
-                      className="cell-content"
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
-                    >
-                      <button
-                        className={cx(
-                          'player-name-btn',
-                          pref === PlayerPreference.FAVORITE && 'is-favorite',
-                          pref === PlayerPreference.AVOID && 'is-avoid'
-                        )}
-                        onClick={(e) => openPrefMenu(e, p)}
-                        title="Präferenz setzen"
-                      >
-                        {pref === PlayerPreference.FAVORITE && (
-                          <span className="pref-icon pref-fav" aria-hidden>
-                            <Icon name="star" size={13} />
-                          </span>
-                        )}
-                        {pref === PlayerPreference.AVOID && (
-                          <span className="pref-icon pref-avoid" aria-hidden>
-                            <Icon name="x" size={13} />
-                          </span>
-                        )}
-                        <span className="player-name-text">{p.name}</span>
-                      </button>
-
-                      {/* AI/ALT Badges */}
-                      <span className="ai-badge-wrap">
-                        {isHighlighted && (
-                          <span
+                    {/* .mcol ist auf Mobile eine 2-Spalten-Zeile (Name/Team·Pos
+                        links, ADP/Δ·Bye rechts); auf dem Desktop ein simpler
+                        Block, der nur den Namen zeigt (Team/Pos/ADP haben dort
+                        eigene Spalten, die Mobile-Teile sind .mobile-only). */}
+                    <div className="mcol">
+                      <div className="mcol-main">
+                        <div
+                          className="cell-content"
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+                        >
+                          <button
                             className={cx(
-                              'ai-badge',
-                              isPrimary ? 'ai-badge-primary' : 'ai-badge-alt'
+                              'player-name-btn',
+                              pref === PlayerPreference.FAVORITE && 'is-favorite',
+                              pref === PlayerPreference.AVOID && 'is-avoid'
                             )}
-                            title={isPrimary ? 'Primäre AI-Empfehlung' : 'AI-Alternative'}
+                            onClick={(e) => openPrefMenu(e, p)}
+                            title="Präferenz setzen"
                           >
-                            {isPrimary ? 'AI' : 'alt'}
-                          </span>
-                        )}
-                      </span>
-                    </div>
+                            {pref === PlayerPreference.FAVORITE && (
+                              <span className="pref-icon pref-fav" aria-hidden>
+                                <Icon name="star" size={13} />
+                              </span>
+                            )}
+                            {pref === PlayerPreference.AVOID && (
+                              <span className="pref-icon pref-avoid" aria-hidden>
+                                <Icon name="x" size={13} />
+                              </span>
+                            )}
+                            <span className="player-name-text">{p.name}</span>
+                          </button>
 
-                    {/* Mobile-Subline */}
-                    <div className="row-subline mobile-only">
-                      {p.team} · {p.pos}
-                      {hasAdp && p.adp != null ? ` · ADP ${Math.round(p.adp * 10) / 10}` : ''}
-                      {hasAdp ? ` · Δ ${formatDeltaAdp(deltaAdp(p))}` : ''}
-                      {hasBye && p.bye ? ` · Bye ${p.bye}` : ''}
-                      {hasSos && p.sos ? ` · SOS ${p.sos}` : ''}
-                      {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
+                          {/* AI/ALT Badges */}
+                          <span className="ai-badge-wrap">
+                            {isHighlighted && (
+                              <span
+                                className={cx(
+                                  'ai-badge',
+                                  isPrimary ? 'ai-badge-primary' : 'ai-badge-alt'
+                                )}
+                                title={isPrimary ? 'Primäre AI-Empfehlung' : 'AI-Alternative'}
+                              >
+                                {isPrimary ? 'AI' : 'alt'}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mcol-teampos mobile-only">
+                          {p.team} · {p.pos}
+                          {hasSos && p.sos ? ` · SOS ${p.sos}` : ''}
+                          {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
+                        </div>
+                      </div>
+
+                      {hasAdp && (() => {
+                        const d = deltaAdp(p)
+                        const deltaCls = d == null ? '' : d > 0 ? 'rs-delta-good' : d < 0 ? 'rs-delta-bad' : ''
+                        return (
+                          <div className="mcol-stats mobile-only">
+                            <div className="mcol-adp">{p.adp != null ? Math.round(p.adp * 10) / 10 : '—'}</div>
+                            <div className="mcol-sub">
+                              <span className={deltaCls}>Δ{formatDeltaAdp(d)}</span>
+                              {hasBye && p.bye ? ` · Bye ${p.bye}` : ''}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </td>
 
