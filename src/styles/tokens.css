@@ -65,3 +65,84 @@
   --pos-on: #ffffff;
   color-scheme: light;
 }
+
+/* Broadcast PinkLuke — OLED true black + magenta synth accent. */
+:root[data-theme='broadcast-pinkluke'] {
+  --surface-page: #000000;
+  --surface-nav: #08080c;
+  --surface-card: #0d0d14;
+  --surface-raised: #12121a;
+  --border: #1c1c24;
+  --border-soft: #15151b;
+  --text-primary: #f5f5f7;
+  --text-muted: #8a8a96;
+  --text-dim: #5e5e6c;
+  --accent-fill: #ff3d9a;
+  --accent-on: #1a0010;
+  --accent-text: #ff3d9a;
+  --live: #ff3b47;
+  --good: #37d67a;
+  --bad: #ff7a6b;
+  --pos-rb: #22b455;
+  --pos-wr: #2f8fe0;
+  --pos-qb: #ef4a63;
+  --pos-te: #f0982f;
+  --pos-k: #a06ff0;
+  --pos-def: #8a94a6;
+  --pos-on: #ffffff;
+  color-scheme: dark;
+}
+
+/* Broadcast Crimson — OLED true black, signal-red accent. Classic sports-broadcast red. */
+:root[data-theme='broadcast-crimson'] {
+  --surface-page: #000000;
+  --surface-nav: #0a080a;
+  --surface-card: #100d0f;
+  --surface-raised: #15111a;
+  --border: #241b1e;
+  --border-soft: #181217;
+  --text-primary: #f7f1f2;
+  --text-muted: #94888a;
+  --text-dim: #635a5d;
+  --accent-fill: #ff2d3f;
+  --accent-on: #1a0007;
+  --accent-text: #ff3d4d;
+  --live: #ff3b47;
+  --good: #37d67a;
+  --bad: #ff7a6b;
+  --pos-rb: #22b455;
+  --pos-wr: #2f8fe0;
+  --pos-qb: #ef4a63;
+  --pos-te: #f0982f;
+  --pos-k: #a06ff0;
+  --pos-def: #8a94a6;
+  --pos-on: #ffffff;
+  color-scheme: dark;
+}
+
+/* Broadcast Vikings — Minnesota Vikings (purple + gold). Dark aubergine surfaces. */
+:root[data-theme='broadcast-vikings'] {
+  --surface-page: #0f0815;
+  --surface-nav: #160e22;
+  --surface-card: #1e1430;
+  --surface-raised: #261a3d;
+  --border: #3a2860;
+  --border-soft: #2a1c46;
+  --text-primary: #f0e5fa;
+  --text-muted: #a88fc2;
+  --text-dim: #7c6699;
+  --accent-fill: #ffc62f;
+  --accent-on: #1a1200;
+  --accent-text: #ffc62f;
+  --live: #ff3b47;
+  --good: #37d67a;
+  --bad: #ff7a6b;
+  --pos-rb: #22b455;
+  --pos-wr: #2f8fe0;
+  --pos-qb: #ef4a63;
+  --pos-te: #f0982f;
+  --pos-k: #a06ff0;
+  --pos-def: #8a94a6;
+  --pos-on: #1e1430;
+  color-scheme: dark;
+}
