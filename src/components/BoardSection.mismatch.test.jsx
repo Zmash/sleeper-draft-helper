@@ -14,6 +14,7 @@ vi.mock('react-router-dom', async () => ({
 const mocks = vi.hoisted(() => ({
   boardMode: null,
   handleAutoImport: vi.fn(async () => ({ ok: true })),
+  handleFantasyProsImport: vi.fn(async () => ({ ok: true })),
   handleKtcRookieImport: vi.fn(async () => true),
   handleCsvLoad: vi.fn(async () => true),
   setCsvRawText: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('../stores/useBoardStore', () => ({
     refreshMarketData: vi.fn(),
     boardMode: mocks.boardMode,
     handleAutoImport: mocks.handleAutoImport,
+    handleFantasyProsImport: mocks.handleFantasyProsImport,
     handleKtcRookieImport: mocks.handleKtcRookieImport,
     handleCsvLoad: mocks.handleCsvLoad,
     setCsvRawText: mocks.setCsvRawText,
@@ -70,6 +72,7 @@ describe('BoardSection — Draft-Typ-Guard-Banner', () => {
     localStorage.setItem('sdh_api_key', 'test-key')
     mocks.boardMode = null
     mocks.handleAutoImport.mockClear()
+    mocks.handleFantasyProsImport.mockClear()
     mocks.handleKtcRookieImport.mockClear()
   })
   afterEach(() => vi.restoreAllMocks())
@@ -99,16 +102,17 @@ describe('BoardSection — Draft-Typ-Guard-Banner', () => {
     fireEvent.click(screen.getByRole('button', { name: /Rookie-Rankings importieren/i }))
     await waitFor(() => expect(mocks.handleKtcRookieImport).toHaveBeenCalledTimes(1))
     expect(mocks.handleKtcRookieImport).toHaveBeenCalledWith(true)
-    expect(mocks.handleAutoImport).not.toHaveBeenCalled()
+    expect(mocks.handleFantasyProsImport).not.toHaveBeenCalled()
   })
 
-  it('importiert per Klick die passenden Rankings mit force (Redraft → FantasyCalc)', async () => {
+  it('importiert per Klick die passenden Rankings mit force (Redraft → FantasyPros)', async () => {
     mocks.boardMode = 'rookie'
     render(<Harness draftMode="redraft" />)
     fireEvent.click(screen.getByRole('button', { name: /Redraft-Rankings importieren/i }))
-    await waitFor(() => expect(mocks.handleAutoImport).toHaveBeenCalledTimes(1))
-    expect(mocks.handleAutoImport.mock.calls[0][0]).toMatchObject({ draftMode: 'redraft', force: true })
+    await waitFor(() => expect(mocks.handleFantasyProsImport).toHaveBeenCalledTimes(1))
+    expect(mocks.handleFantasyProsImport.mock.calls[0][0]).toMatchObject({ force: true })
     expect(mocks.handleKtcRookieImport).not.toHaveBeenCalled()
+    expect(mocks.handleAutoImport).not.toHaveBeenCalled()
   })
 
   it('„Trotzdem behalten" blendet das Banner aus', () => {
