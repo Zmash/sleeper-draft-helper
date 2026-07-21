@@ -11,6 +11,7 @@ vi.mock('react-router-dom', async () => ({
 }))
 
 const handleAutoImport = vi.fn(async () => ({ ok: true, stats: {}, marketMissing: false }))
+const handleFantasyProsImport = vi.fn(async () => ({ ok: true, stats: {}, marketMissing: false }))
 const handleKtcRookieImport = vi.fn(async () => true)
 const handleCsvLoad = vi.fn(async () => true)
 const setCsvRawText = vi.fn()
@@ -22,6 +23,7 @@ vi.mock('../stores/useBoardStore', () => ({
     boardSource: null,
     refreshMarketData: vi.fn(),
     handleAutoImport,
+    handleFantasyProsImport,
     handleKtcRookieImport,
     handleCsvLoad,
     setCsvRawText,
@@ -59,6 +61,7 @@ describe('BoardSection — Direkt-Import vom leeren Board', () => {
   beforeEach(() => {
     localStorage.clear()
     handleAutoImport.mockClear()
+    handleFantasyProsImport.mockClear()
     handleKtcRookieImport.mockClear()
     handleCsvLoad.mockClear()
   })
@@ -71,27 +74,29 @@ describe('BoardSection — Direkt-Import vom leeren Board', () => {
     expect(screen.getByRole('button', { name: /Zum Setup/i })).toBeTruthy()
   })
 
-  it('ruft im Redraft-Modus handleAutoImport mit dem abgeleiteten Format auf', async () => {
+  it('ruft im Redraft-Modus handleFantasyProsImport mit dem abgeleiteten Format auf', async () => {
     render(<Harness draftMode="redraft" />)
     fireEvent.click(screen.getByRole('button', { name: /Auto-Import/i }))
-    await waitFor(() => expect(handleAutoImport).toHaveBeenCalledTimes(1))
-    const arg = handleAutoImport.mock.calls[0][0]
-    expect(arg).toMatchObject({ draftMode: 'redraft' })
+    await waitFor(() => expect(handleFantasyProsImport).toHaveBeenCalledTimes(1))
+    const arg = handleFantasyProsImport.mock.calls[0][0]
+    expect(arg).toMatchObject({ force: false })
     expect(typeof arg.numTeams).toBe('number')
     expect(arg).toHaveProperty('isSuperflex')
     expect(arg).toHaveProperty('effScoringType')
     expect(handleKtcRookieImport).not.toHaveBeenCalled()
+    expect(handleAutoImport).not.toHaveBeenCalled()
   })
 
-  it('nutzt im Rookie-Modus den KTC-Import statt FantasyCalc', async () => {
+  it('nutzt im Rookie-Modus den KTC-Import statt FantasyPros', async () => {
     render(<Harness draftMode="rookie" />)
     fireEvent.click(screen.getByRole('button', { name: /Rookies auto-importieren/i }))
     await waitFor(() => expect(handleKtcRookieImport).toHaveBeenCalledTimes(1))
+    expect(handleFantasyProsImport).not.toHaveBeenCalled()
     expect(handleAutoImport).not.toHaveBeenCalled()
   })
 
   it('zeigt eine Fehlermeldung, wenn der Auto-Import scheitert', async () => {
-    handleAutoImport.mockResolvedValueOnce({ ok: false, error: 'Rangliste nicht erreichbar' })
+    handleFantasyProsImport.mockResolvedValueOnce({ ok: false, error: 'Rangliste nicht erreichbar' })
     render(<Harness draftMode="redraft" />)
     fireEvent.click(screen.getByRole('button', { name: /Auto-Import/i }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Rangliste nicht erreichbar/))

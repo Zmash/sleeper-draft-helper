@@ -62,7 +62,7 @@ export default function BoardSection({
   const navigate = useNavigate()
   const {
     marketMeta, boardSource, rankingSource, refreshMarketData, boardMode,
-    handleAutoImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
+    handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
   } = useBoardStore()
   const [refreshingMarket, setRefreshingMarket] = useState(false)
   const [marketError, setMarketError] = useState(null)
@@ -152,14 +152,15 @@ export default function BoardSection({
       if (mode === 'rookie') {
         await handleKtcRookieImport(force)
       } else {
-        const res = await handleAutoImport({
+        // ponytail: kein needsConfirm-Handling — Empty-State und Mismatch-Banner
+        // laufen nur mit force=true (Mismatch) oder leerem Board (kein Confirm noetig).
+        const res = await handleFantasyProsImport({
           isSuperflex: draftFormat.isSuperflex,
           effScoringType: draftFormat.scoringType,
           numTeams: draftFormat.teams,
-          draftMode: mode,
           force,
         })
-        if (res && res.error) setImportErr(res.error)
+        if (res && res.error && !res.needsConfirm) setImportErr(res.error)
       }
     } catch (e) {
       setImportErr(e?.message || String(e))
@@ -559,7 +560,7 @@ export default function BoardSection({
         <div className="row items-center wrap" style={{ gap: 8, justifyContent: 'center' }}>
           <button className="btn btn-primary" onClick={() => runImportForMode(draftMode)} disabled={importing}>
             <Icon name="upload" size={16} />{' '}
-            {importing ? 'Wird geladen…' : (rookie ? 'Rookies auto-importieren' : 'Auto-Import (FantasyCalc)')}
+            {importing ? 'Wird geladen…' : (rookie ? 'Rookies auto-importieren' : 'Auto-Import (FantasyPros)')}
           </button>
           <button className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={importing}>
             CSV-Datei
