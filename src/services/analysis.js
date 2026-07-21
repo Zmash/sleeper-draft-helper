@@ -1,23 +1,24 @@
 // src/services/analysis.js
 import { normalizePlayerName } from '../utils/formatting'
+import { countStarters } from './derive'
 
-const isNum = (n) => Number.isFinite(n)
 const toNum = (v) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
-const scale01 = (x, min, max) => {
-  if (!isNum(min) || !isNum(max) || max <= min) return 0.5
-  return (x - min) / (max - min)
-}
-const scale100 = (x, min, max) => Math.round(100 * Math.max(0, Math.min(1, scale01(x, min, max))))
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x))
 
 // --- Value-Tuning ---
 const VALUE_ECR_WEIGHT = 0.85   // ECR dominiert
 const VALUE_ADP_WEIGHT = 0.15   // ADP nur leicht als Kontext
 const VALUE_DELTA_CAP  = 20     // harte Kappung der Deltas
+const VALUE_SCALE      = 4      // ponytail: Punkte je Delta-Schnitt um die 50er-Mitte
 
-const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x))
+// --- Rank->Wert-Kurve (Basis fuer Starter/Depth) ---
+const RANK_DECAY     = 45       // ponytail: Tuning-Knopf; kleiner = Studs zaehlen staerker
+const UNRANKED_VALUE = 2        // Floor fuer ungerankte/ungematchte Spieler
+const DEPTH_BENCH_N  = 5        // wie viele Bench-Spieler in Depth einfliessen
+
 const capDelta = (d, cap = VALUE_DELTA_CAP) => clamp(d, -cap, cap)
 
 // Späte Runden schwächer werten: <=100 voll, 101..160 75%, >160 50%
@@ -36,17 +37,41 @@ function positionWeight(pos) {
   return 1
 }
 
-function requiredStarters(rosterPositions = []) {
-  const req = { QB:0, RB:0, WR:0, TE:0 }
-  for (const slot of rosterPositions || []) {
-    const s = String(slot || '').toUpperCase()
-    if (req[s] != null) req[s] += 1
+// Spielerwert aus dem Overall-Rank: rk 1 -> 100, rk 30 -> ~52, rk 100 -> ~11
+function playerValue(rk) {
+  if (rk == null || !Number.isFinite(rk)) return UNRANKED_VALUE
+  return 100 * Math.exp(-(rk - 1) / RANK_DECAY)
+}
+
+// Starterplaetze aus den Roster-Settings; leeres Roster -> Standard-Lineup
+function lineupSlots(rosterPositions = []) {
+  if (!(rosterPositions || []).length) {
+    return { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPER_FLEX: 0 }
   }
-  if (!req.QB) req.QB = 1
-  if (!req.RB) req.RB = 2
-  if (!req.WR) req.WR = 2
-  if (!req.TE) req.TE = 1
-  return req
+  return countStarters(rosterPositions)
+}
+
+// Greedy: dedizierte Slots zuerst (beste Ranks), dann FLEX/SUPER_FLEX aus dem Rest
+function fillLineup(entries, req) {
+  const pool = entries.slice().sort((a, b) => b.val - a.val)
+  const used = new Set()
+  const starters = []
+  const take = (allowed, count) => {
+    for (const e of pool) {
+      if (count <= 0) break
+      if (used.has(e) || !allowed.includes(e.pos)) continue
+      used.add(e)
+      starters.push(e)
+      count -= 1
+    }
+  }
+  take(['QB'], req.QB || 0)
+  take(['RB'], req.RB || 0)
+  take(['WR'], req.WR || 0)
+  take(['TE'], req.TE || 0)
+  take(['RB', 'WR', 'TE'], req.FLEX || 0)
+  take(['QB', 'RB', 'WR', 'TE'], req.SUPER_FLEX || 0)
+  return { starters, bench: pool.filter(e => !used.has(e)) }
 }
 
 /** interner Helper: Team-Key konsistent zu App.jsx/ownerLabels */
@@ -98,7 +123,9 @@ export function isDraftComplete(livePicks = [], teamsCount = 0, rounds = 0) {
 }
 
 /**
- * Team-Scores berechnen (Value/Positional/Balance/Diversity/Bye + Total)
+ * Team-Scores berechnen (Value/Starter/Depth/Balance/Bye + Total).
+ * Bedeutungen: Value 50 = nach Marktwert gedraftet; Starter/Depth 100 = bestes
+ * Lineup bzw. tiefste Bench der Liga; Balance/Bye = 100 minus konkrete Strafen.
  */
 export function computeTeamScores({
   boardPlayers = [],
@@ -119,118 +146,121 @@ export function computeTeamScores({
     return null
   }
 
-  // Teams mit konsistenten Keys aufbauen
+  const req = lineupSlots(rosterPositions)
+  const isSF = (req.SUPER_FLEX || 0) > 0
+  const slotsTotal = (req.QB || 0) + (req.RB || 0) + (req.WR || 0) + (req.TE || 0) + (req.FLEX || 0) + (req.SUPER_FLEX || 0)
+
   const teams = new Map()
   for (const pick of (livePicks || [])) {
     const key = ownerKeyFromPick(pick, teamsCount)
-    if (!teams.has(key)) {
-      teams.set(key, {
-        key,
-        picks: [],
-        valueRaw: 0,
-        posCounts: { QB:0, RB:0, WR:0, TE:0, K:0, DST:0 },
-        byeCounts: {},
-      })
-    }
+    if (!teams.has(key)) teams.set(key, { key, picks: [] })
     teams.get(key).picks.push(pick)
   }
 
-  // Value aggregieren
+  // Ohne ein einziges Board-Match sind Rank-basierte Scores erfunden -> neutral 50.
+  let anyRanked = false
+
   for (const team of teams.values()) {
+    let deltaSum = 0
+    let deltaCount = 0
+    const entries = []   // { pos, val, bye } nur QB/RB/WR/TE
+
     for (const pick of team.picks) {
       const player = playerForPick(pick)
-      if (!player) continue
+      const rawPos = String(player?.pos ?? pick?.metadata?.position ?? '').toUpperCase()
+      const pos = rawPos === 'DEF' ? 'DST' : rawPos
+      const rk = player ? toNum(player.rk) : null
+      if (rk != null) anyRanked = true
 
-      const rk     = toNum(player.rk)
-      const evA    = toNum(player.ecrVsAdp ?? player['ECR VS. ADP'] ?? player['ECRvsADP'])
-      // ADP-Fallback: ADP = RK + (ECRvsADP)
-      const adp    = toNum(player.adp ?? (isNum(rk) && isNum(evA) ? rk + evA : null))
-      const pickNo = toNum(pick.pick_no)
+      if (player) {
+        const evA = toNum(player.ecrVsAdp ?? player['ECR VS. ADP'] ?? player['ECRvsADP'])
+        const adp = toNum(player.adp ?? ((rk != null && evA != null) ? rk + evA : null))
+        const pickNo = toNum(pick.pick_no)
+        const expertDelta = (rk != null && pickNo != null) ? (pickNo - rk) : null
+        const marketDelta = (adp != null && pickNo != null) ? (pickNo - adp) : null
+        if (expertDelta != null || marketDelta != null) {
+          const blended =
+            VALUE_ECR_WEIGHT * capDelta(expertDelta ?? marketDelta) +
+            VALUE_ADP_WEIGHT * capDelta(marketDelta ?? expertDelta)
+          deltaSum += blended * lateRoundWeight(pickNo) * positionWeight(pos)
+          deltaCount += 1
+        }
+      }
 
-      // Deltas (Pick vs. ECR/ADP)
-      const expertDelta = (isNum(rk)  && isNum(pickNo)) ? (pickNo - rk)  : 0
-      const marketDelta = (isNum(adp) && isNum(pickNo)) ? (pickNo - adp) : 0
-
-      // Kappen & Mischung: ECR dominiert, ADP nur leicht
-      const blended =
-        (VALUE_ECR_WEIGHT * capDelta(expertDelta)) +
-        (VALUE_ADP_WEIGHT * capDelta(marketDelta))
-
-      // Späte Runden & K/DST abschwächen
-      const w = lateRoundWeight(pickNo) * positionWeight(player.pos)
-
-      team.valueRaw += blended * w
-
-      // Positions-/Bye-Statistiken
-      const pos = String(player.pos || '').toUpperCase()
-      const posKey = (pos === 'DEF') ? 'DST' : pos
-      if (team.posCounts[posKey] != null) team.posCounts[posKey] += 1
-
-      const bye = String(player.bye || '').trim()
-      if (bye) team.byeCounts[bye] = (team.byeCounts[bye] || 0) + 1
+      if (pos === 'QB' || pos === 'RB' || pos === 'WR' || pos === 'TE') {
+        const byeStr = String(player?.bye ?? '').trim()
+        entries.push({ pos, val: playerValue(rk), bye: byeStr || null })
+      }
     }
+
+    const { starters, bench } = fillLineup(entries, req)
+    team._entries = entries
+    team._starters = starters
+    team._deltaAvg = deltaCount ? deltaSum / deltaCount : null
+    team._starterRaw = starters.reduce((s, e) => s + e.val, 0)
+    team._depthRaw = bench.slice(0, DEPTH_BENCH_N).reduce((s, e) => s + e.val, 0)
   }
 
-  const rawValues = Array.from(teams.values()).map(t => t.valueRaw)
-  const minV = rawValues.length ? Math.min(...rawValues) : 0
-  const maxV = rawValues.length ? Math.max(...rawValues) : 1
+  const teamsArr = Array.from(teams.values())
+  const maxStarter = Math.max(0, ...teamsArr.map(t => t._starterRaw))
+  const maxDepth = Math.max(0, ...teamsArr.map(t => t._depthRaw))
 
-  const req = requiredStarters(rosterPositions)
+  for (const team of teamsArr) {
+    // Value: 50 = Marktwert, Steals darueber, Reaches darunter
+    const value = (!anyRanked || team._deltaAvg == null)
+      ? 50
+      : Math.round(clamp(50 + VALUE_SCALE * team._deltaAvg, 0, 100))
 
-  for (const team of teams.values()) {
-    const valueScore = scale100(team.valueRaw, minV, maxV)
+    // Starter/Depth: relativ zum Liga-Besten
+    const starter = (!anyRanked || maxStarter <= 0) ? 50 : Math.round(100 * team._starterRaw / maxStarter)
+    const depth = (!anyRanked || maxDepth <= 0) ? 50 : Math.round(100 * team._depthRaw / maxDepth)
 
-    let have = 0, need = 0
-    for (const p of ['QB','RB','WR','TE']) {
-      need += req[p] || 0
-      have += Math.min(team.posCounts[p] || 0, req[p] || 0)
+    // Balance: Kaderbau vs. Bedarf
+    const counts = { QB: 0, RB: 0, WR: 0, TE: 0 }
+    for (const e of team._entries) counts[e.pos] += 1
+    const picksN = team.picks.length
+    let balance = 100
+    // Unbesetzte Starterplaetze — nur soweit die eigenen Picks sie haetten fuellen koennen
+    const fillable = Math.min(slotsTotal, picksN)
+    balance -= Math.max(0, fillable - team._starters.length) * 15
+    // Backup-Strafen erst, wenn genug Picks fuer Starter + Backup da sind
+    if (picksN >= slotsTotal + 1) {
+      if (counts.RB < (req.RB || 0) + 1) balance -= 10
+      if (counts.WR < (req.WR || 0) + 1) balance -= 10
+      if (isSF && counts.QB < (req.QB || 0) + (req.SUPER_FLEX || 0)) balance -= 10
     }
-    const positionalScore = need ? Math.round(100 * (have / need)) : 50
+    // Hortung: QBs in 1QB-Ligen, TEs generell
+    if (!isSF) balance -= Math.max(0, counts.QB - ((req.QB || 0) + 1)) * 8
+    balance -= Math.max(0, counts.TE - ((req.TE || 0) + 1)) * 5
+    balance = clamp(balance, 0, 100)
 
-    const rb = team.posCounts.RB || 0
-    const wr = team.posCounts.WR || 0
-    const totalRw = rb + wr
-    let balanceScore = 50
-    if (totalRw >= 2) {
-      const ideal = totalRw / 2
-      const diff = Math.abs(rb - ideal)
-      balanceScore = Math.round(100 * (1 - diff / ideal))
+    // Bye: nur Ueberschneidungen innerhalb der Starter
+    const byeCounts = {}
+    for (const e of team._starters) {
+      if (e.bye) byeCounts[e.bye] = (byeCounts[e.bye] || 0) + 1
     }
+    let byePenalty = 0
+    for (const n of Object.values(byeCounts)) byePenalty += Math.max(0, n - 1) * 10
+    const bye = clamp(100 - byePenalty, 0, 100)
 
-    const first8Players = team.picks.slice(0, 8).map(playerForPick).filter(Boolean)
-    const uniqPos = new Set(first8Players.map(p => String(p.pos || '').toUpperCase()))
-    const diversityScore = Math.round(100 * Math.min(1, uniqPos.size / 4))
-
-    const maxPileup = Math.max(0, ...Object.values(team.byeCounts))
-    const byePenalty = Math.max(0, maxPileup - 2) * 12
-    const byeScore = Math.max(0, 100 - byePenalty)
-
-    const total = Math.round(
-      0.35 * valueScore +
-      0.25 * positionalScore +
-      0.15 * balanceScore +
-      0.15 * diversityScore +
-      0.10 * byeScore
-    )
-
-    team.value      = valueScore
-    team.positional = positionalScore
-    team.balance    = balanceScore
-    team.diversity  = diversityScore
-    team.bye        = byeScore
-    team.total      = total
+    team.value = value
+    team.starter = starter
+    team.depth = depth
+    team.balance = balance
+    team.bye = bye
+    team.total = Math.round(0.35 * starter + 0.30 * value + 0.15 * depth + 0.10 * balance + 0.10 * bye)
   }
 
-  return Array.from(teams.values())
+  return teamsArr
     .sort((a, b) => b.total - a.total)
     .map((t, i) => ({
       rank: i + 1,
       key: t.key,           // passt zu ownerLabels (user:, roster:, slot:)
       total: t.total,
       value: t.value,
-      positional: t.positional,
+      starter: t.starter,
+      depth: t.depth,
       balance: t.balance,
-      diversity: t.diversity,
       bye: t.bye,
     }))
 }
