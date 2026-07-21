@@ -66,9 +66,9 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: ROSTER_SF })
     const a = scores.find(s => s.key === 'user:A')
     const b = scores.find(s => s.key === 'user:B')
-    // Soll (SF): QB 3, RB 3.5, WR 3.5, TE 1.5. A weicht 3.5 ab, B nur 2.5.
-    expect(a.balance).toBe(83)
-    expect(b.balance).toBe(88)
+    // Soll (SF): QB 3, RB 3.5, WR 3.5, TE max 2. A weicht 3.0 ab, B nur 2.0.
+    expect(a.balance).toBe(85)
+    expect(b.balance).toBe(90)
     expect(a.balance).toBeLessThan(b.balance)
   })
 
@@ -88,9 +88,27 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: rosterDef })
     const x = scores.find(s => s.key === 'user:X')
     const y = scores.find(s => s.key === 'user:Y')
-    expect(x.balance).toBe(93)   // nur leichte Soll-Abweichungen
-    expect(y.balance).toBe(81)   // -12 fehlender DEF + Abweichungen
+    expect(x.balance).toBe(95)   // nur leichte Soll-Abweichungen
+    expect(y.balance).toBe(83)   // -12 fehlender DEF + Abweichungen
     expect(y.balance).toBeLessThan(x.balance)
+  })
+
+  it('Balance: 1 QB + 1 TE sind in der 1QB-Liga straffrei (streambar), erst der 3. QB kostet', () => {
+    const posLean  = ['QB', 'TE', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR']
+    const posThree = ['QB', 'QB', 'QB', 'TE', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR']
+    const board = boardFrom([
+      ...posLean.map((pos, i) => ({ id: `l${i}`, rk: i * 2 + 1, pos })),
+      ...posThree.map((pos, i) => ({ id: `t${i}`, rk: i * 2 + 2, pos })),
+    ])
+    const picks = [
+      ...posLean.map((pos, i) => pick(i * 2 + 1, 'L', `l${i}`, pos)),
+      ...posThree.map((pos, i) => pick(i * 2 + 2, 'T', `t${i}`, pos)),
+    ]
+    const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: ROSTER })
+    const lean = scores.find(s => s.key === 'user:L')
+    const three = scores.find(s => s.key === 'user:T')
+    expect(lean.balance).toBe(100)   // 1 QB, 1 TE, RB/WR auf Soll -> keine Strafe
+    expect(three.balance).toBe(95)   // dritter QB = 1 Einheit Ueberschuss
   })
 
   it('Balance: QB-Hortung in der 1QB-Liga faellt hinter ein ausgewogenes Team', () => {

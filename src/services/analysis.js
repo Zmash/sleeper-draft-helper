@@ -161,12 +161,15 @@ export function computeTeamScores({
   const slotsTotal = (req.QB || 0) + (req.RB || 0) + (req.WR || 0) + (req.TE || 0) + (req.FLEX || 0) + (req.SUPER_FLEX || 0)
   const slotsAll = slotsTotal + reqK + reqDST
 
-  // Soll-Verteilung fuer Balance: Starter + FLEX-Anteil + sinnvolle Backups.
+  // Soll-Verteilung fuer Balance. QB (1QB-Liga) und TE sind streambar:
+  // 1 Stueck reicht, 2 sind ok, Strafe erst darueber (nur Ueberschuss;
+  // fehlt der Starter komplett, greift schon die harte Strafe).
+  const isSF = (req.SUPER_FLEX || 0) > 0
   const target = {
     QB: (req.QB || 0) + (req.SUPER_FLEX || 0) + 1,
     RB: (req.RB || 0) + (req.FLEX || 0) / 2 + 1.5,
     WR: (req.WR || 0) + (req.FLEX || 0) / 2 + 1.5,
-    TE: (req.TE || 0) + 0.5,
+    TE: (req.TE || 0) + 1,
     K: reqK,
     DST: reqDST,
   }
@@ -257,11 +260,16 @@ export function computeTeamScores({
     // Picks fuer ein volles Lineup da waren. K/DST nur als Ueberschuss (die
     // Unterdeckung steckt schon in der harten Strafe).
     let dev = 0
-    for (const p of ['QB', 'RB', 'WR', 'TE']) {
+    for (const p of ['RB', 'WR']) {
       const d = counts[p] - target[p]
       if (d > 0) dev += d
       else if (picksN >= slotsAll) dev += -d
     }
+    // QB: in Superflex zaehlt auch Unterdeckung (QB-Knappheit), sonst nur Ueberschuss
+    const dQB = counts.QB - target.QB
+    if (dQB > 0) dev += dQB
+    else if (isSF && picksN >= slotsAll) dev += -dQB
+    dev += Math.max(0, counts.TE - target.TE)
     dev += Math.max(0, counts.K - target.K) + Math.max(0, counts.DST - target.DST)
     balance -= dev * BALANCE_SOFT_W
 
