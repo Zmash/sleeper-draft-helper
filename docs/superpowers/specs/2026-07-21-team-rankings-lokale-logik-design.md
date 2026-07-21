@@ -66,9 +66,11 @@ Spielern der Position, danach FLEX/SF aus dem Rest.
    12er-Mock `1384881999428218880` für alle Teams 100 — gegen die echten
    API-Daten neu entworfen.)*
    - **Soll-Verteilung** aus den Roster-Settings: RB/WR = Starter + FLEX/2
-     + 1,5 (beidseitig); QB und TE sind **streambar** (Dario-Regel): bis
-     Starter + 1 straffrei, nur Überschuss darüber kostet — Unterdeckung nur
-     in Superflex-Ligen (QB-Knappheit) bzw. über die harte Strafe;
+     + 1,5, aber **nur Unterdeckung** zählt — Überschuss ist Bank-Substanz
+     (Depth), keine Schieflage; RB6/WR3 wird genau einmal über die dünne
+     WR-Seite bestraft. QB und TE sind **streambar** (Dario-Regel): bis
+     Starter + 1 straffrei, nur Überschuss darüber kostet — QB-Unterdeckung
+     zählt nur in Superflex-Ligen (Knappheit) bzw. über die harte Strafe;
      K/DST = Pflicht-Slots, ebenfalls nur Überschuss.
    - **Hart:** je fehlendem Pflicht-Starter (QB/RB/WR/TE/**K/DST**) −12 —
      gedeckelt durch die Zahl der Picks, die die Slots schon hätten füllen

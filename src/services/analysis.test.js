@@ -88,8 +88,8 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: rosterDef })
     const x = scores.find(s => s.key === 'user:X')
     const y = scores.find(s => s.key === 'user:Y')
-    expect(x.balance).toBe(95)   // nur leichte Soll-Abweichungen
-    expect(y.balance).toBe(83)   // -12 fehlender DEF + Abweichungen
+    expect(x.balance).toBe(98)   // nur leichte RB-Unterdeckung
+    expect(y.balance).toBe(88)   // -12 fehlender DEF; RB/WR-Ueberschuss ist straffrei
     expect(y.balance).toBeLessThan(x.balance)
   })
 

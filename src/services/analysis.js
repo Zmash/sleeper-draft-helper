@@ -259,11 +259,12 @@ export function computeTeamScores({
     // (6 RBs sind auch mitten im Draft schief), Unterdeckung erst, wenn genug
     // Picks fuer ein volles Lineup da waren. K/DST nur als Ueberschuss (die
     // Unterdeckung steckt schon in der harten Strafe).
+    // RB/WR: nur Unterdeckung — Ueberschuss ist Bank-Substanz (Depth), keine
+    // Schieflage. RB6/WR3 wird genau einmal bestraft: ueber die duenne WR-Seite.
     let dev = 0
     for (const p of ['RB', 'WR']) {
-      const d = counts[p] - target[p]
-      if (d > 0) dev += d
-      else if (picksN >= slotsAll) dev += -d
+      const d = target[p] - counts[p]
+      if (d > 0 && picksN >= slotsAll) dev += d
     }
     // QB: in Superflex zaehlt auch Unterdeckung (QB-Knappheit), sonst nur Ueberschuss
     const dQB = counts.QB - target.QB
