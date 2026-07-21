@@ -189,7 +189,7 @@ export default function App() {
     try {
       return computeTeamScores({ boardPlayers, rosterPositions: effRoster, teamsCount, livePicks })
     } catch {
-      try { return computeTeamScores(boardPlayers, effRoster, teamsCount, livePicks) } catch { return [] }
+      return []
     }
   }, [boardPlayers, effRoster, teamsCount, livePicks])
 

@@ -86,9 +86,9 @@ export default function DraftAnalysis({
               <th>Team</th>
               <th>Total</th>
               <th>Value</th>
-              <th>Positional</th>
+              <th>Starter</th>
+              <th>Depth</th>
               <th>Balance</th>
-              <th>Diversity</th>
               <th>Bye</th>
             </tr>
           </thead>
@@ -106,9 +106,9 @@ export default function DraftAnalysis({
                   <td>{label}</td>
                   <td>{r.total}</td>
                   <td>{r.value}</td>
-                  <td>{r.positional}</td>
+                  <td>{r.starter}</td>
+                  <td>{r.depth}</td>
                   <td>{r.balance}</td>
-                  <td>{r.diversity}</td>
                   <td>{r.bye}</td>
                 </tr>
               )
