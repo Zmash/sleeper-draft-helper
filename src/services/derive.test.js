@@ -61,6 +61,18 @@ describe('picksUntilMyNext', () => {
     expect(result).toBe(9)
   })
 
+  it('Draftstart ohne Picks + draftSlot 7 -> 6 fremde Picks vor mir', () => {
+    // cur=0-Sonderfall: round waere 0 und goingDown faelschlich true.
+    const result = picksUntilMyNext({ picks: [], meUserId: 'me', teamsCount: 12, draftSlot: 7 })
+    expect(result).toBe(6)
+  })
+
+  it('Clockbar-Szenario: Slot 1, Pick 12 on the clock, 12 Teams -> 12 (Snake)', () => {
+    const picks = Array.from({ length: 11 }, (_, i) => ({ pick_no: i + 1, picked_by: `other-${i + 1}` }))
+    const result = picksUntilMyNext({ picks, meUserId: 'me', teamsCount: 12, draftSlot: 1 })
+    expect(result).toBe(12)
+  })
+
   it('Snake-Umkehr: in einer geraden Runde stimmt die Richtung', () => {
     // Runde 2 laeuft rueckwaerts (Snake-Draft). Aktueller Pick 15 = Runde 2, Position 3.
     const picks = Array.from({ length: 15 }, (_, i) => ({

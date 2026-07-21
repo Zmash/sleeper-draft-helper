@@ -1,4 +1,5 @@
 import Icon from './Icon'
+import { picksUntilMyNext } from '../services/derive'
 
 function fmtPick(round, slot) {
   return slot ? `${round}.${String(slot).padStart(2, '0')}` : '—'
@@ -14,7 +15,11 @@ export default function OnTheClockBar({ draft, picks, teamsCount, draftSlot }) {
   const round = teams ? Math.floor(made / teams) + 1 : null
   const slotInRound = teams ? (made % teams) + 1 : null
   const isMock = !draft.league_id
-  const yourNextIn = teams && draftSlot ? (draftSlot - slotInRound + teams) % teams : null
+  // Snake-Distanz, nicht linear: (draftSlot - slotInRound) % teams ignoriert die
+  // Richtungsumkehr in geraden Runden.
+  const yourNextIn = teams && draftSlot
+    ? picksUntilMyNext({ picks: picks || [], teamsCount: teams, draftSlot })
+    : null
 
   return (
     <section className="clockbar" aria-label="Draft-Status">

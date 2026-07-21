@@ -3,7 +3,7 @@
 // Output format: { system, messages, tools, tool_choice, max_tokens, temperature }
 
 import { normalizePlayerName, normalizePos } from '../utils/formatting'
-import { detectRuns, opponentsUntilMyNext } from './draftFlow'
+import { detectRuns, opponentsUntilMyNext, snakeSlotForPick } from './draftFlow'
 
 // ---------- Pure helpers ----------
 
@@ -63,7 +63,9 @@ function inferMySlot({ draft, livePicks, me }) {
     if (!mine.length) return null
     const pick1 = mine[0].pick_no
     if (!Number.isFinite(pick1)) return null
-    return ((pick1 - 1) % teams) + 1
+    // Snake-bewusst: liegt der erste eigene Pick in einer geraden Runde,
+    // waere die lineare Position in der Runde der gespiegelte (falsche) Slot.
+    return snakeSlotForPick(pick1, teams)
   } catch { return null }
 }
 

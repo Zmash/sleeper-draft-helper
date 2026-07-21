@@ -71,6 +71,9 @@ export function picksUntilMyNext({ picks = [], meUserId = '', teamsCount = 12, d
     mySlot = (round % 2 === 1) ? inRound : (teamsCount - inRound + 1)
   }
 
+  // Draftstart: cur=0 ergaebe round=0 und damit faelschlich goingDown=true.
+  if (cur === 0) return mySlot - 1
+
   const round = Math.ceil(cur / teamsCount)
   const inRound = ((cur - 1) % teamsCount) + 1
   const goingDown = (round % 2 === 0)
