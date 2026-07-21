@@ -19,6 +19,10 @@ const RANK_DECAY     = 45       // ponytail: Tuning-Knopf; kleiner = Studs zaehl
 const UNRANKED_VALUE = 2        // Floor fuer ungerankte/ungematchte Spieler
 const DEPTH_BENCH_N  = 5        // wie viele Bench-Spieler in Depth einfliessen
 
+// --- Balance-Tuning ---
+const BALANCE_SOFT_W       = 5  // Punkte je Einheit Soll-Abweichung
+const BALANCE_HARD_MISSING = 12 // Punkte je fehlendem Pflicht-Starter (inkl. K/DST)
+
 const capDelta = (d, cap = VALUE_DELTA_CAP) => clamp(d, -cap, cap)
 
 // Späte Runden schwächer werten: <=100 voll, 101..160 75%, >160 50%
@@ -147,8 +151,25 @@ export function computeTeamScores({
   }
 
   const req = lineupSlots(rosterPositions)
-  const isSF = (req.SUPER_FLEX || 0) > 0
+  // countStarters kennt K/DEF nicht — direkt aus den Roster-Slots zaehlen.
+  let reqK = 0, reqDST = 0
+  for (const slot of rosterPositions || []) {
+    const s = String(slot || '').toUpperCase()
+    if (s === 'K') reqK += 1
+    else if (s === 'DEF' || s === 'DST') reqDST += 1
+  }
   const slotsTotal = (req.QB || 0) + (req.RB || 0) + (req.WR || 0) + (req.TE || 0) + (req.FLEX || 0) + (req.SUPER_FLEX || 0)
+  const slotsAll = slotsTotal + reqK + reqDST
+
+  // Soll-Verteilung fuer Balance: Starter + FLEX-Anteil + sinnvolle Backups.
+  const target = {
+    QB: (req.QB || 0) + (req.SUPER_FLEX || 0) + 1,
+    RB: (req.RB || 0) + (req.FLEX || 0) / 2 + 1.5,
+    WR: (req.WR || 0) + (req.FLEX || 0) / 2 + 1.5,
+    TE: (req.TE || 0) + 0.5,
+    K: reqK,
+    DST: reqDST,
+  }
 
   const teams = new Map()
   for (const pick of (livePicks || [])) {
@@ -164,6 +185,7 @@ export function computeTeamScores({
     let deltaSum = 0
     let deltaCount = 0
     const entries = []   // { pos, val, bye } nur QB/RB/WR/TE
+    const counts = { QB: 0, RB: 0, WR: 0, TE: 0, K: 0, DST: 0 }
 
     for (const pick of team.picks) {
       const player = playerForPick(pick)
@@ -187,6 +209,7 @@ export function computeTeamScores({
         }
       }
 
+      if (counts[pos] != null) counts[pos] += 1
       if (pos === 'QB' || pos === 'RB' || pos === 'WR' || pos === 'TE') {
         const byeStr = String(player?.bye ?? '').trim()
         entries.push({ pos, val: playerValue(rk), bye: byeStr || null })
@@ -194,7 +217,7 @@ export function computeTeamScores({
     }
 
     const { starters, bench } = fillLineup(entries, req)
-    team._entries = entries
+    team._counts = counts
     team._starters = starters
     team._deltaAvg = deltaCount ? deltaSum / deltaCount : null
     team._starterRaw = starters.reduce((s, e) => s + e.val, 0)
@@ -215,24 +238,34 @@ export function computeTeamScores({
     const starter = (!anyRanked || maxStarter <= 0) ? 50 : Math.round(100 * team._starterRaw / maxStarter)
     const depth = (!anyRanked || maxDepth <= 0) ? 50 : Math.round(100 * team._depthRaw / maxDepth)
 
-    // Balance: Kaderbau vs. Bedarf
-    const counts = { QB: 0, RB: 0, WR: 0, TE: 0 }
-    for (const e of team._entries) counts[e.pos] += 1
+    // Balance: Soll/Ist-Abweichung der Kaderstruktur (kontinuierlich statt binaer —
+    // die binaeren Strafen ergaben im realen 12er-Mock fuer alle Teams 100).
+    const counts = team._counts
     const picksN = team.picks.length
     let balance = 100
-    // Unbesetzte Starterplaetze — nur soweit die eigenen Picks sie haetten fuellen koennen
-    const fillable = Math.min(slotsTotal, picksN)
-    balance -= Math.max(0, fillable - team._starters.length) * 15
-    // Backup-Strafen erst, wenn genug Picks fuer Starter + Backup da sind
-    if (picksN >= slotsTotal + 1) {
-      if (counts.RB < (req.RB || 0) + 1) balance -= 10
-      if (counts.WR < (req.WR || 0) + 1) balance -= 10
-      if (isSF && counts.QB < (req.QB || 0) + (req.SUPER_FLEX || 0)) balance -= 10
+
+    // Hart: fehlende Pflicht-Starter (inkl. K/DST) — nur soweit die Picks sie
+    // schon haetten decken koennen (laufender Draft wird nicht pauschal bestraft).
+    const dedicated = { QB: req.QB || 0, RB: req.RB || 0, WR: req.WR || 0, TE: req.TE || 0, K: reqK, DST: reqDST }
+    let missing = 0
+    for (const p of Object.keys(dedicated)) missing += Math.max(0, dedicated[p] - counts[p])
+    const allowance = Math.max(0, slotsAll - picksN)
+    balance -= Math.max(0, missing - allowance) * BALANCE_HARD_MISSING
+
+    // Weich: Abweichung von der Soll-Verteilung. Ueberschuss zaehlt immer
+    // (6 RBs sind auch mitten im Draft schief), Unterdeckung erst, wenn genug
+    // Picks fuer ein volles Lineup da waren. K/DST nur als Ueberschuss (die
+    // Unterdeckung steckt schon in der harten Strafe).
+    let dev = 0
+    for (const p of ['QB', 'RB', 'WR', 'TE']) {
+      const d = counts[p] - target[p]
+      if (d > 0) dev += d
+      else if (picksN >= slotsAll) dev += -d
     }
-    // Hortung: QBs in 1QB-Ligen, TEs generell
-    if (!isSF) balance -= Math.max(0, counts.QB - ((req.QB || 0) + 1)) * 8
-    balance -= Math.max(0, counts.TE - ((req.TE || 0) + 1)) * 5
-    balance = clamp(balance, 0, 100)
+    dev += Math.max(0, counts.K - target.K) + Math.max(0, counts.DST - target.DST)
+    balance -= dev * BALANCE_SOFT_W
+
+    balance = Math.round(clamp(balance, 0, 100))
 
     // Bye: nur Ueberschneidungen innerhalb der Starter
     const byeCounts = {}

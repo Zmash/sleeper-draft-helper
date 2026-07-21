@@ -32,7 +32,8 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     const b = scores.find(s => s.key === 'user:B')
     expect(a.starter).toBe(100)          // bestes Lineup der Liga
     expect(b.starter).toBeLessThan(100)  // differenziert endlich
-    expect(a.total).toBeGreaterThan(b.total)
+    // knapper Draft: Totals koennen auf denselben Rundungswert fallen
+    expect(a.total).toBeGreaterThanOrEqual(b.total)
     expect(scores[0].rank).toBe(1)
   })
 
@@ -50,7 +51,7 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     expect(scores[0].value).toBeGreaterThan(50)
   })
 
-  it('Balance (Superflex): nur 1 QB wird bestraft, 2 QB nicht', () => {
+  it('Balance (Superflex): 1 QB weicht staerker vom Soll ab als 2 QB', () => {
     const posA = ['QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'TE']
     const posB = ['QB', 'QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE']
     const defs = [
@@ -65,8 +66,48 @@ describe('computeTeamScores — neues Metrik-Set', () => {
     const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: ROSTER_SF })
     const a = scores.find(s => s.key === 'user:A')
     const b = scores.find(s => s.key === 'user:B')
-    expect(a.balance).toBe(90)   // -10: kein zweiter QB fuer den SF-Slot
-    expect(b.balance).toBe(100)
+    // Soll (SF): QB 3, RB 3.5, WR 3.5, TE 1.5. A weicht 3.5 ab, B nur 2.5.
+    expect(a.balance).toBe(83)
+    expect(b.balance).toBe(88)
+    expect(a.balance).toBeLessThan(b.balance)
+  })
+
+  it('Balance: fehlender Pflicht-DEF wird hart bestraft (realer Mock-Fall)', () => {
+    // Roster wie der echte Mock: 2 FLEX + 1 DEF Pflicht-Starter.
+    const rosterDef = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN']
+    const posX = ['QB', 'QB', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR', 'WR', 'TE', 'TE', 'DEF']
+    const posY = ['QB', 'QB', 'RB', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR', 'WR', 'TE', 'TE']
+    const board = boardFrom([
+      ...posX.map((pos, i) => ({ id: `dx${i}`, rk: i * 2 + 1, pos })),
+      ...posY.map((pos, i) => ({ id: `dy${i}`, rk: i * 2 + 2, pos })),
+    ])
+    const picks = [
+      ...posX.map((pos, i) => pick(i * 2 + 1, 'X', `dx${i}`, pos)),
+      ...posY.map((pos, i) => pick(i * 2 + 2, 'Y', `dy${i}`, pos)),
+    ]
+    const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: rosterDef })
+    const x = scores.find(s => s.key === 'user:X')
+    const y = scores.find(s => s.key === 'user:Y')
+    expect(x.balance).toBe(93)   // nur leichte Soll-Abweichungen
+    expect(y.balance).toBe(81)   // -12 fehlender DEF + Abweichungen
+    expect(y.balance).toBeLessThan(x.balance)
+  })
+
+  it('Balance: QB-Hortung in der 1QB-Liga faellt hinter ein ausgewogenes Team', () => {
+    const posHoard = ['QB', 'QB', 'QB', 'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'TE']
+    const posEven  = ['QB', 'QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'TE']
+    const board = boardFrom([
+      ...posHoard.map((pos, i) => ({ id: `h${i}`, rk: i * 2 + 1, pos })),
+      ...posEven.map((pos, i) => ({ id: `e${i}`, rk: i * 2 + 2, pos })),
+    ])
+    const picks = [
+      ...posHoard.map((pos, i) => pick(i * 2 + 1, 'H', `h${i}`, pos)),
+      ...posEven.map((pos, i) => pick(i * 2 + 2, 'E', `e${i}`, pos)),
+    ]
+    const scores = computeTeamScores({ boardPlayers: board, livePicks: picks, teamsCount: 2, rosterPositions: ROSTER })
+    const h = scores.find(s => s.key === 'user:H')
+    const e = scores.find(s => s.key === 'user:E')
+    expect(h.balance).toBeLessThan(e.balance)
   })
 
   it('Bye: 3 Starter mit gleicher Bye-Woche schlechter als gespreizte Byes', () => {

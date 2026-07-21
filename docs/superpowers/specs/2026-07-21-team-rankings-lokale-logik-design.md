@@ -61,16 +61,20 @@ Spielern der Position, danach FLEX/SF aus dem Rest.
    Nicht-Starter (nur QB/RB/WR/TE) mit derselben Kurve; Score relativ zum
    Liga-Maximum wie bei Starter.
 
-4. **Balance** — Kaderbau vs. Bedarf. Start bei 100, Strafen:
-   - je unbesetztem Starterplatz −15, aber nur soweit die Anzahl eigener
-     Picks den Platz hätte füllen können (`min(starterSlots, teamPicks)`),
-     damit laufende Drafts nicht pauschal bestraft werden;
-   - fehlendes RB- bzw. WR-Backup (Anzahl < Starterbedarf + 1): je −10;
-   - fehlender QB-Backup in Superflex-Ligen: −10;
-   - Hortung: jeder QB über Bedarf + 1 in 1QB-Ligen −8, jeder TE über
-     Bedarf + 1 −5.
-   Clamp auf 0..100. Backup-/Hortungs-Strafen greifen erst, wenn das Team
-   genug Picks hat, um Starter + das jeweilige Backup zu besitzen.
+4. **Balance** — Soll/Ist-Abweichung der Kaderstruktur, kontinuierlich.
+   *(Revidiert 2026-07-21: die erste, binäre Strafen-Version ergab im realen
+   12er-Mock `1384881999428218880` für alle Teams 100 — gegen die echten
+   API-Daten neu entworfen.)*
+   - **Soll-Verteilung** aus den Roster-Settings: QB = Starter + SF + 1;
+     RB/WR = Starter + FLEX/2 + 1,5; TE = Starter + 0,5; K/DST = Pflicht-Slots.
+   - **Hart:** je fehlendem Pflicht-Starter (QB/RB/WR/TE/**K/DST**) −12 —
+     gedeckelt durch die Zahl der Picks, die die Slots schon hätten füllen
+     können (laufender Draft wird nicht pauschal bestraft).
+   - **Weich:** je Einheit Abweichung vom Soll −5. Überschuss zählt immer
+     (Hortung), Unterdeckung erst ab genug Picks für ein volles Lineup;
+     K/DST nur als Überschuss (Unterdeckung steckt in der harten Strafe).
+   Clamp auf 0..100. Gegen den echten Mock: Streuung 66–93 (fehlender DEF
+   → 66; ausgewogene Kader → 93).
 
 5. **Bye** — Bye-Stau **nur innerhalb der Starter**. Je Bye-Woche mit ≥ 2
    Startern: Strafe `(Anzahl − 1) * 10`. Score = `clamp(100 − Summe, 0, 100)`.
