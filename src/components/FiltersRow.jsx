@@ -1,3 +1,4 @@
+import Icon from './Icon'
 import { cx } from '../utils/formatting'
 
 export default function FiltersRow({
@@ -13,14 +14,16 @@ export default function FiltersRow({
     onTeamFilterChange,
   }) {
     return (
-      <div className="row wrap mt-2 gap filters-toolbar">
-        <input
-          className="flex-1"
-          placeholder="Spieler suchen…"
-          value={searchQuery}
-          onChange={onSearchChange}
-        />
-  
+      <div className="row wrap filters-toolbar">
+        <label className="board-search">
+          <Icon name="search" size={14} />
+          <input
+            placeholder="Spieler suchen…"
+            value={searchQuery}
+            onChange={onSearchChange}
+          />
+        </label>
+
         <div className="filter-chips" role="group" aria-label="Position filtern">
           {['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((p) => (
             <button
@@ -54,15 +57,16 @@ export default function FiltersRow({
           type="button"
           className={cx('btn', 'btn-toggle', hideAvoid && 'is-active')}
           onClick={() => setHideAvoid(!hideAvoid)}
-          title="Avoid-Spieler ausblenden"
+          title={hideAvoid ? 'Avoid-Spieler wieder anzeigen' : 'Avoid-Spieler ausblenden'}
           aria-pressed={hideAvoid}
         >
-          {hideAvoid ? 'show avoid' : 'hide avoid'}
+          <Icon name={hideAvoid ? 'eye' : 'eye-off'} size={15} />
+          <span className="avoid-label">Avoid</span>
         </button>
 
-        <button type="button" className="btn" onClick={onJumpToNext}>
-        Jump
-      </button>
+        <button type="button" className="btn" onClick={onJumpToNext} title="Zum nächsten freien Spieler springen">
+          <Icon name="arrow-down" size={15} /> Jump
+        </button>
       </div>
     )
   }

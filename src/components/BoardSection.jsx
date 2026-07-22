@@ -621,9 +621,8 @@ export default function BoardSection({
           </button>
         </div>
       )}
-      <div className="row between items-center wrap board-actions-row" style={{ gap: 8 }}>
+      <div className="row between items-center wrap board-actions-row board-status-row" style={{ gap: 8 }}>
         <BoardToolbar
-          currentPickNumber={currentPickNumber}
           autoRefreshEnabled={autoRefreshEnabled}
           onToggleAutoRefresh={onToggleAutoRefresh}
           refreshIntervalSeconds={refreshIntervalSeconds}
@@ -635,7 +634,7 @@ export default function BoardSection({
         <div className="btn-group-compact">
           <button
             onClick={handleAskAI}
-            className="btn-compact"
+            className="btn-compact btn-compact--primary"
             disabled={adviceButtonDisabled}
             title={adviceButtonDisabled ? 'Picks werden geladen — gleich verfügbar' : 'AI-Empfehlung für den nächsten Pick'}
           >
@@ -644,10 +643,11 @@ export default function BoardSection({
           <CostHint text={adviceEstimate} />
           <button
             onClick={() => { setPendingAskAfterKey(false); setKeyValidationError(''); setKeyValidating(false); setKeyDialogOpen(true) }}
-            className="btn-compact"
+            className="btn-compact btn-icon"
             title="Anthropic API-Key verwalten"
+            aria-label="Anthropic API-Key verwalten"
           >
-            <Icon name="key" size={15} /> Key
+            <Icon name="key" size={15} />
           </button>
         </div>
       </div>
@@ -699,6 +699,8 @@ export default function BoardSection({
         onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
         refreshing={refreshingMarket}
         error={marketError}
+        pickedCount={pickedCount}
+        totalCount={totalCount}
       />
 
       {/* Kompakte Status-Zeile (nur Mobile): Fortschritt + Quelle in EINER Zeile,
@@ -736,9 +738,6 @@ export default function BoardSection({
       )}
 
       <BoardTable
-        progressPercent={totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}
-        pickedCount={pickedCount}
-        totalCount={totalCount}
         filteredPlayers={filteredBoardPlayers}
         highlightedNnames={[...aiHighlights.all]}
         primaryNname={aiHighlights.primary}

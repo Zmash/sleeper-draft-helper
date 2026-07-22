@@ -45,7 +45,9 @@ body {
   border-radius: var(--r-card);
   margin-bottom: 16px;
 }
-.brand { display: flex; align-items: baseline; gap: 8px; }
+/* Logo ist ein Link zur Startseite — Text-Optik bleibt unveraendert */
+.brand { display: flex; align-items: baseline; gap: 8px; text-decoration: none; color: inherit; }
+.brand:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 .brand b {
   font-family: var(--font-display);
   font-weight: 700;
@@ -286,14 +288,33 @@ body {
 .btn-compact:hover { border-color: var(--accent-fill); }
 .btn-compact:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
-/* Herkunfts-Zeile: beantwortet Herkunft, Alter und Modus an einer Stelle. */
+/* Herkunfts-Zeile: beantwortet Herkunft, Alter, Modus UND Fortschritt an einer
+   Stelle — leise Meta-Zeile statt eigener Box. */
 .provenance-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
-  padding: 0.4rem 0.6rem; margin-top: 0.5rem;
-  border: 1px solid var(--border); border-radius: 2px;
-  background: var(--surface-raised);
-  font-size: 0.75rem; color: var(--text-muted);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+  padding: 6px 2px 0; margin-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px; color: var(--text-muted);
 }
+/* Aktualisieren als leiser Ghost-Button in der Meta-Zeile (Mock vA-meta) */
+.provenance-bar .btn-compact {
+  height: 24px; padding: 0 8px; font-size: 12px;
+  border-color: transparent; color: var(--text-muted);
+}
+.provenance-bar .btn-compact:hover { border-color: var(--border); color: var(--text-primary); }
+.provenance-progress {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.provenance-count {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.provenance-mini-bar {
+  width: 120px; height: 4px; border-radius: 2px; overflow: hidden;
+  background: var(--border-soft);
+}
+.provenance-mini-bar > div { height: 100%; background: var(--accent-fill); }
 .provenance-item { display: inline-flex; align-items: center; gap: 0.3rem; }
 .provenance-item strong { color: var(--text-primary); font-weight: 500; }
 .provenance-item :is(strong) { font-variant-numeric: tabular-nums; }
@@ -304,31 +325,73 @@ body {
 .btn-primary { background: var(--accent-fill); color: var(--accent-on); border: 1px solid transparent; }
 .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border); }
 
-/* Segmented position filter chips */
-/* Board-Filterleiste: Suche darf wachsen/schrumpfen, Controls behalten ihre Größe.
-   Reicht der Platz nicht, bricht die Zeile um – nichts wird gequetscht.
-   width überschreibt die globale Baseline (width:95%), die sonst die Zeile sprengt. */
-.filters-toolbar > input.flex-1 { flex: 1 1 160px; min-width: 140px; width: auto; }
-.filters-toolbar > select { flex: 0 0 auto; width: auto; max-width: 180px; }
-.filters-toolbar > .btn { flex: 0 0 auto; }
+/* Board-Filterleiste (Mock vA-cmd): kompakte 30px-Controls, 13px Schrift,
+   die Suche waechst, alles andere behaelt seine Groesse. Bricht der Platz,
+   bricht die Zeile um – nichts wird gequetscht. */
+/* padding:0 schlaegt das Seiten-Container-Padding von `.wrap` — die Zeile
+   traegt die Klasse wrap nur fuer flex-wrap (bekannte Falle, s. Mobile-CSS). */
+.filters-toolbar { gap: 8px; padding: 0; }
+.board-filters-host { margin-top: 10px; }
+.board-search {
+  flex: 1 1 200px; min-width: 160px;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-ctl);
+  color: var(--text-dim);
+}
+.board-search:focus-within { border-color: var(--accent-fill); }
+.board-search input {
+  border: none; background: transparent;
+  height: 28px; padding: 0; width: auto; flex: 1;
+  font-size: 13px;
+}
+.board-search input:focus-visible { outline: none; border: none; }
+.filters-toolbar > select {
+  flex: 0 0 auto; width: auto; max-width: 180px;
+  height: 30px; padding: 0 8px; font-size: 13px;
+}
+.filters-toolbar > .btn {
+  flex: 0 0 auto;
+  height: 30px; padding: 0 10px; font-size: 13px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.filters-toolbar > .btn:hover { border-color: var(--text-dim); }
+.filters-toolbar > .btn.is-active {
+  background: var(--accent-fill); color: var(--accent-on); border-color: transparent;
+}
+/* Avoid-Label nur im Mobile-Filter-Sheet — Desktop ist der Button icon-only */
+.avoid-label { display: none; }
 
-/* Segmentiertes Control: bricht nie um und wird nie gestaucht */
-.filter-chips { display: inline-flex; gap: 3px; flex-wrap: nowrap; flex: 0 0 auto; }
+/* Segmentiertes Positions-Control: EINE verbundene Gruppe (Mock), kein Chip-Zoo */
+.filter-chips {
+  display: inline-flex; gap: 0; flex-wrap: nowrap; flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-ctl);
+  overflow: hidden;
+}
 .filter-chip {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-nav);
+  height: 28px;
+  display: inline-flex; align-items: center;
+  padding: 0 10px;
+  border: none;
+  border-left: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-muted);
-  border-radius: var(--r-ctl);
   cursor: pointer;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.filter-chip:hover { color: var(--text-primary); border-color: var(--accent-fill); }
-.filter-chip.active { background: var(--accent-fill); color: var(--accent-on); border-color: transparent; }
-.filter-chip:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.filter-chip:first-child { border-left: none; }
+.filter-chip:hover { color: var(--text-primary); }
+.filter-chip.active { background: var(--accent-fill); color: var(--accent-on); }
+.filter-chip:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 
 /* =========================================================
    FORM CONTROLS – GLOBAL BASELINE
@@ -408,71 +471,60 @@ textarea.control:focus-visible {
 .form-row .row { display: flex; gap: 8px; align-items: center; }
 
 /* =========================================================
-   TOOLBAR (Board controls)
+   BOARD-STATUSZEILE (Sync-Cluster links, AI/Key rechts)
    ========================================================= */
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
+/* Vollbreite-Streifen im Nav-Ton, buendig mit der Card-Kante (Mock vA-status).
+   Die negativen Margins heben das Card-Padding (18px 16px) auf. */
+.board-status-row {
+  background: var(--surface-nav);
+  border-block: 1px solid var(--border-soft);
+  margin: 10px -16px 0;
+  padding: 7px 14px;
+  min-height: 44px;
 }
-.toolbar-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-ctl);
+.card > .board-status-row:first-child {
+  margin-top: -18px;
+  border-top: none;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+}
+.board-status-row .btn-compact {
+  height: 30px;
   padding: 0 10px;
-  height: var(--control-h);
-  line-height: 1;
+  font-size: 13px;
 }
-.toolbar .btn { margin-left: auto; }
 
-/* Same height for chip & button in toolbar */
-.toolbar .chip,
-.toolbar .btn {
-  height: var(--control-h);
-  display: inline-flex;
-  align-items: center;
-  padding: 0 12px;
-  line-height: 1;
+.sync-cluster { display: inline-flex; align-items: center; gap: 10px; }
+.sync-btn { position: relative; }
+/* Auto-Punkt am Sync-Button ersetzt die fruehere Checkbox */
+.sync-auto-dot {
+  position: absolute; top: -4px; right: -4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-fill);
+  border: 2px solid var(--surface-nav);
 }
-/* Chip bleibt Pille (siehe .chip), der Button bleibt Control. */
-.toolbar .chip { border-radius: 999px; }
-.toolbar .btn  { border-radius: var(--r-ctl); }
-.toolbar .btn { border: 1px solid var(--border); background: transparent; color: var(--text); }
-.toolbar .btn:hover { border-color: var(--accent); }
-
-/* Inputs inside toolbar: no double border, compact */
-.toolbar-item input[type="text"],
-.toolbar-item input[type="number"],
-.toolbar-item select {
-  height: calc(var(--control-h) - 10px);
-  padding: 0 10px;
-  border: 1px solid transparent;
+/* Intervall als stilles Select: Text-Optik, erst beim Hover als Control erkennbar */
+select.sync-interval {
+  width: auto;
+  border-color: transparent;
   background: transparent;
-  border-radius: var(--r-ctl);
-  color: var(--text);
-  line-height: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 2px;
+  cursor: pointer;
 }
-.toolbar-item input:focus,
-.toolbar-item select:focus { box-shadow: none; outline: none; }
+select.sync-interval:hover { border-color: var(--border); }
+.sync-last { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.sync-last-time { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-primary); }
 
-/* Checkbox sizing */
-.toolbar-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
+/* Primaeraktion in der Statuszeile (AI-Advice) + Icon-only-Button (Key) */
+.btn-compact--primary {
+  background: var(--accent-fill);
+  color: var(--accent-on);
+  border-color: transparent;
+  font-weight: 600;
 }
-.toolbar-item label { display: inline-flex; align-items: center; gap: 8px; line-height: 1; }
-
-@media (max-width: 820px) {
-  .toolbar > * { flex: 1 1 calc(50% - 0.75rem); }
-  .toolbar .btn { flex: 1 1 100%; margin-left: 0; }
-}
-@media (max-width: 520px) {
-  .toolbar > * { flex: 1 1 100%; }
-}
+.btn-compact--primary:hover { border-color: transparent; filter: brightness(1.06); }
+.btn-compact.btn-icon { padding: 6px 8px; }
 
 /* =========================================================
    FILTERS ROW (Board)
@@ -2637,7 +2689,11 @@ th.col-pick, td.col-pick { width: 64px; }
   .board-filters-host .filters-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
   .board-filters-host .filters-toolbar > * { width: 100%; max-width: none; }
   .board-filters-host .filter-chips { flex-wrap: wrap; }
-  .board-filters-host .filter-chip { flex: 1 1 auto; text-align: center; }
+  .board-filters-host .filter-chip { flex: 1 1 auto; text-align: center; justify-content: center; }
+  /* Im Column-Layout des Sheets wuerde flex-basis:200px zur HOEHE der Suche */
+  .board-filters-host .board-search { flex: 0 0 auto; }
+  /* Im Sheet sind icon-only-Buttons zu kryptisch — Label wieder einblenden */
+  .board-filters-host .avoid-label { display: inline; }
 
 }
 

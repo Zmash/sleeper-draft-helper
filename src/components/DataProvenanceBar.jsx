@@ -40,9 +40,22 @@ export default function DataProvenanceBar({
   onRefresh,
   refreshing = false,
   error = null,
+  pickedCount = 0,
+  totalCount = 0,
   now = new Date(),
 }) {
   const mode = MODE_LABEL[draftMode] || draftMode
+
+  // Fortschritt gehoert mit in die Meta-Zeile (ersetzt den grossen
+  // Progress-Block ueber der Tabelle).
+  const progress = totalCount > 0 ? (
+    <span className="provenance-progress">
+      <span className="provenance-count">{pickedCount}/{totalCount}</span>
+      <span className="provenance-mini-bar">
+        <div style={{ width: `${Math.round((pickedCount / totalCount) * 100)}%` }} />
+      </span>
+    </span>
+  ) : null
 
   // Die Zeile luegt nie: beim CSV-Board gibt es nichts zu aktualisieren.
   if (hasCsvBoard) {
@@ -53,6 +66,7 @@ export default function DataProvenanceBar({
           {csvFileName ? <> · {csvFileName}</> : null}
         </span>
         <span className="provenance-item">Modus <strong>{mode}</strong></span>
+        {progress}
       </div>
     )
   }
@@ -84,6 +98,7 @@ export default function DataProvenanceBar({
         </button>
       )}
       {error && <span className="provenance-item provenance-stale">{error}</span>}
+      {progress}
     </div>
   )
 }

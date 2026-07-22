@@ -7,6 +7,7 @@ import { cx } from '../utils/formatting'
 // den Auto-Refresh ab, eine Zahl aktiviert ihn mit diesem Intervall.
 const SYNC_PRESETS = [
   { label: 'Aus', off: true },
+  { label: '10 s', seconds: 10 },
   { label: '30 s', seconds: 30 },
   { label: '60 s', seconds: 60 },
   { label: '120 s', seconds: 120 },

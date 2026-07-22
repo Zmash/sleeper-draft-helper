@@ -22,9 +22,6 @@ export function formatDeltaAdp(d) {
 }
 
 export default function BoardTable({
-  progressPercent,
-  pickedCount,
-  totalCount,
   filteredPlayers,
   highlightedNnames = [],
   primaryNname = null,
@@ -185,17 +182,8 @@ export default function BoardTable({
 
   return (
     <>
-      {/* Progress — auf Mobile durch die kompakte .board-status-line ersetzt */}
-      <div className="board-progress-head">
-        <div className="progress mt-2">
-          <div style={{ width: `${progressPercent}%` }} />
-        </div>
-        <div className="muted text-xs mt-1">
-          {pickedCount} von {totalCount} Spielern markiert
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Table — Fortschritt zeigt die Meta-Zeile (DataProvenanceBar) bzw.
+          mobil die kompakte .board-status-line */}
       <div className="table-wrap mt-3">
         <table className="nowrap board-table">
           <thead>
