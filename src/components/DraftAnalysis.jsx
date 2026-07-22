@@ -6,7 +6,6 @@ import { formatEstimate, formatUsage } from '../services/aiCost'
 import { CostHint } from './CostHint'
 
 export default function DraftAnalysis({
-  scores = [],
   ownerLabels,
   league = null,
   picks = [],
@@ -75,50 +74,8 @@ export default function DraftAnalysis({
 
   return (
     <section className="card">
-      <h2>Team Rankings</h2>
-
-      {/* Deine bestehende numerische Tabelle */}
-      <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Team</th>
-              <th>Total</th>
-              <th>Value</th>
-              <th>Starter</th>
-              <th>Depth</th>
-              <th>Balance</th>
-              <th>Bye</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(scores || []).map((r, idx) => {
-              const teamKey = r.key ?? r.owner_id ?? String(idx + 1)   // robust fallback
-              const label =
-                (ownerLabels?.get?.(teamKey)) ||
-                (ownerLabels && ownerLabels[teamKey]) ||
-                teamKey
-
-              return (
-                <tr key={teamKey}>
-                  <td>{idx + 1}</td>
-                  <td>{label}</td>
-                  <td>{r.total}</td>
-                  <td>{r.value}</td>
-                  <td>{r.starter}</td>
-                  <td>{r.depth}</td>
-                  <td>{r.balance}</td>
-                  <td>{r.bye}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
       {/* ---- AI Review Header / Actions ---- */}
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-2 flex items-center justify-between">
         <h3 className="text-lg font-semibold">AI Draft Review</h3>
         {!canAI && (
           <span className="muted text-sm">

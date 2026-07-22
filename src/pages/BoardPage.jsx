@@ -19,6 +19,8 @@ export default function BoardPage({
   effScoringType,
   draftSlot,
   tips,
+  draftFinished,
+  onOpenDraftReview,
 }) {
 
   const { sleeperUserId } = useSessionStore()
@@ -195,6 +197,8 @@ export default function BoardPage({
       onBoardReorder={onBoardReorder}
       draftSlot={draftSlot}
       tips={tips}
+      draftFinished={draftFinished}
+      onOpenDraftReview={onOpenDraftReview}
     />
     </>
   )

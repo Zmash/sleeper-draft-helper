@@ -23,7 +23,6 @@ const emptyParsed = {
 }
 
 const baseProps = {
-  scores: [],
   ownerLabels: new Map(),
   league: { league_id: 'l1' },
   picks: [{ pick_no: 1, picked_by: 'u1' }],

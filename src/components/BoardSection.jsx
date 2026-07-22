@@ -58,6 +58,8 @@ export default function BoardSection({
   onBoardReorder,
   draftSlot = null,
   tips,
+  draftFinished = false,
+  onOpenDraftReview,
 }) {
   const navigate = useNavigate()
   const {
@@ -260,6 +262,7 @@ export default function BoardSection({
   )
 
   const adviceButtonDisabled = isAdviceButtonDisabled({ draft, livePicks })
+  const reviewMode = !!draftFinished
 
   // Signatur alles dessen, was die Empfehlung veraendern wuerde: Draft, aktueller
   // Pick, Reihenfolge UND Draft-Status je Spieler (ein Pick kippt den Status),
@@ -633,12 +636,18 @@ export default function BoardSection({
 
         <div className="btn-group-compact">
           <button
-            onClick={handleAskAI}
+            onClick={reviewMode ? onOpenDraftReview : handleAskAI}
             className="btn-compact btn-compact--primary"
-            disabled={adviceButtonDisabled}
-            title={adviceButtonDisabled ? 'Picks werden geladen — gleich verfügbar' : 'AI-Empfehlung für den nächsten Pick'}
+            disabled={adviceButtonDisabled && !reviewMode}
+            title={
+              reviewMode
+                ? 'Draft ist fertig — AI Draft Review öffnen'
+                : adviceButtonDisabled
+                  ? 'Picks werden geladen — gleich verfügbar'
+                  : 'AI-Empfehlung für den nächsten Pick'
+            }
           >
-            <Icon name="bot" size={15} /> AI-Advice
+            <Icon name="bot" size={15} /> {reviewMode ? 'AI Draft Review' : 'AI-Advice'}
           </button>
           <CostHint text={adviceEstimate} />
           <button
@@ -799,6 +808,8 @@ export default function BoardSection({
         refreshIntervalSeconds={refreshIntervalSeconds}
         onToggleAutoRefresh={onToggleAutoRefresh}
         onChangeInterval={onChangeInterval}
+        reviewMode={reviewMode}
+        onOpenDraftReview={onOpenDraftReview}
       />
 
       <AdviceDialog

@@ -36,6 +36,8 @@ export default function BoardMobileBar({
   refreshIntervalSeconds = 30,
   onToggleAutoRefresh,
   onChangeInterval,
+  reviewMode = false,
+  onOpenDraftReview,
 }) {
   const navigate = useNavigate()
   const [tipsOpen, setTipsOpen] = useState(false)
@@ -112,9 +114,15 @@ export default function BoardMobileBar({
         <button
           type="button"
           className="bmb-item"
-          onClick={onAiAdvice}
-          disabled={aiDisabled}
-          title={aiDisabled ? 'Picks werden geladen — gleich verfügbar' : 'AI-Empfehlung für den nächsten Pick'}
+          onClick={reviewMode ? onOpenDraftReview : onAiAdvice}
+          disabled={!reviewMode && aiDisabled}
+          title={
+            reviewMode
+              ? 'Draft ist fertig — AI Draft Review öffnen'
+              : aiDisabled
+                ? 'Picks werden geladen — gleich verfügbar'
+                : 'AI-Empfehlung für den nächsten Pick'
+          }
         >
           <Icon name="bot" size={20} /><span>AI</span>
         </button>

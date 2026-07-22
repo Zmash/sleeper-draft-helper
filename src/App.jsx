@@ -13,7 +13,7 @@ import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
 import { loadSetup } from './services/storage'
 import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/draftFormat'
-import { computeTeamScores, isDraftComplete } from './services/analysis'
+import { isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
 
 import AppShell from './components/AppShell'
@@ -185,14 +185,6 @@ export default function App() {
     return null
   }, [livePicks, sleeperUserId])
 
-  const scores = useMemo(() => {
-    try {
-      return computeTeamScores({ boardPlayers, rosterPositions: effRoster, teamsCount, livePicks })
-    } catch {
-      return []
-    }
-  }, [boardPlayers, effRoster, teamsCount, livePicks])
-
   // ── Tips ───────────────────────────────────────────────────────────────────
   const draftSlot = useMemo(
     () => inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: sleeperUserId }),
@@ -322,7 +314,11 @@ export default function App() {
   }, [selectedDraftId]) // eslint-disable-line
 
   // ── Shared page props ──────────────────────────────────────────────────────
-  const pageProps = { selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster, isSuperflex, effScoringType, formatSource: format.source, draftSlot, tips }
+  const pageProps = {
+    selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster,
+    isSuperflex, effScoringType, formatSource: format.source, draftSlot, tips,
+    draftFinished, onOpenDraftReview: () => setAnalysisOpen(true),
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -347,20 +343,8 @@ export default function App() {
         <Route path="*" element={<RootRedirect />} />
       </Routes>
 
-      {draftFinished && (
-        <button
-          type="button"
-          className="dock-toggle dock-toggle--right"
-          title="Draft Analysis"
-          onClick={() => setAnalysisOpen(true)}
-        >
-          <Icon name="chart" size={16} /> Draft Analysis
-        </button>
-      )}
-
-      <Modal open={analysisOpen} onClose={() => setAnalysisOpen(false)} title="Team Rankings">
+      <Modal open={analysisOpen} onClose={() => setAnalysisOpen(false)} title="AI Draft Review">
         <DraftAnalysis
-          scores={scores}
           ownerLabels={ownerLabels}
           league={selectedLeague}
           picks={livePicks}
