@@ -4,6 +4,7 @@ export const THEMES = [
   { id: 'broadcast-pinkluke', label: 'Broadcast PinkLuke', kind: 'dark' },
   { id: 'broadcast-crimson', label: 'Broadcast Crimson', kind: 'dark' },
   { id: 'broadcast-vikings', label: 'Broadcast Vikings', kind: 'dark' },
+  { id: 'broadcast-volt', label: 'Broadcast Volt', kind: 'dark' },
 ]
 
 export const DEFAULT_THEME_ID = 'broadcast-dark'

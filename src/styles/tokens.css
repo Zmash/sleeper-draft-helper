@@ -120,6 +120,33 @@
   color-scheme: dark;
 }
 
+/* Broadcast Volt — Anthrazit (hellste Fläche #202020) + Volt-Grün. */
+:root[data-theme='broadcast-volt'] {
+  --surface-page: #141414;
+  --surface-nav: #171717;
+  --surface-card: #1b1b1b;
+  --surface-raised: #202020;
+  --border: #2e2e2e;
+  --border-soft: #252525;
+  --text-primary: #f2f2ef;
+  --text-muted: #9a9a92;
+  --text-dim: #6c6c64;
+  --accent-fill: #bdfd12;
+  --accent-on: #141a00;
+  --accent-text: #bdfd12;
+  --live: #ff3b47;
+  --good: #37d67a;
+  --bad: #ff7a6b;
+  --pos-rb: #22b455;
+  --pos-wr: #2f8fe0;
+  --pos-qb: #ef4a63;
+  --pos-te: #f0982f;
+  --pos-k: #a06ff0;
+  --pos-def: #8a94a6;
+  --pos-on: #ffffff;
+  color-scheme: dark;
+}
+
 /* Broadcast Vikings — Minnesota Vikings (purple + gold). Dark aubergine surfaces. */
 :root[data-theme='broadcast-vikings'] {
   --surface-page: #0f0815;
