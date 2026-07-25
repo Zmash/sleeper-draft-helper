@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeFingerprint, pickStrategy, resolveStrategyText } from './strategyMatch'
+import { deriveFormat } from './draftFormat'
 
 const FORMAT = {
   scoringType: 'half_ppr',
@@ -122,5 +123,50 @@ describe('resolveStrategyText', () => {
 
   it('kommt mit leerem Store klar', () => {
     expect(resolveStrategyText({ version: 1, principles: '', items: [] }, fp())).toBe('')
+  })
+})
+
+describe('makeFingerprint — Setup/Board-Parity (Finding 4)', () => {
+  // Setup und Board bilden den Fingerprint aus deriveFormat({ draft, league, overrides })
+  // an zwei getrennten Stellen (SetupForm.jsx, BoardSection.jsx). Dieser Test baut
+  // beide Seiten aus denselben Fixtures nach, um ein erneutes Auseinanderlaufen
+  // (z. B. teamsCount statt draftFormat.teams, oder detected mit overrides: {})
+  // dauerhaft zu verhindern.
+  it('liefert aus denselben Fixtures denselben Fingerprint fuer Setup und Board', () => {
+    const league = {
+      total_rosters: 10,
+      roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'BN', 'BN', 'BN'],
+      scoring_settings: { rec: 1 },
+    }
+    const draft = { league_id: 'L1', settings: {} }
+    // Roster-Override enthaelt SUPER_FLEX, das Superflex-Select selbst wurde
+    // nicht angefasst (superflex: null) -- genau der Fall aus Finding 4.
+    const overrides = {
+      scoring_type: null,
+      superflex: null,
+      roster_positions: ['QB', 'RB', 'WR', 'TE', 'SUPER_FLEX', 'BN', 'BN'],
+      teams: null, rounds: null, type: null,
+    }
+
+    const toFingerprint = (format) => makeFingerprint({
+      format: {
+        teams: format.teams,
+        scoringType: format.scoringType,
+        superflex: format.isSuperflex,
+        rosterPositions: format.rosterPositions,
+      },
+      season: 2026,
+      draftMode: 'redraft',
+    })
+
+    // Setup: SetupForm.jsx -> strategyFormat = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides })
+    const setupFp = toFingerprint(deriveFormat({ draft, league, overrides }))
+    // Board: BoardSection.jsx -> draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
+    const boardFp = toFingerprint(deriveFormat({ draft, league, overrides }))
+
+    expect(setupFp).toEqual(boardFp)
+    // Kern des Bugs: SUPER_FLEX im Roster-Override muss als hartes superflex:true
+    // ankommen, obwohl niemand am Superflex-Select gedreht hat.
+    expect(setupFp.superflex).toBe(true)
   })
 })

@@ -214,7 +214,10 @@ export default function BoardSection({
     if (typeof window === 'undefined') return ''
     const fp = makeFingerprint({
       format: {
-        teams: teamsCount,
+        // teamsCount (getTeamsCount) ignoriert sdh.setup.v2-Overrides und
+        // liefert 0, wenn unbekannt -- draftFormat.teams ist override-aware
+        // und identisch zu dem, was Setup fuer denselben Fingerprint nutzt.
+        teams: draftFormat.teams,
         scoringType: draftFormat.scoringType,
         superflex: draftFormat.isSuperflex,
         rosterPositions,
@@ -223,7 +226,7 @@ export default function BoardSection({
       draftMode,
     })
     return resolveStrategyText(loadStrategies(), fp)
-  }, [teamsCount, draftFormat.scoringType, draftFormat.isSuperflex,
+  }, [draftFormat.teams, draftFormat.scoringType, draftFormat.isSuperflex,
       JSON.stringify(rosterPositions), seasonYear, draftMode])
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0

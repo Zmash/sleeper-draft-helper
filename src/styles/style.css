@@ -2768,3 +2768,20 @@ th.col-pick, td.col-pick { width: 64px; }
     color: var(--text-dim); font-weight: 400;
   }
 }
+
+/* =========================================================
+   DRAFT-STRATEGIE (Setup + Board) — StrategySection.jsx
+   ========================================================= */
+.strategy-section {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft);
+}
+.strategy-active {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-ctl);
+}
+.strategy-head { display: flex; align-items: center; gap: 8px; }
+.strategy-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.strategy-sources, .strategy-contested { font-size: 0.85rem; }
+.strategy-sources ul, .strategy-contested ul { margin: 4px 0 0; padding-left: 1.2rem; }
+.strategy-edit { display: flex; flex-direction: column; gap: 6px; }

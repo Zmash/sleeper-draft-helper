@@ -85,6 +85,19 @@ export default function SetupForm(props) {
     type:   String(overrides.type   ?? detected.type).toLowerCase(),
   }
 
+  // Override-aware Format fuer die Draft-Strategie-Fingerprints -- identisch
+  // zu dem, was Board fuer denselben Zweck bildet (deriveFormat mit den
+  // echten Overrides statt {}). eff.superflex oben sniffed sonst am
+  // UN-overridden Roster (detected nutzt overrides: {}): ein Roster-Override
+  // mit SUPER_FLEX ohne Aenderung am Superflex-Select liefert dann
+  // superflex:false in Setup, waehrend Board (das den overridden Roster
+  // sniffed) superflex:true berechnet -- Setup zeigt eine Strategie als
+  // aktiv an, die das Board still nicht anwendet.
+  const strategyFormat = useMemo(
+    () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides }),
+    [selectedDraft, selectedLeague, JSON.stringify(overrides)]
+  )
+
   // file import
   function onFileChange(e){
     const f = e?.target?.files?.[0]; if (!f) return
@@ -411,10 +424,10 @@ export default function SetupForm(props) {
 
             <StrategySection
               format={{
-                teams: eff.teams,
-                scoringType: eff.scoring_type,
-                superflex: eff.superflex,
-                rosterPositions: eff.roster_positions,
+                teams: strategyFormat.teams,
+                scoringType: strategyFormat.scoringType,
+                superflex: strategyFormat.isSuperflex,
+                rosterPositions: strategyFormat.rosterPositions,
               }}
               season={seasonYear}
               draftMode={draftMode}

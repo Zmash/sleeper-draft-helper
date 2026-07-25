@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { makeFingerprint, pickStrategy } from '../services/strategyMatch'
 import { loadStrategies, saveStrategies, newStrategyItem } from '../services/strategyStore'
 import { callAiDraftStrategy } from '../services/aiStrategyClient'
@@ -7,7 +7,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
   const [store, setStore] = useState(() => loadStrategies())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [editing, setEditing] = useState(null) // null | 'new' | itemId
+  const [editing, setEditing] = useState(null) // null | itemId
 
   const fingerprint = useMemo(
     () => makeFingerprint({ format, season, draftMode }),
@@ -16,7 +16,14 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
 
   const hit = useMemo(() => pickStrategy(store.items, fingerprint), [store.items, fingerprint])
 
-  useEffect(() => { saveStrategies(store) }, [JSON.stringify(store)])
+  // Nicht beim ersten Mount schreiben — sonst persistiert das blosse Oeffnen
+  // von /setup einen leeren Store und ueberschreibt migrateLegacyStrategy()'s
+  // "Key existiert noch nicht"-Guard, bevor die Migration je laufen konnte.
+  const didMount = useRef(false)
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return }
+    saveStrategies(store)
+  }, [JSON.stringify(store)])
 
   function setPrinciples(principles) {
     setStore(s => ({ ...s, principles }))
@@ -39,7 +46,17 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
         contested: parsed.contested || [],
         source: 'ai',
       })
-      setStore(s => ({ ...s, items: [...s.items, item] }))
+      // Ersetzt ein vorhandenes Item mit identischem Fingerprint statt es
+      // anzuhaengen — sonst waehlt pickStrategy immer nur das neueste und
+      // aeltere (auch handbearbeitete) Items werden unsichtbar & unerreichbar.
+      setStore(s => {
+        const fp = JSON.stringify(fingerprint)
+        const idx = s.items.findIndex(i => JSON.stringify(i.fingerprint) === fp)
+        const items = idx >= 0
+          ? s.items.map((i, n) => n === idx ? item : i)
+          : [...s.items, item]
+        return { ...s, items }
+      })
     } catch (e) {
       setError(e?.message || 'Strategie konnte nicht erzeugt werden')
     } finally {
@@ -58,6 +75,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
   }
 
   function remove(id) {
+    if (!window.confirm('Diese Strategie wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return
     setStore(s => ({ ...s, items: s.items.filter(i => i.id !== id) }))
   }
 
@@ -67,6 +85,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
 
       <label className="muted" style={{ fontSize: 12 }}>Meine Grundsätze (gelten immer)</label>
       <textarea
+        className="control"
         rows={3}
         value={store.principles}
         onChange={e => setPrinciples(e.target.value)}
@@ -88,7 +107,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
           </div>
 
           {hit.deviations.length > 0 && (
-            <p className="warn">Achtung: {hit.deviations.join('; ')}</p>
+            <p className="form-error">Achtung: {hit.deviations.join('; ')}</p>
           )}
 
           {editing === hit.item.id ? (
@@ -96,7 +115,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
           ) : (
             <>
               <p>{hit.item.summary}</p>
-              <ul>{hit.item.rules.map((r, i) => <li key={i}>{r}</li>)}</ul>
+              <ul>{(hit.item.rules || []).map((r, i) => <li key={i}>{r}</li>)}</ul>
 
               {hit.item.contested?.length > 0 && (
                 <div className="strategy-contested">
@@ -122,17 +141,17 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
 
       <div className="strategy-actions">
-        <button type="button" onClick={generate} disabled={busy}>
+        <button type="button" className="btn btn-primary" onClick={generate} disabled={busy}>
           {busy ? 'Recherchiere…' : hit ? 'Neu erzeugen (KI)' : 'Strategie erzeugen (KI)'}
         </button>
         {hit && editing !== hit.item.id && (
-          <button type="button" onClick={() => setEditing(hit.item.id)}>Bearbeiten</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setEditing(hit.item.id)}>Bearbeiten</button>
         )}
         {hit && (
-          <button type="button" onClick={() => remove(hit.item.id)}>Löschen</button>
+          <button type="button" className="btn btn-secondary" onClick={() => remove(hit.item.id)}>Löschen</button>
         )}
       </div>
 
@@ -151,12 +170,12 @@ function EditForm({ item, onCancel, onSave }) {
   return (
     <div className="strategy-edit">
       <label className="muted" style={{ fontSize: 12 }}>Leitlinie</label>
-      <textarea rows={2} value={summary} onChange={e => setSummary(e.target.value)} />
+      <textarea className="control" rows={2} value={summary} onChange={e => setSummary(e.target.value)} />
       <label className="muted" style={{ fontSize: 12 }}>Regeln (eine pro Zeile)</label>
-      <textarea rows={6} value={rules} onChange={e => setRules(e.target.value)} />
+      <textarea className="control" rows={6} value={rules} onChange={e => setRules(e.target.value)} />
       <div className="strategy-actions">
-        <button type="button" onClick={() => onSave(item.id, summary, rules)}>Speichern</button>
-        <button type="button" onClick={onCancel}>Abbrechen</button>
+        <button type="button" className="btn btn-primary" onClick={() => onSave(item.id, summary, rules)}>Speichern</button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>Abbrechen</button>
       </div>
     </div>
   )

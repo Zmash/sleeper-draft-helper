@@ -1,6 +1,6 @@
 // src/utils/settingsTransfer.js
 
-const VERSIONED_PREFIXES = ["sdh.playerPreferences", "sdh.setup", "sdh.strategy"];
+const VERSIONED_PREFIXES = ["sdh.playerPreferences", "sdh.setup", "sdh.strategy", "sdh.strategies"];
 const FIXED_KEYS = ["sdh_openai_api_key", "draft-helper-theme"];
 
 function getAllLocalStorageKeys() {
