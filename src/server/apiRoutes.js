@@ -124,34 +124,45 @@ export const STRATEGY_SOURCES = {
   rookie:  ['dynastyleaguefootball.com', 'footballguys.com', 'fantasypros.com', 'keeptradecut.com'],
 }
 
+// strict: true ist hier nicht optional. Ohne das Flag validiert die API die
+// Tool-Eingabe nicht, und das Modell hat im Live-Test Regeln, Quellen und
+// contested als ein einziges Pseudo-XML in das Feld "rules" gepackt statt in
+// drei Arrays -- newStrategyItem() hat den Nicht-Array dann korrekt zu []
+// verworfen, und die Strategie kam ohne Regeln und ohne Quellen an.
+// Voraussetzung fuer strict: additionalProperties: false und alle Felder in
+// required. minItems/maxItems werden unter strict nicht unterstuetzt -- die
+// Vier-bis-sechs-Vorgabe steht deshalb in description und Prompt.
 export const STRATEGY_TOOL = {
   name: 'return_draft_strategy',
   description: 'Kompakte, recherchierte Draft-Strategie fuer ein konkretes Liga-Format und eine konkrete Saison.',
+  strict: true,
   input_schema: {
     type: 'object',
     properties: {
       summary: { type: 'string', description: 'Ein Satz Leitlinie, Deutsch (du-Form).' },
       rules: {
-        type: 'array', minItems: 4, maxItems: 6,
-        description: 'Konkrete Regeln mit Rundenbezug, Deutsch (du-Form).',
+        type: 'array',
+        description: 'Vier bis sechs konkrete Regeln mit Rundenbezug, Deutsch (du-Form). Je ein Array-Eintrag pro Regel.',
         items: { type: 'string' },
       },
       sources: {
         type: 'array',
-        description: 'Belegende Quellen aus der Websuche. Nur tatsaechlich verwendete URLs.',
+        description: 'Belegende Quellen aus der Websuche. Nur tatsaechlich gelesene URLs, je ein Array-Eintrag.',
         items: {
           type: 'object',
           properties: { title: { type: 'string' }, url: { type: 'string' } },
           required: ['title', 'url'],
+          additionalProperties: false,
         },
       },
       contested: {
         type: 'array',
-        description: 'Punkte, in denen sich die Quellen widersprechen. Leer lassen, wenn es keine gibt.',
+        description: 'Punkte, in denen sich die Quellen widersprechen. Leeres Array, wenn es keine gibt.',
         items: { type: 'string' },
       },
     },
-    required: ['summary', 'rules', 'sources'],
+    required: ['summary', 'rules', 'sources', 'contested'],
+    additionalProperties: false,
   },
 }
 
@@ -181,14 +192,18 @@ export function buildStrategyPrompt({ format = {}, season, draftMode, draftSlot,
     `- Saison: ${season}`,
     ...(draftSlot ? [`- Draft-Slot: ${draftSlot}`] : []),
     '',
-    'Recherchiere mit der Websuche genau diese Punkte, in dieser Reihenfolge:',
+    'Schritt 1 — recherchiere mit web_search genau diese Punkte, in dieser Reihenfolge:',
     ...queries.map((q, i) => `${i + 1}. ${q}`),
     '',
+    'Schritt 2 — erst wenn diese Suchen gelaufen sind, rufe return_draft_strategy auf.',
+    '',
     'Regeln fuer das Ergebnis:',
-    '- Alle Freitexte auf Deutsch, du-Form.',
-    '- Jede Regel nennt einen Rundenbezug.',
+    // Der Prompt selbst ist ASCII (Quelltext-Konvention). Ohne diesen Hinweis
+    // ahmt das Modell den Stil nach und liefert "duenn" statt "dünn".
+    '- Alle Freitexte auf Deutsch, du-Form, mit korrekten Umlauten (ä, ö, ü, ß).',
+    '- rules enthaelt vier bis sechs Regeln, jede mit Rundenbezug. Eine leere Liste ist ein Fehler.',
+    '- sources enthaelt die tatsaechlich gelesenen URLs. Eine leere Liste ist ein Fehler.',
     '- Widersprechen sich Quellen, gehoert der Konflikt nach contested. Loese ihn nicht zugunsten einer Seite auf.',
-    '- Nenne in sources nur URLs, die du tatsaechlich gelesen hast.',
     '- Halte dich kurz: eine Leitlinie, vier bis sechs Regeln.',
     ...(String(principles || '').trim() ? [
       '',
@@ -642,7 +657,15 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const prompt = buildStrategyPrompt({ format, season, draftMode: mode, draftSlot, principles })
 
       const p = applyPromptCaching({
-        system: 'Du bist ein erfahrener Fantasy-Football-Analyst. Du recherchierst belegbar und antwortest ausschliesslich ueber das bereitgestellte Tool.',
+        // Ein Satz wie "antworte ausschliesslich ueber das Tool" laesst das Modell
+        // das Tool SOFORT rufen -- ohne vorher zu suchen. Ergebnis: leere rules
+        // und sources (im Live-Test belegt). Die Reihenfolge muss explizit sein.
+        system: [
+          'Du bist ein erfahrener Fantasy-Football-Analyst.',
+          'Arbeite immer in dieser Reihenfolge: erst mit web_search recherchieren, dann das Ergebnis',
+          'ueber das Tool return_draft_strategy zurueckgeben. Rufe return_draft_strategy niemals,',
+          'bevor du gesucht hast — ohne Quellen ist die Strategie wertlos.',
+        ].join(' '),
         tools: [
           {
             type: 'web_search_20260318',

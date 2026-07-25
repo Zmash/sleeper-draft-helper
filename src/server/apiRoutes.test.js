@@ -87,13 +87,25 @@ describe('STRATEGY_SOURCES', () => {
 })
 
 describe('STRATEGY_TOOL', () => {
-  it('verlangt summary, rules und sources', () => {
-    expect(STRATEGY_TOOL.input_schema.required).toEqual(['summary', 'rules', 'sources'])
+  it('verlangt alle vier Felder', () => {
+    expect(STRATEGY_TOOL.input_schema.required).toEqual(['summary', 'rules', 'sources', 'contested'])
   })
 
-  it('begrenzt rules auf 4 bis 6', () => {
-    expect(STRATEGY_TOOL.input_schema.properties.rules.minItems).toBe(4)
-    expect(STRATEGY_TOOL.input_schema.properties.rules.maxItems).toBe(6)
+  // Ohne strict validiert die API die Tool-Eingabe nicht: im Live-Test kam
+  // alles als ein Pseudo-XML-String im Feld "rules" zurueck statt in drei
+  // Arrays. strict verlangt additionalProperties: false und dass jedes Feld
+  // in required steht -- beides gehoert zum selben Vertrag.
+  it('erzwingt das Schema per strict', () => {
+    expect(STRATEGY_TOOL.strict).toBe(true)
+    expect(STRATEGY_TOOL.input_schema.additionalProperties).toBe(false)
+    expect(STRATEGY_TOOL.input_schema.properties.sources.items.additionalProperties).toBe(false)
+    const props = Object.keys(STRATEGY_TOOL.input_schema.properties)
+    expect(STRATEGY_TOOL.input_schema.required).toEqual(props)
+  })
+
+  it('haelt rules und sources als Arrays von Eintraegen', () => {
+    expect(STRATEGY_TOOL.input_schema.properties.rules.items.type).toBe('string')
+    expect(STRATEGY_TOOL.input_schema.properties.sources.items.required).toEqual(['title', 'url'])
   })
 })
 
