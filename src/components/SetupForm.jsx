@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loadSetup, saveSetup } from '../services/storage'
 import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
+import StrategySection from './StrategySection'
 
 // Scoring-Label fuer den FantasyPros-Button: der Import laedt die zum aktiven
 // Format passende Cheatsheet-Variante (half_ppr -> half etc.), das Label soll
@@ -407,6 +408,18 @@ export default function SetupForm(props) {
                 </div>
               )}
             </div>
+
+            <StrategySection
+              format={{
+                teams: eff.teams,
+                scoringType: eff.scoring_type,
+                superflex: eff.superflex,
+                rosterPositions: eff.roster_positions,
+              }}
+              season={seasonYear}
+              draftMode={draftMode}
+              draftSlot={null}
+            />
           </div>
           <div className="step-actions">
             <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Weiter</button>

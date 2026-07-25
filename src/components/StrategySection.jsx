@@ -1,0 +1,163 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { makeFingerprint, pickStrategy } from '../services/strategyMatch'
+import { loadStrategies, saveStrategies, newStrategyItem } from '../services/strategyStore'
+import { callAiDraftStrategy } from '../services/aiStrategyClient'
+
+export default function StrategySection({ format, season, draftMode, draftSlot = null }) {
+  const [store, setStore] = useState(() => loadStrategies())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(null) // null | 'new' | itemId
+
+  const fingerprint = useMemo(
+    () => makeFingerprint({ format, season, draftMode }),
+    [JSON.stringify(format), season, draftMode]
+  )
+
+  const hit = useMemo(() => pickStrategy(store.items, fingerprint), [store.items, fingerprint])
+
+  useEffect(() => { saveStrategies(store) }, [JSON.stringify(store)])
+
+  function setPrinciples(principles) {
+    setStore(s => ({ ...s, principles }))
+  }
+
+  async function generate() {
+    setBusy(true)
+    setError(null)
+    try {
+      const { parsed } = await callAiDraftStrategy({
+        format, season, draftMode, draftSlot, principles: store.principles,
+      })
+      const label = `${format.teams}er ${format.scoringType} ${season}`
+      const item = newStrategyItem({
+        label,
+        fingerprint,
+        summary: parsed.summary || '',
+        rules: parsed.rules || [],
+        sources: parsed.sources || [],
+        contested: parsed.contested || [],
+        source: 'ai',
+      })
+      setStore(s => ({ ...s, items: [...s.items, item] }))
+    } catch (e) {
+      setError(e?.message || 'Strategie konnte nicht erzeugt werden')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function saveEdit(id, summary, rules) {
+    setStore(s => ({
+      ...s,
+      items: s.items.map(i => i.id === id
+        ? { ...i, summary, rules: rules.split('\n').map(r => r.trim()).filter(Boolean), source: 'manual' }
+        : i),
+    }))
+    setEditing(null)
+  }
+
+  function remove(id) {
+    setStore(s => ({ ...s, items: s.items.filter(i => i.id !== id) }))
+  }
+
+  return (
+    <div className="strategy-section">
+      <h3>Draft-Strategie</h3>
+
+      <label className="muted" style={{ fontSize: 12 }}>Meine Grundsätze (gelten immer)</label>
+      <textarea
+        rows={3}
+        value={store.principles}
+        onChange={e => setPrinciples(e.target.value)}
+        placeholder="z. B. Defense wird gestreamt — letzter Pick oder gar nicht."
+      />
+
+      {!hit && (
+        <p className="muted">
+          Für dieses Format ({format.teams} Teams, {format.scoringType}, {season}) ist noch keine
+          Strategie hinterlegt.
+        </p>
+      )}
+
+      {hit && (
+        <div className="strategy-active">
+          <div className="strategy-head">
+            <strong>{hit.item.label || 'Strategie'}</strong>
+            <span className="badge">{hit.item.source === 'ai' ? 'KI-recherchiert' : 'manuell'}</span>
+          </div>
+
+          {hit.deviations.length > 0 && (
+            <p className="warn">Achtung: {hit.deviations.join('; ')}</p>
+          )}
+
+          {editing === hit.item.id ? (
+            <EditForm item={hit.item} onCancel={() => setEditing(null)} onSave={saveEdit} />
+          ) : (
+            <>
+              <p>{hit.item.summary}</p>
+              <ul>{hit.item.rules.map((r, i) => <li key={i}>{r}</li>)}</ul>
+
+              {hit.item.contested?.length > 0 && (
+                <div className="strategy-contested">
+                  <strong>Uneinig in den Quellen:</strong>
+                  <ul>{hit.item.contested.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+
+              {hit.item.sources?.length > 0 && (
+                <div className="strategy-sources">
+                  <strong>Quellen:</strong>
+                  <ul>
+                    {hit.item.sources.map((s, i) => (
+                      <li key={i}>
+                        <a href={s.url} target="_blank" rel="noreferrer noopener">{s.title || s.url}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {error && <p className="error">{error}</p>}
+
+      <div className="strategy-actions">
+        <button type="button" onClick={generate} disabled={busy}>
+          {busy ? 'Recherchiere…' : hit ? 'Neu erzeugen (KI)' : 'Strategie erzeugen (KI)'}
+        </button>
+        {hit && editing !== hit.item.id && (
+          <button type="button" onClick={() => setEditing(hit.item.id)}>Bearbeiten</button>
+        )}
+        {hit && (
+          <button type="button" onClick={() => remove(hit.item.id)}>Löschen</button>
+        )}
+      </div>
+
+      {busy && (
+        <p className="muted">
+          Die KI durchsucht Experten-Quellen. Das dauert typischerweise 20–40 Sekunden.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function EditForm({ item, onCancel, onSave }) {
+  const [summary, setSummary] = useState(item.summary)
+  const [rules, setRules] = useState((item.rules || []).join('\n'))
+  return (
+    <div className="strategy-edit">
+      <label className="muted" style={{ fontSize: 12 }}>Leitlinie</label>
+      <textarea rows={2} value={summary} onChange={e => setSummary(e.target.value)} />
+      <label className="muted" style={{ fontSize: 12 }}>Regeln (eine pro Zeile)</label>
+      <textarea rows={6} value={rules} onChange={e => setRules(e.target.value)} />
+      <div className="strategy-actions">
+        <button type="button" onClick={() => onSave(item.id, summary, rules)}>Speichern</button>
+        <button type="button" onClick={onCancel}>Abbrechen</button>
+      </div>
+    </div>
+  )
+}
