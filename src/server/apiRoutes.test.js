@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
+import { STRATEGY_TOOL, STRATEGY_SOURCES, buildStrategyPrompt } from './apiRoutes.js'
 
 describe('apiRoutes — Modul-Vertrag', () => {
   it('exportiert registerApiRoutes als Funktion', () => {
@@ -65,5 +66,73 @@ describe('applyPromptCaching', () => {
     applyPromptCaching(q)
     expect(q.system).toBe('s')
     expect(q.tools[0].cache_control).toBeUndefined()
+  })
+})
+
+describe('STRATEGY_SOURCES', () => {
+  it('trennt Redraft- und Rookie-Quellen', () => {
+    expect(STRATEGY_SOURCES.redraft).toContain('fantasypros.com')
+    expect(STRATEGY_SOURCES.rookie).toContain('dynastyleaguefootball.com')
+  })
+
+  it('enthaelt kein reddit.com — dort ist der Crawler gesperrt', () => {
+    const all = [...STRATEGY_SOURCES.redraft, ...STRATEGY_SOURCES.rookie]
+    expect(all.some(d => d.includes('reddit'))).toBe(false)
+  })
+
+  it('nennt Domains ohne Schema', () => {
+    const all = [...STRATEGY_SOURCES.redraft, ...STRATEGY_SOURCES.rookie]
+    for (const d of all) expect(d).not.toMatch(/^https?:\/\//)
+  })
+})
+
+describe('STRATEGY_TOOL', () => {
+  it('verlangt summary, rules und sources', () => {
+    expect(STRATEGY_TOOL.input_schema.required).toEqual(['summary', 'rules', 'sources'])
+  })
+
+  it('begrenzt rules auf 4 bis 6', () => {
+    expect(STRATEGY_TOOL.input_schema.properties.rules.minItems).toBe(4)
+    expect(STRATEGY_TOOL.input_schema.properties.rules.maxItems).toBe(6)
+  })
+})
+
+describe('buildStrategyPrompt', () => {
+  const base = {
+    format: { teams: 12, scoringType: 'half_ppr', superflex: false, rosterPositions: ['QB','RB','WR'] },
+    season: '2026', draftMode: 'redraft', draftSlot: 7, principles: 'DEF wird gestreamt.',
+  }
+
+  it('setzt Format und Saison in den Query-Plan ein', () => {
+    const p = buildStrategyPrompt(base)
+    expect(p).toContain('12')
+    expect(p).toContain('half_ppr')
+    expect(p).toContain('2026')
+    expect(p).toContain('1QB')
+  })
+
+  it('nennt den Draft-Slot, wenn bekannt', () => {
+    expect(buildStrategyPrompt(base)).toContain('Draft-Slot 7')
+  })
+
+  // Auf 'Draft-Slot' pruefen, nicht auf 'Slot': der Prompt nennt immer die
+  // 'Starter-Slots', ein blosses toContain('Slot') waere immer wahr.
+  it('laesst die Slot-Frage weg, wenn kein Slot bekannt ist', () => {
+    expect(buildStrategyPrompt({ ...base, draftSlot: null })).not.toContain('Draft-Slot')
+  })
+
+  it('markiert Superflex', () => {
+    expect(buildStrategyPrompt({ ...base, format: { ...base.format, superflex: true } }))
+      .toContain('Superflex')
+  })
+
+  it('uebernimmt die Grundsaetze als unveraenderlich', () => {
+    const p = buildStrategyPrompt(base)
+    expect(p).toContain('DEF wird gestreamt.')
+    expect(p).toMatch(/nicht umschreiben|unveraenderlich|gesetzt/i)
+  })
+
+  it('weist an, Widersprueche zu benennen statt aufzuloesen', () => {
+    expect(buildStrategyPrompt(base)).toMatch(/contested/)
   })
 })

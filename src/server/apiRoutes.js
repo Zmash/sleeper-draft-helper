@@ -115,6 +115,90 @@ export const REVIEW_TOOL = {
   },
 }
 
+// ---------- Draft-Strategie: Quellen, Schema, Prompt ----------
+// Whitelist getrennt nach Draft-Modus: DLF ist fuer Redraft wertlos, FantasyPros
+// und 4for4 sind fuer Dynasty duenn. reddit.com fehlt bewusst — der Anthropic-
+// Crawler ist dort gesperrt (HTTP 400), Subreddits sind nicht erreichbar.
+export const STRATEGY_SOURCES = {
+  redraft: ['fantasypros.com', '4for4.com', 'footballguys.com', 'rotoballer.com'],
+  rookie:  ['dynastyleaguefootball.com', 'footballguys.com', 'fantasypros.com', 'keeptradecut.com'],
+}
+
+export const STRATEGY_TOOL = {
+  name: 'return_draft_strategy',
+  description: 'Kompakte, recherchierte Draft-Strategie fuer ein konkretes Liga-Format und eine konkrete Saison.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      summary: { type: 'string', description: 'Ein Satz Leitlinie, Deutsch (du-Form).' },
+      rules: {
+        type: 'array', minItems: 4, maxItems: 6,
+        description: 'Konkrete Regeln mit Rundenbezug, Deutsch (du-Form).',
+        items: { type: 'string' },
+      },
+      sources: {
+        type: 'array',
+        description: 'Belegende Quellen aus der Websuche. Nur tatsaechlich verwendete URLs.',
+        items: {
+          type: 'object',
+          properties: { title: { type: 'string' }, url: { type: 'string' } },
+          required: ['title', 'url'],
+        },
+      },
+      contested: {
+        type: 'array',
+        description: 'Punkte, in denen sich die Quellen widersprechen. Leer lassen, wenn es keine gibt.',
+        items: { type: 'string' },
+      },
+    },
+    required: ['summary', 'rules', 'sources'],
+  },
+}
+
+// Der Query-Plan ist fest: die Fragen sind jedes Jahr dieselben, nur das Format
+// wechselt. Vier gezielte Suchen schlagen fuenfzehn tastende — deshalb steht der
+// Plan hier und nicht im Ermessen des Modells.
+export function buildStrategyPrompt({ format = {}, season, draftMode, draftSlot, principles } = {}) {
+  const qb = format.superflex ? 'Superflex' : '1QB'
+  const modus = draftMode === 'rookie' ? 'Dynasty/Rookie-Draft' : 'Redraft'
+  const starters = (format.rosterPositions || []).filter(s => String(s).toUpperCase() !== 'BN').join(', ')
+
+  const queries = [
+    `Draft-Strategie fuer ${format.teams} Teams, ${format.scoringType}, ${qb}, Saison ${season}`,
+    `Positions-Tiefe und Knappheit in ${season}`,
+    ...(draftSlot ? [`Vorgehen an Draft-Slot ${draftSlot}`] : []),
+    `Tragfaehigkeit der gaengigen Strategien (Zero RB, Hero RB, Robust RB) in ${season}`,
+  ]
+
+  return [
+    `Du erstellst eine Draft-Strategie fuer eine Fantasy-Football-Liga (${modus}).`,
+    '',
+    'Format:',
+    `- Teams: ${format.teams}`,
+    `- Scoring: ${format.scoringType}`,
+    `- ${qb}`,
+    `- Starter-Slots: ${starters}`,
+    `- Saison: ${season}`,
+    ...(draftSlot ? [`- Draft-Slot: ${draftSlot}`] : []),
+    '',
+    'Recherchiere mit der Websuche genau diese Punkte, in dieser Reihenfolge:',
+    ...queries.map((q, i) => `${i + 1}. ${q}`),
+    '',
+    'Regeln fuer das Ergebnis:',
+    '- Alle Freitexte auf Deutsch, du-Form.',
+    '- Jede Regel nennt einen Rundenbezug.',
+    '- Widersprechen sich Quellen, gehoert der Konflikt nach contested. Loese ihn nicht zugunsten einer Seite auf.',
+    '- Nenne in sources nur URLs, die du tatsaechlich gelesen hast.',
+    '- Halte dich kurz: eine Leitlinie, vier bis sechs Regeln.',
+    ...(String(principles || '').trim() ? [
+      '',
+      'Die folgenden Grundsaetze des Nutzers sind gesetzt. Beruecksichtige sie, aber schreibe sie nicht um',
+      'und wiederhole sie nicht in den Regeln:',
+      String(principles).trim(),
+    ] : []),
+  ].join('\n')
+}
+
 // Statische Payload-Teile (System-Prompt, Tool-Schemas) fuer Anthropic-Prompt-Caching
 // markieren. Greift erst ab ~1024 Token Praefix — darunter passiert schlicht nichts,
 // das ist KEIN Fehlerfall. Cache-TTL ~5 min, passt zum Advice-Rhythmus im Draft.
@@ -536,6 +620,80 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       sendSSE(res, 'result', { ok: true, parsed, model: finalMessage.model, usage: finalMessage.usage })
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'Trade analysis failed' })
+    } finally {
+      res.end()
+    }
+  })
+
+  // ---------- Draft-Strategie erzeugen (SSE streaming, mit Websuche) ----------
+  app.post('/api/ai-draft-strategy', async (req, res) => {
+    const userKey = req.header('x-anthropic-key')
+    if (!userKey) return res.status(401).json({ ok: false, error: 'Missing X-Anthropic-Key header' })
+
+    const { format, season, draftMode, draftSlot = null, principles = '' } = req.body || {}
+    if (!format || !season) {
+      return res.status(400).json({ ok: false, error: 'Invalid payload: expected { format, season, draftMode }' })
+    }
+
+    setSSEHeaders(res)
+
+    try {
+      const mode = draftMode === 'rookie' ? 'rookie' : 'redraft'
+      const prompt = buildStrategyPrompt({ format, season, draftMode: mode, draftSlot, principles })
+
+      const p = applyPromptCaching({
+        system: 'Du bist ein erfahrener Fantasy-Football-Analyst. Du recherchierst belegbar und antwortest ausschliesslich ueber das bereitgestellte Tool.',
+        tools: [
+          {
+            type: 'web_search_20260318',
+            name: 'web_search',
+            max_uses: 6,
+            allowed_domains: STRATEGY_SOURCES[mode],
+            // Rohtreffer nicht in die Antwort spiegeln — wir brauchen nur das Schema.
+            response_inclusion: 'excluded',
+          },
+          STRATEGY_TOOL,
+        ],
+      })
+
+      const client = new Anthropic({ apiKey: userKey })
+      let messages = [{ role: 'user', content: prompt }]
+      let finalMessage = null
+
+      // Server-Tools koennen die Antwort mit stop_reason "pause_turn" unterbrechen.
+      // Fortsetzen heisst: die Assistant-Nachricht unveraendert zurueckschicken.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const stream = client.messages.stream({
+          model: MODEL,
+          max_tokens: 4096,
+          system: p.system,
+          messages,
+          tools: p.tools,
+        })
+        finalMessage = await stream.finalMessage()
+        if (finalMessage.stop_reason !== 'pause_turn') break
+        messages = [...messages, { role: 'assistant', content: finalMessage.content }]
+      }
+
+      if (finalMessage?.stop_reason === 'pause_turn') {
+        sendSSE(res, 'error', { ok: false, message: 'Recherche wurde zu oft unterbrochen — bitte erneut versuchen' })
+        return
+      }
+
+      const toolBlock = (finalMessage?.content || []).find(
+        b => b.type === 'tool_use' && b.name === 'return_draft_strategy'
+      )
+      const parsed = toolBlock?.input || null
+
+      if (!parsed) {
+        sendSSE(res, 'error', { ok: false, message: 'Modell lieferte keine strukturierte Strategie' })
+      } else {
+        sendSSE(res, 'result', {
+          ok: true, parsed, model: finalMessage.model, usage: finalMessage.usage,
+        })
+      }
+    } catch (err) {
+      sendSSE(res, 'error', { ok: false, message: err?.message || 'Strategie-Recherche fehlgeschlagen' })
     } finally {
       res.end()
     }
