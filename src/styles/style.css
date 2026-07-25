@@ -2785,3 +2785,13 @@ th.col-pick, td.col-pick { width: 64px; }
 .strategy-sources, .strategy-contested { font-size: 0.85rem; }
 .strategy-sources ul, .strategy-contested ul { margin: 4px 0 0; padding-left: 1.2rem; }
 .strategy-edit { display: flex; flex-direction: column; gap: 6px; }
+/* .control ist auf einzeilige Felder ausgelegt: feste --control-h, line-height 1,
+   padding-block 0. Auf einer mehrzeiligen Textarea quetscht das rows={3}/{6} auf
+   Einzeilenhoehe zusammen. Hier die Hoehe an den Inhalt zurueckgeben. */
+.strategy-section textarea.control {
+  display: block;
+  height: auto;
+  min-height: unset;
+  line-height: 1.45;
+  padding-block: 8px;
+}

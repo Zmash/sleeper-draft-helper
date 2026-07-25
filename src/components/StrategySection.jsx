@@ -3,6 +3,14 @@ import { makeFingerprint, pickStrategy } from '../services/strategyMatch'
 import { loadStrategies, saveStrategies, newStrategyItem } from '../services/strategyStore'
 import { callAiDraftStrategy } from '../services/aiStrategyClient'
 
+// Der rohe Wert ("half_ppr") taucht sonst im gespeicherten Strategie-Namen auf
+// und bleibt dort dauerhaft stehen.
+function scoringLabel(t) {
+  if (t === 'half_ppr') return 'Half-PPR'
+  if (t === 'standard') return 'Standard'
+  return String(t || 'ppr').toUpperCase()
+}
+
 export default function StrategySection({ format, season, draftMode, draftSlot = null }) {
   const [store, setStore] = useState(() => loadStrategies())
   const [busy, setBusy] = useState(false)
@@ -36,7 +44,7 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
       const { parsed } = await callAiDraftStrategy({
         format, season, draftMode, draftSlot, principles: store.principles,
       })
-      const label = `${format.teams}er ${format.scoringType} ${season}`
+      const label = `${format.teams}er ${scoringLabel(format.scoringType)} ${season}`
       const item = newStrategyItem({
         label,
         fingerprint,
@@ -94,8 +102,8 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
 
       {!hit && (
         <p className="muted">
-          Für dieses Format ({format.teams} Teams, {format.scoringType}, {season}) ist noch keine
-          Strategie hinterlegt.
+          Für dieses Format ({format.teams} Teams, {scoringLabel(format.scoringType)}, {season}) ist
+          noch keine Strategie hinterlegt.
         </p>
       )}
 
