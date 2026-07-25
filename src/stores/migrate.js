@@ -1,7 +1,12 @@
 // One-time migration from draft-helper-state-v3 (old monolithic key) to per-store keys.
 // Called in main.jsx before React renders. Safe to call multiple times (idempotent).
+import { migrateLegacyStrategy } from '../services/strategyStore'
+
 export function migrateOldStorage() {
   const SESSION_KEY = 'sdh-session-v1'
+  // Vor dem fruehen return: laeuft sonst nie bei Nutzern, die die alte
+  // Migration schon hinter sich haben.
+  migrateLegacyStrategy()
   if (localStorage.getItem(SESSION_KEY)) return // already migrated
 
   let old = {}
