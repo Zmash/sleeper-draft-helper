@@ -8,6 +8,9 @@ import BoardMobileBar from './BoardMobileBar'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
+import { makeFingerprint, resolveStrategyText } from '../services/strategyMatch'
+import { loadStrategies } from '../services/strategyStore'
+import { useSessionStore } from '../stores/useSessionStore'
 
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -62,6 +65,7 @@ export default function BoardSection({
   onOpenDraftReview,
 }) {
   const navigate = useNavigate()
+  const seasonYear = useSessionStore(s => s.seasonYear)
   const {
     marketMeta, boardSource, rankingSource, refreshMarketData, boardMode,
     handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
@@ -204,6 +208,24 @@ export default function BoardSection({
   const draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
   const { rosterPositions } = draftFormat
 
+  // Ersetzt den fruehen globalen Freitext: die Strategie wird jetzt nach
+  // Liga-Format ausgewaehlt (siehe strategyMatch.js).
+  const customStrategyText = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    const fp = makeFingerprint({
+      format: {
+        teams: teamsCount,
+        scoringType: draftFormat.scoringType,
+        superflex: draftFormat.isSuperflex,
+        rosterPositions,
+      },
+      season: seasonYear,
+      draftMode,
+    })
+    return resolveStrategyText(loadStrategies(), fp)
+  }, [teamsCount, draftFormat.scoringType, draftFormat.isSuperflex,
+      JSON.stringify(rosterPositions), seasonYear, draftMode])
+
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
   // Solange ein Board sichtbar ist (und damit die Bottom-Bar rendert), markiert
@@ -239,7 +261,7 @@ export default function BoardSection({
         boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
         draftSlot, tips, scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
         rosterPositions, teamsCount, draftMode, dynastyRoster, myDraftPicks,
-        customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
+        customStrategyText,
         playerPreferences: playerPrefs,
       })
       return formatEstimate(buildAIAdviceRequest(args), 'claude-sonnet-5')
@@ -247,7 +269,7 @@ export default function BoardSection({
   }, [
     hasBoard, boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
     draftSlot, tips, draftFormat.scoringType, draftFormat.isSuperflex, rosterPositions,
-    teamsCount, draftMode, dynastyRoster, myDraftPicks, playerPrefs,
+    teamsCount, draftMode, dynastyRoster, myDraftPicks, playerPrefs, customStrategyText,
   ])
 
   // Deterministische Quelle fuer "wann bin ich wieder dran": aus dem echten
@@ -332,7 +354,7 @@ export default function BoardSection({
         boardPlayers, livePicks, meUserId, league, draft, currentPickNumber,
         draftSlot, tips, scoringType: draftFormat.scoringType, isSuperflex: draftFormat.isSuperflex,
         rosterPositions, teamsCount, draftMode, dynastyRoster, myDraftPicks,
-        customStrategyText: (typeof window !== 'undefined' ? localStorage.getItem('sdh.strategy.v1') : '') || '',
+        customStrategyText,
         playerPreferences: playerPrefs,
       }))
 
