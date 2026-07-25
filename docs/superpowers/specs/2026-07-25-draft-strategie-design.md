@@ -82,8 +82,11 @@ passiert nichts. Sonst wird `sdh.strategy.v1` — falls vorhanden und nicht leer
 `fingerprint: null`, `source: 'manual'` und dem Text in `summary` übernommen. Der alte Key bleibt vorerst
 liegen (keine Löschung, damit ein Rollback möglich bleibt).
 
-`src/utils/settingsTransfer.js:3` matcht per Prefix `sdh.strategy` — der neue Key wird vom Settings-Export
-automatisch miterfasst, ohne Änderung.
+`src/utils/settingsTransfer.js` braucht einen eigenen Eintrag. Ursprünglich stand hier die Annahme, der
+vorhandene Prefix `sdh.strategy` erfasse `sdh.strategies.v1` automatisch mit — das ist **falsch**: der
+Matcher baut die Regex `^sdh\.strategy\.v(\d+)$`, an der der neue Key vorbeiläuft. Ohne eigenen Eintrag
+exportiert die App den toten Legacy-Key und lässt die Bibliothek fallen. `sdh.strategies` gehört in
+`VERSIONED_PREFIXES` (im Branch-Review gefunden, in `7506c16` behoben).
 
 ## Matching — `src/services/strategyMatch.js`
 
