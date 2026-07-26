@@ -203,7 +203,15 @@ describe('buildAIAdviceRequest — Schema & Prompt', () => {
     expect(req.system).toMatch(/Deutsch/)
     expect(req.system).toMatch(/du-Form/)
     expect(req.system).toMatch(/high.*low|low.*high/)
-    expect(req.max_tokens).toBe(2000)
+  })
+
+  // Thinking und Antwort teilen sich max_tokens. Die volle Antwort (primary,
+  // bis zu 4 Alternativen mit why UND tradeoff, survival je Spieler,
+  // plan_next_picks) fuellte die alten 2000 fast allein — zum Abwaegen blieb
+  // nichts. Untergrenze statt Fixwert: nach oben ist Luft unschaedlich.
+  it('laesst genug Budget fuer Denken und die volle Antwort', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    expect(req.max_tokens).toBeGreaterThanOrEqual(8000)
   })
   it('auch der Rookie-Prompt ist deutsch und behaelt die Rookie-Regeln', () => {
     const req = buildAIAdviceRequest({ ...baseParams, draftMode: 'rookie' })

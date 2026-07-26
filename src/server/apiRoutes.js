@@ -528,8 +528,12 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const client = new Anthropic({ apiKey: userKey })
       const stream = client.messages.stream({
         model: MODEL,
-        max_tokens: p.max_tokens || 1024,
+        max_tokens: p.max_tokens || 8000,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
+        // Denken explizit statt auf den Modell-Default zu vertrauen: der Advice
+        // soll erst abwaegen (roster_check), dann entscheiden. Thinking und
+        // Antwort teilen sich max_tokens — deshalb oben der groessere Wert.
+        thinking: { type: 'adaptive' },
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: Array.isArray(p.tools) ? p.tools : [],

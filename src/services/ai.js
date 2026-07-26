@@ -516,7 +516,11 @@ export function buildAIAdviceRequest(params) {
     ],
     tools: [buildAdviceTool()],
     tool_choice: { type: 'tool', name: 'return_draft_advice' },
-    max_tokens: 2000,
+    // 2000 war zu eng: primary + bis zu 4 Alternativen (je why UND
+    // tradeoff) + survival je Spieler + plan_next_picks fuellen das fast
+    // allein. Bei Sonnet 5 laeuft adaptives Denken per Default mit und
+    // teilt sich dasselbe Budget — bei 2000 blieb dafuer nichts uebrig.
+    max_tokens: 8000,
     temperature: options.temperature ?? 0.2,
   }
 }
