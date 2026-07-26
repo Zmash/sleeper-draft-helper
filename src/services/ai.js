@@ -317,7 +317,9 @@ function buildSystemPrompt(draftMode) {
     '- Wenn draft_flow.run gesetzt ist, erklaere in run_alert, was der Run fuer diesen Pick bedeutet — sonst run_alert weglassen.',
     '- tips_signals sind Heuristik-Hinweise der App: bestaetige oder widersprich ihnen explizit, statt sie zu ignorieren.',
     '- Respektiere context.user_bias (Favoriten bevorzugen, Avoids nur bei extremem Value).',
-    '- Wenn context.custom_strategy existiert, folge ihr, solange sie den harten Regeln nicht widerspricht.',
+    '- Fuelle roster_check aus, BEVOR du primary waehlst: erst pruefen, was der Kader braucht und was die Strategie ausschliesst, dann entscheiden.',
+    '- context.custom_strategy ist bindend, solange sie den harten Regeln nicht widerspricht. Positions-Obergrenzen daraus ("nur ein TE", "nur ein QB") sind ein Filter fuer primary, keine Randnotiz: schliesst roster_check eine Position aus, darf primary kein Spieler dieser Position sein.',
+    '- primary.why muss zu primary.player_nname passen. Wenn du beim Begruenden merkst, dass ein anderer Spieler besser ist, dann ist DER dein primary — schreibe nie eine Begruendung, die einen anderen Spieler empfiehlt als den im Feld.',
     'Antworte durch Aufruf des Tools `return_draft_advice`.',
   ]
 
@@ -365,6 +367,14 @@ function buildAdviceTool() {
       type: 'object',
       additionalProperties: false,
       properties: {
+        // Steht bewusst VOR primary: Tool-Felder werden in Schema-Reihenfolge
+        // erzeugt. Ohne dieses Feld legt das Modell primary.player_nname fest,
+        // bevor es in primary.why abwaegt -- und merkt erst beim Begruenden,
+        // dass die Strategie dagegen spricht. Der Name steht dann schon.
+        roster_check: {
+          type: 'string',
+          description: 'ZUERST ausfuellen, vor primary. Welche Starter-Slots sind laut my_team noch unbesetzt, und welche Positionen schliesst context.custom_strategy fuer diesen Pick aus (z. B. Obergrenzen wie "nur ein TE")? 1-2 Saetze, Deutsch (du-Form).',
+        },
         primary: {
           type: 'object', additionalProperties: false,
           properties: {
@@ -426,7 +436,7 @@ function buildAdviceTool() {
         risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
         confidence: { type: 'number', minimum: 0, maximum: 1 },
       },
-      required: ['primary', 'alternatives', 'survival', 'plan_next_picks'],
+      required: ['roster_check', 'primary', 'alternatives', 'survival', 'plan_next_picks'],
     },
   }
 }

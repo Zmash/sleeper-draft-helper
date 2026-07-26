@@ -180,6 +180,24 @@ describe('buildAIAdviceRequest — Schema & Prompt', () => {
     expect(schema.properties.survival.items.properties.verdict.enum)
       .toEqual(['duerfte_da_sein', 'muenzwurf', 'duerfte_weg_sein'])
   })
+  // Tool-Felder werden in Schema-Reihenfolge erzeugt. Stand player_nname vor
+  // roster_check, legte das Modell den Spieler fest, bevor es abwog -- und
+  // begruendete dann im why-Feld einen ANDEREN Spieler als den empfohlenen.
+  it('stellt roster_check vor primary: Abwaegung vor Entscheidung', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    const schema = req.tools[0].input_schema
+    const keys = Object.keys(schema.properties)
+    expect(keys.indexOf('roster_check')).toBeGreaterThanOrEqual(0)
+    expect(keys.indexOf('roster_check')).toBeLessThan(keys.indexOf('primary'))
+    expect(schema.required).toContain('roster_check')
+  })
+
+  it('behandelt Positions-Obergrenzen der custom_strategy als Filter fuer primary', () => {
+    const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
+    expect(req.system).toMatch(/custom_strategy ist bindend/)
+    expect(req.system).toMatch(/roster_check/)
+  })
+
   it('der Prompt erzwingt Deutsch und verbietet erfundene Survival-Gruende', () => {
     const req = buildAIAdviceRequest({ ...baseParams, scoringType: 'standard' })
     expect(req.system).toMatch(/Deutsch/)
