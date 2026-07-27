@@ -95,11 +95,18 @@ export async function syncOnce() {
     // Nach dem Anwenden neu sammeln statt das Buendel zu serialisieren:
     // lokale Keys, die nicht im Buendel standen, bleiben ja stehen — sonst
     // sieht der naechste Takt sofort eine "Aenderung" und laedt hoch.
-    saveSyncState({
-      ...st,
-      lastSeenStamp: remote.stamp,
-      lastSentBundle: JSON.stringify(collectBundle()),
-    })
+    try {
+      saveSyncState({
+        ...st,
+        lastSeenStamp: remote.stamp,
+        lastSentBundle: JSON.stringify(collectBundle()),
+      })
+    } catch {
+      // setItem kann bei ueberschrittenem Speicherkontingent synchron werfen —
+      // syncOnce ist async und wuerde daraus einen rejected Promise machen
+      // statt eines der fuenf Status. Das darf im Takt nicht passieren.
+      return 'error'
+    }
     return 'pulled'
   }
 
@@ -115,7 +122,12 @@ export async function syncOnce() {
     })
     if (!r.ok) return 'error'
     const { stamp } = await r.json()
-    saveSyncState({ ...st, lastSeenStamp: stamp, lastSentBundle: serialized })
+    try {
+      saveSyncState({ ...st, lastSeenStamp: stamp, lastSentBundle: serialized })
+    } catch {
+      // Selbe Quota-Absicherung wie beim Pull-Pfad oben.
+      return 'error'
+    }
     return 'pushed'
   } catch {
     return 'error'
@@ -141,7 +153,10 @@ export function startSync({ intervalMs = 30000 } = {}) {
 
   // Genau der Moment, in dem der PC weggelegt und zum Handy gegriffen wird.
   const onHide = () => {
-    if (document.visibilityState === 'hidden') syncOnce()
+    // tick() statt syncOnce(): sonst bleiben Event und Reload beim Pull aus,
+    // und lastSeenStamp ist danach schon aktuell — der naechste Takt sieht
+    // dann keine Aenderung mehr und der Reload faellt ganz aus.
+    if (document.visibilityState === 'hidden') tick()
   }
   document.addEventListener('visibilitychange', onHide)
 
