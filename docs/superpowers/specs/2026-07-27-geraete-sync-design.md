@@ -134,6 +134,11 @@ instrumentiert, kein Event verdrahtet.
 **Der Reload beendet sich selbst:** Nach dem Anwenden ist `lastSeenStamp` gleich
 `remote.stamp`, die Bedingung in Schritt 2 also falsch. Kein zweiter Durchlauf.
 
+**Ausnahme beim Anwenden:** Lokale Keys, die im eintreffenden Bündel fehlen, werden
+nicht gelöscht. Das ist die mildere Lesart von "das ganze Bündel gewinnt", aber die
+richtige: Löschen macht aus jedem Fehler beim Sammeln stillen Datenverlust, während
+ein übrig gebliebener Key höchstens veraltet ist.
+
 **Konfliktregel:** Das ganze Bündel gewinnt oder verliert gemeinsam. Trifft ein
 fremder Push auf lokale Änderungen, gewinnt der fremde und die lokalen Änderungen
 seit dem letzten Abgleich sind verloren. Beim Nutzungsmuster "ein Gerät zur Zeit"
