@@ -2795,3 +2795,66 @@ th.col-pick, td.col-pick { width: 64px; }
   line-height: 1.45;
   padding-block: 8px;
 }
+
+/* ---------- Geräte-Sync (Setup) ---------- */
+.sync-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 16px;
+}
+
+.sync-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-title { margin: 0; }
+
+.sync-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+}
+
+.sync-badge.is-on {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.sync-warn { color: var(--bad); }
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-pairing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sync-qr {
+  width: 180px;
+  /* QR braucht hellen Grund — in den dunklen Themes waere er sonst
+     unscannbar. Bewusst fest, nicht themenabhaengig. */
+  background: #fff;
+  padding: 8px;
+  border-radius: var(--r-ctl);
+}
+
+.sync-qr svg { width: 100%; height: auto; display: block; }
+
+.sync-url-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
