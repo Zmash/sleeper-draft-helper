@@ -60,7 +60,7 @@ export function buildPairingUrl(secret, origin) {
   return `${String(origin).replace(/\/+$/, '')}/setup#sync=${secret}`
 }
 
-export async function syncOnce() {
+async function syncOnceInner() {
   const st = loadSyncState()
   if (!st?.secret) return 'idle'
   if (!globalThis.crypto?.subtle) return 'error'
@@ -95,18 +95,11 @@ export async function syncOnce() {
     // Nach dem Anwenden neu sammeln statt das Buendel zu serialisieren:
     // lokale Keys, die nicht im Buendel standen, bleiben ja stehen — sonst
     // sieht der naechste Takt sofort eine "Aenderung" und laedt hoch.
-    try {
-      saveSyncState({
-        ...st,
-        lastSeenStamp: remote.stamp,
-        lastSentBundle: JSON.stringify(collectBundle()),
-      })
-    } catch {
-      // setItem kann bei ueberschrittenem Speicherkontingent synchron werfen —
-      // syncOnce ist async und wuerde daraus einen rejected Promise machen
-      // statt eines der fuenf Status. Das darf im Takt nicht passieren.
-      return 'error'
-    }
+    saveSyncState({
+      ...st,
+      lastSeenStamp: remote.stamp,
+      lastSentBundle: JSON.stringify(collectBundle()),
+    })
     return 'pulled'
   }
 
@@ -122,13 +115,22 @@ export async function syncOnce() {
     })
     if (!r.ok) return 'error'
     const { stamp } = await r.json()
-    try {
-      saveSyncState({ ...st, lastSeenStamp: stamp, lastSentBundle: serialized })
-    } catch {
-      // Selbe Quota-Absicherung wie beim Pull-Pfad oben.
-      return 'error'
-    }
+    saveSyncState({ ...st, lastSeenStamp: stamp, lastSentBundle: serialized })
     return 'pushed'
+  } catch {
+    return 'error'
+  }
+}
+
+// Deckt syncOnceInner komplett ab statt jeden localStorage-Schreibzugriff
+// einzeln zu sichern: setItem kann bei ueberschrittenem Speicherkontingent
+// werfen, und dort ist applyBundle() (bis zu 150 KB) der groesste Schreiber
+// von allen. Ein rejected Promise wuerde tick() erreichen und dort sowohl
+// den SYNC_EVENT als auch den Reload nach 'pulled' verschlucken — das darf
+// dem laufenden Draft nie passieren.
+export async function syncOnce() {
+  try {
+    return await syncOnceInner()
   } catch {
     return 'error'
   }
@@ -136,16 +138,25 @@ export async function syncOnce() {
 
 export function startSync({ intervalMs = 30000 } = {}) {
   let stopped = false
+  // Verhindert, dass Intervall und visibilitychange gleichzeitig laufen —
+  // sonst geht ein doppelter POST raus, der den Server-Stempel zweimal
+  // vorruecken laesst und dem anderen Geraet einen Pull ohne echte Aenderung vorgaukelt.
+  let running = false
 
   async function tick() {
-    if (stopped) return
-    const r = await syncOnce()
-    // Ohne diesen Ruf bleibt 'badkey' unsichtbar: der Sync taete stumm
-    // nichts und der Nutzer haette keinen Anhaltspunkt.
-    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: r }))
-    // Der Reload beendet sich selbst: nach dem Anwenden ist lastSeenStamp
-    // gleich remote.stamp, die Pull-Bedingung also falsch.
-    if (r === 'pulled') location.reload()
+    if (stopped || running) return
+    running = true
+    try {
+      const r = await syncOnce()
+      // Ohne diesen Ruf bleibt 'badkey' unsichtbar: der Sync taete stumm
+      // nichts und der Nutzer haette keinen Anhaltspunkt.
+      window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: r }))
+      // Der Reload beendet sich selbst: nach dem Anwenden ist lastSeenStamp
+      // gleich remote.stamp, die Pull-Bedingung also falsch.
+      if (r === 'pulled') location.reload()
+    } finally {
+      running = false
+    }
   }
 
   tick()
