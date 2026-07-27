@@ -284,13 +284,19 @@ function prune(dir) {
   }
 }
 
+// Monotoner Zaehler statt Zufall: Math.random() macht eine Kollision nur
+// unwahrscheinlich, nicht unmoeglich. Der Zaehler lebt im Prozessspeicher --
+// das reicht, weil genau ein Node-Prozess diese Routen bedient; mit mehreren
+// Prozessen (Cluster/PM2) braeuchte es einen geteilten Zaehler.
+let writeCounter = 0
+
 export function writeRoom(room, rec, dir = SYNC_DIR) {
   const file = roomFile(room, dir)
   fs.mkdirSync(dir, { recursive: true })
   // Date.now() allein reicht nicht: zwei Schreibvorgaenge in derselben
   // Millisekunde bekaemen denselben Stempel, und das andere Geraet haelt
   // die neue Fassung fuer die bereits gesehene.
-  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  const stamp = `${Date.now().toString(36)}${(writeCounter++).toString(36)}`
   fs.writeFileSync(file, JSON.stringify({ stamp, iv: rec.iv, ciphertext: rec.ciphertext }))
   prune(dir)
   return stamp

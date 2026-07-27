@@ -197,9 +197,42 @@ describe('Sync-Briefkasten', () => {
     expect(() => writeRoom('../boese', { iv: 'A', ciphertext: 'A' }, dir)).toThrow()
   })
 
-  it('deckelt die Anzahl Raeume', () => {
+  it('kennt Konstanten fuer Limit und Verzeichnis', () => {
     expect(MAX_ROOMS).toBe(500)
     expect(SYNC_DIR).toContain('sdh-sync')
+  })
+
+  // Schreibt mehr als MAX_ROOMS Raeume und prueft, dass prune() danach
+  // wirklich die aeltesten loescht -- nicht nur, dass die Konstante stimmt.
+  // Die ersten MAX_ROOMS Schreibvorgaenge loesen noch kein Pruning aus
+  // (Zaehler bleibt <= MAX_ROOMS), erst danach bekommen sie feste, aufsteigende
+  // mtimes -- Datei-Zeitstempel haben begrenzte Aufloesung, ohne das waere
+  // "aeltest" bei den paar zusaetzlichen Schreibvorgaengen reiner Zufall.
+  it('deckelt die Anzahl Raeume und loescht die aeltesten zuerst', () => {
+    const extra = 10
+    const oldRooms = Array.from({ length: MAX_ROOMS }, (_, i) => i.toString(16).padStart(32, '0'))
+    for (const r of oldRooms) writeRoom(r, { iv: 'A', ciphertext: 'A' }, dir)
+
+    const base = Date.now() - (MAX_ROOMS + extra) * 1000
+    oldRooms.forEach((r, i) => {
+      const t = new Date(base + i * 1000)
+      fs.utimesSync(path.join(dir, `${r}.json`), t, t)
+    })
+
+    // Jeder weitere Schreibvorgang ist frischer als alle oben gesetzten
+    // mtimes und stoesst prune() an -- so werden nacheinander die aeltesten
+    // echten Raeume verdraengt.
+    const newRooms = Array.from({ length: extra }, (_, i) => (MAX_ROOMS + i).toString(16).padStart(32, '0'))
+    for (const r of newRooms) writeRoom(r, { iv: 'B', ciphertext: 'B' }, dir)
+
+    const remaining = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
+    expect(remaining.length).toBe(MAX_ROOMS)
+
+    const removed = oldRooms.slice(0, extra)
+    const kept = oldRooms.slice(extra)
+    for (const r of removed) expect(remaining).not.toContain(`${r}.json`)
+    for (const r of kept) expect(remaining).toContain(`${r}.json`)
+    for (const r of newRooms) expect(remaining).toContain(`${r}.json`)
   })
 
   it('registriert beide Sync-Routen', () => {
