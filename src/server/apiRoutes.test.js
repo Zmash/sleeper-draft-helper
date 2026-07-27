@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
 import { STRATEGY_TOOL, STRATEGY_SOURCES, buildStrategyPrompt } from './apiRoutes.js'
+import { SYNC_DIR, MAX_ROOMS, isValidRoom, readRoom, writeRoom } from './apiRoutes.js'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 describe('apiRoutes — Modul-Vertrag', () => {
   it('exportiert registerApiRoutes als Funktion', () => {
@@ -146,5 +150,65 @@ describe('buildStrategyPrompt', () => {
 
   it('weist an, Widersprueche zu benennen statt aufzuloesen', () => {
     expect(buildStrategyPrompt(base)).toMatch(/contested/)
+  })
+})
+
+describe('Sync-Briefkasten', () => {
+  const room = 'a'.repeat(32)
+  let dir
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdh-sync-test-'))
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  // Ohne diese Pruefung ist der Dateipfad fuer Traversal offen — der
+  // Endpunkt ist unauthentifiziert, das ist eine Vertrauensgrenze.
+  it('akzeptiert nur 32 Hex-Zeichen als Raum', () => {
+    expect(isValidRoom(room)).toBe(true)
+    expect(isValidRoom('../../etc/passwd')).toBe(false)
+    expect(isValidRoom('A'.repeat(32))).toBe(false)
+    expect(isValidRoom('a'.repeat(31))).toBe(false)
+    expect(isValidRoom('')).toBe(false)
+  })
+
+  it('liefert null fuer einen unbekannten Raum', () => {
+    expect(readRoom(room, dir)).toBeNull()
+  })
+
+  it('gibt zurueck, was geschrieben wurde', () => {
+    const stamp = writeRoom(room, { iv: 'AAAA', ciphertext: 'BBBB' }, dir)
+    expect(typeof stamp).toBe('string')
+    expect(readRoom(room, dir)).toEqual({ stamp, iv: 'AAAA', ciphertext: 'BBBB' })
+  })
+
+  // Zwei Schreibvorgaenge in derselben Millisekunde duerfen nicht denselben
+  // Stempel bekommen — sonst haelt das andere Geraet die neue Fassung fuer
+  // die bereits gesehene und holt sie nie.
+  it('vergibt bei jedem Schreiben einen neuen Stempel', () => {
+    const a = writeRoom(room, { iv: 'A', ciphertext: 'A' }, dir)
+    const b = writeRoom(room, { iv: 'B', ciphertext: 'B' }, dir)
+    expect(a).not.toBe(b)
+  })
+
+  it('weigert sich, einen ungueltigen Raum zu schreiben', () => {
+    expect(() => writeRoom('../boese', { iv: 'A', ciphertext: 'A' }, dir)).toThrow()
+  })
+
+  it('deckelt die Anzahl Raeume', () => {
+    expect(MAX_ROOMS).toBe(500)
+    expect(SYNC_DIR).toContain('sdh-sync')
+  })
+
+  it('registriert beide Sync-Routen', () => {
+    const registered = []
+    registerApiRoutes(
+      { get: (p) => registered.push(`GET ${p}`), post: (p) => registered.push(`POST ${p}`) },
+      { model: DEFAULT_MODEL },
+    )
+    expect(registered).toContain('GET /api/sync/:room')
+    expect(registered).toContain('POST /api/sync/:room')
   })
 })

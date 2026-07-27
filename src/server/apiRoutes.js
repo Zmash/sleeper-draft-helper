@@ -2,6 +2,9 @@
 // die alte Regel "index.js und prod.js synchron halten" ist damit Geschichte.
 import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
@@ -228,6 +231,69 @@ export function applyPromptCaching(payload = {}) {
     )
   }
   return out
+}
+
+// ---------- Geräte-Sync: verschlüsselter Briefkasten ----------
+// Der Server sieht Raum-ID und Chiffrat, nie den Schlüssel. Er kann den
+// Inhalt nicht deuten — das ist die Zusage an die Nutzer, nicht bloß eine
+// Zugriffsregel.
+//
+// tmpdir, weil der Deploy Releases per Symlink umschaltet und alte löscht
+// (keep last 5). Alles unterhalb des Release-Verzeichnisses wäre nach zwei
+// Deploys weg. Der Verlust bei einem Reboot ist unkritisch: die Wahrheit
+// steht im localStorage der Geräte, das nächste Gerät lädt wieder hoch.
+export const SYNC_DIR = path.join(os.tmpdir(), 'sdh-sync')
+export const MAX_ROOMS = 500
+
+export function isValidRoom(room) {
+  return /^[a-f0-9]{32}$/.test(String(room || ''))
+}
+
+function roomFile(room, dir) {
+  if (!isValidRoom(room)) throw new Error('Ungueltige Raum-ID')
+  return path.join(dir, `${room}.json`)
+}
+
+export function readRoom(room, dir = SYNC_DIR) {
+  try {
+    return JSON.parse(fs.readFileSync(roomFile(room, dir), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+// ponytail: raeumt beim Schreiben auf, statt einen Cron/TTL zu bauen.
+// Deckelt den Plattenverbrauch hart; wenn das je zu langsam wird, kommt
+// die Aufraeumung in einen Timer.
+function prune(dir) {
+  let files
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
+  } catch {
+    return
+  }
+  if (files.length <= MAX_ROOMS) return
+  const byAge = files
+    .map((f) => {
+      const p = path.join(dir, f)
+      try { return { p, t: fs.statSync(p).mtimeMs } } catch { return { p, t: 0 } }
+    })
+    .sort((a, b) => a.t - b.t)
+  for (const { p } of byAge.slice(0, files.length - MAX_ROOMS)) {
+    try { fs.unlinkSync(p) } catch { /* schon weg */ }
+  }
+}
+
+export function writeRoom(room, rec, dir = SYNC_DIR) {
+  const file = roomFile(room, dir)
+  fs.mkdirSync(dir, { recursive: true })
+  // Date.now() allein reicht nicht: zwei Schreibvorgaenge in derselben
+  // Millisekunde bekaemen denselben Stempel, und das andere Geraet haelt
+  // die neue Fassung fuer die bereits gesehene.
+  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  fs.writeFileSync(file, JSON.stringify({ stamp, iv: rec.iv, ciphertext: rec.ciphertext }))
+  prune(dir)
+  return stamp
 }
 
 export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
@@ -491,6 +557,36 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       node: process.version,
       model: MODEL,
     })
+  })
+
+  // ---------- Geräte-Sync ----------
+  app.get('/api/sync/:room', (req, res) => {
+    const { room } = req.params
+    if (!isValidRoom(room)) return res.status(400).json({ error: 'Ungueltige Raum-ID' })
+    const rec = readRoom(room)
+    if (!rec) return res.status(404).json({ error: 'Kein Stand hinterlegt' })
+    // ETag ist der Stempel. Der Regelfall — nichts hat sich geaendert —
+    // kostet damit ein 304 ohne Body statt des vollen Buendels; bei einem
+    // 30-Sekunden-Takt auf Mobilfunk ist das der Unterschied zwischen
+    // ein paar hundert Byte und rund 18 MB pro Stunde.
+    const tag = `"${rec.stamp}"`
+    res.set('ETag', tag)
+    if (req.headers['if-none-match'] === tag) return res.status(304).end()
+    res.json(rec)
+  })
+
+  app.post('/api/sync/:room', (req, res) => {
+    const { room } = req.params
+    if (!isValidRoom(room)) return res.status(400).json({ error: 'Ungueltige Raum-ID' })
+    const { iv, ciphertext } = req.body || {}
+    if (typeof iv !== 'string' || typeof ciphertext !== 'string') {
+      return res.status(400).json({ error: 'iv und ciphertext muessen Strings sein' })
+    }
+    try {
+      res.json({ stamp: writeRoom(room, { iv, ciphertext }) })
+    } catch (e) {
+      res.status(500).json({ error: String(e?.message || e) })
+    }
   })
 
   // ---------- Key-Validierung ----------
