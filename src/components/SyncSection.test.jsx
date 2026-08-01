@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import SyncSection from './SyncSection'
 import { SYNC_KEY } from '../services/syncBundle'
 import { loadSyncState, SYNC_EVENT } from '../services/syncClient'
@@ -55,14 +55,16 @@ describe('SyncSection', () => {
   it('meldet eine unpassende Kopplung', async () => {
     localStorage.setItem(SYNC_KEY, JSON.stringify({ secret: 'A'.repeat(43), lastSeenStamp: null, lastSentBundle: null }))
     render(<SyncSection />)
-    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: 'badkey' }))
+    // act(), weil das Event an React vorbei gefeuert wird: der Listener setzt
+    // State, und ohne die Huelle warnt React ueber ein Update ausserhalb act().
+    act(() => window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: 'badkey' })))
     expect(await screen.findByText(/Kopplung passt nicht/i)).toBeInTheDocument()
   })
 
   it('meldet nichts, wenn der Abgleich laeuft', () => {
     localStorage.setItem(SYNC_KEY, JSON.stringify({ secret: 'A'.repeat(43), lastSeenStamp: null, lastSentBundle: null }))
     render(<SyncSection />)
-    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: 'pushed' }))
+    act(() => window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: 'pushed' })))
     expect(screen.queryByText(/Kopplung passt nicht/i)).not.toBeInTheDocument()
   })
 })
