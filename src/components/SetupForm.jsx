@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { loadSetup, saveSetup } from '../services/storage'
 import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
 import StrategySection from './StrategySection'
+import SyncSection from './SyncSection'
 
 // Scoring-Label fuer den FantasyPros-Button: der Import laedt die zum aktiven
 // Format passende Cheatsheet-Variante (half_ppr -> half etc.), das Label soll
@@ -433,6 +434,8 @@ export default function SetupForm(props) {
               draftMode={draftMode}
               draftSlot={null}
             />
+
+            <SyncSection />
           </div>
           <div className="step-actions">
             <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Weiter</button>

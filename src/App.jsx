@@ -15,6 +15,7 @@ import { loadSetup } from './services/storage'
 import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/draftFormat'
 import { isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
+import { startSync } from './services/syncClient'
 
 import AppShell from './components/AppShell'
 import DraftAnalysis from './components/DraftAnalysis'
@@ -229,6 +230,9 @@ export default function App() {
   })
 
   // ── Global effects ─────────────────────────────────────────────────────────
+
+  // Geraete-Sync: Abgleichschleife starten, startSync liefert die eigene Aufraeumfunktion
+  useEffect(() => startSync(), [])
 
   // Theme sync
   useEffect(() => {
