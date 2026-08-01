@@ -148,6 +148,11 @@ export function startSync({ intervalMs = 30000 } = {}) {
     running = true
     try {
       const r = await syncOnce()
+      // Erneut pruefen: waehrend des await kann gestoppt worden sein. React
+      // ruft Effekte im StrictMode doppelt auf, also gibt es abgebrochene
+      // Schleifen wirklich — und ein location.reload() aus einer toten
+      // Schleife mitten im Draft waere kaum zu finden.
+      if (stopped) return
       // Ohne diesen Ruf bleibt 'badkey' unsichtbar: der Sync taete stumm
       // nichts und der Nutzer haette keinen Anhaltspunkt.
       window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: r }))
