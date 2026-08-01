@@ -60,6 +60,17 @@ export function buildPairingUrl(secret, origin) {
   return `${String(origin).replace(/\/+$/, '')}/setup#sync=${secret}`
 }
 
+// Zwischen dem Lesen von st und dem Zurueckschreiben liegt ein await — in der
+// Zeit kann der Nutzer getrennt oder neu gekoppelt haben. Ohne diese Pruefung
+// schriebe ein noch laufender Abgleich das alte Geheimnis zurueck: die Anzeige
+// stuende auf "nicht gekoppelt", das Geraet lieferte aber weiter in denselben
+// Raum. Beim Neukoppeln ueberschriebe es das frische Geheimnis.
+function saveIfStillPaired(st, patch) {
+  if (loadSyncState()?.secret !== st.secret) return false
+  saveSyncState({ ...st, ...patch })
+  return true
+}
+
 async function syncOnceInner() {
   const st = loadSyncState()
   if (!st?.secret) return 'idle'
@@ -95,8 +106,7 @@ async function syncOnceInner() {
     // Nach dem Anwenden neu sammeln statt das Buendel zu serialisieren:
     // lokale Keys, die nicht im Buendel standen, bleiben ja stehen — sonst
     // sieht der naechste Takt sofort eine "Aenderung" und laedt hoch.
-    saveSyncState({
-      ...st,
+    saveIfStillPaired(st, {
       lastSeenStamp: remote.stamp,
       lastSentBundle: JSON.stringify(collectBundle()),
     })
@@ -115,7 +125,7 @@ async function syncOnceInner() {
     })
     if (!r.ok) return 'error'
     const { stamp } = await r.json()
-    saveSyncState({ ...st, lastSeenStamp: stamp, lastSentBundle: serialized })
+    saveIfStillPaired(st, { lastSeenStamp: stamp, lastSentBundle: serialized })
     return 'pushed'
   } catch {
     return 'error'
@@ -158,7 +168,15 @@ export function startSync({ intervalMs = 30000 } = {}) {
       window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: r }))
       // Der Reload beendet sich selbst: nach dem Anwenden ist lastSeenStamp
       // gleich remote.stamp, die Pull-Bedingung also falsch.
-      if (r === 'pulled') location.reload()
+      if (r === 'pulled') {
+        // Router-State vorher wegraeumen: SetupPage loescht beim Mount Board,
+        // Picks und Ligen, wenn history.state ein mode: 'add' traegt. Der State
+        // ueberlebt einen Reload — ohne das hier wuerde ein Pull, waehrend man
+        // im "Liga hinzufuegen"-Modus steht, alles leeren und die Leere danach
+        // an die anderen Geraete weiterreichen.
+        history.replaceState(null, '', location.pathname + location.search)
+        location.reload()
+      }
     } finally {
       running = false
     }

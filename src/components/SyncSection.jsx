@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import qrcode from 'qrcode-generator'
 import { generateSecret } from '../services/syncCrypto'
 import {
-  couple, decouple, isCoupled, loadSyncState, buildPairingUrl, SYNC_EVENT,
+  couple, decouple, isCoupled, loadSyncState, buildPairingUrl, syncOnce, SYNC_EVENT,
 } from '../services/syncClient'
 import Icon from './Icon'
 
@@ -38,6 +38,11 @@ export default function SyncSection() {
     couple(generateSecret())
     setCoupled(true)
     setShowQr(true)
+    // Sofort hochladen, nicht erst beim naechsten Takt: das zweite Geraet
+    // startet beim Oeffnen des Links unmittelbar seinen ersten Abgleich. Bliebe
+    // der Raum bis dahin leer, gaebe es dort den Stand des hinzukommenden
+    // Geraets — und dieses Geraet zoege ihn sich. Wer koppelt, gibt den Ton an.
+    syncOnce()
   }
 
   function onDecouple() {
