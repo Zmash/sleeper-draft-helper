@@ -20,6 +20,14 @@ migrateOldStorage()
 // und der Schluessel darf nicht in der Adresszeile stehen bleiben.
 consumeHashSecret()
 
+// Zusaetzlich auf hashchange hoeren: Ist die App auf dem Handy schon offen und
+// der QR-Scan aendert nur den Hash derselben Adresse, laedt der Browser nicht
+// neu — main.jsx liefe dann nie wieder und die Kopplung scheiterte stumm.
+// Der Reload danach ist noetig, damit die Oberflaeche den neuen Stand zeigt.
+window.addEventListener('hashchange', () => {
+  if (consumeHashSecret()) location.reload()
+})
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
