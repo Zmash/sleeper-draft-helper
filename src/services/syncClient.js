@@ -86,7 +86,10 @@ async function syncOnceInner() {
   let remote = null
   try {
     const headers = st.lastSeenStamp ? { 'If-None-Match': `"${st.lastSeenStamp}"` } : {}
-    const r = await fetch(`/api/sync/${room}`, { headers })
+    // cache: 'no-store' zusaetzlich zum Server-Header: sonst kann der eigene
+    // Browser-Cache (oder ein Reverse-Proxy) eine alte Antwort auf dieselbe
+    // URL ausliefern, ohne dass ueberhaupt ein Netzwerk-Request passiert.
+    const r = await fetch(`/api/sync/${room}`, { headers, cache: 'no-store' })
     if (r.status === 200) remote = await r.json()
     else if (r.status !== 304 && r.status !== 404) return 'error'
   } catch {

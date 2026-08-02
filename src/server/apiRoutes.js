@@ -568,6 +568,12 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   // ---------- Geräte-Sync ----------
   app.get('/api/sync/:room', (req, res) => {
     const { room } = req.params
+    // Kein Caching durch Handy-Browser oder den Reverse-Proxy davor (Prod
+    // laeuft hinter NPM): sonst zeigt ein Reload nach einem frischen Push des
+    // anderen Geraets weiter den alten, zwischengespeicherten Stand — genau
+    // das sah aus wie "Sync klappt nicht", war aber ein Cache-Treffer auf
+    // dieselbe URL.
+    res.set('Cache-Control', 'no-store')
     if (!isValidRoom(room)) return res.status(400).json({ error: 'Ungueltige Raum-ID' })
     const rec = readRoom(room)
     if (!rec) return res.status(404).json({ error: 'Kein Stand hinterlegt' })

@@ -13,7 +13,16 @@ const EXTRA_KEYS = ['draft-helper-theme']
 // lautlos als 413 (syncOnce() faengt das nur als 'error' ab). Mitsynced wird
 // dadurch auch nichts gewonnen: die Caches sind auf beiden Geraeten ohnehin
 // identisch bzw. laufen unabhaengig ab.
-const EXCLUDE_KEYS = ['sdh.playersMeta.v2', 'sdh-fc-dynasty-v1']
+//
+// sdh.tip.cooldown.v2 aendert sich bei praktisch jeder Board-Interaktion
+// (Timestamp pro angezeigtem Tipp) und macht damit JEDES Geraet bei JEDER
+// Nutzung "aenderungsbereit" -- ganz ohne dass jemand Rankings oder
+// Markierungen angefasst hat. Ohne diesen Ausschluss pusht ein Geraet beim
+// naechsten Tick seinen eigenen, moeglicherweise veralteten Gesamtstand nur
+// wegen dieses Timestamps -- und ueberschreibt damit eine frischere Aenderung
+// des anderen Geraets auf dem Server, die dann zurueckgesynced wird. Das sah
+// aus wie "eine Markierung faellt beim anderen Geraet einfach wieder weg".
+const EXCLUDE_KEYS = ['sdh.playersMeta.v2', 'sdh-fc-dynasty-v1', 'sdh.tip.cooldown.v2']
 
 function isBundled(k) {
   return k !== SYNC_KEY && !EXCLUDE_KEYS.includes(k) && (k.startsWith('sdh') || EXTRA_KEYS.includes(k))

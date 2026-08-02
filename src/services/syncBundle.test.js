@@ -38,6 +38,16 @@ describe('collectBundle', () => {
     expect(out['sdh-fc-dynasty-v1']).toBeUndefined()
   })
 
+  // Aendert sich bei praktisch jeder Board-Interaktion (Timestamp pro
+  // angezeigtem Tipp) -- ohne Ausschluss haelt das jedes Geraet permanent
+  // "aenderungsbereit" und laesst es bei jedem Tick seinen eigenen, moeglich-
+  // erweise veralteten Stand pushen und damit frischere Aenderungen des
+  // anderen Geraets ueberschreiben.
+  it('laesst den Tipp-Cooldown liegen', () => {
+    localStorage.setItem('sdh.tip.cooldown.v2', '{"x":123}')
+    expect(collectBundle()['sdh.tip.cooldown.v2']).toBeUndefined()
+  })
+
   // Sonst kopiert ein Geraet seine eigene Kopplung in fremde Buendel.
   it('nimmt den Sync-Key selbst nie mit', () => {
     localStorage.setItem(SYNC_KEY, '{"secret":"geheim"}')

@@ -244,4 +244,20 @@ describe('Sync-Briefkasten', () => {
     expect(registered).toContain('GET /api/sync/:room')
     expect(registered).toContain('POST /api/sync/:room')
   })
+
+  // Ohne diesen Header hat ein Handy-Browser oder der Reverse-Proxy davor
+  // (Prod laeuft hinter NPM) eine Antwort auf dieselbe URL zwischengespeichert
+  // -- ein Reload zeigt dann weiter den alten Stand, obwohl das andere
+  // Geraet laengst frischer gepusht hat.
+  it('setzt Cache-Control: no-store auf der GET-Route', () => {
+    let handler
+    registerApiRoutes(
+      { get: (p, h) => { if (p === '/api/sync/:room') handler = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    const calls = []
+    const res = { set: (k, v) => calls.push([k, v]), status: () => res, json: () => res, end: () => res }
+    handler({ params: { room: 'ungueltig' }, headers: {} }, res)
+    expect(calls).toContainEqual(['Cache-Control', 'no-store'])
+  })
 })
