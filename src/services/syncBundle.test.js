@@ -27,6 +27,17 @@ describe('collectBundle', () => {
     expect(collectBundle().irgendwas).toBeUndefined()
   })
 
+  // sdh.playersMeta.v2 ist ein >2 MB Re-Fetch-Cache der oeffentlichen Sleeper-
+  // API. Mitgebuendelt hat er zusammen mit dem Board bisher jeden Push am
+  // 3-MB-Limit des Servers scheitern lassen (413, lautlos als 'error').
+  it('laesst Re-Fetch-Caches liegen', () => {
+    localStorage.setItem('sdh.playersMeta.v2', 'riesig')
+    localStorage.setItem('sdh-fc-dynasty-v1', 'auch-riesig')
+    const out = collectBundle()
+    expect(out['sdh.playersMeta.v2']).toBeUndefined()
+    expect(out['sdh-fc-dynasty-v1']).toBeUndefined()
+  })
+
   // Sonst kopiert ein Geraet seine eigene Kopplung in fremde Buendel.
   it('nimmt den Sync-Key selbst nie mit', () => {
     localStorage.setItem(SYNC_KEY, '{"secret":"geheim"}')
