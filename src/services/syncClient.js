@@ -185,18 +185,19 @@ export function startSync({ intervalMs = 30000 } = {}) {
   tick()
   const id = setInterval(tick, intervalMs)
 
-  // Genau der Moment, in dem der PC weggelegt und zum Handy gegriffen wird.
-  const onHide = () => {
-    // tick() statt syncOnce(): sonst bleiben Event und Reload beim Pull aus,
-    // und lastSeenStamp ist danach schon aktuell — der naechste Takt sieht
-    // dann keine Aenderung mehr und der Reload faellt ganz aus.
-    if (document.visibilityState === 'hidden') tick()
-  }
-  document.addEventListener('visibilitychange', onHide)
+  // Bei JEDEM Sichtbarkeitswechsel abgleichen, nicht nur beim Verstecken:
+  // tick()/syncOnce() entscheidet selbst push vs. pull anhand der Stempel.
+  // Wird das Geraet weggelegt, hat sich meist der eigene Stand geaendert ->
+  // push. Wird es wieder hervorgeholt, ist eher der andere Stand neuer ->
+  // pull. Ohne den Pull-Fall haette man bis zu intervalMs (Default 30s)
+  // gewartet, bis eine frisch gesetzte Markierung vom anderen Geraet sichtbar
+  // wird — genau der Moment, in dem man nach dem Geraetewechsel hinschaut.
+  const onVisibilityChange = () => tick()
+  document.addEventListener('visibilitychange', onVisibilityChange)
 
   return () => {
     stopped = true
     clearInterval(id)
-    document.removeEventListener('visibilitychange', onHide)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
   }
 }

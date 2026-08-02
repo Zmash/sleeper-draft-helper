@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loadSetup, saveSetup } from '../services/storage'
 import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
+import { loadPreferences, clearPreferencesForMode } from '../services/preferences'
 import StrategySection from './StrategySection'
 import SyncSection from './SyncSection'
+import Icon from './Icon'
 
 // Scoring-Label fuer den FantasyPros-Button: der Import laedt die zum aktiven
 // Format passende Cheatsheet-Variante (half_ppr -> half etc.), das Label soll
@@ -131,6 +133,12 @@ export default function SetupForm(props) {
   }
 
   const isStepOpen = (n) => openStep === n
+
+  function handleClearMarkings() {
+    const label = draftMode === 'rookie' ? 'Rookie Draft' : 'Redraft'
+    if (!window.confirm(`Alle Fav/Avoid-Markierungen für ${label} löschen? Das kann nicht rückgängig gemacht werden.`)) return
+    clearPreferencesForMode(loadPreferences(), draftMode)
+  }
 
   return (
     <section className="card">
@@ -436,6 +444,18 @@ export default function SetupForm(props) {
             />
 
             <SyncSection />
+
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn-compact btn-icon"
+                onClick={handleClearMarkings}
+                title={`Alle Fav/Avoid-Markierungen für ${draftMode === 'rookie' ? 'Rookie Draft' : 'Redraft'} löschen`}
+                aria-label="Markierungen löschen"
+              >
+                <Icon name="trash-2" size={14} />
+              </button>
+            </div>
           </div>
           <div className="step-actions">
             <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Weiter</button>

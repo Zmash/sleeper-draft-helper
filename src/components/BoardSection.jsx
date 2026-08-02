@@ -17,7 +17,7 @@ import ApiKeyDialog from './ApiKeyDialog'
 import { buildAIAdviceRequest } from '../services/ai'
 import { buildAdviceRequestArgs } from '../services/adviceRequestArgs'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
-import { loadPreferences, savePreferences, setPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
+import { loadPreferences, savePreferences, setPreference, getPreference, PlayerPreference, playerKey, migrateV1ToV2IfNeeded } from '../services/preferences'
 import { getTeamsCount } from '../services/derive'
 import { exportSettings, importSettingsFromFile } from "../utils/settingsTransfer"
 import { exportBoardAsCsv } from '../services/csv'
@@ -552,14 +552,14 @@ export default function BoardSection({
   }, [boardPlayers, playerPrefs])
 
   function handleSetPlayerPref(playerIdOrKey, pref) {
-    setPlayerPrefs(prev => setPreference(prev, playerIdOrKey, pref))
+    setPlayerPrefs(prev => setPreference(prev, playerIdOrKey, pref, draftMode))
   }
 
   const [hideAvoid, setHideAvoid] = useState(false)
   const filteredBoardPlayers = useMemo(() => {
     const list = filteredPlayers || []
     if (!hideAvoid) return list
-    return list.filter(p => (playerPrefs[playerKey(p)] || null) !== PlayerPreference.AVOID)
+    return list.filter(p => getPreference(playerPrefs, p) !== PlayerPreference.AVOID)
   }, [filteredPlayers, hideAvoid, playerPrefs])
 
   function scrollToNextUndrafted() {

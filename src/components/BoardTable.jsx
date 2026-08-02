@@ -1,7 +1,7 @@
 // src/components/BoardTable.jsx
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { cx } from '../utils/formatting'
-import { PlayerPreference, playerKey } from '../services/preferences'
+import { PlayerPreference, playerKey, getPreference } from '../services/preferences'
 import Icon from './Icon'
 
 // Konvention: adp - rk, positiv = Value (faellt dir zu).
@@ -215,7 +215,7 @@ export default function BoardTable({
               const isHighlighted = highlightSet.has(keyN)
               const isPrimary = primaryKey && keyN === primaryKey
               const reason = (adviceReasons && adviceReasons[keyN]) || ''
-              const pref = playerPrefs[playerKey(p)] || null
+              const pref = getPreference(playerPrefs, p)
               const isDragOver = dragOverNname === p.nname
               const isDragging = draggedNname === p.nname
               // Mobile-Reorder: lange gedrueckte Zeile hervorheben

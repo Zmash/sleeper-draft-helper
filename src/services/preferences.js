@@ -81,15 +81,36 @@ export function savePreferences(map) {
 /** Gibt 'favorite' | 'avoid' | null für einen Spieler/Key zurück */
 export function getPreference(map, playerOrKey) {
   const key = typeof playerOrKey === 'string' ? playerOrKey : playerKey(playerOrKey)
-  return map[key] || null
+  const v = map[key]
+  if (v == null) return null
+  return typeof v === 'string' ? v : (v.pref || null)
 }
 
-/** Setzt/entfernt die Pref und persisted v2 */
-export function setPreference(map, playerOrKey, pref) {
+/**
+ * Setzt/entfernt die Pref und persisted v2. Mit 'mode' wird der Eintrag als
+ * {pref, mode} statt als bloßer String abgelegt — nur so lässt sich später
+ * gezielt "nur Redraft" oder "nur Rookie" löschen (siehe clearPreferencesForMode).
+ */
+export function setPreference(map, playerOrKey, pref, mode) {
   const key = typeof playerOrKey === 'string' ? playerOrKey : playerKey(playerOrKey)
   const next = { ...map }
   if (pref == null) delete next[key]
-  else next[key] = pref
+  else next[key] = mode ? { pref, mode } : pref
+  savePreferences(next)
+  return next
+}
+
+/**
+ * Löscht nur Einträge, die für 'mode' gesetzt wurden. Alte Einträge ohne
+ * Modus-Tag (aus der Zeit vor dieser Änderung) lassen sich nicht rückwirkend
+ * zuordnen und bleiben bewusst stehen, statt geraten gelöscht zu werden.
+ */
+export function clearPreferencesForMode(map, mode) {
+  const next = {}
+  for (const [k, v] of Object.entries(map || {})) {
+    if (v && typeof v === 'object' && v.mode === mode) continue
+    next[k] = v
+  }
   savePreferences(next)
   return next
 }
