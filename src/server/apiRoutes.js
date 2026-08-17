@@ -22,6 +22,16 @@ function setSSEHeaders(res) {
   res.flushHeaders()
 }
 
+// Die AI-Routen schweigen bis zur fertigen Antwort — live gemessen ~25s. So lange
+// sieht ein Proxy oder ein Mobilfunk-NAT eine untaetige Verbindung und kappt sie
+// womoeglich. Der Client bemerkte das nicht einmal: Stream zu Ende, kein result,
+// kein Fehler, leerer Dialog. Kommentarzeilen (":") halten die Leitung wach und
+// werden von jedem SSE-Leser ignoriert.
+function startHeartbeat(res, ms = 15000) {
+  const id = setInterval(() => { try { res.write(': ping\n\n') } catch { /* Verbindung weg */ } }, ms)
+  return () => clearInterval(id)
+}
+
 function sendSSE(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 }
@@ -646,6 +656,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     }
 
     setSSEHeaders(res)
+    const stopHeartbeat = startHeartbeat(res)
 
     try {
       const p = applyPromptCaching(payload)
@@ -713,6 +724,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'AI request failed' })
     } finally {
+      stopHeartbeat()
       res.end()
     }
   })
@@ -728,6 +740,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     }
 
     setSSEHeaders(res)
+    const stopHeartbeat = startHeartbeat(res)
 
     try {
       const p = applyPromptCaching({ ...payload, tools: [REVIEW_TOOL] })
@@ -757,6 +770,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'Review request failed' })
     } finally {
+      stopHeartbeat()
       res.end()
     }
   })
@@ -772,6 +786,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     }
 
     setSSEHeaders(res)
+    const stopHeartbeat = startHeartbeat(res)
 
     try {
       const p = applyPromptCaching(payload)
@@ -796,6 +811,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'Trade analysis failed' })
     } finally {
+      stopHeartbeat()
       res.end()
     }
   })
@@ -811,6 +827,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     }
 
     setSSEHeaders(res)
+    const stopHeartbeat = startHeartbeat(res)
 
     try {
       const mode = draftMode === 'rookie' ? 'rookie' : 'redraft'
@@ -878,6 +895,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'Strategie-Recherche fehlgeschlagen' })
     } finally {
+      stopHeartbeat()
       res.end()
     }
   })

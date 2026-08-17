@@ -394,6 +394,11 @@ export default function BoardSection({
       const decoder = new TextDecoder()
       let buffer = ''
 
+      // Bricht die Verbindung waehrend der ~25s Wartezeit ab (Mobilfunk, Proxy,
+      // Tab-Wechsel), endete die Schleife bisher stumm: kein result, kein Fehler,
+      // leerer Dialog ohne jeden Hinweis. Deshalb hier mitzaehlen.
+      let gotResult = false
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -421,6 +426,7 @@ export default function BoardSection({
                 .map(p => String(p.nname || '').trim().toLowerCase())
             )
             const { cleaned, warnings } = validateAdvice(data.parsed, availableNnames)
+            gotResult = true
             setAdvice(cleaned)
             setAdviceWarnings(warnings)
             setAdviceUsage(data.usage || null)
@@ -435,6 +441,10 @@ export default function BoardSection({
             throw new Error(data.message || 'AI error')
           }
         }
+      }
+
+      if (!gotResult) {
+        throw new Error('Verbindung zur AI abgebrochen, bevor eine Antwort ankam. Bitte erneut versuchen.')
       }
 
     } catch (e) {
