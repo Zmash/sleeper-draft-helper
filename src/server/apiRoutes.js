@@ -657,7 +657,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       // streng nach. Endet der Stream mitten im Tool-JSON, kommt klaglos ein
       // Teilobjekt heraus ({primary:{}} ohne Namen, alternatives fehlt) statt
       // eines Fehlers. create() liefert den serverseitig fertig geparsten Input.
-      const finalMessage = await client.messages.create({
+      const askAdvice = (tools) => client.messages.create({
         model: MODEL,
         max_tokens: p.max_tokens || 16000,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
@@ -667,13 +667,26 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         thinking: { type: 'adaptive' },
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
-        tools: Array.isArray(p.tools) ? p.tools : [],
+        tools,
         // disable_parallel_tool_use: paralleler Tool-Use ist per Default AN. Das
-        // Modell schickte zeitweise ZWEI return_draft_advice-Bloecke, wovon der
-        // erste eine halb ausgeklappte Fassung war (pos/rk/why auf oberster Ebene
-        // statt in primary). Genau ein Aufruf pro Antwort ist hier immer richtig.
+        // Modell schickte zeitweise ZWEI return_draft_advice-Bloecke — genau ein
+        // Aufruf pro Antwort ist hier immer richtig.
         tool_choice: { ...(p.tool_choice || { type: 'auto' }), disable_parallel_tool_use: true },
       })
+
+      const tools = Array.isArray(p.tools) ? p.tools : []
+      let finalMessage
+      try {
+        finalMessage = await askAdvice(tools)
+      } catch (err) {
+        // Netz fuer strict: laesst die API das Schema nicht zu, ist das ein 400 und
+        // JEDER Advice-Call waere tot. Dann lieber einmal ohne strict nachfassen —
+        // schlechtester Fall ist damit der Stand von vorher, nicht Totalausfall.
+        // Sichtbar bleibt es trotzdem: die Warnung landet im Server-Log.
+        if (err?.status !== 400 || !tools.some(t => t.strict)) throw err
+        console.warn('[ai-advice] strict abgelehnt, Fallback ohne strict:', err?.message)
+        finalMessage = await askAdvice(tools.map(({ strict, ...t }) => t)) // eslint-disable-line no-unused-vars
+      }
 
       const parsed = pickToolInput(
         finalMessage.content, 'return_draft_advice', i => !!i?.primary?.player_nname

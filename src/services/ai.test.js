@@ -219,3 +219,47 @@ describe('buildAIAdviceRequest — Schema & Prompt', () => {
     expect(req.system).toMatch(/[Tt]axi/)
   })
 })
+
+describe('Advice-Tool — strict-Vertrag', () => {
+  const tool = buildAIAdviceRequest(baseParams).tools[0]
+
+  // Ohne strict validiert die API die Tool-Eingabe nicht. Live kam genau deshalb
+  // ein Input zurueck, in dem primary leer blieb und pos/rk/why eine Ebene zu hoch
+  // standen — obwohl additionalProperties: false das verbietet.
+  it('setzt strict', () => {
+    expect(tool.strict).toBe(true)
+  })
+
+  // Beim Erweitern des Schemas am leichtesten zu vergessen: strict verlangt, dass
+  // JEDES Property in required steht. Diese Pruefung laeuft rekursiv, damit ein
+  // neues Feld in einem verschachtelten Objekt nicht durchrutscht.
+  it('listet auf jeder Ebene alle Properties in required und verbietet Zusatzfelder', () => {
+    const walk = (node, pfad) => {
+      if (!node || typeof node !== 'object') return
+      for (const zweig of node.anyOf || []) walk(zweig, pfad)
+      if (node.type === 'object') {
+        expect(node.additionalProperties, `${pfad}: additionalProperties`).toBe(false)
+        expect([...(node.required || [])].sort(), `${pfad}: required`)
+          .toEqual(Object.keys(node.properties || {}).sort())
+        for (const [k, v] of Object.entries(node.properties || {})) walk(v, `${pfad}.${k}`)
+      }
+      if (node.type === 'array') walk(node.items, `${pfad}[]`)
+    }
+    walk(tool.input_schema, 'input_schema')
+  })
+
+  // minimum/maximum/minItems/maxItems unterstuetzt strict nicht — die Vorgaben
+  // gehoeren in die description, sonst lehnt die API das ganze Schema ab.
+  it('enthaelt keine von strict abgelehnten Constraints', () => {
+    const json = JSON.stringify(tool.input_schema)
+    for (const verboten of ['minimum', 'maximum', 'minItems', 'maxItems', 'minLength', 'maxLength']) {
+      expect(json, `Constraint ${verboten}`).not.toContain(`"${verboten}"`)
+    }
+  })
+
+  it('laesst run_alert und rk ausdruecklich null zu', () => {
+    const props = tool.input_schema.properties
+    expect(props.run_alert.anyOf.some(z => z.type === 'null')).toBe(true)
+    expect(props.primary.properties.rk.anyOf.some(z => z.type === 'null')).toBe(true)
+  })
+})

@@ -353,16 +353,37 @@ function buildSystemPrompt(draftMode) {
 
 // ---------- Tool definition (Anthropic format) ----------
 
+// strict: true — ohne das validiert die API die Tool-Eingabe NICHT, das Schema ist
+// dann blosse Empfehlung. Live kam genau deshalb ein Input zurueck, in dem primary
+// leer blieb und pos/rk/why eine Ebene zu hoch standen (player_nname fehlte ganz),
+// obwohl additionalProperties: false das verbietet. STRATEGY_TOOL hat strict aus
+// demselben Grund bereits.
+//
+// Was strict verlangt und was hier deshalb anders ist:
+// - additionalProperties: false auf JEDEM Objekt (war schon so)
+// - jedes Property in required. Echt optionale Felder deshalb per anyOf mit null
+//   (run_alert, rk) statt durch Weglassen — die UI prueft ohnehin auf truthy bzw.
+//   != null, null rendert also einfach nichts.
+// - keine numerischen Grenzen und keine Array-Groessen: minimum/maximum/minItems/
+//   maxItems werden von strict nicht unterstuetzt. Die Vorgaben stehen jetzt in den
+//   descriptions, wo sie das Modell genauso liest.
+// fit_score, risk_level und confidence sind ersatzlos entfallen: nirgends gerendert
+// (fit_score stand nur in einer Test-Fixture) und Traeger der nicht erlaubten Grenzen.
 function buildAdviceTool() {
   const playerCore = {
     player_nname: { type: 'string', description: 'Normalisierter Name, exakt wie board.nname' },
-    player_display: { type: 'string' },
+    player_display: { type: 'string', description: 'Anzeigename des Spielers' },
     pos: { type: 'string', enum: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'OTHER'] },
-    rk: { type: 'integer' },
+    rk: {
+      anyOf: [{ type: 'integer' }, { type: 'null' }],
+      description: 'Rang aus dem Board, null wenn unbekannt',
+    },
   }
+  const playerCoreKeys = Object.keys(playerCore)
   return {
     name: 'return_draft_advice',
     description: 'Naechster-Pick-Empfehlung mit Vergleich, Survival-Einschaetzung und Plan fuer die kommenden eigenen Picks.',
+    strict: true,
     input_schema: {
       type: 'object',
       additionalProperties: false,
@@ -379,13 +400,13 @@ function buildAdviceTool() {
           type: 'object', additionalProperties: false,
           properties: {
             ...playerCore,
-            fit_score: { type: 'number', minimum: 0, maximum: 100 },
             why: { type: 'string', description: 'Begruendung auf Deutsch (du-Form): Fit, Knappheit, Risiko' },
           },
-          required: ['player_nname', 'pos', 'why'],
+          required: [...playerCoreKeys, 'why'],
         },
         alternatives: {
-          type: 'array', minItems: 2, maxItems: 4,
+          type: 'array',
+          description: 'Zwei bis vier echte Alternativen, je ein Array-Eintrag.',
           items: {
             type: 'object', additionalProperties: false,
             properties: {
@@ -393,7 +414,7 @@ function buildAdviceTool() {
               why: { type: 'string', description: 'Deutsch (du-Form)' },
               tradeoff_vs_primary: { type: 'string', description: 'Was gebe ich auf, wenn ich stattdessen primary nehme? Deutsch (du-Form)' },
             },
-            required: ['player_nname', 'pos', 'why', 'tradeoff_vs_primary'],
+            required: [...playerCoreKeys, 'why', 'tradeoff_vs_primary'],
           },
         },
         survival: {
@@ -410,33 +431,42 @@ function buildAdviceTool() {
           },
         },
         plan_next_picks: {
-          type: 'array', maxItems: 3,
-          description: 'Plan fuer die naechsten eigenen Picks (Pick-Nummern aus dem Kontext).',
+          type: 'array',
+          description: 'Plan fuer die naechsten eigenen Picks (Pick-Nummern aus dem Kontext), hoechstens drei Eintraege.',
           items: {
             type: 'object', additionalProperties: false,
             properties: {
               pick_number: { type: 'integer' },
               target_positions: { type: 'array', items: { type: 'string' } },
-              candidate_nnames: { type: 'array', items: { type: 'string' } },
+              candidate_nnames: {
+                type: 'array', items: { type: 'string' },
+                description: 'Nur Spieler vom Board. Leeres Array, wenn du keine nennen willst.',
+              },
               note: { type: 'string', description: 'Deutsch (du-Form)' },
             },
-            required: ['pick_number', 'target_positions', 'note'],
+            required: ['pick_number', 'target_positions', 'candidate_nnames', 'note'],
           },
         },
         run_alert: {
-          type: 'object', additionalProperties: false,
-          description: 'Nur setzen, wenn draft_flow.run gesetzt ist.',
-          properties: {
-            pos: { type: 'string' },
-            note: { type: 'string', description: 'Deutsch (du-Form)' },
-          },
-          required: ['pos', 'note'],
+          description: 'Nur fuellen, wenn draft_flow.run gesetzt ist — sonst null.',
+          anyOf: [
+            {
+              type: 'object', additionalProperties: false,
+              properties: {
+                pos: { type: 'string' },
+                note: { type: 'string', description: 'Deutsch (du-Form)' },
+              },
+              required: ['pos', 'note'],
+            },
+            { type: 'null' },
+          ],
         },
         strategy_notes: { type: 'string', description: '1-3 kurze Punkte, Deutsch (du-Form)' },
-        risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
-        confidence: { type: 'number', minimum: 0, maximum: 1 },
       },
-      required: ['roster_check', 'primary', 'alternatives', 'survival', 'plan_next_picks'],
+      required: [
+        'roster_check', 'primary', 'alternatives', 'survival',
+        'plan_next_picks', 'run_alert', 'strategy_notes',
+      ],
     },
   }
 }
