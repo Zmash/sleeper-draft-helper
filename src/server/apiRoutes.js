@@ -233,6 +233,22 @@ export function applyPromptCaching(payload = {}) {
   return out
 }
 
+/**
+ * Holt den Input des Tool-Aufrufs `name` aus den Antwort-Bloecken.
+ *
+ * Warum nicht einfach der erste Treffer: Das Modell lieferte live zeitweise ZWEI
+ * return_draft_advice-Bloecke, wovon der erste eine halb ausgeklappte Fassung war
+ * (pos/rk/why auf oberster Ebene statt in primary). `disable_parallel_tool_use`
+ * verhindert das jetzt an der Quelle — hier gewinnt zusaetzlich der erste Block,
+ * der `isUsable` erfuellt, damit ein Rueckfall nicht gleich wieder die UI trifft.
+ */
+export function pickToolInput(content, name, isUsable = (i) => i && Object.keys(i).length) {
+  const inputs = (content || [])
+    .filter(b => b?.type === 'tool_use' && b.name === name)
+    .map(b => b.input)
+  return inputs.find(isUsable) || inputs[0] || null
+}
+
 // ---------- Geräte-Sync: verschlüsselter Briefkasten ----------
 // Der Server sieht Raum-ID und Chiffrat, nie den Schlüssel. Er kann den
 // Inhalt nicht deuten — das ist die Zusage an die Nutzer, nicht bloß eine
@@ -652,13 +668,16 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: Array.isArray(p.tools) ? p.tools : [],
-        tool_choice: p.tool_choice || { type: 'auto' },
+        // disable_parallel_tool_use: paralleler Tool-Use ist per Default AN. Das
+        // Modell schickte zeitweise ZWEI return_draft_advice-Bloecke, wovon der
+        // erste eine halb ausgeklappte Fassung war (pos/rk/why auf oberster Ebene
+        // statt in primary). Genau ein Aufruf pro Antwort ist hier immer richtig.
+        tool_choice: { ...(p.tool_choice || { type: 'auto' }), disable_parallel_tool_use: true },
       })
 
-      const toolBlock = (finalMessage.content || []).find(
-        b => b.type === 'tool_use' && b.name === 'return_draft_advice'
+      const parsed = pickToolInput(
+        finalMessage.content, 'return_draft_advice', i => !!i?.primary?.player_nname
       )
-      const parsed = toolBlock?.input || null
 
       // Sollte trotzdem noch etwas fehlen, ist die Ursache eine andere als bisher
       // vermutet — dann muss die Meldung das auch hergeben statt nur "unvollstaendig".
@@ -709,13 +728,11 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: p.tools,
-        tool_choice: { type: 'tool', name: 'return_draft_review' },
+        // Siehe /api/ai-advice: genau ein Tool-Aufruf pro Antwort.
+        tool_choice: { type: 'tool', name: 'return_draft_review', disable_parallel_tool_use: true },
       })
 
-      const toolBlock = (finalMessage.content || []).find(
-        b => b.type === 'tool_use' && b.name === 'return_draft_review'
-      )
-      const parsed = toolBlock?.input || null
+      const parsed = pickToolInput(finalMessage.content, 'return_draft_review')
 
       if (!parsed) {
         sendSSE(res, 'error', { ok: false, message: 'Model did not return structured review JSON' })
@@ -755,14 +772,12 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
         tools: Array.isArray(p.tools) ? p.tools : [],
-        tool_choice: p.tool_choice || { type: 'auto' },
+        // Siehe /api/ai-advice: genau ein Tool-Aufruf pro Antwort.
+        tool_choice: { ...(p.tool_choice || { type: 'auto' }), disable_parallel_tool_use: true },
       })
 
       const expectedTool = p.tool_choice?.name || 'return_trade_analysis'
-      const toolBlock = (finalMessage.content || []).find(
-        b => b.type === 'tool_use' && b.name === expectedTool
-      )
-      const parsed = toolBlock?.input || null
+      const parsed = pickToolInput(finalMessage.content, expectedTool)
 
       sendSSE(res, 'result', { ok: true, parsed, model: finalMessage.model, usage: finalMessage.usage })
     } catch (err) {

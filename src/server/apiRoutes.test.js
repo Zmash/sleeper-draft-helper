@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
 import { STRATEGY_TOOL, STRATEGY_SOURCES, buildStrategyPrompt } from './apiRoutes.js'
-import { SYNC_DIR, MAX_ROOMS, isValidRoom, readRoom, writeRoom } from './apiRoutes.js'
+import { SYNC_DIR, MAX_ROOMS, isValidRoom, readRoom, writeRoom, pickToolInput } from './apiRoutes.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -259,5 +259,30 @@ describe('Sync-Briefkasten', () => {
     const res = { set: (k, v) => calls.push([k, v]), status: () => res, json: () => res, end: () => res }
     handler({ params: { room: 'ungueltig' }, headers: {} }, res)
     expect(calls).toContainEqual(['Cache-Control', 'no-store'])
+  })
+})
+
+describe('pickToolInput — mehrere tool_use-Bloecke', () => {
+  const usable = (i) => !!i?.primary?.player_nname
+
+  it('nimmt den brauchbaren Block, nicht stur den ersten', () => {
+    // Live beobachtet: zwei return_draft_advice-Bloecke, der erste halb
+    // ausgeklappt (pos/rk/why auf oberster Ebene statt in primary).
+    const content = [
+      { type: 'tool_use', name: 'return_draft_advice', input: { roster_check: 'x', primary: {}, pos: 'RB', rk: 12, why: 'y' } },
+      { type: 'tool_use', name: 'return_draft_advice', input: { roster_check: 'x', primary: { player_nname: 'bijan robinson', pos: 'RB', why: 'y' } } },
+    ]
+    expect(pickToolInput(content, 'return_draft_advice', usable).primary.player_nname).toBe('bijan robinson')
+  })
+
+  it('faellt auf den ersten Block zurueck, wenn keiner brauchbar ist', () => {
+    const content = [{ type: 'tool_use', name: 'return_draft_advice', input: { roster_check: 'x' } }]
+    expect(pickToolInput(content, 'return_draft_advice', usable)).toEqual({ roster_check: 'x' })
+  })
+
+  it('ignoriert fremde Bloecke und liefert null ohne Treffer', () => {
+    const content = [{ type: 'thinking', thinking: '' }, { type: 'tool_use', name: 'anderes_tool', input: { a: 1 } }]
+    expect(pickToolInput(content, 'return_draft_advice', usable)).toBeNull()
+    expect(pickToolInput(null, 'return_draft_advice')).toBeNull()
   })
 })
