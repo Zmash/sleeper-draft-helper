@@ -636,7 +636,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const client = new Anthropic({ apiKey: userKey })
       const stream = client.messages.stream({
         model: MODEL,
-        max_tokens: p.max_tokens || 8000,
+        max_tokens: p.max_tokens || 64000,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
         // Denken explizit statt auf den Modell-Default zu vertrauen: der Advice
         // soll erst abwaegen (roster_check), dann entscheiden. Thinking und
@@ -654,12 +654,23 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       )
       const parsed = toolBlock?.input || null
 
-      sendSSE(res, 'result', {
-        ok: true,
-        parsed,
-        model: finalMessage.model,
-        usage: finalMessage.usage,
-      })
+      // Bei max_tokens kann die Tool-JSON mittendrin abreissen — dann existiert
+      // toolBlock.input zwar, aber primary.player_nname (required im Schema)
+      // fehlt. Das haette clientseitig nur zur nichtssagenden "?"-Warnung
+      // gefuehrt, deshalb hier hart als Fehler mit stop_reason melden.
+      if (!parsed || !parsed.primary?.player_nname) {
+        sendSSE(res, 'error', {
+          ok: false,
+          message: `AI-Antwort unvollstaendig (stop_reason: ${finalMessage.stop_reason}). Bitte erneut versuchen.`,
+        })
+      } else {
+        sendSSE(res, 'result', {
+          ok: true,
+          parsed,
+          model: finalMessage.model,
+          usage: finalMessage.usage,
+        })
+      }
     } catch (err) {
       sendSSE(res, 'error', { ok: false, message: err?.message || 'AI request failed' })
     } finally {
