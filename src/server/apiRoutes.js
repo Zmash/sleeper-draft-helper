@@ -634,13 +634,20 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     try {
       const p = applyPromptCaching(payload)
       const client = new Anthropic({ apiKey: userKey })
-      const stream = client.messages.stream({
+      // Bewusst messages.create statt messages.stream: kein Client liest je ein
+      // 'text'-Event, wir senden ohnehin nur ein fertiges 'result'. Der Stream war
+      // reiner Umweg — und ein gefaehrlicher: der Akkumulator des SDK baut
+      // tool_use.input mit partialParse zusammen und parst am Blockende NICHT
+      // streng nach. Endet der Stream mitten im Tool-JSON, kommt klaglos ein
+      // Teilobjekt heraus ({primary:{}} ohne Namen, alternatives fehlt) statt
+      // eines Fehlers. create() liefert den serverseitig fertig geparsten Input.
+      const finalMessage = await client.messages.create({
         model: MODEL,
-        max_tokens: p.max_tokens || 64000,
+        max_tokens: p.max_tokens || 16000,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
         // Denken explizit statt auf den Modell-Default zu vertrauen: der Advice
         // soll erst abwaegen (roster_check), dann entscheiden. Thinking und
-        // Antwort teilen sich max_tokens — deshalb oben der groessere Wert.
+        // Antwort teilen sich max_tokens — deshalb oben Puffer.
         thinking: { type: 'adaptive' },
         ...(p.system ? { system: p.system } : {}),
         messages: p.messages,
@@ -648,20 +655,20 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         tool_choice: p.tool_choice || { type: 'auto' },
       })
 
-      const finalMessage = await stream.finalMessage()
       const toolBlock = (finalMessage.content || []).find(
         b => b.type === 'tool_use' && b.name === 'return_draft_advice'
       )
       const parsed = toolBlock?.input || null
 
-      // Bei max_tokens kann die Tool-JSON mittendrin abreissen — dann existiert
-      // toolBlock.input zwar, aber primary.player_nname (required im Schema)
-      // fehlt. Das haette clientseitig nur zur nichtssagenden "?"-Warnung
-      // gefuehrt, deshalb hier hart als Fehler mit stop_reason melden.
+      // Sollte trotzdem noch etwas fehlen, ist die Ursache eine andere als bisher
+      // vermutet — dann muss die Meldung das auch hergeben statt nur "unvollstaendig".
       if (!parsed || !parsed.primary?.player_nname) {
         sendSSE(res, 'error', {
           ok: false,
-          message: `AI-Antwort unvollstaendig (stop_reason: ${finalMessage.stop_reason}). Bitte erneut versuchen.`,
+          message: `AI-Antwort unbrauchbar (stop_reason: ${finalMessage.stop_reason}, `
+            + `Bloecke: ${(finalMessage.content || []).map(b => b.type).join('+') || 'keine'}, `
+            + `Felder: ${parsed ? Object.keys(parsed).join(',') || 'leer' : 'kein tool_use'}). `
+            + 'Bitte erneut versuchen.',
         })
       } else {
         sendSSE(res, 'result', {
@@ -693,7 +700,9 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     try {
       const p = applyPromptCaching({ ...payload, tools: [REVIEW_TOOL] })
       const client = new Anthropic({ apiKey: userKey })
-      const stream = client.messages.stream({
+      // create statt stream: siehe /api/ai-advice — der Stream-Akkumulator kann
+      // tool_use.input als Teilobjekt durchreichen.
+      const finalMessage = await client.messages.create({
         model: MODEL,
         max_tokens: p.max_tokens || 4096,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
@@ -703,7 +712,6 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         tool_choice: { type: 'tool', name: 'return_draft_review' },
       })
 
-      const finalMessage = await stream.finalMessage()
       const toolBlock = (finalMessage.content || []).find(
         b => b.type === 'tool_use' && b.name === 'return_draft_review'
       )
@@ -738,7 +746,9 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     try {
       const p = applyPromptCaching(payload)
       const client = new Anthropic({ apiKey: userKey })
-      const stream = client.messages.stream({
+      // create statt stream: siehe /api/ai-advice — der Stream-Akkumulator kann
+      // tool_use.input als Teilobjekt durchreichen.
+      const finalMessage = await client.messages.create({
         model: MODEL,
         max_tokens: p.max_tokens || 1400,
         // Kein temperature: claude-sonnet-5 lehnt den Parameter ab (deprecated).
@@ -748,7 +758,6 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         tool_choice: p.tool_choice || { type: 'auto' },
       })
 
-      const finalMessage = await stream.finalMessage()
       const expectedTool = p.tool_choice?.name || 'return_trade_analysis'
       const toolBlock = (finalMessage.content || []).find(
         b => b.type === 'tool_use' && b.name === expectedTool

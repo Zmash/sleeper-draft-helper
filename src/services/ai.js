@@ -516,14 +516,11 @@ export function buildAIAdviceRequest(params) {
     ],
     tools: [buildAdviceTool()],
     tool_choice: { type: 'tool', name: 'return_draft_advice' },
-    // Adaptives Denken bei Sonnet 5 teilt sich max_tokens mit der Antwort und
-    // entscheidet PRO Anfrage, wie lange gedacht wird — bei kniffliger Board-Lage
-    // frisst es das Budget, und die Tool-Antwort reisst mittendrin ab. 2000 und
-    // 8000 waren beide zu eng. Grosszuegig ist hier gratis: max_tokens ist eine
-    // Obergrenze, keine Ausgabe — ungenutzte Tokens kosten nichts, und der Stream
-    // (Route nutzt messages.stream) haelt auch lange Antworten ohne Timeout aus.
-    // Modell-Limit waere 128k.
-    max_tokens: 64000,
+    // Adaptives Denken teilt sich max_tokens mit der Antwort, deshalb Puffer ueber
+    // dem, was die Antwort allein braucht. NICHT hoeher: die Abrisse kamen nicht vom
+    // Budget (stop_reason war tool_use, nicht max_tokens), sondern vom
+    // Stream-Akkumulator — siehe /api/ai-advice. 64k war ein Fehlschluss.
+    max_tokens: 16000,
     temperature: options.temperature ?? 0.2,
   }
 }
