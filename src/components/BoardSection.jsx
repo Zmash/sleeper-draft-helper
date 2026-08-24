@@ -229,8 +229,11 @@ export default function BoardSection({
       draftMode,
     })
     return resolveStrategyText(loadStrategies(), fp)
+  // setupTick mit in den Deps: loadStrategies() liest localStorage, und das
+  // aendert sich auch ohne Formatwechsel — durch einen Sync-Pull oder durch
+  // Bearbeiten im Setup.
   }, [draftFormat.teams, draftFormat.scoringType, draftFormat.isSuperflex,
-      JSON.stringify(rosterPositions), seasonYear, draftMode])
+      JSON.stringify(rosterPositions), seasonYear, draftMode, setupTick])
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
@@ -260,6 +263,12 @@ export default function BoardSection({
   // Player Preferences (v2) -- muss vor adviceEstimate deklariert sein, weil
   // die Schaetzung playerPrefs jetzt (wie der echte Call) mitgibt.
   const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
+
+  // Dieser State liest localStorage nur beim Mount. Ein Sync-Pull ersetzt den
+  // Key aber darunter — und clearPreferencesForMode() im Setup ebenso. Ohne das
+  // hier zeigte das Board weiter die alten Markierungen und schriebe sie beim
+  // naechsten Klick wieder zurueck.
+  useEffect(() => { setPlayerPrefs(loadPreferences()) }, [setupTick])
 
   // Kostenschaetzung am Button -- nur wenn der Button ueberhaupt sichtbar ist
   // (hasBoard) neu berechnen, nicht bei jedem Render. Baut ueber

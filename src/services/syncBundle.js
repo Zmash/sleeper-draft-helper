@@ -46,6 +46,34 @@ export function collectBundle() {
   return out
 }
 
+// Dreiwege-Abgleich auf Ebene der localStorage-Keys.
+//
+// Ohne das gewinnt beim Pull das Fremdbuendel VOLLSTAENDIG — auch bei Keys, die
+// man selbst gerade geaendert und noch nicht hochgeladen hat. Genau daran sind
+// Markierungen vom Handy verschwunden: der PC laeuft dauerhaft mit Takt und
+// pusht darum fast immer zuerst; das Handy sah beim naechsten Abgleich einen
+// neueren Stempel und hat seine eigene Aenderung mit dem PC-Stand ueberschrieben.
+// Das sah aus wie "Sync geht nur von PC zu Handy".
+//
+// base ist der Stand, auf den sich beide Geraete zuletzt geeinigt hatten
+// (lastSentBundle) — nur damit laesst sich pro Key entscheiden, WER geaendert hat.
+export function mergeBundles(base = {}, local = {}, remote = {}) {
+  const out = {}
+  for (const k of [...new Set([...Object.keys(local), ...Object.keys(remote)])].sort()) {
+    const b = base[k], l = local[k], r = remote[k]
+    // Loeschen kennt der Sync nicht (applyBundle schreibt nur, es entfernt nie) —
+    // fehlt ein Key auf einer Seite, gilt der Wert der anderen. Wuerde der Key
+    // stattdessen wegfallen, saehe ihn der naechste Takt als eigene Neuerung und
+    // schoebe ihn wieder hoch: ein Ping-Pong ohne Ende.
+    if (l === undefined) { out[k] = r; continue }
+    if (r === undefined) { out[k] = l; continue }
+    if (l === r || l === b) out[k] = r // bei uns unveraendert -> Fremdstand
+    else if (r === b) out[k] = l       // nur wir haben geaendert -> unser Stand
+    else out[k] = r                    // echter Konflikt am selben Key -> Server gewinnt
+  }
+  return out
+}
+
 export function applyBundle(bundle) {
   const applied = []
   for (const [k, v] of Object.entries(bundle || {})) {

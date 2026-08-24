@@ -33,6 +33,16 @@ export default function StrategySection({ format, season, draftMode, draftSlot =
     saveStrategies(store)
   }, [JSON.stringify(store)])
 
+  // Genau der Kopplungsweg: das hinzukommende Geraet landet auf /setup, diese
+  // Komponente steht da schon mit leerem Store, und erst danach bringt der erste
+  // Pull die Strategien in localStorage. Ohne dieses Neulesen schriebe die
+  // naechste Bearbeitung den leeren Stand darueber — und pushte ihn auch noch.
+  useEffect(() => {
+    const onChanged = () => setStore(loadStrategies())
+    window.addEventListener('sdh:setup-changed', onChanged)
+    return () => window.removeEventListener('sdh:setup-changed', onChanged)
+  }, [])
+
   function setPrinciples(principles) {
     setStore(s => ({ ...s, principles }))
   }

@@ -1,8 +1,21 @@
 // Kopplung, HTTP und Abgleichschleife. Einzige Stelle des Sync mit
 // Nebenwirkungen — syncCrypto und syncBundle bleiben rein.
 
-import { SYNC_KEY, collectBundle, applyBundle } from './syncBundle'
+import { SYNC_KEY, collectBundle, applyBundle, mergeBundles } from './syncBundle'
 import { deriveRoomId, encryptBundle, decryptBundle } from './syncCrypto'
+import { useSessionStore } from '../stores/useSessionStore'
+import { useBoardStore } from '../stores/useBoardStore'
+import { useLiveStore } from '../stores/useLiveStore'
+import { useUIStore } from '../stores/useUIStore'
+
+// Alle persistierten Stores neu aus localStorage lesen statt reload(): applyBundle()
+// schreibt nur localStorage, Zustand-Persist merkt das im selben Tab nicht von allein
+// (das 'storage'-Event feuert nur in ANDEREN Tabs). rehydrate() ist genau dafuer da.
+function rehydratePersistedStores() {
+  return Promise.all(
+    [useSessionStore, useBoardStore, useLiveStore, useUIStore].map((s) => s.persist.rehydrate())
+  )
+}
 
 const SECRET_RX = /^[A-Za-z0-9_-]{43}$/
 
@@ -98,6 +111,12 @@ async function syncOnceInner() {
     return 'error'
   }
 
+  let pulled = false
+  // Der Stand, auf den sich beide Geraete zuletzt geeinigt hatten. Dient als
+  // Basis des Dreiwege-Abgleichs und zugleich als Vergleichswert dafuer, ob wir
+  // etwas Eigenes zu senden haben.
+  let agreed = st.lastSentBundle
+
   if (remote && remote.stamp !== st.lastSeenStamp) {
     let bundle
     try {
@@ -105,19 +124,24 @@ async function syncOnceInner() {
     } catch {
       return 'badkey'
     }
-    applyBundle(bundle)
-    // Nach dem Anwenden neu sammeln statt das Buendel zu serialisieren:
-    // lokale Keys, die nicht im Buendel standen, bleiben ja stehen — sonst
-    // sieht der naechste Takt sofort eine "Aenderung" und laedt hoch.
-    saveIfStillPaired(st, {
-      lastSeenStamp: remote.stamp,
-      lastSentBundle: JSON.stringify(collectBundle()),
-    })
-    return 'pulled'
+    // Ohne Basis (frisch gekoppelt, lastSentBundle ist bewusst null) gibt es
+    // nichts zu mischen: das hinzukommende Geraet uebernimmt den vorhandenen
+    // Stand vollstaendig. Genau so ist die Kopplung gemeint.
+    let base = null
+    try { base = agreed ? JSON.parse(agreed) : null } catch { base = null }
+    applyBundle(base ? mergeBundles(base, collectBundle(), bundle) : bundle)
+
+    // Basis ist ab hier der SERVER-Stand, nicht der gemischte. Nur so erkennt
+    // der Push-Zweig unten, dass unser Ergebnis davon abweicht, und schickt es
+    // hoch — sonst behielten wir das Mischergebnis fuer uns und das andere
+    // Geraet saehe unsere Aenderung nie wieder.
+    agreed = JSON.stringify(bundle)
+    saveIfStillPaired(st, { lastSeenStamp: remote.stamp, lastSentBundle: agreed })
+    pulled = true
   }
 
   const serialized = JSON.stringify(collectBundle())
-  if (serialized === st.lastSentBundle) return 'idle'
+  if (serialized === agreed) return pulled ? 'pulled' : 'idle'
 
   try {
     const body = await encryptBundle(st.secret, JSON.parse(serialized))
@@ -126,12 +150,14 @@ async function syncOnceInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!r.ok) return 'error'
+    if (!r.ok) return pulled ? 'pulled' : 'error'
     const { stamp } = await r.json()
     saveIfStillPaired(st, { lastSeenStamp: stamp, lastSentBundle: serialized })
-    return 'pushed'
+    // 'pulled' hat Vorrang vor 'pushed': nur daran erkennt tick(), dass die
+    // Oberflaeche neu einlesen muss.
+    return pulled ? 'pulled' : 'pushed'
   } catch {
-    return 'error'
+    return pulled ? 'pulled' : 'error'
   }
 }
 
@@ -139,8 +165,8 @@ async function syncOnceInner() {
 // einzeln zu sichern: setItem kann bei ueberschrittenem Speicherkontingent
 // werfen, und dort ist applyBundle() (bis zu 150 KB) der groesste Schreiber
 // von allen. Ein rejected Promise wuerde tick() erreichen und dort sowohl
-// den SYNC_EVENT als auch den Reload nach 'pulled' verschlucken — das darf
-// dem laufenden Draft nie passieren.
+// den SYNC_EVENT als auch das Rehydrieren nach 'pulled' verschlucken — das
+// darf dem laufenden Draft nie passieren.
 export async function syncOnce() {
   try {
     return await syncOnceInner()
@@ -163,22 +189,18 @@ export function startSync({ intervalMs = 30000 } = {}) {
       const r = await syncOnce()
       // Erneut pruefen: waehrend des await kann gestoppt worden sein. React
       // ruft Effekte im StrictMode doppelt auf, also gibt es abgebrochene
-      // Schleifen wirklich — und ein location.reload() aus einer toten
-      // Schleife mitten im Draft waere kaum zu finden.
+      // Schleifen wirklich — ein Rehydrieren aus einer toten Schleife mitten
+      // im Draft soll trotzdem nicht mehr passieren als noetig.
       if (stopped) return
       // Ohne diesen Ruf bleibt 'badkey' unsichtbar: der Sync taete stumm
       // nichts und der Nutzer haette keinen Anhaltspunkt.
       window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: r }))
-      // Der Reload beendet sich selbst: nach dem Anwenden ist lastSeenStamp
-      // gleich remote.stamp, die Pull-Bedingung also falsch.
+      // Statt reload(): Stores neu einlesen und die bestehenden Setup-Listener
+      // (App.jsx, BoardSection.jsx) ueber 'sdh:setup-changed' anstossen — dieselbe
+      // Kette, die SetupForm auch bei einer lokalen Aenderung durchlaeuft.
       if (r === 'pulled') {
-        // Router-State vorher wegraeumen: SetupPage loescht beim Mount Board,
-        // Picks und Ligen, wenn history.state ein mode: 'add' traegt. Der State
-        // ueberlebt einen Reload — ohne das hier wuerde ein Pull, waehrend man
-        // im "Liga hinzufuegen"-Modus steht, alles leeren und die Leere danach
-        // an die anderen Geraete weiterreichen.
-        history.replaceState(null, '', location.pathname + location.search)
-        location.reload()
+        await rehydratePersistedStores()
+        window.dispatchEvent(new CustomEvent('sdh:setup-changed'))
       }
     } finally {
       running = false
