@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
 	<title>Sleeper Draft Helper</title>
+    <script>
+      // Muss VOR dem ersten Paint laufen, darum bewusst inline und blockierend.
+      // Setzt der React-Effekt das Theme (App.jsx), ist das erste Bild schon
+      // gezeichnet: der Browser zeigt kurz :root -- und das ist broadcast-dark.
+      // Genau das war der Themenwechsel, den man bei jedem Reload gesehen hat.
+      //
+      // Hier steht bewusst KEINE Kopie der Theme-Liste: die Hoheit behaelt
+      // applyTheme(), das gegen THEMES prueft. Dies ist nur der Tipp fuers erste
+      // Bild. Passt die ID zu keinem Theme, greift wie bisher :root, und React
+      // korrigiert einen Sekundenbruchteil spaeter.
+      try {
+        var sdhUi = JSON.parse(localStorage.getItem('sdh-ui-v1') || 'null')
+        var sdhTheme = sdhUi && sdhUi.state && sdhUi.state.themeId
+        if (!/^[a-z0-9-]+$/.test(sdhTheme || '')) {
+          sdhTheme = matchMedia('(prefers-color-scheme: light)').matches
+            ? 'broadcast-light'
+            : 'broadcast-dark'
+        }
+        document.documentElement.dataset.theme = sdhTheme
+      } catch (e) { /* kein localStorage (Privatmodus): :root genuegt */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>
