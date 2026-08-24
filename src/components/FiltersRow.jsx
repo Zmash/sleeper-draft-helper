@@ -9,6 +9,8 @@ export default function FiltersRow({
     onJumpToNext,
     hideAvoid,
     setHideAvoid,
+    boardDensity,
+    setBoardDensity,
     ownerLabels,
     teamFilter,
     onTeamFilterChange,
@@ -62,6 +64,17 @@ export default function FiltersRow({
         >
           <Icon name={hideAvoid ? 'eye' : 'eye-off'} size={15} />
           <span className="avoid-label">Avoid</span>
+        </button>
+
+        <button
+          type="button"
+          className={cx('btn', 'btn-toggle', boardDensity === 'compact' && 'is-active')}
+          onClick={() => setBoardDensity(boardDensity === 'compact' ? 'normal' : 'compact')}
+          title={boardDensity === 'compact' ? 'Normale Zeilenhöhe' : 'Kompakte Zeilenhöhe (mehr Spieler sichtbar)'}
+          aria-pressed={boardDensity === 'compact'}
+        >
+          <Icon name={boardDensity === 'compact' ? 'maximize' : 'minimize'} size={15} />
+          <span className="avoid-label">Kompakt</span>
         </button>
 
         <button type="button" className="btn" onClick={onJumpToNext} title="Zum nächsten freien Spieler springen">

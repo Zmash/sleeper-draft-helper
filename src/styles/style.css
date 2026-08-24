@@ -2767,6 +2767,38 @@ th.col-pick, td.col-pick { width: 64px; }
     position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
     color: var(--text-dim); font-weight: 400;
   }
+
+  /* Kompakt-Setting (FiltersRow-Toggle): echte Einzeiler statt der gestapelten
+     Zwei-Zeilen-.mcol -- Team/Pos wandert neben den Namen, Δ/Bye neben die ADP.
+     Ueberschreibt nur die Masse aus dem Block oben. */
+  body.board-density-compact.board-mobile-active .board-table td { padding: 3px 6px; }
+  body.board-density-compact tr[data-pos] td.col-name::before { height: 14px; left: 2px; width: 3px; }
+
+  /* #-Spalte und Positions-Balken fressen bei kleiner Zeilenhoehe unverhaeltnismaessig
+     viel Breite -- schmaler ziehen statt der festen Mobile-Masse. */
+  body.board-density-compact th.col-rk,
+  body.board-density-compact td.col-rk { width: 22px; padding-left: 4px; padding-right: 2px; }
+  body.board-density-compact .board-table td.col-rk { font-size: 11px; }
+  body.board-density-compact .board-table td.col-name { padding-left: 9px; }
+
+  body.board-density-compact .mcol-main {
+    display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  }
+  body.board-density-compact .cell-content { flex: 1 1 auto; min-width: 0; }
+  body.board-density-compact .player-name-btn { min-width: 0; }
+  body.board-density-compact .player-name-text {
+    font-size: 13px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; max-width: 100%;
+  }
+  body.board-density-compact .mcol-teampos {
+    display: block; flex: 0 0 auto; margin-top: 0; font-size: 10px;
+  }
+
+  body.board-density-compact .mcol-stats {
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  body.board-density-compact .mcol-adp { font-size: 13px; }
+  body.board-density-compact .mcol-sub { margin-top: 0; font-size: 10px; }
 }
 
 /* =========================================================

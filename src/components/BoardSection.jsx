@@ -8,6 +8,7 @@ import BoardMobileBar from './BoardMobileBar'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
+import { useUIStore } from '../stores/useUIStore'
 import { makeFingerprint, resolveStrategyText } from '../services/strategyMatch'
 import { loadStrategies } from '../services/strategyStore'
 import { useSessionStore } from '../stores/useSessionStore'
@@ -66,6 +67,8 @@ export default function BoardSection({
 }) {
   const navigate = useNavigate()
   const seasonYear = useSessionStore(s => s.seasonYear)
+  const boardDensity = useUIStore(s => s.boardDensity)
+  const setBoardDensity = useUIStore(s => s.setBoardDensity)
   const {
     marketMeta, boardSource, rankingSource, refreshMarketData, boardMode,
     handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
@@ -240,6 +243,13 @@ export default function BoardSection({
     document.body.classList.add('board-mobile-active')
     return () => document.body.classList.remove('board-mobile-active')
   }, [hasBoard])
+
+  // Kompakte Zeilenhoehe (Setting), unabhaengig vom Mobile-Modus per Body-Klasse
+  // umgesetzt -- greift ueber CSS auf dieselben Selektoren wie board-mobile-active.
+  useEffect(() => {
+    document.body.classList.toggle('board-density-compact', boardDensity === 'compact')
+    return () => document.body.classList.remove('board-density-compact')
+  }, [boardDensity])
 
   // Draft-Typ-Guard: passt der Typ des geladenen Boards nicht zum aktuellen Draft?
   // boardMode null (alte Boards) loest bewusst keine Warnung aus.
@@ -725,6 +735,8 @@ export default function BoardSection({
           PlayerPreference={PlayerPreference}
           hideAvoid={hideAvoid}
           setHideAvoid={setHideAvoid}
+          boardDensity={boardDensity}
+          setBoardDensity={setBoardDensity}
           ownerLabels={ownerLabels}
           teamFilter={teamFilter}
           onTeamFilterChange={onTeamFilterChange}

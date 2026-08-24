@@ -11,15 +11,17 @@ export const useUIStore = create(
       themeId: resolveInitialTheme(),
       analysisOpen: false,
       setupVersion: 0,
+      boardDensity: 'normal', // 'normal' | 'compact' — Zeilenhoehe der Board-Tabelle (vor allem mobil relevant)
 
       setTheme: (id) => set({ themeId: validThemeId(id) }),
       setAnalysisOpen: (v) => set({ analysisOpen: v }),
       incrementSetupVersion: () => set((s) => ({ setupVersion: s.setupVersion + 1 })),
+      setBoardDensity: (d) => set({ boardDensity: d === 'compact' ? 'compact' : 'normal' }),
     }),
     {
       name: 'sdh-ui-v1',
       version: 1,
-      partialize: (s) => ({ themeId: s.themeId }),
+      partialize: (s) => ({ themeId: s.themeId, boardDensity: s.boardDensity }),
       migrate: (persisted, version) => {
         if (persisted && version < 1) {
           persisted.themeId = persisted.themeMode === 'light' ? 'broadcast-light' : 'broadcast-dark'
