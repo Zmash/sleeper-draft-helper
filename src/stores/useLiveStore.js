@@ -20,7 +20,11 @@ export const useLiveStore = create(
         if (!draftId) return []
         set({ picksLoading: true })
         try {
-          const ps = await fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks`)
+          // Sleeper cached diesen Endpoint 5 Min am Cloudflare-Edge (s-maxage=300,
+          // shared cache -- betrifft alle Clients, nicht nur uns). Ohne Cache-Buster
+          // liefert Sync/Auto-Refresh bis zu 5 Min alte Picks. _=Date.now() erzwingt
+          // pro Request eine neue URL -> CDN-MISS -> frische Origin-Daten.
+          const ps = await fetchJson(`${SLEEPER_API_BASE}/draft/${draftId}/picks?_=${Date.now()}`)
           set({ livePicks: ps, lastSyncAt: new Date(), picksLoading: false })
           return ps
         } catch (e) {
