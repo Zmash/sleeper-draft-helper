@@ -151,6 +151,11 @@ export default function DashboardPage() {
   if (!loading && !cards.length && sleeperUserId && !availableLeagues?.length) {
     return (
       <section className="dashboard">
+        <div className="dashboard-header">
+          <div className="dashboard-meta">
+            <SleeperConnectWidget compact />
+          </div>
+        </div>
         <div className="card dashboard-empty">
           <div className="dashboard-empty-icon"><Icon name="clipboard" size={40} /></div>
           <h2>Keine Ligen geladen</h2>

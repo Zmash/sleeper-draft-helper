@@ -178,23 +178,33 @@ export default function SetupForm(props) {
             <div className="form-row">
               <label className="field">
                 <span>Liga</span>
-                <select
-                  className="control"
-                  value={selectedLeagueId || ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setSelectedLeagueId(val)
-                    saveToLocalStorage({ leagueId: val })
-                    if (val) loadDraftOptions(val)
-                  }}
-                >
-                  <option value="">— keine —</option>
-                  {(availableLeagues || []).map(l => (
-                    <option key={l.league_id} value={l.league_id}>
-                      {l.name || l.league_id}
-                    </option>
-                  ))}
-                </select>
+                <div className="row">
+                  <select
+                    className="control"
+                    value={selectedLeagueId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSelectedLeagueId(val)
+                      saveToLocalStorage({ leagueId: val })
+                      if (val) loadDraftOptions(val)
+                    }}
+                  >
+                    <option value="">— keine —</option>
+                    {(availableLeagues || []).map(l => (
+                      <option key={l.league_id} value={l.league_id}>
+                        {l.name || l.league_id}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-secondary control"
+                    disabled={busyResolveAndLoad}
+                    onClick={handleResolveAndLoad}
+                    title="Ligen erneut von Sleeper laden"
+                  >
+                    {busyResolveAndLoad ? '…' : 'Ligen neu laden'}
+                  </button>
+                </div>
               </label>
 
               <label className="field">

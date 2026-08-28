@@ -42,7 +42,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     availableLeagues, selectedLeagueId, leagueUsers,
     availableDrafts, selectedDraftId, manualDraftInput,
     setSleeperUsername, setSleeperUserId, setSeasonYear,
-    setAvailableLeagues, setSelectedLeagueId, setLeagueUsers,
+    setSelectedLeagueId, setLeagueUsers,
     setAvailableDrafts, setSelectedDraftId, setManualDraftInput,
     resolveUserId, loadLeagues, loadDraftOptions, loadLeagueUsers, attachDraftByIdOrUrl,
   } = useSessionStore()
@@ -53,10 +53,12 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     handleCsvLoad, handleAutoImport, handleKtcRookieImport, handleFantasyProsImport, undoImport,
   } = useBoardStore()
 
-  // Add mode: clear everything except the Sleeper account credentials
+  // Add mode: clear the current selection, but NOT availableLeagues — es gibt
+  // in SetupForm keinen Weg, sie ohne erneute Username-Eingabe nachzuladen
+  // (kein Reload-Button), ein Leeren hier war eine Sackgasse (leeres Dropdown,
+  // Home zeigt danach auch keine Ligen mehr, obwohl noch eingeloggt).
   useEffect(() => {
     if (mode === 'add') {
-      setAvailableLeagues([])
       setSelectedLeagueId(null)
       setLeagueUsers([])
       setAvailableDrafts([])
