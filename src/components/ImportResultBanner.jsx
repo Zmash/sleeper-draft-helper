@@ -5,6 +5,7 @@ import Icon from './Icon'
 // verschweigt, laesst den Nutzer eine Luecke fuer einen Datenfehler halten.
 export default function ImportResultBanner({
   stats, method, marketMissing = false, onUndo, onClose, onGoToBoard,
+  missingBye = 0, onFillBye, fillingBye = false,
 }) {
   const [showUnmatched, setShowUnmatched] = useState(false)
   if (!stats) return null
@@ -26,6 +27,16 @@ export default function ImportResultBanner({
         {marketMissing && (
           <span className="import-done-warn">
             <Icon name="warning" size={13} /> Marktdaten nicht erreichbar — Rangliste ist da, ADP fehlt.
+          </span>
+        )}
+        {missingBye > 0 && (
+          <span className="import-done-warn">
+            <Icon name="warning" size={13} /> {missingBye} Spieler ohne Bye Week
+            {onFillBye && (
+              <> · <button className="btn-link" onClick={onFillBye} disabled={fillingBye}>
+                {fillingBye ? '…' : 'Jetzt ergänzen'}
+              </button></>
+            )}
           </span>
         )}
       </div>

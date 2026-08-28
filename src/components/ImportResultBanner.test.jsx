@@ -43,4 +43,21 @@ describe('ImportResultBanner', () => {
     render(<ImportResultBanner stats={{ total: 5, withAdp: 5, withoutAdp: 0, unmatchedNames: [] }} method="x" />)
     expect(screen.queryByRole('button', { name: /anzeigen/i })).toBeNull()
   })
+
+  it('zeigt fehlende Bye Weeks nur wenn missingBye > 0', () => {
+    render(<ImportResultBanner stats={stats} method="CSV" missingBye={5} onFillBye={vi.fn()} />)
+    expect(screen.getByText(/5 Spieler ohne Bye Week/)).toBeTruthy()
+  })
+
+  it('ohne fehlende Bye Weeks keine Zeile', () => {
+    render(<ImportResultBanner stats={stats} method="CSV" missingBye={0} />)
+    expect(screen.queryByText(/ohne Bye Week/)).toBeNull()
+  })
+
+  it('Jetzt ergaenzen ruft onFillBye', async () => {
+    const onFillBye = vi.fn()
+    render(<ImportResultBanner stats={stats} method="CSV" missingBye={3} onFillBye={onFillBye} />)
+    await userEvent.click(screen.getByRole('button', { name: /Jetzt ergänzen/ }))
+    expect(onFillBye).toHaveBeenCalled()
+  })
 })

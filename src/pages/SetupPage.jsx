@@ -51,7 +51,10 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     csvRawText, draftMode,
     setCsvRawText, setDraftMode, setBoardSource,
     handleCsvLoad, handleAutoImport, handleKtcRookieImport, handleFantasyProsImport, undoImport,
+    fillMissingBye,
   } = useBoardStore()
+
+  const [fillingBye, setFillingBye] = useState(false)
 
   // Add mode: clear the current selection, but NOT availableLeagues — es gibt
   // in SetupForm keinen Weg, sie ohne erneute Username-Eingabe nachzuladen
@@ -85,12 +88,29 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       // Aufrufer gesetzt, und zwar nur bei tatsaechlichem Erfolg. Tippen im Setup-Feld
       // oder ein abgebrochener Overwrite-Dialog aendern boardSource dadurch nicht.
       setBoardSource('csv')
-      const count = useBoardStore.getState().boardPlayers.length
+      const players = useBoardStore.getState().boardPlayers
+      const missingBye = players.filter((p) => !p.bye).length
       // handleCsvLoad setzt bewusst keinen lastBoardSnapshot (manueller Import
       // bleibt unveraendert, sichert sich stattdessen ueber window.confirm ab)
       // — also darf dieses Banner kein Undo anbieten.
-      setImportDone({ method: 'CSV', stats: statsForCount(count), canUndo: false })
+      setImportDone({ method: 'CSV', stats: { ...statsForCount(players.length), missingBye }, canUndo: false })
     }
+  }
+
+  async function handleFillBye() {
+    setFillingBye(true)
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const res = await fillMissingBye({
+      isSuperflex: fmt.isSuperflex,
+      effScoringType: fmt.scoringType,
+      numTeams: fmt.teams,
+    })
+    if (res.ok) {
+      const players = useBoardStore.getState().boardPlayers
+      const missingBye = players.filter((p) => !p.bye).length
+      setImportDone((prev) => (prev ? { ...prev, stats: { ...prev.stats, missingBye } } : prev))
+    }
+    setFillingBye(false)
   }
 
   async function wrappedAutoImport(force = false) {
@@ -175,6 +195,9 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
           stats={importDone.stats}
           method={importDone.method}
           marketMissing={importDone.marketMissing}
+          missingBye={importDone.stats?.missingBye || 0}
+          onFillBye={importDone.method === 'CSV' ? handleFillBye : undefined}
+          fillingBye={fillingBye}
           onUndo={canOfferUndo(importDone, useBoardStore.getState().lastBoardSnapshot) ? () => { undoImport(); setImportDone(null) } : undefined}
           onClose={() => setImportDone(null)}
           onGoToBoard={() => navigate('/board')}

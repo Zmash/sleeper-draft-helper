@@ -84,7 +84,34 @@ describe('SetupPage: ImportResultBanner-Wiring (Minor 7)', () => {
     useBoardStore.getState().setCsvRawText('RK,PLAYER NAME,TEAM,POS\n1,Test Player,ATL,RB')
     await setup()
     await userEvent.click(screen.getByRole('button', { name: 'DoCsvLoad' }))
-    await waitFor(() => expect(screen.getByText(/1 Spieler/)).toBeTruthy())
+    // Anchored: die CSV-Fixture hat keine BYE-WEEK-Spalte, daher zeigt das Banner
+    // zusaetzlich "1 Spieler ohne Bye Week" — /1 Spieler/ ohne Anker matcht beides.
+    await waitFor(() => expect(screen.getByText(/^1 Spieler$/)).toBeTruthy())
     expect(screen.queryByRole('button', { name: /Rückgängig/ })).toBeNull()
+  })
+})
+
+describe('SetupPage: Bye-Week-Ergaenzung im CSV-Import-Banner', () => {
+  it('zeigt die Bye-Week-Zeile, wenn der CSV-Import Luecken hat', async () => {
+    const { useBoardStore } = await import('../stores/useBoardStore')
+    useBoardStore.getState().setCsvRawText(
+      'RK,PLAYER NAME,TEAM,POS,BYE WEEK\n1,Test Player,ATL,RB,\n2,Other Player,KC,WR,7'
+    )
+    await setup()
+    await userEvent.click(screen.getByRole('button', { name: 'DoCsvLoad' }))
+    await waitFor(() => expect(useBoardStore.getState().boardPlayers.length).toBe(2))
+    expect(screen.getByText(/1 Spieler ohne Bye Week/)).toBeTruthy()
+  })
+
+  it('Jetzt ergaenzen ruft fillMissingBye und aktualisiert die Zaehlung', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC }))
+    const { useBoardStore } = await import('../stores/useBoardStore')
+    useBoardStore.getState().setCsvRawText('RK,PLAYER NAME,TEAM,POS,BYE WEEK\n1,Bijan Robinson,ATL,RB,')
+    await setup()
+    await userEvent.click(screen.getByRole('button', { name: 'DoCsvLoad' }))
+    await waitFor(() => expect(useBoardStore.getState().boardPlayers.length).toBe(1))
+    await userEvent.click(screen.getByRole('button', { name: /Jetzt ergänzen/ }))
+    await waitFor(() => expect(useBoardStore.getState().boardPlayers[0].bye).toBe(11))
+    expect(screen.queryByText(/ohne Bye Week/)).toBeNull()
   })
 })
