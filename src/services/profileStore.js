@@ -2,6 +2,9 @@
 // Liga-ID (stabil ueber Saisons) oder einen Format-Fingerprint (Mock-Drafts).
 // Ersetzt storage.js::loadSetup/saveSetup und strategyStore.js vollstaendig.
 
+import { deriveFormat, isStandaloneDraft } from './draftFormat'
+import { makeFingerprint, pickProfile } from './strategyMatch'
+
 export const PROFILES_KEY = 'sdh.profiles.v1'
 export const PRINCIPLES_KEY = 'sdh.strategyPrinciples.v1'
 const LEGACY_SETUP_KEY = 'sdh.setup.v2'
@@ -161,4 +164,41 @@ export function migrateLegacyProfile() {
   if (legacyOverrides) migrated.overrides = { ...EMPTY_OVERRIDES, ...legacyOverrides }
   if (legacyStrategy) migrated.strategy = legacyStrategy
   saveProfiles([migrated])
+}
+
+function fingerprintLabel(fp) {
+  const scoring = fp.scoringType === 'half_ppr' ? 'Half-PPR' : fp.scoringType === 'standard' ? 'Standard' : 'PPR'
+  return `${fp.teams}T ${scoring}${fp.superflex ? ' Superflex' : ''}`
+}
+
+// Reine Funktion -- kein Storage-Write. React.StrictMode ruft aus useMemo
+// heraus aufgerufene Funktionen im Dev-Modus doppelt auf; ein Write hier
+// wuerde bei jedem neu erkannten Format/jeder neuen Liga eine Karteileiche
+// anlegen. Persistiert wird erst, wenn der Nutzer tatsaechlich etwas aendert
+// (upsertProfileOverrides/upsertProfileStrategy) -- siehe ProfileEditor.
+export function resolveProfile({ draft = null, league = null, draftMode = 'redraft' } = {}) {
+  const profiles = loadProfiles()
+  const standalone = isStandaloneDraft(draft)
+
+  if (league?.league_id && !standalone) {
+    const existing = profiles.find(p => p.boundLeagueId === league.league_id)
+    if (existing) return { profile: existing, deviations: [], isNew: false }
+    return { profile: newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id }), deviations: [], isNew: true }
+  }
+
+  const effLeague = standalone ? null : league
+  const detected = deriveFormat({ draft, league: effLeague, overrides: {} })
+  const fp = makeFingerprint({
+    format: {
+      teams: detected.teams, scoringType: detected.scoringType,
+      superflex: detected.isSuperflex, rosterPositions: detected.rosterPositions,
+    },
+    draftMode,
+  })
+
+  const candidates = profiles.filter(p => !p.boundLeagueId)
+  const hit = pickProfile(candidates, fp)
+  if (hit) return { profile: hit.profile, deviations: hit.deviations, isNew: false }
+
+  return { profile: newProfile({ name: fingerprintLabel(fp), fingerprint: fp }), deviations: [], isNew: true }
 }

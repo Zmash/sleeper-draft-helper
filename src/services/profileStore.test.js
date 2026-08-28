@@ -4,7 +4,7 @@ import {
   loadPrinciples, savePrinciples,
   upsertProfileOverrides, upsertProfileStrategy,
   renameProfile, duplicateProfile, deleteProfile, createBlankProfile, rebindProfile,
-  migrateLegacyProfile,
+  migrateLegacyProfile, resolveProfile,
 } from './profileStore'
 
 beforeEach(() => { localStorage.clear() })
@@ -179,3 +179,62 @@ describe('migrateLegacyProfile', () => {
     expect(loadProfiles()).toHaveLength(0)
   })
 })
+
+describe('resolveProfile — Liga-Bindung', () => {
+  it('findet ein existierendes, liga-gebundenes Profil', () => {
+    const p = createBlankProfile('Meine Liga')
+    rebindProfile(p.id, { leagueId: 'L1' })
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L1', settings: {} },
+      league: { league_id: 'L1', name: 'Meine Liga' },
+      draftMode: 'redraft',
+    })
+    expect(profile.id).toBe(p.id)
+    expect(isNew).toBe(false)
+  })
+
+  it('legt ein neues, NICHT persistiertes Profil an, wenn die Liga noch kein Profil hat', () => {
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L2', settings: {} },
+      league: { league_id: 'L2', name: 'Neue Liga' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.boundLeagueId).toBe('L2')
+    expect(profile.name).toBe('Neue Liga')
+    expect(loadProfiles()).toHaveLength(0) // kein Write als Seiteneffekt
+  })
+})
+
+describe('resolveProfile — Mock/Standalone (Fingerprint)', () => {
+  const mockDraft = { league_id: null, settings: { teams: 12, rounds: 15 }, metadata: { scoring_type: 'ppr' } }
+
+  it('matched ein bestehendes Format-Profil exakt', () => {
+    const p = createBlankProfile('12er PPR')
+    const fp = makeFingerprintFromMock()
+    rebindProfile(p.id, { fingerprint: fp })
+    const { profile, deviations, isNew } = resolveProfile({ draft: mockDraft, league: null, draftMode: 'redraft' })
+    expect(profile.id).toBe(p.id)
+    expect(deviations).toEqual([])
+    expect(isNew).toBe(false)
+  })
+
+  it('legt ein neues, unpersistiertes Profil an, wenn kein Fingerprint passt', () => {
+    const { profile, isNew } = resolveProfile({ draft: mockDraft, league: null, draftMode: 'redraft' })
+    expect(isNew).toBe(true)
+    expect(profile.fingerprint).toMatchObject({ teams: 12, scoringType: 'ppr', superflex: false })
+    expect(loadProfiles()).toHaveLength(0)
+  })
+
+  it('eine noch ausgewaehlte Liga darf einen Standalone-Mock nicht beeinflussen', () => {
+    const league = { league_id: 'L3', total_rosters: 8 }
+    const { profile } = resolveProfile({ draft: mockDraft, league, draftMode: 'redraft' })
+    expect(profile.boundLeagueId).toBeNull()
+    expect(profile.fingerprint.teams).toBe(12) // aus dem Mock, nicht aus der 8er-Liga
+  })
+
+  function makeFingerprintFromMock() {
+    return { draftMode: 'redraft', scoringType: 'ppr', superflex: false, teams: 12, starters: ['DEF', 'FLEX', 'QB', 'RB', 'RB', 'TE', 'WR', 'WR'] }
+  }
+})
+
