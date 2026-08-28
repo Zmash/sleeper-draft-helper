@@ -114,4 +114,33 @@ describe('SetupPage: Bye-Week-Ergaenzung im CSV-Import-Banner', () => {
     await waitFor(() => expect(useBoardStore.getState().boardPlayers[0].bye).toBe(11))
     expect(screen.queryByText(/ohne Bye Week/)).toBeNull()
   })
+
+  it('im Rookie-Modus erscheint kein "Jetzt ergaenzen"-Button, auch wenn Byes fehlen', async () => {
+    const { useBoardStore } = await import('../stores/useBoardStore')
+    useBoardStore.getState().setDraftMode('rookie')
+    useBoardStore.getState().setCsvRawText(
+      'RK,PLAYER NAME,TEAM,POS,BYE WEEK\n1,Test Player,ATL,RB,\n2,Other Player,KC,WR,7'
+    )
+    await setup()
+    await userEvent.click(screen.getByRole('button', { name: 'DoCsvLoad' }))
+    await waitFor(() => expect(useBoardStore.getState().boardPlayers.length).toBe(2))
+    // Zeile bleibt sichtbar (Nutzer soll die Luecke sehen) — nur der Button fehlt,
+    // weil fillMissingBye im Rookie-Modus ohnehin immer fehlschlaegt (Redraft-ADP
+    // passt nicht auf Rookie-Raenge).
+    expect(screen.getByText(/1 Spieler ohne Bye Week/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Jetzt ergänzen/ })).toBeNull()
+  })
+
+  it('fehlgeschlagenes fillMissingBye zeigt die Fehler-Banner statt still zu bleiben', async () => {
+    // Weder sleeper-adp noch ffc-adp sind erreichbar -> fillMissingBye liefert
+    // { ok: false, error: 'Marktdaten nicht erreichbar' } (siehe fetchMarketAdp).
+    vi.stubGlobal('fetch', mockFetch({}))
+    const { useBoardStore } = await import('../stores/useBoardStore')
+    useBoardStore.getState().setCsvRawText('RK,PLAYER NAME,TEAM,POS,BYE WEEK\n1,Bijan Robinson,ATL,RB,')
+    await setup()
+    await userEvent.click(screen.getByRole('button', { name: 'DoCsvLoad' }))
+    await waitFor(() => expect(useBoardStore.getState().boardPlayers.length).toBe(1))
+    await userEvent.click(screen.getByRole('button', { name: /Jetzt ergänzen/ }))
+    expect(await screen.findByText(/Marktdaten nicht erreichbar/)).toBeTruthy()
+  })
 })

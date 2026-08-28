@@ -109,6 +109,8 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       const players = useBoardStore.getState().boardPlayers
       const missingBye = players.filter((p) => !p.bye).length
       setImportDone((prev) => (prev ? { ...prev, stats: { ...prev.stats, missingBye } } : prev))
+    } else {
+      setImportError(res.error)
     }
     setFillingBye(false)
   }
@@ -196,7 +198,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
           method={importDone.method}
           marketMissing={importDone.marketMissing}
           missingBye={importDone.stats?.missingBye || 0}
-          onFillBye={importDone.method === 'CSV' ? handleFillBye : undefined}
+          onFillBye={importDone.method === 'CSV' && draftMode !== 'rookie' ? handleFillBye : undefined}
           fillingBye={fillingBye}
           onUndo={canOfferUndo(importDone, useBoardStore.getState().lastBoardSnapshot) ? () => { undoImport(); setImportDone(null) } : undefined}
           onClose={() => setImportDone(null)}

@@ -60,4 +60,10 @@ describe('ImportResultBanner', () => {
     await userEvent.click(screen.getByRole('button', { name: /Jetzt ergänzen/ }))
     expect(onFillBye).toHaveBeenCalled()
   })
+
+  it('ohne onFillBye bleibt die Zeile, aber kein Jetzt-ergaenzen-Button (z.B. Rookie-Modus)', () => {
+    render(<ImportResultBanner stats={stats} method="CSV" missingBye={5} />)
+    expect(screen.getByText(/5 Spieler ohne Bye Week/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Jetzt ergänzen/ })).toBeNull()
+  })
 })
