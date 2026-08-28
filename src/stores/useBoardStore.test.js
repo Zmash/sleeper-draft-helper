@@ -321,3 +321,57 @@ describe('undoImport', () => {
     expect(raw).not.toContain('lastBoardSnapshot')
   })
 })
+
+describe('refreshMarketData mit Format-Parametern', () => {
+  it('nutzt das uebergebene Format statt marketMeta.format', async () => {
+    const fetchSpy = mockFetch({ 'sleeper-adp': SLEEPER, 'ffc-adp': FFC })
+    vi.stubGlobal('fetch', fetchSpy)
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', adp: null }])
+    await useBoardStore.getState().refreshMarketData({ isSuperflex: false, effScoringType: 'half_ppr', numTeams: 10 })
+    const call = fetchSpy.mock.calls.find(([u]) => String(u).includes('sleeper-adp'))
+    expect(call).toBeTruthy()
+    expect(String(call[0])).toContain('format=half-ppr')
+  })
+
+  it('ohne Parameter faellt weiter auf marketMeta.format zurueck (Bestandsverhalten)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', adp: null }])
+    await useBoardStore.getState().refreshMarketData()
+    expect(useBoardStore.getState().boardPlayers[0].adp).toBe(1.7)
+  })
+})
+
+describe('fillMissingBye (Store-Action)', () => {
+  it('ergaenzt nur eine fehlende Bye, aendert ADP nicht', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([
+      { name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', adp: 5.5, bye: null },
+    ])
+    const res = await useBoardStore.getState().fillMissingBye()
+    expect(res.ok).toBe(true)
+    const p = useBoardStore.getState().boardPlayers[0]
+    expect(p.bye).toBe(11)
+    expect(p.adp).toBe(5.5)
+  })
+
+  it('Guard: kein Board geladen', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([])
+    const res = await useBoardStore.getState().fillMissingBye()
+    expect(res.ok).toBe(false)
+  })
+
+  it('Guard: Rookie-Modus ruft keinen Fetch auf', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Ashton Jeanty', nname: 'ashton jeanty', rk: '1', bye: null }])
+    useBoardStore.getState().setDraftMode('rookie')
+    const res = await useBoardStore.getState().fillMissingBye()
+    expect(res.ok).toBe(false)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

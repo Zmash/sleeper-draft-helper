@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { normalizePlayerName } from '../utils/formatting'
 import { parseFantasyProsCsv } from '../services/csv'
-import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries } from '../services/marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries, fillMissingBye as fillMissingByeInMarket } from '../services/marketMerge'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useSessionStore } from './useSessionStore'
 import { useLiveStore } from './useLiveStore'
@@ -228,19 +228,40 @@ export const useBoardStore = create(
         return { ok: true, stats, marketMissing: !market }
       },
 
-      refreshMarketData: async () => {
+      refreshMarketData: async ({ isSuperflex, effScoringType, numTeams } = {}) => {
         const { boardPlayers, marketMeta, draftMode } = get()
         if (!boardPlayers.length) return { ok: false, error: 'Kein Board geladen' }
         // Markt-ADP ist NFL-weite Redraft-ADP — im Rookie/Dynasty-Modus waere das ein
         // Rookie-Rang gegen einen fremden Markt gerechnet, bedeutungslos und nicht
         // rueckholbar (kein Snapshot hier). handleAutoImport guardet das bereits genauso.
-        if (draftMode === 'rookie') return { ok: false, error: 'Marktdaten-Refresh ist im Rookie-Modus nicht verfügbar (Redraft-ADP passt nicht auf Rookie-Raenge).' }
-        const format = marketMeta?.format || 'ppr'
-        const market = await fetchMarketAdp(format)
+        if (draftMode === 'rookie') return { ok: false, error: 'Marktdaten-Refresh ist im Rookie-Modus nicht verfügbar (Redraft-ADP passt nicht auf Rookie-Ränge).' }
+        // Format explizit uebergeben (Board-Seite kennt isSuperflex/effScoringType/numTeams
+        // ueber draftFormat) -- ohne Argument bleibt der Fallback auf marketMeta.format,
+        // fuer Aufrufer, die das schon aus einem vorherigen Import kennen.
+        const format = effScoringType != null
+          ? ffcFormatFor({ isSuperflex, effScoringType })
+          : (marketMeta?.format || 'ppr')
+        const market = await fetchMarketAdp(format, numTeams)
         if (!market) return { ok: false, error: 'Marktdaten nicht erreichbar' }
         const { players, stats } = overlayMarketData(boardPlayers, market.players)
         // rk und Reihenfolge bleiben unberuehrt — der Nutzer pflegt sein Board.
         set({ boardPlayers: players, marketMeta: market.meta })
+        return { ok: true, stats }
+      },
+
+      // Bye Week ist die einzige Luecke, die enrichBoardPlayersWithSleeper strukturell
+      // nicht fuellen kann (players/nfl hat in der Praxis keine Bye-Daten) -- diese
+      // Action holt sie stattdessen aus derselben Markt-ADP-Quelle wie refreshMarketData,
+      // aendert aber NIE eine bereits vorhandene Bye (siehe fillMissingBye in marketMerge.js).
+      fillMissingBye: async ({ isSuperflex, effScoringType, numTeams } = {}) => {
+        const { boardPlayers, draftMode } = get()
+        if (!boardPlayers.length) return { ok: false, error: 'Kein Board geladen' }
+        if (draftMode === 'rookie') return { ok: false, error: 'Bye-Week-Ergänzung ist im Rookie-Modus nicht verfügbar (Redraft-ADP passt nicht auf Rookie-Ränge).' }
+        const format = effScoringType != null ? ffcFormatFor({ isSuperflex, effScoringType }) : 'ppr'
+        const market = await fetchMarketAdp(format, numTeams)
+        if (!market) return { ok: false, error: 'Marktdaten nicht erreichbar' }
+        const { players, stats } = fillMissingByeInMarket(boardPlayers, market.players)
+        set({ boardPlayers: players })
         return { ok: true, stats }
       },
 
