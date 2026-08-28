@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   PROFILES_KEY, PRINCIPLES_KEY, loadProfiles, saveProfiles,
   loadPrinciples, savePrinciples,
@@ -74,10 +74,13 @@ describe('upsertProfileOverrides', () => {
 })
 
 describe('upsertProfileStrategy', () => {
-  it('schreibt strategy-Patch und aktualisiert updatedAt', async () => {
+  it('schreibt strategy-Patch und aktualisiert updatedAt', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
     const p = createBlankProfile('Test')
-    await new Promise(r => setTimeout(r, 1))
+    vi.advanceTimersByTime(1)
     const updated = upsertProfileStrategy(p, { summary: 'S', rules: ['R1'], source: 'ai' })
+    vi.useRealTimers()
     expect(updated.strategy.summary).toBe('S')
     expect(updated.strategy.source).toBe('ai')
     expect(updated.updatedAt).not.toBe(p.updatedAt)
