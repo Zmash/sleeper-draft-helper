@@ -21,14 +21,20 @@ die `bye` als Teil von `MARKET_FIELDS` mitliefern.
 
 ## Ziel
 
-Auf dem CSV-Board zwei zusätzliche Aktionen anbieten:
+Zwei zusätzliche Aktionen anbieten, an zwei unterschiedlichen Stellen:
 
-1. **ADP übernehmen** — überschreibt ADP (und die übrigen Marktfelder:
-   bye, stdev, high, low, times_drafted) mit Werten aus der Sleeper-ADP
-   (Fallback FFC), wo der Markt einen Treffer hat. Reihenfolge/Rang/Status
-   bleiben unangetastet (wie beim bestehenden Refresh für Market-Boards).
-2. **Bye Week ergänzen** — trägt `bye` nur dort nach, wo das Feld aktuell leer
-   ist. Überschreibt nie einen vorhandenen Wert.
+1. **ADP übernehmen** (Board-Seite, `DataProvenanceBar`) — überschreibt ADP
+   (und die übrigen Marktfelder: bye, stdev, high, low, times_drafted) mit
+   Werten aus der Sleeper-ADP (Fallback FFC), wo der Markt einen Treffer hat.
+   Reihenfolge/Rang/Status bleiben unangetastet (wie beim bestehenden Refresh
+   für Market-Boards). Dauerhaft sichtbar, wie der bestehende
+   "Aktualisieren"-Button.
+2. **Bye Week ergänzen** (Setup-Seite, `ImportResultBanner`) — trägt `bye` nur
+   dort nach, wo das Feld aktuell leer ist. Überschreibt nie einen
+   vorhandenen Wert. **Nicht dauerhaft sichtbar**: erscheint nur direkt nach
+   einem CSV-Import, und nur als Zeile im Import-Ergebnis-Banner, wenn dabei
+   tatsächlich Spieler ohne Bye Week erkannt wurden — analog zur
+   bestehenden "X ohne Marktdaten"-Zeile im selben Banner.
 
 Die Δ-ADP-Spalte in `BoardTable.jsx` braucht keine Änderung: sie liest bereits
 `p.adp` und `p.rk` direkt vom Board-Objekt und zieht automatisch mit, sobald
@@ -86,23 +92,39 @@ export function fillMissingBye(boardPlayers, marketPlayers) {
 - `handleRefreshMarket` reicht `{ isSuperflex: draftFormat.isSuperflex, effScoringType: draftFormat.scoringType, numTeams: draftFormat.teams }` durch (dieselben Werte, die
   bereits bei `handleAutoImport`/`handleFantasyProsImport` verwendet werden,
   siehe `BoardSection.jsx:167-169`).
-- Neue Funktion `handleFillGaps` nach demselben Muster (eigener
-  Loading-/Error-State, z. B. `fillingGaps`/`fillError`, analog zu
-  `refreshingMarket`/`marketError`).
-- Beide Handler werden an `DataProvenanceBar` durchgereicht.
+- Das ist die einzige Änderung hier — `fillMissingBye` wird nicht von hier aus
+  aufgerufen (siehe Punkt 5, SetupPage).
 
 ### 4. `src/components/DataProvenanceBar.jsx`
 
 CSV-Zweig (aktuell frühes `return` ohne Buttons) bekommt:
 
-- Die zwei neuen Buttons ("ADP übernehmen", "Bye Week ergänzen"), guarded wie
-  beim bestehenden Refresh-Button (`draftMode === 'rookie'` → ausgeblendet).
+- Einen neuen Button ("ADP übernehmen"), guarded wie beim bestehenden
+  Refresh-Button (`draftMode === 'rookie'` → ausgeblendet).
 - Eine optionale ADP-Quellen-Zeile, sobald `marketMeta` gesetzt ist (nach
   einem "ADP übernehmen"-Klick), analog zur bestehenden Market-Zeile
   (Quelle, Stand, Format).
-- Neue Props: `onOverlayAdp`, `onFillGaps`, `overlayingAdp`, `fillingGaps`,
-  `overlayError`, `fillError`, `marketMeta` (bereits vorhanden, aber im
-  CSV-Zweig bisher ungenutzt).
+- Neue Props: `onOverlayAdp`, `overlayingAdp`, `overlayError`, `marketMeta`
+  (bereits vorhanden, aber im CSV-Zweig bisher ungenutzt).
+
+### 5. `src/pages/SetupPage.jsx` + `src/components/ImportResultBanner.jsx`
+
+- `wrappedCsvLoad` zählt nach erfolgreichem `handleCsvLoad()` die Spieler ohne
+  `bye` im frisch geladenen Board und packt das Ergebnis als `missingBye`
+  (Zahl) in `importDone.stats` (zusätzlich zum bestehenden, unveränderten
+  Platzhalter-`statsForCount`).
+- Neue Funktion `handleFillBye()`: ruft `deriveFormat(...)` (wie
+  `wrappedAutoImport` es bereits tut) und dann die neue Store-Action
+  `fillMissingBye({ isSuperflex, effScoringType, numTeams })` auf; setzt
+  danach `importDone.stats.missingBye` auf die neu ermittelte Lückenzahl
+  (i. d. R. 0). Eigener Loading-State (`fillingBye`).
+- `ImportResultBanner` bekommt neue optionale Props `missingBye`,
+  `onFillBye`, `fillingBye`. Zeile erscheint nur, wenn `missingBye > 0`
+  (analog zur bestehenden `withoutAdp`-Zeile): "X Spieler ohne Bye Week ·
+  [Jetzt ergänzen]". Für alle anderen Import-Methoden bleibt `missingBye`
+  `undefined` (deren Stats-Objekte setzen das Feld nicht) — die Zeile
+  erscheint dort also nie, ohne dass es einer expliziten Methodenprüfung
+  bedarf.
 
 ## Datenfluss
 
@@ -114,10 +136,14 @@ CSV-Board (boardSource='csv')
     → set({ boardPlayers, marketMeta })                  // boardSource bleibt 'csv'
     → BoardTable liest p.adp neu → Δ-ADP-Spalte aktualisiert sich automatisch
 
-  → Klick "Bye Week ergänzen"
+CSV-Import im Setup (SetupPage.jsx)
+  → handleCsvLoad() erfolgreich → missingBye = boardPlayers.filter(p => !p.bye).length
+  → ImportResultBanner zeigt "X ohne Bye Week" NUR wenn missingBye > 0
+  → Klick "Jetzt ergänzen"
     → fetchMarketAdp(ffcFormatFor(...))
-    → fillMissingBye(boardPlayers, market.players)        // neu
+    → fillMissingBye(boardPlayers, market.players)        // neu, Store-Action
     → set({ boardPlayers })                               // marketMeta unveraendert
+    → Banner-Zeile verschwindet (missingBye neu berechnet, i.d.R. 0)
 ```
 
 ## Tests
@@ -129,6 +155,10 @@ CSV-Board (boardSource='csv')
   (Guard: kein Board, Guard: Rookie-Modus, Happy Path) und für
   `refreshMarketData` mit übergebenen Format-Parametern (regressions-check,
   dass bestehende Aufrufe ohne Parameter weiter `marketMeta.format` nutzen).
+- `ImportResultBanner.test.jsx`: Zeile erscheint nur bei `missingBye > 0`,
+  bleibt weg bei `missingBye === 0` oder `undefined` (bestehende Methoden).
+- `SetupPage.test.jsx`: `wrappedCsvLoad` ermittelt `missingBye` korrekt aus
+  den geladenen `boardPlayers`.
 
 ## Offene Risiken
 
