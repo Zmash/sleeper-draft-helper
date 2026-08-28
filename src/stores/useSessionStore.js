@@ -33,6 +33,11 @@ export const useSessionStore = create(
         set((s) => ({ availableLeagues: typeof v === 'function' ? v(s.availableLeagues) : v })),
       setLeagueUsers: (v) => set({ leagueUsers: v }),
       setAvailableDrafts: (v) => set({ availableDrafts: v }),
+      removeDraft: (draftId) =>
+        set((s) => ({
+          availableDrafts: (s.availableDrafts || []).filter((d) => d.draft_id !== draftId),
+          selectedDraftId: s.selectedDraftId === draftId ? '' : s.selectedDraftId,
+        })),
       setManualDraftInput: (v) => set({ manualDraftInput: v }),
 
       resolveUserId: async () => {

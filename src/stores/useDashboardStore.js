@@ -236,4 +236,7 @@ export const useDashboardStore = create((set, get) => ({
     // Caller re-invokes loadDashboard — resets loading
     set({ lastRefreshed: null })
   },
+
+  removeCard: (draftId) =>
+    set((s) => ({ cards: s.cards.filter((c) => c.draftId !== draftId) })),
 }))

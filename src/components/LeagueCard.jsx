@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
+import { useDashboardStore } from '../stores/useDashboardStore'
 import Icon from './Icon'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ function LeagueCardInner({ card }) {
 
 function DraftCardInner({ card }) {
   const navigate = useNavigate()
-  const { setSelectedDraftId } = useSessionStore()
+  const { setSelectedDraftId, removeDraft } = useSessionStore()
 
   const isLive = card.draftStatus === 'drafting'
 
@@ -205,6 +206,12 @@ function DraftCardInner({ card }) {
   function openEdit() {
     if (card.draftId) setSelectedDraftId(card.draftId)
     navigate('/setup', { state: { mode: 'edit' } })
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`"${card.draftName}" aus der Übersicht entfernen?`)) return
+    removeDraft(card.draftId)
+    useDashboardStore.getState().removeCard(card.draftId)
   }
 
   const scoringLabel = SCORING_LABELS[card.scoringType] || card.scoringType || 'PPR'
@@ -243,6 +250,9 @@ function DraftCardInner({ card }) {
         </button>
         <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit setup">
           Edit
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={handleDelete} title="Entfernen">
+          <Icon name="trash-2" size={13} />
         </button>
       </div>
     </div>
