@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries } from './marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries, fillMissingBye } from './marketMerge'
 
 const fc = [
   { name: 'Bijan Robinson', pos: 'RB', team: 'ATL', overallRank: 1, tier: 1, sleeperId: '9509', value: 10491 },
@@ -146,5 +146,38 @@ describe('enrichWithInjuries', () => {
   it('ohne Meta bleibt das Board unveraendert', () => {
     const out = enrichWithInjuries([{ name: 'A', sleeperId: '9509' }], {})
     expect(out[0].injury_status).toBeNull()
+  })
+})
+
+describe('fillMissingBye', () => {
+  it('ergaenzt eine fehlende Bye aus dem Markt', () => {
+    const board = [{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', bye: null }]
+    const market = [{ name: 'Bijan Robinson', nname: 'bijan robinson', bye: 11 }]
+    const { players, stats } = fillMissingBye(board, market)
+    expect(players[0].bye).toBe(11)
+    expect(stats.filled).toBe(1)
+  })
+
+  it('ueberschreibt eine vorhandene Bye nie', () => {
+    const board = [{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', bye: '11' }]
+    const market = [{ name: 'Bijan Robinson', nname: 'bijan robinson', bye: 99 }]
+    const { players, stats } = fillMissingBye(board, market)
+    expect(players[0].bye).toBe('11')
+    expect(stats.filled).toBe(0)
+  })
+
+  it('kein Markt-Treffer bleibt unveraendert', () => {
+    const board = [{ name: 'Ghost Player', nname: 'ghost player', rk: '1', bye: null }]
+    const { players, stats } = fillMissingBye(board, [])
+    expect(players[0].bye).toBeNull()
+    expect(stats.filled).toBe(0)
+  })
+
+  it('Markt-Treffer ohne eigene Bye aendert nichts', () => {
+    const board = [{ name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', bye: null }]
+    const market = [{ name: 'Bijan Robinson', nname: 'bijan robinson', bye: null }]
+    const { players, stats } = fillMissingBye(board, market)
+    expect(players[0].bye).toBeNull()
+    expect(stats.filled).toBe(0)
   })
 })

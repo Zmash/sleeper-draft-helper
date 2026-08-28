@@ -112,6 +112,28 @@ export function overlayMarketData(boardPlayers, ffcPlayers) {
   }
 }
 
+// Ergaenzt nur eine fehlende Bye Week aus dem Markt (Sleeper/FFC) -- im
+// Unterschied zu overlayMarketData/mergeMarketFields gewinnt hier die
+// Rang-Quelle IMMER, wenn sie schon eine Bye hat. Grund: players/nfl (die
+// Quelle fuer Team/Pos/Alter in enrichBoardWithSleeper.js) hat in der Praxis
+// keine Bye-Daten -- die Markt-ADP-Endpunkte schon, sollen aber nie einen
+// vom Nutzer importierten Wert ueberschreiben.
+export function fillMissingBye(boardPlayers, marketPlayers) {
+  const market = marketIndex(marketPlayers)
+  let filled = 0
+
+  const players = (boardPlayers || []).map((p) => {
+    if (p.bye) return p
+    const nname = p?.nname || normalizePlayerName(p?.name || '')
+    const hit = market.get(nname)
+    if (!hit?.bye) return p
+    filled += 1
+    return { ...p, bye: hit.bye }
+  })
+
+  return { players, stats: { filled } }
+}
+
 // Weder FantasyCalc noch FFC kennen Verletzungen. Sleeper schon — und seit dem
 // sleeperId-Durchreichen im Rankings-Endpoint haben wir den Schluessel dafuer.
 export function enrichWithInjuries(boardPlayers, playersMeta = {}) {
