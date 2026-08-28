@@ -84,4 +84,27 @@ describe('DataProvenanceBar', () => {
     render(<DataProvenanceBar marketMeta={null} draftMode="rookie" />)
     expect(screen.getByText(/Rookie/)).toBeTruthy()
   })
+
+  it('CSV-Board: ADP uebernehmen erscheint mit onRefresh, heisst nicht "Aktualisieren"', () => {
+    const onRefresh = vi.fn()
+    render(<DataProvenanceBar marketMeta={null} hasCsvBoard csvFileName="ranks.csv" draftMode="redraft" onRefresh={onRefresh} />)
+    const btn = screen.getByRole('button', { name: /ADP übernehmen/ })
+    btn.click()
+    expect(onRefresh).toHaveBeenCalled()
+  })
+
+  it('CSV-Board zeigt die Markt-ADP-Quelle, sobald marketMeta gesetzt ist', () => {
+    render(
+      <DataProvenanceBar
+        marketMeta={{ source: 'sleeper', format: 'ppr', end_date: '2026-07-10' }}
+        hasCsvBoard csvFileName="ranks.csv" draftMode="redraft" now={new Date('2026-07-16')}
+      />
+    )
+    expect(screen.getByText(/Sleeper \(RotoWire\)/)).toBeTruthy()
+  })
+
+  it('CSV-Board ohne onRefresh (z.B. Rookie-Modus) zeigt keinen Button', () => {
+    render(<DataProvenanceBar marketMeta={null} hasCsvBoard csvFileName="ranks.csv" draftMode="rookie" />)
+    expect(screen.queryByRole('button', { name: /ADP übernehmen/ })).toBeNull()
+  })
 })

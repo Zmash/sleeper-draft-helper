@@ -57,15 +57,35 @@ export default function DataProvenanceBar({
     </span>
   ) : null
 
-  // Die Zeile luegt nie: beim CSV-Board gibt es nichts zu aktualisieren.
+  // CSV liefert Rang + eigene ADP -- optional laesst sich die ADP trotzdem aus
+  // dem Markt uebernehmen (onRefresh), derselbe Mechanismus wie beim
+  // Market-Board unten, nur mit anderem Label und ohne automatische ADP-Zeile
+  // vor dem ersten Klick.
   if (hasCsvBoard) {
+    const age = formatMarketAge(marketMeta?.end_date, now)
+    const stale = isStale(marketMeta?.end_date, now)
     return (
       <div className="provenance-bar">
         <span className="provenance-item">
-          <Icon name="clipboard" size={13} /> Rangliste &amp; ADP aus CSV
+          <Icon name="clipboard" size={13} /> Rangliste aus CSV
           {csvFileName ? <> · {csvFileName}</> : null}
         </span>
+        {marketMeta ? (
+          <span className={`provenance-item${stale ? ' provenance-stale' : ''}`}>
+            ADP <strong>{ADP_SOURCE_LABEL[marketMeta.source] || 'Fantasy Football Calculator'}</strong>
+            {marketMeta.total_drafts ? <>, {marketMeta.total_drafts} Mocks</> : null}
+            {age ? <> · Stand <strong>{age}</strong></> : null}
+          </span>
+        ) : (
+          <span className="provenance-item">ADP aus CSV</span>
+        )}
         <span className="provenance-item">Modus <strong>{mode}</strong></span>
+        {onRefresh && (
+          <button className="btn-compact" onClick={onRefresh} disabled={refreshing} title="Sleeper-ADP übernehmen — deine Reihenfolge bleibt">
+            {refreshing ? '…' : <Icon name="refresh" size={13} />} ADP übernehmen
+          </button>
+        )}
+        {error && <span className="provenance-item provenance-stale">{error}</span>}
         {progress}
       </div>
     )
