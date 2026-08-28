@@ -79,7 +79,11 @@ export default function BoardSection({
   async function handleRefreshMarket() {
     setRefreshingMarket(true)
     setMarketError(null)
-    const res = await refreshMarketData()
+    const res = await refreshMarketData({
+      isSuperflex: draftFormat.isSuperflex,
+      effScoringType: draftFormat.scoringType,
+      numTeams: draftFormat.teams,
+    })
     if (!res.ok) setMarketError(res.error)
     setRefreshingMarket(false)
   }
