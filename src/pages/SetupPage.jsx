@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useBoardStore } from '../stores/useBoardStore'
@@ -6,7 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
-import { loadSetup } from '../services/storage'
+import { resolveProfile, loadProfiles, rebindProfile, renameProfile } from '../services/profileStore'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
@@ -53,6 +53,34 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     handleCsvLoad, handleAutoImport, handleKtcRookieImport, handleFantasyProsImport, undoImport,
   } = useBoardStore()
 
+  const [profileTick, setProfileTick] = useState(0)
+  const resolved = useMemo(
+    () => resolveProfile({ draft: selectedDraft, league: selectedLeague, draftMode }),
+    [selectedDraft, selectedLeague, draftMode, profileTick]
+  )
+  const allProfiles = useMemo(() => loadProfiles(), [profileTick])
+
+  function handleProfileChange() {
+    setProfileTick(t => t + 1)
+  }
+
+  function handleRebindProfile(targetProfileId) {
+    if (resolved.profile.boundLeagueId) {
+      rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId })
+    } else {
+      rebindProfile(targetProfileId, { fingerprint: resolved.profile.fingerprint })
+    }
+    setProfileTick(t => t + 1)
+  }
+
+  function handleRenameProfile(name) {
+    // Ein noch nicht persistiertes (isNew) Profil existiert erst nach dem ersten
+    // Override-/Strategie-Edit in der DB -- vorher gibt es nichts umzubenennen.
+    if (resolved.isNew) return
+    renameProfile(resolved.profile.id, name)
+    setProfileTick(t => t + 1)
+  }
+
   // Add mode: clear the current selection, but NOT availableLeagues — es gibt
   // in SetupForm keinen Weg, sie ohne erneute Username-Eingabe nachzuladen
   // (kein Reload-Button), ein Leeren hier war eine Sackgasse (leeres Dropdown,
@@ -94,7 +122,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }
 
   async function wrappedAutoImport(force = false) {
-    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: resolved.profile.overrides })
     const res = await handleAutoImport({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
@@ -121,7 +149,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }
 
   async function wrappedFantasyProsImport(force = false) {
-    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: resolved.profile.overrides })
     const res = await handleFantasyProsImport({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
@@ -231,6 +259,13 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         draftMode={draftMode}
         setDraftMode={setDraftMode}
         selectedLeague={selectedLeague}
+        profile={resolved.profile}
+        profileDeviations={resolved.deviations}
+        isNewProfile={resolved.isNew}
+        allProfiles={allProfiles}
+        onProfileChange={handleProfileChange}
+        onRebindProfile={handleRebindProfile}
+        onRenameProfile={handleRenameProfile}
       />
     </>
   )
