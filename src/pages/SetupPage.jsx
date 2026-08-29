@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useBoardStore } from '../stores/useBoardStore'
@@ -6,7 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
-import { loadSetup } from '../services/storage'
+import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint } from '../services/profileStore'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
@@ -55,6 +55,52 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   } = useBoardStore()
 
   const [fillingBye, setFillingBye] = useState(false)
+  const [profileTick, setProfileTick] = useState(0)
+  const resolved = useMemo(
+    () => resolveProfile({ draft: selectedDraft, league: selectedLeague, draftMode }),
+    [selectedDraft, selectedLeague, draftMode, profileTick]
+  )
+  const allProfiles = useMemo(() => loadProfiles(), [profileTick])
+
+  function handleProfileChange() {
+    setProfileTick(t => t + 1)
+  }
+
+  // Externe Aenderungen (Device-Sync-Pull, anderer Tab) muessen `resolved`
+  // neu berechnen lassen -- sonst ueberschreibt der naechste lokale Edit hier
+  // die frisch gezogenen Daten wieder. Gleiches Muster wie App.jsx/BoardSection.jsx.
+  useEffect(() => {
+    const onSetup = () => setProfileTick(t => t + 1)
+    const onStorage = (e) => { if (e.key === 'sdh.profiles.v1' || e.key === 'sdh.strategyPrinciples.v1') onSetup() }
+    window.addEventListener('sdh:setup-changed', onSetup)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('sdh:setup-changed', onSetup)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
+  function handleRebindProfile(targetProfileId) {
+    if (resolved.profile.boundLeagueId) {
+      rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId })
+    } else {
+      // Nicht resolved.profile.fingerprint wiederverwenden -- das ist der
+      // (evtl. abweichende) Fingerprint des ALTEN Profils. Stattdessen frisch
+      // aus dem aktuell aktiven Draft/Liga berechnen, wie resolveProfile() es
+      // fuer den Standalone-Fall auch tut.
+      const fp = computeDetectedFingerprint({ draft: selectedDraft, league: selectedLeague, draftMode })
+      rebindProfile(targetProfileId, { fingerprint: fp })
+    }
+    setProfileTick(t => t + 1)
+  }
+
+  function handleRenameProfile(name) {
+    // Ein noch nicht persistiertes (isNew) Profil existiert erst nach dem ersten
+    // Override-/Strategie-Edit in der DB -- vorher gibt es nichts umzubenennen.
+    if (resolved.isNew) return
+    renameProfile(resolved.profile.id, name)
+    setProfileTick(t => t + 1)
+  }
 
   // Add mode: clear the current selection, but NOT availableLeagues — es gibt
   // in SetupForm keinen Weg, sie ohne erneute Username-Eingabe nachzuladen
@@ -99,7 +145,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   async function handleFillBye() {
     setFillingBye(true)
-    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: resolved.profile.overrides })
     const res = await fillMissingBye({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
@@ -116,7 +162,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }
 
   async function wrappedAutoImport(force = false) {
-    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: resolved.profile.overrides })
     const res = await handleAutoImport({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
@@ -143,7 +189,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }
 
   async function wrappedFantasyProsImport(force = false) {
-    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: loadSetup()?.overrides || {} })
+    const fmt = deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: resolved.profile.overrides })
     const res = await handleFantasyProsImport({
       isSuperflex: fmt.isSuperflex,
       effScoringType: fmt.scoringType,
@@ -256,6 +302,13 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         draftMode={draftMode}
         setDraftMode={setDraftMode}
         selectedLeague={selectedLeague}
+        profile={resolved.profile}
+        profileDeviations={resolved.deviations}
+        isNewProfile={resolved.isNew}
+        allProfiles={allProfiles}
+        onProfileChange={handleProfileChange}
+        onRebindProfile={handleRebindProfile}
+        onRenameProfile={handleRenameProfile}
       />
     </>
   )

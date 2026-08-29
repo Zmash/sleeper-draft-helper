@@ -59,9 +59,34 @@ State is split across per-domain Zustand stores in `src/stores/`. Some are `pers
 
 `src/stores/migrate.js` runs once in `main.jsx` before render, migrating the old monolithic `draft-helper-state-v3` key into the per-store keys (idempotent).
 
-### Setup overrides — a separate channel from the stores
+### Format-Profile — kontext-gebundene Overrides statt eines globalen Keys
 
-League/roster *overrides* (scoring type, roster positions, strategies, superflex) are **not** in a Zustand store. They live under localStorage key `sdh.setup.v2` via `loadSetup()/saveSetup()` in `src/services/storage.js`. `SetupForm` writes that key and dispatches a `sdh:setup-changed` window event (and cross-tab `storage` events); `App.jsx` listens and bumps `useUIStore.setupVersion`, which invalidates the `useMemo`s that read overrides. When touching setup/override logic, preserve this event → `setupVersion` → memo-recompute chain.
+Format-Overrides (Scoring, Superflex, Roster-Positionen, Teams/Runden/Typ) und
+die Draft-Strategie leben nicht mehr in einem einzigen globalen Key, sondern in
+`localStorage`-Key `sdh.profiles.v1` (`src/services/profileStore.js`) — eine
+Liste von **Format-Profilen**. Jedes Profil ist entweder an eine echte Liga
+(`boundLeagueId`, stabil über Saisons) oder an einen Mock-Draft-Format-
+Fingerprint (`fingerprint`, gematcht wie zuvor die Draft-Strategien) gebunden.
+`resolveProfile({ draft, league, draftMode })` ist eine **reine** Funktion
+(kein Storage-Write, liefert `{ profile, deviations, isNew }`) — sie liefert
+bei fehlendem Treffer ein frisches, noch nicht persistiertes Profil zurück;
+gespeichert wird erst beim ersten tatsächlichen Edit über
+`upsertProfileOverrides`/`upsertProfileStrategy` (verhindert Karteileichen
+durch React-StrictMode-Doppelaufrufe aus `useMemo`).
+
+Cross-profilübergreifende "Grundsätze" (freier Strategie-Text, der immer
+gilt) liegen separat unter `sdh.strategyPrinciples.v1`.
+
+`ProfileEditor.jsx` dispatcht nach jedem Save (Format-Override, Strategie,
+Prinzipien) weiterhin `sdh:setup-changed` (Custom Event) + schreibt in
+`localStorage` — `StrategySection.jsx` ist rein präsentational und ruft dafür
+nur `onSaveStrategy`/`onSavePrinciples`-Props auf, ohne selbst zu schreiben
+oder zu dispatchen. `App.jsx` und `BoardSection.jsx` hören beide unabhängig darauf (Storage-Key-Filter:
+`sdh.profiles.v1` / `sdh.strategyPrinciples.v1`) und lösen jeweils selbst über
+`resolveProfile()` auf. Beim Anfassen dieser Kette: die Doppel-Auflösung in
+`App.jsx` UND `BoardSection.jsx` ist bewusst (beide waren schon vor diesem
+Umbau unabhängig) — nicht versuchen, sie in einem gemeinsamen Prop-Pfad zu
+vereinheitlichen, ohne die Board-Renderpfade komplett zu verstehen.
 
 ### `App.jsx` is the orchestrator
 

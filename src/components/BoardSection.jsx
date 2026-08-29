@@ -9,9 +9,8 @@ import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { useUIStore } from '../stores/useUIStore'
-import { makeFingerprint, resolveStrategyText } from '../services/strategyMatch'
-import { loadStrategies } from '../services/strategyStore'
-import { useSessionStore } from '../stores/useSessionStore'
+import { resolveStrategyText } from '../services/strategyMatch'
+import { resolveProfile, loadPrinciples } from '../services/profileStore'
 
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -66,7 +65,6 @@ export default function BoardSection({
   onOpenDraftReview,
 }) {
   const navigate = useNavigate()
-  const seasonYear = useSessionStore(s => s.seasonYear)
   const boardDensity = useUIStore(s => s.boardDensity)
   const setBoardDensity = useUIStore(s => s.setBoardDensity)
   const {
@@ -131,7 +129,7 @@ export default function BoardSection({
   const [setupTick, setSetupTick] = useState(0)
   useEffect(() => {
     const onSetup = () => setSetupTick(x => x + 1)
-    const onStorage = (e) => { if (e.key === 'sdh.setup.v2') onSetup() }
+    const onStorage = (e) => { if (e.key === 'sdh.profiles.v1' || e.key === 'sdh.strategyPrinciples.v1') onSetup() }
     window.addEventListener('sdh:setup-changed', onSetup)
     window.addEventListener('storage', onStorage)
     return () => {
@@ -141,7 +139,12 @@ export default function BoardSection({
   }, [])
 
   const teamsCount = getTeamsCount({ draft, picks: livePicks, league })
-  const setupOverrides = (() => { try { return JSON.parse(localStorage.getItem('sdh.setup.v2') || '{}').overrides || {} } catch { return {} } })()
+  const resolvedProfile = useMemo(
+    () => resolveProfile({ draft, league, draftMode }),
+    [draft, league, draftMode, setupTick]
+  )
+  const { profile, deviations: profileDeviations } = resolvedProfile
+  const setupOverrides = profile.overrides
 
   const fileRef = useRef(null)
   const [status, setStatus] = useState('')
@@ -215,29 +218,12 @@ export default function BoardSection({
   const draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
   const { rosterPositions } = draftFormat
 
-  // Ersetzt den fruehen globalen Freitext: die Strategie wird jetzt nach
-  // Liga-Format ausgewaehlt (siehe strategyMatch.js).
-  const customStrategyText = useMemo(() => {
-    if (typeof window === 'undefined') return ''
-    const fp = makeFingerprint({
-      format: {
-        // teamsCount (getTeamsCount) ignoriert sdh.setup.v2-Overrides und
-        // liefert 0, wenn unbekannt -- draftFormat.teams ist override-aware
-        // und identisch zu dem, was Setup fuer denselben Fingerprint nutzt.
-        teams: draftFormat.teams,
-        scoringType: draftFormat.scoringType,
-        superflex: draftFormat.isSuperflex,
-        rosterPositions,
-      },
-      season: seasonYear,
-      draftMode,
-    })
-    return resolveStrategyText(loadStrategies(), fp)
-  // setupTick mit in den Deps: loadStrategies() liest localStorage, und das
-  // aendert sich auch ohne Formatwechsel — durch einen Sync-Pull oder durch
-  // Bearbeiten im Setup.
-  }, [draftFormat.teams, draftFormat.scoringType, draftFormat.isSuperflex,
-      JSON.stringify(rosterPositions), seasonYear, draftMode, setupTick])
+  // Matching passiert jetzt einmalig in resolveProfile() (Liga-ID/Fingerprint) —
+  // hier nur noch principles + profile.strategy zu Text zusammensetzen.
+  const customStrategyText = useMemo(
+    () => resolveStrategyText(loadPrinciples(), profile.strategy),
+    [profile.strategy, setupTick]
+  )
 
   const hasBoard = Array.isArray(boardPlayers) && boardPlayers.length > 0
 
@@ -647,6 +633,22 @@ export default function BoardSection({
 
   return (
     <section className="card">
+      {profileDeviations?.length > 0 && (
+        <div className="board-type-warning" role="alert">
+          <span className="board-type-warning-text">
+            <Icon name="warning" size={15} />{' '}
+            Profil „{profile.name}" weicht ab: {profileDeviations.join('; ')}
+          </span>
+          <span className="board-type-warning-actions">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigate('/setup')}
+            >
+              Setup öffnen
+            </button>
+          </span>
+        </div>
+      )}
       {showMismatchBanner && (
         <div className="board-type-warning" role="alert">
           <span className="board-type-warning-text">
