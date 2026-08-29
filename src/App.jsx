@@ -11,7 +11,7 @@ import { getTeamsCount } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
-import { loadSetup } from './services/storage'
+import { resolveProfile } from './services/profileStore'
 import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/draftFormat'
 import { isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
@@ -29,6 +29,7 @@ import BoardPage from './pages/BoardPage'
 import RosterPage from './pages/RosterPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
+import ProfilesPage from './pages/ProfilesPage'
 
 // ── Redirect from / based on account state ───────────────────────────────────
 function RootRedirect() {
@@ -115,7 +116,11 @@ export default function App() {
     return m
   }, [leagueUsers, livePicks, teamsCount])
 
-  const setupOverrides = useMemo(() => loadSetup()?.overrides || {}, [setupVersion])
+  const resolvedProfile = useMemo(
+    () => resolveProfile({ draft: selectedDraft, league: selectedLeague, draftMode }),
+    [selectedDraft, selectedLeague, draftMode, setupVersion]
+  )
+  const setupOverrides = resolvedProfile.profile.overrides
 
   const format = useMemo(
     () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: setupOverrides }),
@@ -239,10 +244,10 @@ export default function App() {
     applyTheme(themeId)
   }, [themeId])
 
-  // Setup change listener (SetupForm writes sdh.setup.v2 and fires this event)
+  // Setup change listener (ProfileEditor writes sdh.profiles.v1 and fires this event)
   useEffect(() => {
     const onSetup = () => incrementSetupVersion()
-    const onStorage = (e) => { if (e.key === 'sdh.setup.v2') onSetup() }
+    const onStorage = (e) => { if (e.key === 'sdh.profiles.v1' || e.key === 'sdh.strategyPrinciples.v1') onSetup() }
     window.addEventListener('sdh:setup-changed', onSetup)
     window.addEventListener('storage', onStorage)
     return () => {
@@ -344,6 +349,7 @@ export default function App() {
         <Route path="/board" element={<BoardPage {...pageProps} />} />
         <Route path="/roster" element={<RosterPage {...pageProps} />} />
         <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
+        <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="*" element={<RootRedirect />} />
       </Routes>
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { loadSetup, saveSetup } from '../services/storage'
-import { deriveFormat, FORMAT_DEFAULTS } from '../services/draftFormat'
+import { deriveFormat } from '../services/draftFormat'
 import { loadPreferences, clearPreferencesForMode } from '../services/preferences'
-import StrategySection from './StrategySection'
+import ProfileBadgeCard from './ProfileBadgeCard'
+import ProfileEditor from './ProfileEditor'
 import SyncSection from './SyncSection'
 import Icon from './Icon'
 
@@ -28,16 +28,15 @@ export default function SetupForm(props) {
     saveToLocalStorage, resolveUserId, loadLeagues, loadDraftOptions,
     attachDraftByIdOrUrl, handleCsvLoad, handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, formatDraftLabel,
     draftMode, setDraftMode, selectedLeague: selectedLeagueProp,
+    profile, profileDeviations, isNewProfile, allProfiles,
+    onProfileChange, onRebindProfile, onRenameProfile,
   } = props
 
   const navigate = useNavigate()
 
   // --- UI State
-  const [openStep, setOpenStep] = useState(sleeperUserId ? 1 : 0)
   const [showAttachAlt, setShowAttachAlt] = useState(false)
   const [showCsvAdvanced, setShowCsvAdvanced] = useState(false)
-  const [showFormat, setShowFormat] = useState(false)
-  const [showAdvancedFormat, setShowAdvancedFormat] = useState(false)
   const [busyResolveAndLoad, setBusyResolveAndLoad] = useState(false)
   const [busyAutoImport, setBusyAutoImport] = useState(false)
   const [busyKtcImport, setBusyKtcImport] = useState(false)
@@ -59,47 +58,21 @@ export default function SetupForm(props) {
     return availableDrafts.find(d => String(d.draft_id) === String(selectedDraftId)) || null
   }, [availableDrafts, selectedDraftId])
 
-  // --- Detected vs Overrides
+  // --- Detected vs Overrides (Overrides kommen jetzt aus dem Profil, s. SetupPage)
   const detected = useMemo(
     () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: {} }),
     [selectedDraft, selectedLeague]
   )
 
-  const [overrides, setOverrides] = useState(() => {
-    const s = loadSetup()
-    return s?.overrides || {
-      scoring_type: null, superflex: null, roster_positions: null,
-      strategies: ['balanced'], teams: null, rounds: null, type: null,
-    }
-  })
-
-  // persist + broadcast (Board reagiert live)
-  useEffect(() => {
-    saveSetup({ overrides })
-    window.dispatchEvent(new CustomEvent('sdh:setup-changed', { detail: overrides }))
-  }, [JSON.stringify(overrides)])
+  const resolvedFormat = useMemo(
+    () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides: profile.overrides }),
+    [selectedDraft, selectedLeague, profile.overrides]
+  )
 
   const eff = {
-    scoring_type: overrides.scoring_type ?? detected.scoringType,
-    roster_positions: overrides.roster_positions ?? detected.rosterPositions,
-    superflex: overrides.superflex ?? detected.isSuperflex,
-    teams:  Number(overrides.teams  ?? detected.teams)  || FORMAT_DEFAULTS.teams,
-    rounds: Number(overrides.rounds ?? detected.rounds) || FORMAT_DEFAULTS.rounds,
-    type:   String(overrides.type   ?? detected.type).toLowerCase(),
+    teams: resolvedFormat.teams, type: resolvedFormat.type,
+    scoring_type: resolvedFormat.scoringType, superflex: resolvedFormat.isSuperflex,
   }
-
-  // Override-aware Format fuer die Draft-Strategie-Fingerprints -- identisch
-  // zu dem, was Board fuer denselben Zweck bildet (deriveFormat mit den
-  // echten Overrides statt {}). eff.superflex oben sniffed sonst am
-  // UN-overridden Roster (detected nutzt overrides: {}): ein Roster-Override
-  // mit SUPER_FLEX ohne Aenderung am Superflex-Select liefert dann
-  // superflex:false in Setup, waehrend Board (das den overridden Roster
-  // sniffed) superflex:true berechnet -- Setup zeigt eine Strategie als
-  // aktiv an, die das Board still nicht anwendet.
-  const strategyFormat = useMemo(
-    () => deriveFormat({ draft: selectedDraft, league: selectedLeague, overrides }),
-    [selectedDraft, selectedLeague, JSON.stringify(overrides)]
-  )
 
   // file import
   function onFileChange(e){
@@ -124,15 +97,12 @@ export default function SetupForm(props) {
         saveToLocalStorage({ userId: id })
       }
       await loadLeagues()
-      setOpenStep(2)
     } catch (e) {
       setFormError(`Ligen konnten nicht geladen werden: ${e?.message || e}. Prüfe den Sleeper-Username und deine Verbindung.`)
     } finally {
       setBusyResolveAndLoad(false)
     }
   }
-
-  const isStepOpen = (n) => openStep === n
 
   function handleClearMarkings() {
     const label = draftMode === 'rookie' ? 'Rookie Draft' : 'Redraft'
@@ -165,437 +135,224 @@ export default function SetupForm(props) {
         </div>
       </div>
 
-      <div className="setup-steps">
+      <div className="card">
+        <h3>Liga & Draft</h3>
+        <div className="form-row">
+          <label className="field">
+            <span>Liga</span>
+            <div className="row">
+              <select
+                className="control"
+                value={selectedLeagueId || ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setSelectedLeagueId(val)
+                  saveToLocalStorage({ leagueId: val })
+                  if (val) loadDraftOptions(val)
+                }}
+              >
+                <option value="">— keine —</option>
+                {(availableLeagues || []).map(l => (
+                  <option key={l.league_id} value={l.league_id}>{l.name || l.league_id}</option>
+                ))}
+              </select>
+              <button className="btn btn-secondary control" disabled={busyResolveAndLoad} onClick={handleResolveAndLoad} title="Ligen erneut von Sleeper laden">
+                {busyResolveAndLoad ? '…' : 'Ligen neu laden'}
+              </button>
+            </div>
+          </label>
 
-        {/* STEP 1 (Liga & Draft) */}
-        <div className={`step ${isStepOpen(1) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(1)}>
-            <span className="step-badge">1</span>
-            <span className="step-title">Liga & Draft wählen</span>
-            <span className="step-sub">Liga (optional) und Draft auswählen</span>
-          </button>
-          <div className="step-body">
-            <div className="form-row">
-              <label className="field">
-                <span>Liga</span>
-                <div className="row">
-                  <select
-                    className="control"
-                    value={selectedLeagueId || ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setSelectedLeagueId(val)
-                      saveToLocalStorage({ leagueId: val })
-                      if (val) loadDraftOptions(val)
-                    }}
-                  >
-                    <option value="">— keine —</option>
-                    {(availableLeagues || []).map(l => (
-                      <option key={l.league_id} value={l.league_id}>
-                        {l.name || l.league_id}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn btn-secondary control"
-                    disabled={busyResolveAndLoad}
-                    onClick={handleResolveAndLoad}
-                    title="Ligen erneut von Sleeper laden"
-                  >
-                    {busyResolveAndLoad ? '…' : 'Ligen neu laden'}
-                  </button>
-                </div>
-              </label>
-
-              <label className="field">
-                <span>Draft</span>
-                <div className="row">
-                  <select
-                    className="control"
-                    value={selectedDraftId || ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setSelectedDraftId(val)
-                      saveToLocalStorage({ draftId: val })
-                    }}
-                  >
-                    <option value="" disabled>— auswählen —</option>
-                    {(availableDrafts || []).map(d => (
-                      <option key={d.draft_id} value={d.draft_id}>
-                        {formatDraftLabel ? formatDraftLabel(d, leaguesById || new Map()) : (d?.metadata?.name || d.draft_id)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn btn-secondary control"
-                    onClick={async () => {
-                      if (!selectedLeagueId) { setFormError('Wähle zuerst eine Liga — oder hänge den Draft unten per ID/Link an.'); return }
-                      setFormError(null)
-                      try { await loadDraftOptions(selectedLeagueId) } catch (e) { setFormError(`Drafts konnten nicht geladen werden: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`) }
-                    }}
-                  >
-                    Drafts neu laden
-                  </button>
-                </div>
-
-                <div className="collapse">
-                  <button
-                    type="button"
-                    className={`collapse-toggle ${showAttachAlt ? 'is-open' : ''}`}
-                    onClick={() => setShowAttachAlt(s => !s)}
-                  >
-                    {showAttachAlt ? 'Ausblenden' : 'Draft per ID/Link anhängen'}
-                  </button>
-                  {showAttachAlt && (
-                    <div className="collapse-body">
-                      <div className="row">
-                        <input
-                          className="control"
-                          value={manualDraftInput || ''}
-                          onChange={(e) => setManualDraftInput(e.target.value)}
-                          placeholder="https://sleeper.com/draft/nfl/123... oder 123..."
-                        />
-                        <button
-                          className="btn btn-primary control"
-                          onClick={async () => {
-                            if (!manualDraftInput) return
-                            setFormError(null)
-                            try {
-                              const ok = await attachDraftByIdOrUrl(manualDraftInput)
-                              if (ok) {
-                                setManualDraftInput(''); saveToLocalStorage({ manualDraftInput: '' })
-                              } else {
-                                setFormError('Kein Draft unter dieser ID/diesem Link gefunden — prüfe, ob er auf einen Sleeper-Draft zeigt (sleeper.com/draft/nfl/…).')
-                              }
-                            } catch (e) { setFormError(`Draft konnte nicht angehängt werden: ${e?.message || e}.`) }
-                          }}
-                        >
-                          Anhängen
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </label>
-
-              <label className="field">
-                <span>Draft-Modus</span>
-                <div className="row">
-                  {['redraft', 'rookie'].map(mode => (
-                    <label key={mode} className="radio-option" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="draftMode"
-                        value={mode}
-                        checked={draftMode === mode}
-                        onChange={() => setDraftMode(mode)}
-                      />
-                      {mode === 'redraft' ? 'Redraft' : 'Rookie Draft (Dynasty)'}
-                    </label>
-                  ))}
-                </div>
-                {selectedLeague?.league_type === 'dynasty' && draftMode === 'redraft' && (
-                  <div className="muted text-xs mt-1">Dynasty-Liga erkannt — Rookie Draft empfohlen</div>
-                )}
-                {selectedLeague?.league_type && selectedLeague.league_type !== 'dynasty' && draftMode === 'rookie' && (
-                  <div className="muted text-xs mt-1">Erkannt: {selectedLeague.league_type}</div>
-                )}
-              </label>
+          <label className="field">
+            <span>Draft</span>
+            <div className="row">
+              <select
+                className="control"
+                value={selectedDraftId || ''}
+                onChange={(e) => { const val = e.target.value; setSelectedDraftId(val); saveToLocalStorage({ draftId: val }) }}
+              >
+                <option value="" disabled>— auswählen —</option>
+                {(availableDrafts || []).map(d => (
+                  <option key={d.draft_id} value={d.draft_id}>{formatDraftLabel ? formatDraftLabel(d, leaguesById || new Map()) : (d?.metadata?.name || d.draft_id)}</option>
+                ))}
+              </select>
+              <button
+                className="btn btn-secondary control"
+                onClick={async () => {
+                  if (!selectedLeagueId) { setFormError('Wähle zuerst eine Liga — oder hänge den Draft unten per ID/Link an.'); return }
+                  setFormError(null)
+                  try { await loadDraftOptions(selectedLeagueId) } catch (e) { setFormError(`Drafts konnten nicht geladen werden: ${e?.message || e}. Prüfe deine Verbindung und versuche es erneut.`) }
+                }}
+              >
+                Drafts neu laden
+              </button>
             </div>
 
             <div className="collapse">
-              <button
-                type="button"
-                className={`collapse-toggle ${showFormat ? 'is-open' : ''}`}
-                onClick={() => setShowFormat(s => !s)}
-              >
-                Erkannt: {eff.teams} Teams · {eff.type} · {String(eff.scoring_type).toUpperCase()}
-                {eff.superflex ? ' · Superflex' : ' · kein Superflex'} · Anpassen
+              <button type="button" className={`collapse-toggle ${showAttachAlt ? 'is-open' : ''}`} onClick={() => setShowAttachAlt(s => !s)}>
+                {showAttachAlt ? 'Ausblenden' : 'Draft per ID/Link anhängen'}
               </button>
-              {showFormat && (
+              {showAttachAlt && (
                 <div className="collapse-body">
-                  <div className="form-row">
-                    <label className="field">
-                      <span>Scoring</span>
-                      <select
-                        className="control"
-                        value={overrides.scoring_type ?? detected.scoringType}
-                        onChange={e => setOverrides(o => ({ ...o, scoring_type: e.target.value || null }))}
-                      >
-                        <option value="ppr">PPR</option>
-                        <option value="half_ppr">Half-PPR</option>
-                        <option value="standard">Standard</option>
-                      </select>
-                      <div className="muted text-xs mt-1">Erkannt: {detected.scoringType || '—'} (Quelle: {detected.source})</div>
-                    </label>
-
-                    <label className="field">
-                      <span>Superflex</span>
-                      <select
-                        className="control"
-                        value={String(overrides.superflex ?? detected.isSuperflex)}
-                        onChange={e => setOverrides(o => ({ ...o, superflex: e.target.value === 'true' }))}
-                      >
-                        <option value="true">An</option>
-                        <option value="false">Aus</option>
-                      </select>
-                      <div className="muted text-xs mt-1">
-                        Erkannt: {detected.isSuperflex ? 'Ja' : 'Nein'}
-                      </div>
-                    </label>
-                  </div>
-
-                  <div className="form-row">
-                    <label className="field">
-                      <span>Teams / Runden / Typ</span>
-                      <div className="row">
-                        <input
-                          className="control"
-                          type="number" min={2}
-                          value={overrides.teams ?? detected.teams ?? FORMAT_DEFAULTS.teams}
-                          onChange={e => setOverrides(o => ({ ...o, teams: Number(e.target.value || 0) || null }))}
-                          aria-label="Teams" title="Teams"
-                        />
-                        <input
-                          className="control"
-                          type="number" min={1}
-                          value={overrides.rounds ?? detected.rounds ?? FORMAT_DEFAULTS.rounds}
-                          onChange={e => setOverrides(o => ({ ...o, rounds: Number(e.target.value || 0) || null }))}
-                          aria-label="Runden" title="Runden"
-                        />
-                        <select
-                          className="control"
-                          value={overrides.type ?? detected.type ?? FORMAT_DEFAULTS.type}
-                          onChange={e => setOverrides(o => ({ ...o, type: e.target.value || null }))}
-                          aria-label="Draft-Typ" title="Draft-Typ"
-                        >
-                          <option value="snake">Snake</option>
-                          <option value="linear">Linear</option>
-                          <option value="auction">Auction</option>
-                        </select>
-                      </div>
-                      <div className="muted text-xs mt-1">Erkannt: {(detected.teams ?? '—')} Teams · {(detected.rounds ?? '—')} Runden · {(detected.type || '—')}</div>
-                    </label>
-                  </div>
-
-                  <div className="collapse">
+                  <div className="row">
+                    <input
+                      className="control"
+                      value={manualDraftInput || ''}
+                      onChange={(e) => setManualDraftInput(e.target.value)}
+                      placeholder="https://sleeper.com/draft/nfl/123... oder 123..."
+                    />
                     <button
-                      type="button"
-                      className={`collapse-toggle ${showAdvancedFormat ? 'is-open' : ''}`}
-                      onClick={() => setShowAdvancedFormat(s => !s)}
+                      className="btn btn-primary control"
+                      onClick={async () => {
+                        if (!manualDraftInput) return
+                        setFormError(null)
+                        try {
+                          const ok = await attachDraftByIdOrUrl(manualDraftInput)
+                          if (ok) { setManualDraftInput(''); saveToLocalStorage({ manualDraftInput: '' }) }
+                          else setFormError('Kein Draft unter dieser ID/diesem Link gefunden — prüfe, ob er auf einen Sleeper-Draft zeigt (sleeper.com/draft/nfl/…).')
+                        } catch (e) { setFormError(`Draft konnte nicht angehängt werden: ${e?.message || e}.`) }
+                      }}
                     >
-                      {showAdvancedFormat ? 'Erweiterte Optionen ausblenden' : 'Erweiterte Optionen'}
+                      Anhängen
                     </button>
-
-                    {showAdvancedFormat && (
-                      <div className="collapse-body">
-                        <label className="field">
-                          <span>Roster-Positionen (Override — optional)</span>
-                          <div className="muted text-xs mb-1">Erkannt:</div>
-                          <div className="chips">
-                            {(detected.rosterPositions || []).map((r, i) => (
-                              <span key={i} className="chip chip--small">{r}</span>
-                            ))}
-                          </div>
-
-                          <textarea
-                            rows={2}
-                            placeholder="Optionaler Override, kommagetrennt: QB,RB,RB,WR,WR,TE,FLEX,SUPER_FLEX"
-                            defaultValue=""
-                            onBlur={(e) => {
-                              const raw = (e.target.value || '').trim()
-                              if (!raw) { setOverrides(o => ({ ...o, roster_positions: null })); return }
-                              const arr = raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-                              setOverrides(o => ({ ...o, roster_positions: arr.length ? arr : null }))
-                            }}
-                          />
-                          <div className="muted text-xs mt-1">
-                            Effektiv: {(overrides.roster_positions ?? detected.rosterPositions)?.join(', ') || '—'}
-                          </div>
-
-                          <div className="row mt-2">
-                            <button
-                              type="button"
-                              className="btn btn-secondary control"
-                              onClick={() => {
-                                setOverrides(o => ({
-                                  ...o,
-                                  scoring_type: FORMAT_DEFAULTS.scoringType,
-                                  superflex: false,
-                                  roster_positions: FORMAT_DEFAULTS.rosterPositions,
-                                  teams: FORMAT_DEFAULTS.teams,
-                                  rounds: FORMAT_DEFAULTS.rounds,
-                                  type: FORMAT_DEFAULTS.type,
-                                }))
-                              }}
-                            >
-                              Standardwerte übernehmen
-                            </button>
-                            <span className="muted text-xs">Standard: 12 Teams · Snake · PPR · kein Superflex · Roster: QB, 2×RB, 2×WR, TE, FLEX, DEF; 6×BN</span>
-                          </div>
-                        </label>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
             </div>
+          </label>
 
-            <StrategySection
-              format={{
-                teams: strategyFormat.teams,
-                scoringType: strategyFormat.scoringType,
-                superflex: strategyFormat.isSuperflex,
-                rosterPositions: strategyFormat.rosterPositions,
-              }}
-              season={seasonYear}
-              draftMode={draftMode}
-              draftSlot={null}
-            />
-
-            <SyncSection />
-
-            <div className="row" style={{ justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn-compact btn-icon"
-                onClick={handleClearMarkings}
-                title={`Alle Fav/Avoid-Markierungen für ${draftMode === 'rookie' ? 'Rookie Draft' : 'Redraft'} löschen`}
-                aria-label="Markierungen löschen"
-              >
-                <Icon name="trash-2" size={14} />
-              </button>
+          <label className="field">
+            <span>Draft-Modus</span>
+            <div className="row">
+              {['redraft', 'rookie'].map(mode => (
+                <label key={mode} className="radio-option" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+                  <input type="radio" name="draftMode" value={mode} checked={draftMode === mode} onChange={() => setDraftMode(mode)} />
+                  {mode === 'redraft' ? 'Redraft' : 'Rookie Draft (Dynasty)'}
+                </label>
+              ))}
             </div>
-          </div>
-          <div className="step-actions">
-            <button className="btn btn-primary" onClick={() => setOpenStep(2)}>Weiter</button>
-          </div>
+            {selectedLeague?.league_type === 'dynasty' && draftMode === 'redraft' && (
+              <div className="muted text-xs mt-1">Dynasty-Liga erkannt — Rookie Draft empfohlen</div>
+            )}
+            {selectedLeague?.league_type && selectedLeague.league_type !== 'dynasty' && draftMode === 'rookie' && (
+              <div className="muted text-xs mt-1">Erkannt: {selectedLeague.league_type}</div>
+            )}
+          </label>
         </div>
 
-        {/* STEP 2 */}
-        <div className={`step ${isStepOpen(2) ? '' : 'collapsed'}`}>
-          <button className="step-header" onClick={() => setOpenStep(2)}>
-            <span className="step-badge">2</span>
-            <span className="step-title">Rankings importieren</span>
-            <span className="step-sub">CSV hochladen oder Auto-Import</span>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <button
+            type="button" className="btn-compact btn-icon" onClick={handleClearMarkings}
+            title={`Alle Fav/Avoid-Markierungen für ${draftMode === 'rookie' ? 'Rookie Draft' : 'Redraft'} löschen`}
+            aria-label="Markierungen löschen"
+          >
+            <Icon name="trash-2" size={14} />
           </button>
-          <div className="step-body">
-            {draftMode !== 'rookie' && (
-              <div className="form-row">
-                <label className="field">
-                  <span>Auto-Import – Quelle wählen</span>
-                  <div className="muted text-xs mb-1">Rangliste direkt importieren, ADP &amp; Byes inklusive – kein CSV nötig.</div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <button
-                      className="btn btn-primary control"
-                      disabled={busyFpImport || busyAutoImport}
-                      onClick={async () => {
-                        setBusyFpImport(true)
-                        try { await handleFantasyProsImport() } finally { setBusyFpImport(false) }
-                      }}
-                    >
-                      {busyFpImport ? 'Wird geladen…' : `FantasyPros (${fpScoringLabel(eff.scoring_type)} ECR)`}
-                    </button>
-                    <button
-                      className="btn btn-secondary control"
-                      disabled={busyAutoImport || busyFpImport}
-                      onClick={async () => {
-                        setBusyAutoImport(true)
-                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
-                      }}
-                    >
-                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
-                    </button>
-                  </div>
-                </label>
-              </div>
-            )}
-            {draftMode === 'rookie' && (
-              <div className="form-row">
-                <label className="field">
-                  <span>Auto-Import – Quelle wählen</span>
-                  <div className="muted text-xs mb-1">Rookie-Rankings direkt importieren – kein CSV nötig. Wähle eine Quelle:</div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <button
-                      className="btn btn-primary control"
-                      disabled={busyKtcImport || busyAutoImport}
-                      onClick={async () => {
-                        setBusyKtcImport(true)
-                        try { await handleKtcRookieImport() } finally { setBusyKtcImport(false) }
-                      }}
-                    >
-                      {busyKtcImport ? 'Wird geladen…' : 'KTC Rookies'}
-                    </button>
-                    <button
-                      className="btn btn-secondary control"
-                      disabled={busyAutoImport || busyKtcImport}
-                      onClick={async () => {
-                        setBusyAutoImport(true)
-                        try { await handleAutoImport() } finally { setBusyAutoImport(false) }
-                      }}
-                    >
-                      {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
-                    </button>
-                  </div>
-                </label>
-              </div>
-            )}
-            <div className="form-row">
-              <label className="field">
-                <span>FantasyPros CSV (file)</span>
-                {draftMode === 'rookie' && (
-                  <div className="muted text-xs mb-1">Rookie-Modus: Lade ein Rookie-Only-Ranking hoch (z.B. FantasyPros Dynasty Rookies)</div>
-                )}
-                <div className="row">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="sr-only"
-                    onChange={onFileChange}
-                  />
-                  <button className="btn btn-primary control" onClick={() => fileRef.current?.click()}>CSV-Datei wählen</button>
-                  <span className="muted text-ellipsis" title={csvFileName}>
-                    {csvFileName || 'Keine Datei gewählt'}
-                  </span>
-                </div>
-
-                <div className="collapse">
-                  <button
-                    type="button"
-                    className={`collapse-toggle ${showCsvAdvanced ? 'is-open' : ''}`}
-                    onClick={() => setShowCsvAdvanced(s => !s)}
-                  >
-                    {showCsvAdvanced ? 'Einfügefeld ausblenden' : 'CSV-Text einfügen'}
-                  </button>
-                  {showCsvAdvanced && (
-                    <div className="collapse-body">
-                      <textarea
-                        value={csvRawText || ''}
-                        spellCheck={false}
-                        onChange={(e) => setCsvRawText(e.target.value)}
-                        placeholder="CSV-Inhalt hier einfügen…"
-                        rows={isAndroid ? 6 : 8}
-                      />
-                      <div className="row">
-                        <button className="btn btn-primary control" onClick={() => handleCsvLoad()}>CSV laden</button>
-                        <button className="btn btn-secondary control" onClick={() => { setCsvRawText(''); saveToLocalStorage({ csvRawText: '' }); setCsvFileName('') }}>
-                          Leeren
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              </label>
-            </div>
-          </div>
-          <div className="step-actions">
-            <button className="btn btn-secondary" onClick={() => setOpenStep(1)}>Zurück</button>
-            <button className="btn btn-primary" onClick={() => navigate('/board')}>Fertig → Board</button>
-          </div>
         </div>
+      </div>
 
+      <ProfileBadgeCard
+        key={profile.id}
+        profile={profile}
+        deviations={profileDeviations}
+        isNew={isNewProfile}
+        allProfiles={allProfiles}
+        onRebind={onRebindProfile}
+        onRename={onRenameProfile}
+      />
+
+      <ProfileEditor
+        key={profile.id}
+        profile={profile}
+        detected={detected}
+        strategyFormat={resolvedFormat}
+        season={seasonYear}
+        draftMode={draftMode}
+        onProfileChange={onProfileChange}
+      />
+
+      <SyncSection />
+
+      <div className="card">
+        <h3>Rankings importieren</h3>
+        {draftMode !== 'rookie' && (
+          <div className="form-row">
+            <label className="field">
+              <span>Auto-Import – Quelle wählen</span>
+              <div className="muted text-xs mb-1">Rangliste direkt importieren, ADP &amp; Byes inklusive – kein CSV nötig.</div>
+              <div className="row" style={{ gap: 8 }}>
+                <button
+                  className="btn btn-primary control" disabled={busyFpImport || busyAutoImport}
+                  onClick={async () => { setBusyFpImport(true); try { await handleFantasyProsImport() } finally { setBusyFpImport(false) } }}
+                >
+                  {busyFpImport ? 'Wird geladen…' : `FantasyPros (${fpScoringLabel(eff.scoring_type)} ECR)`}
+                </button>
+                <button
+                  className="btn btn-secondary control" disabled={busyAutoImport || busyFpImport}
+                  onClick={async () => { setBusyAutoImport(true); try { await handleAutoImport() } finally { setBusyAutoImport(false) } }}
+                >
+                  {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
+                </button>
+              </div>
+            </label>
+          </div>
+        )}
+        {draftMode === 'rookie' && (
+          <div className="form-row">
+            <label className="field">
+              <span>Auto-Import – Quelle wählen</span>
+              <div className="muted text-xs mb-1">Rookie-Rankings direkt importieren – kein CSV nötig. Wähle eine Quelle:</div>
+              <div className="row" style={{ gap: 8 }}>
+                <button
+                  className="btn btn-primary control" disabled={busyKtcImport || busyAutoImport}
+                  onClick={async () => { setBusyKtcImport(true); try { await handleKtcRookieImport() } finally { setBusyKtcImport(false) } }}
+                >
+                  {busyKtcImport ? 'Wird geladen…' : 'KTC Rookies'}
+                </button>
+                <button
+                  className="btn btn-secondary control" disabled={busyAutoImport || busyKtcImport}
+                  onClick={async () => { setBusyAutoImport(true); try { await handleAutoImport() } finally { setBusyAutoImport(false) } }}
+                >
+                  {busyAutoImport ? 'Wird geladen…' : 'FantasyCalc'}
+                </button>
+              </div>
+            </label>
+          </div>
+        )}
+        <div className="form-row">
+          <label className="field">
+            <span>FantasyPros CSV (file)</span>
+            {draftMode === 'rookie' && (
+              <div className="muted text-xs mb-1">Rookie-Modus: Lade ein Rookie-Only-Ranking hoch (z.B. FantasyPros Dynasty Rookies)</div>
+            )}
+            <div className="row">
+              <input ref={fileRef} type="file" accept=".csv,text/csv" className="sr-only" onChange={onFileChange} />
+              <button className="btn btn-primary control" onClick={() => fileRef.current?.click()}>CSV-Datei wählen</button>
+              <span className="muted text-ellipsis" title={csvFileName}>{csvFileName || 'Keine Datei gewählt'}</span>
+            </div>
+            <div className="collapse">
+              <button type="button" className={`collapse-toggle ${showCsvAdvanced ? 'is-open' : ''}`} onClick={() => setShowCsvAdvanced(s => !s)}>
+                {showCsvAdvanced ? 'Einfügefeld ausblenden' : 'CSV-Text einfügen'}
+              </button>
+              {showCsvAdvanced && (
+                <div className="collapse-body">
+                  <textarea
+                    value={csvRawText || ''} spellCheck={false}
+                    onChange={(e) => setCsvRawText(e.target.value)}
+                    placeholder="CSV-Inhalt hier einfügen…"
+                    rows={isAndroid ? 6 : 8}
+                  />
+                  <div className="row">
+                    <button className="btn btn-primary control" onClick={() => handleCsvLoad()}>CSV laden</button>
+                    <button className="btn btn-secondary control" onClick={() => { setCsvRawText(''); saveToLocalStorage({ csvRawText: '' }); setCsvFileName('') }}>Leeren</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </label>
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button className="btn btn-primary" onClick={() => navigate('/board')}>Fertig → Board</button>
+        </div>
       </div>
     </section>
   )
