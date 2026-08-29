@@ -2913,3 +2913,6 @@ th.col-pick, td.col-pick { width: 64px; }
   flex: 1 1 240px;
   min-width: 0;
 }
+
+.settings-menu { display: flex; flex-direction: column; gap: 0.5rem; }
+.settings-menu-item { text-align: left; }
