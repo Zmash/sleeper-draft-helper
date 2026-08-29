@@ -29,6 +29,7 @@ import BoardPage from './pages/BoardPage'
 import RosterPage from './pages/RosterPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
+import ProfilesPage from './pages/ProfilesPage'
 
 // ── Redirect from / based on account state ───────────────────────────────────
 function RootRedirect() {
@@ -348,6 +349,7 @@ export default function App() {
         <Route path="/board" element={<BoardPage {...pageProps} />} />
         <Route path="/roster" element={<RosterPage {...pageProps} />} />
         <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
+        <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="*" element={<RootRedirect />} />
       </Routes>
 
