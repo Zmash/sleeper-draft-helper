@@ -68,17 +68,20 @@ Liste von **Format-Profilen**. Jedes Profil ist entweder an eine echte Liga
 (`boundLeagueId`, stabil über Saisons) oder an einen Mock-Draft-Format-
 Fingerprint (`fingerprint`, gematcht wie zuvor die Draft-Strategien) gebunden.
 `resolveProfile({ draft, league, draftMode })` ist eine **reine** Funktion
-(kein Storage-Write) — sie liefert bei fehlendem Treffer ein frisches, noch
-nicht persistiertes Profil zurück; gespeichert wird erst beim ersten
-tatsächlichen Edit über `upsertProfileOverrides`/`upsertProfileStrategy`
-(verhindert Karteileichen durch React-StrictMode-Doppelaufrufe aus `useMemo`).
+(kein Storage-Write, liefert `{ profile, deviations, isNew }`) — sie liefert
+bei fehlendem Treffer ein frisches, noch nicht persistiertes Profil zurück;
+gespeichert wird erst beim ersten tatsächlichen Edit über
+`upsertProfileOverrides`/`upsertProfileStrategy` (verhindert Karteileichen
+durch React-StrictMode-Doppelaufrufe aus `useMemo`).
 
 Cross-profilübergreifende "Grundsätze" (freier Strategie-Text, der immer
 gilt) liegen separat unter `sdh.strategyPrinciples.v1`.
 
-`ProfileEditor.jsx`/`StrategySection.jsx` dispatchen nach jedem Save weiterhin
-`sdh:setup-changed` (Custom Event) + schreiben in `localStorage` — `App.jsx`
-und `BoardSection.jsx` hören beide unabhängig darauf (Storage-Key-Filter:
+`ProfileEditor.jsx` dispatcht nach jedem Save (Format-Override, Strategie,
+Prinzipien) weiterhin `sdh:setup-changed` (Custom Event) + schreibt in
+`localStorage` — `StrategySection.jsx` ist rein präsentational und ruft dafür
+nur `onSaveStrategy`/`onSavePrinciples`-Props auf, ohne selbst zu schreiben
+oder zu dispatchen. `App.jsx` und `BoardSection.jsx` hören beide unabhängig darauf (Storage-Key-Filter:
 `sdh.profiles.v1` / `sdh.strategyPrinciples.v1`) und lösen jeweils selbst über
 `resolveProfile()` auf. Beim Anfassen dieser Kette: die Doppel-Auflösung in
 `App.jsx` UND `BoardSection.jsx` ist bewusst (beide waren schon vor diesem
