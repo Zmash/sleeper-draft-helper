@@ -251,7 +251,7 @@ export default function SetupForm(props) {
       </div>
 
       <ProfileBadgeCard
-        key={profile.id}
+        key={`badge-${profile.id}`}
         profile={profile}
         deviations={profileDeviations}
         isNew={isNewProfile}
@@ -261,7 +261,7 @@ export default function SetupForm(props) {
       />
 
       <ProfileEditor
-        key={profile.id}
+        key={`editor-${profile.id}`}
         profile={profile}
         detected={detected}
         strategyFormat={resolvedFormat}
