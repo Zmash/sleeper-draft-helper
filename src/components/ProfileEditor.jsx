@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { FORMAT_DEFAULTS } from '../services/draftFormat'
 import { upsertProfileOverrides, upsertProfileStrategy, loadPrinciples, savePrinciples } from '../services/profileStore'
 import StrategySection from './StrategySection'
@@ -6,6 +6,16 @@ import StrategySection from './StrategySection'
 export default function ProfileEditor({ profile, detected, strategyFormat, season, draftMode, onProfileChange }) {
   const [showAdvancedFormat, setShowAdvancedFormat] = useState(false)
   const [principles, setPrinciples] = useState(() => loadPrinciples())
+
+  // Ein externer Schreibvorgang (Device-Sync-Pull, anderer Tab) aendert
+  // sdh.strategyPrinciples.v1, ohne dass dieser useState das mitbekommt --
+  // ohne Re-Read wuerde die naechste lokale Aenderung die frisch gezogenen
+  // Prinzipien wieder ueberschreiben.
+  useEffect(() => {
+    const onSetup = () => setPrinciples(loadPrinciples())
+    window.addEventListener('sdh:setup-changed', onSetup)
+    return () => window.removeEventListener('sdh:setup-changed', onSetup)
+  }, [])
 
   const overrides = profile.overrides
   const eff = {

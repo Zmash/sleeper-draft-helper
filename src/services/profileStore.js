@@ -121,10 +121,17 @@ export function createBlankProfile(name) {
 // leagueId gesetzt -> Liga-Bindung (vorherigem Halter wird die Bindung entzogen,
 // damit resolveProfile().find(...) nie zwei Treffer fuer dieselbe Liga hat).
 // fingerprint gesetzt -> Format-Bindung (Mock). Beide schliessen sich aus.
+// Symmetrisch zur Liga-Bindung wird auch hier dem vorherigen Halter desselben
+// Fingerprints die Bindung entzogen -- sonst haben nach einem Rebind zwei
+// Profile denselben Fingerprint und pickProfile()'s Tie-Break-by-updatedAt
+// kann den Draft spaeter wieder ans alte Profil zurueckreissen.
 export function rebindProfile(id, { leagueId = null, fingerprint = null } = {}) {
   let profiles = loadProfiles()
   if (leagueId) {
     profiles = profiles.map(p => (p.boundLeagueId === leagueId && p.id !== id ? { ...p, boundLeagueId: null } : p))
+  } else if (fingerprint) {
+    const fpKey = JSON.stringify(fingerprint)
+    profiles = profiles.map(p => (p.id !== id && p.fingerprint && JSON.stringify(p.fingerprint) === fpKey ? { ...p, fingerprint: null } : p))
   }
   profiles = profiles.map(p => (p.id === id
     ? { ...p, boundLeagueId: leagueId || null, fingerprint: leagueId ? null : (fingerprint || null), updatedAt: new Date().toISOString() }
@@ -171,6 +178,24 @@ function fingerprintLabel(fp) {
   return `${fp.teams}T ${scoring}${fp.superflex ? ' Superflex' : ''}`
 }
 
+// Fingerprint des AKTUELL aktiven Drafts/Liga -- unabhaengig davon, was
+// irgendein Profil gerade gespeichert hat. Extrahiert aus resolveProfile()'s
+// Standalone-Zweig, damit ein manuelles Rebind (SetupPage.handleRebindProfile)
+// denselben frischen Fingerprint berechnen kann statt den (moeglicherweise
+// abweichenden) Fingerprint des ALTEN Profils wiederzuverwenden.
+export function computeDetectedFingerprint({ draft = null, league = null, draftMode = 'redraft' } = {}) {
+  const standalone = isStandaloneDraft(draft)
+  const effLeague = standalone ? null : league
+  const detected = deriveFormat({ draft, league: effLeague, overrides: {} })
+  return makeFingerprint({
+    format: {
+      teams: detected.teams, scoringType: detected.scoringType,
+      superflex: detected.isSuperflex, rosterPositions: detected.rosterPositions,
+    },
+    draftMode,
+  })
+}
+
 // Reine Funktion -- kein Storage-Write. React.StrictMode ruft aus useMemo
 // heraus aufgerufene Funktionen im Dev-Modus doppelt auf; ein Write hier
 // wuerde bei jedem neu erkannten Format/jeder neuen Liga eine Karteileiche
@@ -186,15 +211,7 @@ export function resolveProfile({ draft = null, league = null, draftMode = 'redra
     return { profile: newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id }), deviations: [], isNew: true }
   }
 
-  const effLeague = standalone ? null : league
-  const detected = deriveFormat({ draft, league: effLeague, overrides: {} })
-  const fp = makeFingerprint({
-    format: {
-      teams: detected.teams, scoringType: detected.scoringType,
-      superflex: detected.isSuperflex, rosterPositions: detected.rosterPositions,
-    },
-    draftMode,
-  })
+  const fp = computeDetectedFingerprint({ draft, league, draftMode })
 
   const candidates = profiles.filter(p => !p.boundLeagueId)
   const hit = pickProfile(candidates, fp)

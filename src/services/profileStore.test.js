@@ -4,7 +4,7 @@ import {
   loadPrinciples, savePrinciples,
   upsertProfileOverrides, upsertProfileStrategy,
   renameProfile, duplicateProfile, deleteProfile, createBlankProfile, rebindProfile,
-  migrateLegacyProfile, resolveProfile,
+  migrateLegacyProfile, resolveProfile, computeDetectedFingerprint,
 } from './profileStore'
 
 beforeEach(() => { localStorage.clear() })
@@ -129,6 +129,32 @@ describe('rebindProfile', () => {
     const updated = loadProfiles()[0]
     expect(updated.boundLeagueId).toBeNull()
     expect(updated.fingerprint.teams).toBe(12)
+  })
+
+  it('bindet an einen Fingerprint und entfernt den identischen Fingerprint beim vorherigen Halter', () => {
+    const fp = { draftMode: 'redraft', scoringType: 'ppr', superflex: false, teams: 12, starters: [] }
+    const a = createBlankProfile('A')
+    const b = createBlankProfile('B')
+    rebindProfile(a.id, { fingerprint: fp })
+    rebindProfile(b.id, { fingerprint: fp })
+    const profiles = loadProfiles()
+    expect(profiles.find(p => p.id === a.id).fingerprint).toBeNull()
+    expect(profiles.find(p => p.id === b.id).fingerprint).toEqual(fp)
+  })
+})
+
+describe('computeDetectedFingerprint', () => {
+  it('liefert den Fingerprint des aktuell erkannten Formats fuer einen Standalone-Mock', () => {
+    const mockDraft = { league_id: null, settings: { teams: 12, rounds: 15 }, metadata: { scoring_type: 'ppr' } }
+    const fp = computeDetectedFingerprint({ draft: mockDraft, league: null, draftMode: 'redraft' })
+    expect(fp).toMatchObject({ teams: 12, scoringType: 'ppr', superflex: false })
+  })
+
+  it('ignoriert eine mitgegebene Liga, wenn der Draft standalone ist', () => {
+    const mockDraft = { league_id: null, settings: { teams: 12, rounds: 15 }, metadata: { scoring_type: 'ppr' } }
+    const league = { league_id: 'L3', total_rosters: 8 }
+    const fp = computeDetectedFingerprint({ draft: mockDraft, league, draftMode: 'redraft' })
+    expect(fp.teams).toBe(12) // aus dem Mock, nicht aus der 8er-Liga
   })
 })
 

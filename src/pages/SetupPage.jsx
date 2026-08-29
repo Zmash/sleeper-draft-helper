@@ -6,7 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
-import { resolveProfile, loadProfiles, rebindProfile, renameProfile } from '../services/profileStore'
+import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint } from '../services/profileStore'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
@@ -64,11 +64,30 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     setProfileTick(t => t + 1)
   }
 
+  // Externe Aenderungen (Device-Sync-Pull, anderer Tab) muessen `resolved`
+  // neu berechnen lassen -- sonst ueberschreibt der naechste lokale Edit hier
+  // die frisch gezogenen Daten wieder. Gleiches Muster wie App.jsx/BoardSection.jsx.
+  useEffect(() => {
+    const onSetup = () => setProfileTick(t => t + 1)
+    const onStorage = (e) => { if (e.key === 'sdh.profiles.v1' || e.key === 'sdh.strategyPrinciples.v1') onSetup() }
+    window.addEventListener('sdh:setup-changed', onSetup)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('sdh:setup-changed', onSetup)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
   function handleRebindProfile(targetProfileId) {
     if (resolved.profile.boundLeagueId) {
       rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId })
     } else {
-      rebindProfile(targetProfileId, { fingerprint: resolved.profile.fingerprint })
+      // Nicht resolved.profile.fingerprint wiederverwenden -- das ist der
+      // (evtl. abweichende) Fingerprint des ALTEN Profils. Stattdessen frisch
+      // aus dem aktuell aktiven Draft/Liga berechnen, wie resolveProfile() es
+      // fuer den Standalone-Fall auch tut.
+      const fp = computeDetectedFingerprint({ draft: selectedDraft, league: selectedLeague, draftMode })
+      rebindProfile(targetProfileId, { fingerprint: fp })
     }
     setProfileTick(t => t + 1)
   }
