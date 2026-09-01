@@ -93,33 +93,6 @@
   color-scheme: dark;
 }
 
-/* Broadcast Crimson — OLED true black, signal-red accent. Classic sports-broadcast red. */
-:root[data-theme='broadcast-crimson'] {
-  --surface-page: #000000;
-  --surface-nav: #0a080a;
-  --surface-card: #100d0f;
-  --surface-raised: #15111a;
-  --border: #241b1e;
-  --border-soft: #181217;
-  --text-primary: #f7f1f2;
-  --text-muted: #94888a;
-  --text-dim: #635a5d;
-  --accent-fill: #ff2d3f;
-  --accent-on: #1a0007;
-  --accent-text: #ff3d4d;
-  --live: #ff3b47;
-  --good: #37d67a;
-  --bad: #ff7a6b;
-  --pos-rb: #22b455;
-  --pos-wr: #2f8fe0;
-  --pos-qb: #ef4a63;
-  --pos-te: #f0982f;
-  --pos-k: #a06ff0;
-  --pos-def: #8a94a6;
-  --pos-on: #ffffff;
-  color-scheme: dark;
-}
-
 /* Broadcast Volt — Anthrazit (hellste Fläche #202020) + Volt-Grün. */
 :root[data-theme='broadcast-volt'] {
   --surface-page: #141414;
@@ -147,20 +120,20 @@
   color-scheme: dark;
 }
 
-/* Broadcast Vikings — Minnesota Vikings (purple + gold). Dark aubergine surfaces. */
-:root[data-theme='broadcast-vikings'] {
-  --surface-page: #0f0815;
-  --surface-nav: #160e22;
-  --surface-card: #1e1430;
-  --surface-raised: #261a3d;
-  --border: #3a2860;
-  --border-soft: #2a1c46;
-  --text-primary: #f0e5fa;
-  --text-muted: #a88fc2;
-  --text-dim: #7c6699;
-  --accent-fill: #ffc62f;
-  --accent-on: #1a1200;
-  --accent-text: #ffc62f;
+/* Broadcast Ferrari — Rosso Corsa auf warmem Carbon-Schwarz, sharp editorial. */
+:root[data-theme='broadcast-ferrari'] {
+  --surface-page: #181818;
+  --surface-nav: #1f1f1f;
+  --surface-card: #262626;
+  --surface-raised: #303030;
+  --border: #3a3a3a;
+  --border-soft: #2c2c2c;
+  --text-primary: #ffffff;
+  --text-muted: #969696;
+  --text-dim: #666666;
+  --accent-fill: #da291c;
+  --accent-on: #ffffff;
+  --accent-text: #da291c;
   --live: #ff3b47;
   --good: #37d67a;
   --bad: #ff7a6b;
@@ -170,6 +143,75 @@
   --pos-te: #f0982f;
   --pos-k: #a06ff0;
   --pos-def: #8a94a6;
-  --pos-on: #1e1430;
+  --pos-on: #ffffff;
   color-scheme: dark;
+  /* Markentypische Form/Tiefe: kompromisslos scharf, kaum Schatten (Ferrari lebt von Hairlines). */
+  --r-ctl: 0px;
+  --r-card: 0px;
+  --shadow-pop: 0 4px 10px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Broadcast Nike — Schwarz/Weiss, hoher Kontrast, Sale-Rot als einziger Akzent. */
+:root[data-theme='broadcast-nike'] {
+  --surface-page: #ffffff;
+  --surface-nav: #ffffff;
+  --surface-card: #ffffff;
+  --surface-raised: #f5f5f5;
+  --border: #cacacb;
+  --border-soft: #e5e5e5;
+  --text-primary: #111111;
+  --text-muted: #707072;
+  --text-dim: #9e9ea0;
+  --accent-fill: #d30005;
+  --accent-on: #ffffff;
+  --accent-text: #b80004;
+  --live: #d81028;
+  --good: #1c8f4e;
+  --bad: #c8402f;
+  --pos-rb: #1e9c4c;
+  --pos-wr: #1f6fc0;
+  --pos-qb: #cf3550;
+  --pos-te: #c9761f;
+  --pos-k: #7a53c8;
+  --pos-def: #5f6b82;
+  --pos-on: #ffffff;
+  color-scheme: light;
+  /* Markentypische Form/Tiefe: Pill-Controls, flache Cards, keine Elevation (Nike verbietet Card-Schatten). */
+  --r-ctl: 999px;
+  --r-card: 0px;
+  --shadow-pop: none;
+  --shadow-modal: none;
+}
+
+/* Broadcast Spotify — Near-Black-Cocoon, Spotify-Gruen als einziger Funktions-Akzent. */
+:root[data-theme='broadcast-spotify'] {
+  --surface-page: #121212;
+  --surface-nav: #181818;
+  --surface-card: #1f1f1f;
+  --surface-raised: #252525;
+  --border: #333333;
+  --border-soft: #202020;
+  --text-primary: #ffffff;
+  --text-muted: #b3b3b3;
+  --text-dim: #7c7c7c;
+  --accent-fill: #1ed760;
+  --accent-on: #052e12;
+  --accent-text: #1ed760;
+  --live: #ff3b47;
+  --good: #37d67a;
+  --bad: #ff7a6b;
+  --pos-rb: #22b455;
+  --pos-wr: #2f8fe0;
+  --pos-qb: #ef4a63;
+  --pos-te: #f0982f;
+  --pos-k: #a06ff0;
+  --pos-def: #8a94a6;
+  --pos-on: #ffffff;
+  color-scheme: dark;
+  /* Markentypische Form/Tiefe: Pill/Circle-Controls, weiche Cards, schwere Elevation (Spotify-Signature). */
+  --r-ctl: 999px;
+  --r-card: 8px;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.55);
 }

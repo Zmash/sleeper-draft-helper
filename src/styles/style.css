@@ -86,7 +86,7 @@ body {
   padding: 4px;
   min-width: 190px;
   display: flex; flex-direction: column; gap: 2px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  box-shadow: var(--shadow-pop, 0 10px 30px rgba(0,0,0,0.35));
 }
 .theme-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -269,6 +269,20 @@ body {
   border: 1px solid var(--border);
 }
 .btn.responsive { width: 100%; }
+
+/* Marken-Ausnahme: Ferrari/Spotify tracken CTA-Labels in ihrem echten Button-Voice
+   (uppercase + Letter-Spacing). Nike bleibt bewusst sentence-case — seine Persoenlichkeit
+   kommt ueber die Pill-Form (--r-ctl), nicht ueber Typografie. */
+:root[data-theme='broadcast-ferrari'] .btn {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+:root[data-theme='broadcast-spotify'] .btn {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
 
 /* Compact actions (legacy) */
 .btn-group-compact { display: inline-flex; gap: 8px; margin-left: 8px; }
@@ -818,10 +832,14 @@ th.col-pick, td.col-pick { width: 64px; }
   }
 }
 
-/* Status rows */
-.row-me td { background: color-mix(in srgb, var(--good) 14%, transparent); }
+/* Status rows — Opazitaet verdoppelt (14/12% -> 28/24%), da der urspruengliche
+   Tint ueber alle Themes hinweg nur ~1.1-1.3:1 Kontrast zur Verfuegbar-Zeile
+   erreichte (WCAG-Ziel fuer UI-Zustaende: 3:1). Live faehrt niedriger als
+   Good, weil Rot bei gleicher Opazitaet auf hellen Themes die gemutete
+   Schrift in .row-other sonst unter 3:1 drueckt (geprueft: Nike-Theme). */
+.row-me td { background: color-mix(in srgb, var(--good) 28%, transparent); }
 .row-other td {
-  background: color-mix(in srgb, var(--live) 12%, transparent);
+  background: color-mix(in srgb, var(--live) 24%, transparent);
   color: var(--text-muted);
 }
 
@@ -977,7 +995,7 @@ th.col-pick, td.col-pick { width: 64px; }
   border-radius: var(--r-card);
   padding: 6px;
   display: inline-flex; gap: 6px;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  box-shadow: var(--shadow-pop, 0 10px 24px rgba(0,0,0,0.35));
   transform-origin: top center;
   animation: prefPop 120ms ease-out;
 }
@@ -1050,7 +1068,7 @@ th.col-pick, td.col-pick { width: 64px; }
   color: var(--text);
   padding: 10px 14px;
   border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-pop, 0 6px 20px rgba(0,0,0,.25));
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1076,7 +1094,7 @@ th.col-pick, td.col-pick { width: 64px; }
   background: var(--surface-card); color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: var(--r-card);
-  box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  box-shadow: var(--shadow-modal, 0 10px 40px rgba(0,0,0,.45));
   display: flex; flex-direction: column;
 }
 .modal-header {

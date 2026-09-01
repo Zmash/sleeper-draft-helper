@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { THEMES, DEFAULT_THEME_ID } from './themes'
 
 describe('theme registry', () => {
-  it('exposes the broadcast family (dark, light, pinkluke, crimson, vikings, volt)', () => {
+  it('exposes the broadcast family (dark, light, pinkluke, volt, ferrari, nike, spotify)', () => {
     expect(THEMES.map((t) => t.id)).toEqual([
       'broadcast-dark',
       'broadcast-light',
       'broadcast-pinkluke',
-      'broadcast-crimson',
-      'broadcast-vikings',
       'broadcast-volt',
+      'broadcast-ferrari',
+      'broadcast-nike',
+      'broadcast-spotify',
     ])
   })
 
