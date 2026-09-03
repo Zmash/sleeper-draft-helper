@@ -1,32 +1,37 @@
 # Graph Report - sleeper-draft-helper  (2026-09-03)
 
 ## Corpus Check
-- 178 files · ~174,452 words
+- 178 files · ~174,642 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 920 nodes · 1866 edges · 49 communities (42 shown, 7 thin omitted)
+- 920 nodes · 1871 edges · 55 communities (48 shown, 7 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.68)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b8619d27`
+- Built from commit: `26e6b522`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Board & Draft Components
+- aiTrade.js
 - Trade & Draft Tips Hooks
 - App Core & Analysis
 - Package Dependencies (dev)
 - Project Architecture Concepts
 - Package Dependencies (prod)
 - Roster CSV & Market
+- DraftAnalysis.jsx
+- ApiKeyDialog.jsx
 - Server API Routes
+- StrategySection.jsx
 - Advice Dialog & Modals
 - Trade Service & AI
 - Dashboard & League Cards
 - Mock Draft Card
+- tradeValue.js
 - Team Rankings: neue lokale Bewertungslogik
 - tradeValue.js
 - Draft-Strategie: Bibliothek + AI-Recherche
@@ -42,6 +47,7 @@
 - Draft Strategies
 - Datei-Übersicht
 - Setup/Profile-Restrukturierung — Design
+- aiCost.js
 - Geräte-Sync — Design
 - SetupPage.jsx
 - Draft-Strategie: Bibliothek + AI-Recherche
@@ -61,8 +67,8 @@
 1. `normalizePlayerName()` - 37 edges
 2. `BoardSection()` - 28 edges
 3. `Icon()` - 27 edges
-4. `useSessionStore` - 24 edges
-5. `fetchJson()` - 23 edges
+4. `fetchJson()` - 25 edges
+5. `useSessionStore` - 24 edges
 6. `App()` - 21 edges
 7. `registerApiRoutes()` - 20 edges
 8. `deriveFormat()` - 18 edges
@@ -74,12 +80,12 @@
   public/football.html → README.md
 - `BoardSection()` --references--> `react`  [EXTRACTED]
   src/components/BoardSection.jsx → package.json
+- `DraftAnalysis()` --references--> `react`  [EXTRACTED]
+  src/components/DraftAnalysis.jsx → package.json
 - `Draft Modes (Redraft vs. Rookie/Dynasty)` --references--> `Sleeper Draft Helper`  [EXTRACTED]
   CLAUDE.md → README.md
 - `Sleeper Draft Helper` --references--> `Capacitor Android Build`  [EXTRACTED]
   README.md → CLAUDE.md
-- `Deploy Pipeline (current-symlink)` --references--> `Express 5 AI Proxy`  [EXTRACTED]
-  .github/workflows/deploy.yml → CLAUDE.md
 
 ## Import Cycles
 - None detected.
@@ -89,11 +95,15 @@
 - **Server Proxy Stack** — concept_express_ai_proxy, concept_anthropic_sdk, concept_deploy_pipeline, concept_sleeper_api [EXTRACTED 0.95]
 - **Frontend SPA Stack** — concept_react_vite_spa, concept_zustand_stores, concept_appjsx_orchestrator, concept_capacitor_android [EXTRACTED 0.95]
 
-## Communities (49 total, 7 thin omitted)
+## Communities (55 total, 7 thin omitted)
 
 ### Community 0 - "Board & Draft Components"
 Cohesion: 0.06
 Nodes (44): BoardMobileBar(), sevClass(), SYNC_PRESETS, BoardSection(), handleAutoImport, handleCsvLoad, handleFantasyProsImport, handleKtcRookieImport (+36 more)
+
+### Community 1 - "aiTrade.js"
+Cohesion: 0.21
+Nodes (13): TradeAnalyzer(), buildTradeAnalysisRequest(), buildTradeSuggestionsRequest(), deriveLeagueContext(), formatItem(), formatPickSummary(), formatRosterSummary(), SCORING_LABEL (+5 more)
 
 ### Community 2 - "Trade & Draft Tips Hooks"
 Cohesion: 0.07
@@ -119,9 +129,21 @@ Nodes (33): @anthropic-ai/sdk, @capacitor/android, cheerio, cors, dotenv, expres
 Cohesion: 0.11
 Nodes (31): qrSvg(), SyncSection(), applyBundle(), collectBundle(), EXCLUDE_KEYS, EXTRA_KEYS, isBundled(), mergeBundles() (+23 more)
 
+### Community 8 - "DraftAnalysis.jsx"
+Cohesion: 0.36
+Nodes (9): DraftAnalysis(), baseProps, emptyParsed, buildDraftReviewContext(), buildDraftReviewPayload(), callAiDraftReview(), readSSEResult(), baseCtxArgs (+1 more)
+
+### Community 9 - "ApiKeyDialog.jsx"
+Cohesion: 0.17
+Nodes (12): react, react, ApiKeyDialog(), backdropStyle, boxStyle, btnBase, btnDanger, btnGhost (+4 more)
+
 ### Community 10 - "Server API Routes"
 Cohesion: 0.14
 Nodes (31): applyPromptCaching(), buildStrategyPrompt(), isValidRoom(), pickToolInput(), prune(), readRoom(), registerApiRoutes(), REVIEW_TOOL (+23 more)
+
+### Community 11 - "StrategySection.jsx"
+Cohesion: 0.25
+Nodes (6): EMPTY_STRATEGY, scoringLabel(), StrategySection(), callAiDraftStrategy(), readSSEResult(), PAYLOAD
 
 ### Community 12 - "Advice Dialog & Modals"
 Cohesion: 0.07
@@ -132,20 +154,24 @@ Cohesion: 0.20
 Nodes (9): Draft-Strategie-Bibliothek mit AI-Recherche — Implementierungsplan, Global Constraints, Nach dem Plan, Task 1: Matching-Logik, Task 2: Persistenz und Migration, Task 3: Server-Route mit Web-Recherche, Task 4: Client für die Strategie-Route, Task 5: UI im SetupForm (+1 more)
 
 ### Community 14 - "Dashboard & League Cards"
-Cohesion: 0.06
-Nodes (47): react, react, AdviceBody(), AdviceDialog(), backdropStyle, bodyScrollStyle, btnGhost, dialogStyle (+39 more)
+Cohesion: 0.16
+Nodes (11): AdviceBody(), AdviceDialog(), backdropStyle, bodyScrollStyle, btnGhost, dialogStyle, headRow, preStyle (+3 more)
 
 ### Community 15 - "Mock Draft Card"
 Cohesion: 0.14
 Nodes (13): 1. `src/services/marketMerge.js`, 2. `src/stores/useBoardStore.js`, 3. `src/components/BoardSection.jsx`, 4. `src/components/DataProvenanceBar.jsx`, 5. `src/pages/SetupPage.jsx` + `src/components/ImportResultBanner.jsx`, CSV-Board: ADP-Override & Bye-Week-Ergänzung, Datenfluss, Nicht-Ziele (+5 more)
+
+### Community 16 - "tradeValue.js"
+Cohesion: 0.31
+Nodes (9): ageModifier(), applyModifier(), avgStarterAge(), detectTeamProfile(), evaluateTrade(), pickModifier(), ROUND_CONFIGS, TIER_NORM (+1 more)
 
 ### Community 17 - "Team Rankings: neue lokale Bewertungslogik"
 Cohesion: 0.15
 Nodes (12): Design, Die 5 Metriken, Fehlerbehandlung, Gemeinsame Basis: Rank→Wert-Kurve, Nicht-Ziele, Problem, Schnittstellen / betroffene Dateien, Starting-Lineup (Grundlage für Starter, Depth, Bye) (+4 more)
 
 ### Community 18 - "tradeValue.js"
-Cohesion: 0.06
-Nodes (50): CURRENT_YEAR, enrichPlayers(), lookupKtcValue(), PickForm(), POS_FILTERS, PROFILE_ICONS, PROFILE_LABELS, TIER_LABELS (+42 more)
+Cohesion: 0.11
+Nodes (15): AiResult(), CURRENT_YEAR, enrichPlayers(), lookupKtcValue(), PickForm(), POS_FILTERS, PROFILE_ICONS, PROFILE_LABELS (+7 more)
 
 ### Community 19 - "Draft-Strategie: Bibliothek + AI-Recherche"
 Cohesion: 0.06
@@ -172,8 +198,8 @@ Cohesion: 0.33
 Nodes (4): LEAGUE_2026, NFL_STATE, REAL_MOCK, STALE_LEAGUE_DRAFT
 
 ### Community 25 - "BoardPage.jsx"
-Cohesion: 0.27
-Nodes (7): initials(), normalizePos(), RosterList(), DynastyRosterGroup(), POS_ORDER, RosterSection(), sortByPos()
+Cohesion: 0.12
+Nodes (22): initials(), normalizePos(), RosterList(), DynastyRosterGroup(), POS_ORDER, RosterSection(), sortByPos(), matchAsset() (+14 more)
 
 ### Community 26 - "Board Store Tests"
 Cohesion: 0.40
@@ -186,6 +212,10 @@ Nodes (17): Datei-Übersicht, Global Constraints, Selbstprüfung (vor Abschluss)
 ### Community 38 - "Setup/Profile-Restrukturierung — Design"
 Cohesion: 0.11
 Nodes (17): Board-Seite: Profil-Hinweis, Datenmodell, Format-Profil, Icon-Konvention, Komponenten, Migration, Navigation, Nicht-Ziele (+9 more)
+
+### Community 39 - "aiCost.js"
+Cohesion: 0.56
+Nodes (7): estimateCostUsd(), estimateTokens(), formatEstimate(), formatTokens(), formatUsage(), formatUsd(), PRICING
 
 ### Community 40 - "Geräte-Sync — Design"
 Cohesion: 0.12
@@ -235,11 +265,11 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `Package Dependencies (prod)` to `Package Dependencies (dev)`, `Dashboard & League Cards`?**
+- **Why does `dependencies` connect `Package Dependencies (prod)` to `ApiKeyDialog.jsx`, `Package Dependencies (dev)`?**
   _High betweenness centrality (0.106) - this node is a cross-community bridge._
-- **Why does `react` connect `Dashboard & League Cards` to `Board & Draft Components`, `Package Dependencies (prod)`?**
+- **Why does `react` connect `ApiKeyDialog.jsx` to `Board & Draft Components`, `DraftAnalysis.jsx`, `Package Dependencies (prod)`?**
   _High betweenness centrality (0.104) - this node is a cross-community bridge._
-- **Why does `BoardSection()` connect `Board & Draft Components` to `Trade & Draft Tips Hooks`, `Draft-Strategie: Bibliothek + AI-Recherche`, `Dashboard & League Cards`, `SetupPage.test.jsx`?**
+- **Why does `BoardSection()` connect `Board & Draft Components` to `Trade & Draft Tips Hooks`, `aiCost.js`, `ApiKeyDialog.jsx`, `Draft-Strategie: Bibliothek + AI-Recherche`, `SetupPage.test.jsx`?**
   _High betweenness centrality (0.062) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
   _301 weakly-connected nodes found - possible documentation gaps or missing edges._

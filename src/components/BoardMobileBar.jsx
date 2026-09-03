@@ -95,6 +95,9 @@ export default function BoardMobileBar({
         <button type="button" className="bmb-item" onClick={onFilter}>
           <Icon name="filter" size={20} /><span>Filter</span>
         </button>
+        <button type="button" className="bmb-item" onClick={() => navigate('/board-grid')}>
+          <Icon name="board" size={20} /><span>Board</span>
+        </button>
 
         <button
           type="button"

@@ -2967,6 +2967,28 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .draft-grid-head--me { background: var(--accent-fill); color: var(--accent-on); }
 
+/* Sticky Runden-Spalte links + Ecke oben-links: beim horizontalen Scrollen
+   (mobil unausweichlich bei >6 Teams) bleibt sichtbar, in welcher Runde man
+   gerade ist. */
+.draft-grid-round {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface-nav);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.draft-grid-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
 .draft-grid-cell {
   background: var(--surface-card);
   min-height: 64px;
@@ -2975,9 +2997,19 @@ th.col-pick, td.col-pick { width: 64px; }
   flex-direction: column;
   gap: 2px;
   font-size: 12px;
+  border-left: 3px solid transparent;
 }
 
 .draft-grid-cell--picked { background: var(--surface-raised); }
+
+/* Positions-Farben wie beim echten Sleeper-Board: leichter Farbton je
+   Spielerposition, gleiche Token wie BoardTable (--pos-rb usw.). */
+.draft-grid-cell[data-pos="rb"]  { border-left-color: var(--pos-rb);  background: color-mix(in srgb, var(--pos-rb) 14%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="wr"]  { border-left-color: var(--pos-wr);  background: color-mix(in srgb, var(--pos-wr) 14%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="qb"]  { border-left-color: var(--pos-qb);  background: color-mix(in srgb, var(--pos-qb) 14%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="te"]  { border-left-color: var(--pos-te);  background: color-mix(in srgb, var(--pos-te) 14%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="k"]   { border-left-color: var(--pos-k);   background: color-mix(in srgb, var(--pos-k) 14%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="def"] { border-left-color: var(--pos-def); background: color-mix(in srgb, var(--pos-def) 14%, var(--surface-raised)); }
 
 .draft-grid-cell--clock {
   background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface-card));
@@ -3004,4 +3036,28 @@ th.col-pick, td.col-pick { width: 64px; }
   font-size: 11px;
   font-weight: 700;
   color: var(--accent-text);
+}
+
+/* Mobil: groesserer Touch-Bereich, besser lesbare Schrift statt der knappen
+   Desktop-Groessen, weiches Swipe-Scrolling durch die Team-Spalten. */
+@media (max-width: 560px) {
+  .draft-grid-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+  .draft-grid-head,
+  .draft-grid-cell { scroll-snap-align: start; }
+  .draft-grid-head {
+    font-size: 13px;
+    padding: 10px 8px;
+  }
+  .draft-grid-cell {
+    min-height: 74px;
+    padding: 6px 8px;
+    gap: 3px;
+  }
+  .dgc-name { font-size: 13px; }
+  .dgc-meta { font-size: 12px; }
+  .dgc-pickno { font-size: 11px; }
+  .draft-grid-round { font-size: 12px; }
 }

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveStore } from '../stores/useLiveStore'
-import { cx } from '../utils/formatting'
+import { cx, normalizePos } from '../utils/formatting'
+import { SLEEPER_API_BASE, fetchJson } from '../services/api'
 import Icon from '../components/Icon'
 
 // Snake-Position innerhalb der Runde: ungerade Runde direkt, gerade Runde
@@ -11,6 +13,22 @@ function posInRound(round, slot, teams) {
 
 export default function DraftGridPage({ selectedDraft, teamsCount, ownerLabels, draftSlot }) {
   const { livePicks } = useLiveStore()
+
+  // Eigene Liga-User-Abfrage statt der global ausgewaehlten Liga: ein per Link
+  // angehaengter Draft (Kumpel teilt seinen Live-Draft) gehoert i.d.R. NICHT
+  // zur eigenen selectedLeague -- ownerLabels/leagueUsers aus App.jsx waeren
+  // dann leer oder fuer die falsche Liga. draft.league_id ist die einzige
+  // verlaessliche Quelle fuer "wer draftet hier wirklich".
+  const [draftLeagueUsers, setDraftLeagueUsers] = useState([])
+  useEffect(() => {
+    const leagueId = selectedDraft?.league_id
+    if (!leagueId) { setDraftLeagueUsers([]); return }
+    let cancelled = false
+    fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
+      .then((users) => { if (!cancelled) setDraftLeagueUsers(Array.isArray(users) ? users : []) })
+      .catch(() => { if (!cancelled) setDraftLeagueUsers([]) })
+    return () => { cancelled = true }
+  }, [selectedDraft?.league_id])
 
   if (!selectedDraft) {
     return (
@@ -34,39 +52,54 @@ export default function DraftGridPage({ selectedDraft, teamsCount, ownerLabels, 
   const currentPickNo = (livePicks?.length || 0) + 1
 
   function labelForSlot(slot) {
-    const bySlot = ownerLabels?.get(`slot:${slot}`)
-    if (bySlot) return bySlot
     const order = selectedDraft?.draft_order || {}
     const uid = Object.keys(order).find((u) => Number(order[u]) === slot)
+    const user = uid && draftLeagueUsers.find((u2) => u2.user_id === uid)
+    if (user) return user.metadata?.team_name || user.display_name || user.username
+    const bySlot = ownerLabels?.get(`slot:${slot}`)
+    if (bySlot) return bySlot
     const byUser = uid && ownerLabels?.get(`user:${uid}`)
     return byUser || `Team ${slot}`
   }
 
   const slots = Array.from({ length: teams }, (_, i) => i + 1)
   const roundsArr = Array.from({ length: rounds }, (_, i) => i + 1)
+  const sleeperUrl = `https://sleeper.com/draft/nfl/${selectedDraft.draft_id}`
 
   return (
     <section className="card draft-grid-page">
       <div className="row between items-center wrap" style={{ gap: 8, marginBottom: '0.75rem' }}>
         <h2 style={{ margin: 0 }}>Draft-Board</h2>
-        <Link className="btn btn-ghost btn-sm" to="/board">Zur Liste</Link>
+        <div className="row items-center" style={{ gap: 8 }}>
+          <a className="btn-compact" href={sleeperUrl} target="_blank" rel="noopener noreferrer">
+            <Icon name="external-link" size={14} /> Sleeper
+          </a>
+          <Link className="btn btn-ghost btn-sm" to="/board">Zur Liste</Link>
+        </div>
       </div>
       <div className="draft-grid-scroll">
-        <div className="draft-grid" style={{ gridTemplateColumns: `repeat(${teams}, minmax(120px, 1fr))` }}>
+        <div
+          className="draft-grid"
+          style={{ gridTemplateColumns: `var(--dg-round-w, 34px) repeat(${teams}, minmax(120px, 1fr))` }}
+        >
+          <div className="draft-grid-head draft-grid-corner" aria-hidden />
           {slots.map((slot) => (
             <div key={`h-${slot}`} className={cx('draft-grid-head', slot === draftSlot && 'draft-grid-head--me')}>
               {labelForSlot(slot)}
             </div>
           ))}
-          {roundsArr.map((round) =>
-            slots.map((slot) => {
+          {roundsArr.flatMap((round) => [
+            <div key={`r-${round}`} className="draft-grid-round">R{round}</div>,
+            ...slots.map((slot) => {
               const pick = picksByCell.get(`${round}-${slot}`)
               const pos = posInRound(round, slot, teams)
               const pickNo = (round - 1) * teams + pos
               const isOnClock = !pick && pickNo === currentPickNo
+              const pickPos = pick ? normalizePos(pick.metadata?.position).toLowerCase() : undefined
               return (
                 <div
                   key={`${round}-${slot}`}
+                  data-pos={pickPos}
                   className={cx(
                     'draft-grid-cell',
                     pick && 'draft-grid-cell--picked',
@@ -91,8 +124,8 @@ export default function DraftGridPage({ selectedDraft, teamsCount, ownerLabels, 
                   ) : null}
                 </div>
               )
-            })
-          )}
+            }),
+          ])}
         </div>
       </div>
     </section>

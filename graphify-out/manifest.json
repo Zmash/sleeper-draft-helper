@@ -50,8 +50,8 @@
     "semantic_hash": "894826518b5b202fc9131b6c71140e7d"
   },
   "src/components/BoardMobileBar.jsx": {
-    "mtime": 1784726157.0799,
-    "ast_hash": "846c9b2d4bcfc9f9a91f93e1fe1ce2ac",
+    "mtime": 1788437997.1846268,
+    "ast_hash": "393d88ea497900b8d0aa4fb6d3460d15",
     "semantic_hash": ""
   },
   "src/components/BoardSection.advice-cache.test.jsx": {
@@ -835,8 +835,8 @@
     "semantic_hash": ""
   },
   "src/pages/DraftGridPage.jsx": {
-    "mtime": 1788436379.149372,
-    "ast_hash": "c01bf512985333380898d6dfe1898208",
+    "mtime": 1788437960.628769,
+    "ast_hash": "c0943d2f0e0ab15de2732eff3830b11b",
     "semantic_hash": ""
   },
   "src/pages/DraftGridPage.test.jsx": {
