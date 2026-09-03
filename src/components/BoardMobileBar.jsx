@@ -13,25 +13,20 @@ const SYNC_PRESETS = [
   { label: '120 s', seconds: 120 },
 ]
 
-const sevClass = (s) => ({
-  info: 'tip tip--info',
-  warn: 'tip tip--warn',
-  critical: 'tip tip--critical',
-  success: 'tip tip--success',
-}[s] || 'tip')
-
 // Mobile-only Aktionsleiste im Stil einer App-Bottom-Bar: ein grosser, erhoehter
 // Center-Button (nur Symbol) fuer den manuellen Sync, flankiert von je zwei
-// Items — links Setup + Filter, rechts AI + Tipps. Sichtbar erst unter dem
-// Mobile-Breakpoint (siehe .board-mobile-bar in style.css). Navigation zu den
-// anderen Seiten laeuft ueber den Setup-Button (die Setup-Seite blendet die
-// Haupt-Tabs wieder ein) sowie ueber die Sprungziele im Filter-Sheet.
+// Items — links Setup + Filter, rechts AI + Board/Liste-Umschalter. Sichtbar
+// erst unter dem Mobile-Breakpoint (siehe .board-mobile-bar in style.css).
+// Navigation zu den anderen Seiten laeuft ueber den Setup-Button (die
+// Setup-Seite blendet die Haupt-Tabs wieder ein) sowie ueber die
+// Sprungziele im Filter-Sheet.
 export default function BoardMobileBar({
   onSync,
   onFilter,
   onAiAdvice,
   aiDisabled = false,
-  tips = [],
+  boardView = 'list',
+  onToggleBoardView,
   autoRefreshEnabled = true,
   refreshIntervalSeconds = 30,
   onToggleAutoRefresh,
@@ -40,12 +35,7 @@ export default function BoardMobileBar({
   onOpenDraftReview,
 }) {
   const navigate = useNavigate()
-  const [tipsOpen, setTipsOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
-
-  // tips kann null sein (BoardSection reicht es teils ungesetzt durch) — der
-  // Default-Param greift nur bei undefined, daher hier explizit normalisieren.
-  const tipList = Array.isArray(tips) ? tips : []
 
   // Kurzer Tap = Sync, langer Druck (>=500ms) = Auto-Sync-Sheet. Der
   // longPress-Ref verhindert, dass der nachfolgende click nochmal synchronisiert.
@@ -95,9 +85,6 @@ export default function BoardMobileBar({
         <button type="button" className="bmb-item" onClick={onFilter}>
           <Icon name="filter" size={20} /><span>Filter</span>
         </button>
-        <button type="button" className="bmb-item" onClick={() => navigate('/board-grid')}>
-          <Icon name="board" size={20} /><span>Board</span>
-        </button>
 
         <button
           type="button"
@@ -129,12 +116,8 @@ export default function BoardMobileBar({
         >
           <Icon name="bot" size={20} /><span>AI</span>
         </button>
-        <button type="button" className="bmb-item" onClick={() => setTipsOpen(true)}>
-          <span className="bmb-badge-wrap">
-            <Icon name="message" size={20} />
-            {tipList.length > 0 && <span className="bmb-badge">{tipList.length}</span>}
-          </span>
-          <span>Tipps</span>
+        <button type="button" className="bmb-item" onClick={onToggleBoardView}>
+          <Icon name="board" size={20} /><span>{boardView === 'list' ? 'Board' : 'Liste'}</span>
         </button>
       </nav>
 
@@ -161,26 +144,6 @@ export default function BoardMobileBar({
             >
               {preset.label}
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tipps-Sheet: uebernimmt die Rolle des Floating-TipsDock auf dem Board */}
-      <div className={cx('board-sheet-scrim', tipsOpen && 'is-open')} onClick={() => setTipsOpen(false)} />
-      <div className={cx('board-sheet bmb-tips-sheet', tipsOpen && 'is-open')} role="dialog" aria-label="Live-Tipps">
-        <div className="board-sheet-head">
-          <strong>Live-Tipps</strong>
-          <button type="button" className="board-sheet-close" onClick={() => setTipsOpen(false)} aria-label="Schließen">
-            <Icon name="x" size={18} />
-          </button>
-        </div>
-        <div className="tips-dock-list">
-          {tipList.length === 0 && <div className="muted">Keine Tipps aktuell.</div>}
-          {tipList.map((t) => (
-            <div key={t.id} className={sevClass(t.severity)}>
-              <span className="tip-dot" />
-              <span>{t.text}</span>
-            </div>
           ))}
         </div>
       </div>

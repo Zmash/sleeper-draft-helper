@@ -3080,4 +3080,10 @@ th.col-pick, td.col-pick { width: 64px; }
   .dgc-meta { font-size: 10px; }
   .dgc-pickno { font-size: 10px; }
   .draft-grid-round { font-size: 12px; }
+
+  /* Board-Ansicht teilt sich das Chrome mit der Liste (BoardSection):
+     Bottom-Bar ist fixed, ohne eigenen .table-wrap-Hoehen-Trick scrollt hier
+     die ganze Seite -- Platz am Ende reservieren, sonst verschwindet die
+     letzte Runde unter der Bar. */
+  body.board-mobile-active .draft-grid-scroll { padding-bottom: 84px; }
 }

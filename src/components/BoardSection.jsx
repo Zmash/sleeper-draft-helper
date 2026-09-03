@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
+import DraftGrid from './DraftGrid'
 import DataProvenanceBar from './DataProvenanceBar'
 import BoardMobileBar from './BoardMobileBar'
 import Icon from './Icon'
@@ -151,6 +152,12 @@ export default function BoardSection({
 
   // Mobile: Filter liegen in einem Bottom-Sheet statt dauerhaft in der Zeile.
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
+  // Board-Ansicht: Liste (Tabelle) oder Grid (Sleeper-Board-Optik). Lokaler
+  // State statt Route -- so bleiben Chrome, Bottom-Bar und alle Dialoge
+  // (AI/Filter/Key) exakt dieselben, nur der Inhalt tauscht.
+  const [boardView, setBoardView] = useState('list')
+  const toggleBoardView = () => setBoardView((v) => (v === 'list' ? 'grid' : 'list'))
 
   // Direkt-Import vom leeren Board / Draft-Typ-Guard: erspart den Umweg zurueck
   // ins Setup, wenn man nach dem Einfuegen eines Mock-Links ohne (oder mit dem
@@ -693,6 +700,8 @@ export default function BoardSection({
           onSync={onSync}
           lastSyncAt={lastSyncAt}
           draftId={draft?.draft_id}
+          boardView={boardView}
+          onToggleBoardView={toggleBoardView}
         />
 
         <div className="btn-group-compact">
@@ -722,78 +731,6 @@ export default function BoardSection({
         </div>
       </div>
 
-      {/* Auf dem Desktop fliesst diese Zeile normal; unter dem Mobile-Breakpoint
-          wird derselbe Knoten per CSS zum Bottom-Sheet (is-open aus dem Filter-
-          Button der Bottom-Bar). Ein Knoten, eine Quelle der Wahrheit. */}
-      <div
-        className={cx('board-sheet', 'board-filters-host', mobileFilterOpen && 'is-open')}
-        role="group"
-        aria-label="Filter"
-      >
-        <div className="board-sheet-head">
-          <strong>Filter</strong>
-          <button
-            type="button"
-            className="board-sheet-close"
-            onClick={() => setMobileFilterOpen(false)}
-            aria-label="Schließen"
-          >
-            <Icon name="x" size={18} />
-          </button>
-        </div>
-        <FiltersRow
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          positionFilter={positionFilter}
-          onPositionChange={onPositionChange}
-          onJumpToNext={scrollToNextUndrafted}
-          playerPrefs={playerPrefs}
-          PlayerPreference={PlayerPreference}
-          hideAvoid={hideAvoid}
-          setHideAvoid={setHideAvoid}
-          boardDensity={boardDensity}
-          setBoardDensity={setBoardDensity}
-          ownerLabels={ownerLabels}
-          teamFilter={teamFilter}
-          onTeamFilterChange={onTeamFilterChange}
-        />
-      </div>
-      <div
-        className={cx('board-sheet-scrim', mobileFilterOpen && 'is-open')}
-        onClick={() => setMobileFilterOpen(false)}
-      />
-
-      <DataProvenanceBar
-        marketMeta={marketMeta}
-        rankingSource={rankingSource}
-        draftMode={draftMode}
-        hasCsvBoard={boardSource === 'csv'}
-        onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
-        refreshing={refreshingMarket}
-        error={marketError}
-        pickedCount={pickedCount}
-        totalCount={totalCount}
-      />
-
-      {/* Kompakte Status-Zeile (nur Mobile): Fortschritt + Quelle in EINER Zeile,
-          ersetzt die verbose Herkunfts-Zeile und die Progress-Zeile der Tabelle. */}
-      <div className="board-status-line">
-        <div className="bsl-bar">
-          <div style={{ width: `${totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}%` }} />
-        </div>
-        <span className="bsl-count">{pickedCount}/{totalCount}</span>
-        <span className="bsl-src">
-          {rankingSource || 'FantasyPros'}
-          {(() => {
-            const adp = boardSource === 'csv' ? 'CSV'
-              : marketMeta?.source === 'sleeper' ? 'Sleeper ADP'
-              : marketMeta?.source === 'ffc' ? 'FFC ADP'
-              : marketMeta ? 'ADP' : null
-            return adp ? <> · {adp}</> : null
-          })()}
-        </span>
-      </div>
-
       {draftMode === 'rookie' && myDraftPicks.length > 0 && (
         <div className="my-picks-banner">
           <span className="muted text-xs" style={{ marginRight: '0.5rem' }}>Deine Picks:</span>
@@ -809,64 +746,143 @@ export default function BoardSection({
         </div>
       )}
 
-      <BoardTable
-        filteredPlayers={filteredBoardPlayers}
-        highlightedNnames={[...aiHighlights.all]}
-        primaryNname={aiHighlights.primary}
-        adviceReasons={aiHighlights.reasons}
-        boardPlayers={filteredBoardPlayers}
-        playerPrefs={playerPrefs}
-        onSetPlayerPref={handleSetPlayerPref}
-        onReorder={onBoardReorder}
-        draftMode={draftMode}
-      />
+      {boardView === 'grid' ? (
+        <DraftGrid draft={draft} teamsCount={teamsCount} ownerLabels={ownerLabels} draftSlot={draftSlot} />
+      ) : (
+        <>
+          {/* Auf dem Desktop fliesst diese Zeile normal; unter dem Mobile-Breakpoint
+              wird derselbe Knoten per CSS zum Bottom-Sheet (is-open aus dem Filter-
+              Button der Bottom-Bar). Ein Knoten, eine Quelle der Wahrheit. */}
+          <div
+            className={cx('board-sheet', 'board-filters-host', mobileFilterOpen && 'is-open')}
+            role="group"
+            aria-label="Filter"
+          >
+            <div className="board-sheet-head">
+              <strong>Filter</strong>
+              <button
+                type="button"
+                className="board-sheet-close"
+                onClick={() => setMobileFilterOpen(false)}
+                aria-label="Schließen"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <FiltersRow
+              searchQuery={searchQuery}
+              onSearchChange={onSearchChange}
+              positionFilter={positionFilter}
+              onPositionChange={onPositionChange}
+              onJumpToNext={scrollToNextUndrafted}
+              playerPrefs={playerPrefs}
+              PlayerPreference={PlayerPreference}
+              hideAvoid={hideAvoid}
+              setHideAvoid={setHideAvoid}
+              boardDensity={boardDensity}
+              setBoardDensity={setBoardDensity}
+              ownerLabels={ownerLabels}
+              teamFilter={teamFilter}
+              onTeamFilterChange={onTeamFilterChange}
+            />
+          </div>
+          <div
+            className={cx('board-sheet-scrim', mobileFilterOpen && 'is-open')}
+            onClick={() => setMobileFilterOpen(false)}
+          />
 
-      {filteredBoardPlayers.length === 0 && (
-        <p className="muted center mt-3">Keine Spieler für die aktuellen Filter.</p>
+          <DataProvenanceBar
+            marketMeta={marketMeta}
+            rankingSource={rankingSource}
+            draftMode={draftMode}
+            hasCsvBoard={boardSource === 'csv'}
+            onRefresh={draftMode === 'rookie' ? undefined : handleRefreshMarket}
+            refreshing={refreshingMarket}
+            error={marketError}
+            pickedCount={pickedCount}
+            totalCount={totalCount}
+          />
+
+          {/* Kompakte Status-Zeile (nur Mobile): Fortschritt + Quelle in EINER Zeile,
+              ersetzt die verbose Herkunfts-Zeile und die Progress-Zeile der Tabelle. */}
+          <div className="board-status-line">
+            <div className="bsl-bar">
+              <div style={{ width: `${totalCount ? Math.round((pickedCount / totalCount) * 100) : 0}%` }} />
+            </div>
+            <span className="bsl-count">{pickedCount}/{totalCount}</span>
+            <span className="bsl-src">
+              {rankingSource || 'FantasyPros'}
+              {(() => {
+                const adp = boardSource === 'csv' ? 'CSV'
+                  : marketMeta?.source === 'sleeper' ? 'Sleeper ADP'
+                  : marketMeta?.source === 'ffc' ? 'FFC ADP'
+                  : marketMeta ? 'ADP' : null
+                return adp ? <> · {adp}</> : null
+              })()}
+            </span>
+          </div>
+
+          <BoardTable
+            filteredPlayers={filteredBoardPlayers}
+            highlightedNnames={[...aiHighlights.all]}
+            primaryNname={aiHighlights.primary}
+            adviceReasons={aiHighlights.reasons}
+            boardPlayers={filteredBoardPlayers}
+            playerPrefs={playerPrefs}
+            onSetPlayerPref={handleSetPlayerPref}
+            onReorder={onBoardReorder}
+            draftMode={draftMode}
+          />
+
+          {filteredBoardPlayers.length === 0 && (
+            <p className="muted center mt-3">Keine Spieler für die aktuellen Filter.</p>
+          )}
+
+          <div className="row end board-export-row" style={{ gap: 8, marginTop: '1rem' }}>
+            <button
+              className="btn-compact"
+              onClick={() => exportBoardAsCsv(filteredBoardPlayers)}
+              title="Aktuelles Ranking als CSV exportieren"
+            >
+              <Icon name="clipboard-copy" size={15} /> Export rankings
+            </button>
+            <button className="btn-compact" onClick={() => exportSettings('User-initiated export')}>
+              <Icon name="save" size={15} /> Export settings
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                try {
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  const res = await importSettingsFromFile(f, { cleanupOldVersions: true })
+                  setStatus(`Import OK. Applied: ${res.applied.length}, Skipped: ${res.skipped.length}`)
+                } catch (err) {
+                  setStatus(`Import-Fehler: ${err?.message || String(err)}`)
+                } finally {
+                  e.currentTarget.value = ''
+                }
+              }}
+            />
+            <button className="btn-compact" onClick={() => fileRef.current?.click()}>
+              <Icon name="upload" size={15} /> Import settings
+            </button>
+          </div>
+
+          {status && <p className="text-xs muted">{status}</p>}
+        </>
       )}
-
-      <div className="row end board-export-row" style={{ gap: 8, marginTop: '1rem' }}>
-        <button
-          className="btn-compact"
-          onClick={() => exportBoardAsCsv(filteredBoardPlayers)}
-          title="Aktuelles Ranking als CSV exportieren"
-        >
-          <Icon name="clipboard-copy" size={15} /> Export rankings
-        </button>
-        <button className="btn-compact" onClick={() => exportSettings('User-initiated export')}>
-          <Icon name="save" size={15} /> Export settings
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json"
-          style={{ display: 'none' }}
-          onChange={async (e) => {
-            try {
-              const f = e.target.files?.[0]
-              if (!f) return
-              const res = await importSettingsFromFile(f, { cleanupOldVersions: true })
-              setStatus(`Import OK. Applied: ${res.applied.length}, Skipped: ${res.skipped.length}`)
-            } catch (err) {
-              setStatus(`Import-Fehler: ${err?.message || String(err)}`)
-            } finally {
-              e.currentTarget.value = ''
-            }
-          }}
-        />
-        <button className="btn-compact" onClick={() => fileRef.current?.click()}>
-          <Icon name="upload" size={15} /> Import settings
-        </button>
-      </div>
-
-      {status && <p className="text-xs muted">{status}</p>}
 
       <BoardMobileBar
         onSync={onSync}
         onFilter={() => setMobileFilterOpen(true)}
         onAiAdvice={handleAskAI}
         aiDisabled={adviceButtonDisabled}
-        tips={tips}
+        boardView={boardView}
+        onToggleBoardView={toggleBoardView}
         autoRefreshEnabled={autoRefreshEnabled}
         refreshIntervalSeconds={refreshIntervalSeconds}
         onToggleAutoRefresh={onToggleAutoRefresh}

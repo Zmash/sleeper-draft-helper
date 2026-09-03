@@ -552,8 +552,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "package_dependencies_react",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "react"
     },
     {
@@ -563,8 +563,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "react",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "react"
     },
     {
@@ -1058,8 +1058,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_apikeydialog",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "apikeydialog.jsx"
     },
     {
@@ -1069,8 +1069,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_components_apikeydialog_apikeydialog",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "apikeydialog()"
     },
     {
@@ -1080,8 +1080,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "src_components_apikeydialog_backdropstyle",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "backdropstyle"
     },
     {
@@ -1091,8 +1091,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "src_components_apikeydialog_modalstyle",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "modalstyle"
     },
     {
@@ -1102,8 +1102,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "src_components_apikeydialog_boxstyle",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "boxstyle"
     },
     {
@@ -1113,8 +1113,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "src_components_apikeydialog_btnbase",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "btnbase"
     },
     {
@@ -1124,8 +1124,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "src_components_apikeydialog_btnprimary",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "btnprimary"
     },
     {
@@ -1135,8 +1135,8 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "src_components_apikeydialog_btndanger",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "btndanger"
     },
     {
@@ -1146,8 +1146,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "src_components_apikeydialog_btnghost",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "btnghost"
     },
     {
@@ -1696,8 +1696,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_draftanalysis",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "draftanalysis.jsx"
     },
     {
@@ -1707,8 +1707,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_components_draftanalysis_draftanalysis",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "draftanalysis()"
     },
     {
@@ -1718,8 +1718,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "draftanalysis.test.jsx"
     },
     {
@@ -1729,8 +1729,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test_emptyparsed",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "emptyparsed"
     },
     {
@@ -1740,8 +1740,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test_baseprops",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "baseprops"
     },
     {
@@ -2400,8 +2400,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_strategysection",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "strategysection.jsx"
     },
     {
@@ -2411,8 +2411,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_components_strategysection_scoringlabel",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "scoringlabel()"
     },
     {
@@ -2422,8 +2422,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "src_components_strategysection_empty_strategy",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "empty_strategy"
     },
     {
@@ -2433,8 +2433,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "src_components_strategysection_strategysection",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "strategysection()"
     },
     {
@@ -2444,8 +2444,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "src_components_strategysection_editform",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "editform()"
     },
     {
@@ -2785,8 +2785,8 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "src_components_tradeanalyzer_airesult",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 18,
+      "community_name": "tradeValue.js",
       "norm_label": "airesult()"
     },
     {
@@ -2796,8 +2796,8 @@
       "source_location": "L369",
       "_origin": "ast",
       "id": "src_components_tradeanalyzer_tradesuggestions",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 18,
+      "community_name": "tradeValue.js",
       "norm_label": "tradesuggestions()"
     },
     {
@@ -2807,8 +2807,8 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "src_components_tradeanalyzer_tradeanalyzer",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "tradeanalyzer()"
     },
     {
@@ -3222,7 +3222,7 @@
       "label": "posInRound()",
       "file_type": "code",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L8",
+      "source_location": "L10",
       "_origin": "ast",
       "id": "src_pages_draftgridpage_posinround",
       "community": 19,
@@ -3233,7 +3233,7 @@
       "label": "DraftGridPage()",
       "file_type": "code",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L12",
+      "source_location": "L14",
       "_origin": "ast",
       "id": "src_pages_draftgridpage_draftgridpage",
       "community": 19,
@@ -4292,8 +4292,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aicost",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "aicost.js"
     },
     {
@@ -4303,8 +4303,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aicost_pricing",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "pricing"
     },
     {
@@ -4314,8 +4314,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_aicost_estimatetokens",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "estimatetokens()"
     },
     {
@@ -4325,8 +4325,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "src_services_aicost_estimatecostusd",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "estimatecostusd()"
     },
     {
@@ -4336,8 +4336,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "src_services_aicost_formattokens",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "formattokens()"
     },
     {
@@ -4347,8 +4347,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "src_services_aicost_formatusd",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "formatusd()"
     },
     {
@@ -4358,8 +4358,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "src_services_aicost_formatestimate",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "formatestimate()"
     },
     {
@@ -4369,8 +4369,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_services_aicost_formatusage",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "formatusage()"
     },
     {
@@ -4380,8 +4380,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aicost_test",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 39,
+      "community_name": "aiCost.js",
       "norm_label": "aicost.test.js"
     },
     {
@@ -4391,8 +4391,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "aidraftreviewclient.js"
     },
     {
@@ -4402,8 +4402,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_builddraftreviewcontext",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "builddraftreviewcontext()"
     },
     {
@@ -4413,8 +4413,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_builddraftreviewpayload",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "builddraftreviewpayload()"
     },
     {
@@ -4424,8 +4424,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_readsseresult",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "readsseresult()"
     },
     {
@@ -4435,8 +4435,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_callaidraftreview",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "callaidraftreview()"
     },
     {
@@ -4446,8 +4446,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_test",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "aidraftreviewclient.test.js"
     },
     {
@@ -4457,8 +4457,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_test_basectxargs",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "basectxargs"
     },
     {
@@ -4468,8 +4468,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aistrategyclient",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "aistrategyclient.js"
     },
     {
@@ -4479,8 +4479,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_readsseresult",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "readsseresult()"
     },
     {
@@ -4490,8 +4490,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_callaidraftstrategy",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "callaidraftstrategy()"
     },
     {
@@ -4501,8 +4501,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "aistrategyclient.test.js"
     },
     {
@@ -4512,8 +4512,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test_payload",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "payload"
     },
     {
@@ -4523,8 +4523,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test_sseresponse",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 11,
+      "community_name": "StrategySection.jsx",
       "norm_label": "sseresponse()"
     },
     {
@@ -4534,8 +4534,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aitrade",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "aitrade.js"
     },
     {
@@ -4545,8 +4545,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_services_aitrade_scoring_label",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "scoring_label"
     },
     {
@@ -4556,8 +4556,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_aitrade_deriveleaguecontext",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "deriveleaguecontext()"
     },
     {
@@ -4567,8 +4567,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_services_aitrade_trade_tool",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "trade_tool"
     },
     {
@@ -4578,8 +4578,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "src_services_aitrade_formatitem",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "formatitem()"
     },
     {
@@ -4589,8 +4589,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "src_services_aitrade_formatrostersummary",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "formatrostersummary()"
     },
     {
@@ -4600,8 +4600,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "src_services_aitrade_formatpicksummary",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "formatpicksummary()"
     },
     {
@@ -4611,8 +4611,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "src_services_aitrade_trade_suggestions_tool",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "trade_suggestions_tool"
     },
     {
@@ -4622,8 +4622,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "src_services_aitrade_buildtradesuggestionsrequest",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "buildtradesuggestionsrequest()"
     },
     {
@@ -4633,8 +4633,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "src_services_aitrade_buildtradeanalysisrequest",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "buildtradeanalysisrequest()"
     },
     {
@@ -4644,8 +4644,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aitrade_test",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "aitrade.test.js"
     },
     {
@@ -4655,8 +4655,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aitrade_test_dynastyleague",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "dynastyleague"
     },
     {
@@ -4666,8 +4666,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_aitrade_test_redraftleague",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "redraftleague"
     },
     {
@@ -4677,8 +4677,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_services_aitrade_test_evalresult",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 1,
+      "community_name": "aiTrade.js",
       "norm_label": "evalresult"
     },
     {
@@ -4688,8 +4688,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aivalidate",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "aivalidate.js"
     },
     {
@@ -4699,8 +4699,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_aivalidate_norm",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "norm()"
     },
     {
@@ -4710,8 +4710,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_aivalidate_validateadvice",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "validateadvice()"
     },
     {
@@ -4721,8 +4721,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_services_aivalidate_matchasset",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "matchasset()"
     },
     {
@@ -4732,8 +4732,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_services_aivalidate_validatetradesuggestions",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "validatetradesuggestions()"
     },
     {
@@ -4743,8 +4743,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aivalidate_test",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "aivalidate.test.js"
     },
     {
@@ -4754,8 +4754,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_aivalidate_test_avail",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "avail"
     },
     {
@@ -4765,8 +4765,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_services_aivalidate_test_p",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "p()"
     },
     {
@@ -5447,8 +5447,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_key",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "key.js"
     },
     {
@@ -5458,8 +5458,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_key_getopenaikey",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "getopenaikey()"
     },
     {
@@ -5469,8 +5469,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_key_setopenaikey",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "setopenaikey()"
     },
     {
@@ -5480,8 +5480,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_services_key_maskkey",
-      "community": 14,
-      "community_name": "Dashboard & League Cards",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "maskkey()"
     },
     {
@@ -5491,8 +5491,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_marketmerge",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "marketmerge.js"
     },
     {
@@ -5502,8 +5502,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_marketmerge_market_fields",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "market_fields"
     },
     {
@@ -5513,8 +5513,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_marketmerge_marketindex",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "marketindex()"
     },
     {
@@ -5524,8 +5524,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "src_services_marketmerge_mergemarketfields",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "mergemarketfields()"
     },
     {
@@ -5535,8 +5535,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "src_services_marketmerge_mergerankingswithmarket",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "mergerankingswithmarket()"
     },
     {
@@ -5546,8 +5546,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "src_services_marketmerge_overlaymarketdata",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "overlaymarketdata()"
     },
     {
@@ -5557,8 +5557,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "src_services_marketmerge_fillmissingbye",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "fillmissingbye()"
     },
     {
@@ -5568,8 +5568,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "src_services_marketmerge_enrichwithinjuries",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "enrichwithinjuries()"
     },
     {
@@ -5579,8 +5579,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_marketmerge_test",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "marketmerge.test.js"
     },
     {
@@ -5590,8 +5590,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_marketmerge_test_fc",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "fc"
     },
     {
@@ -5601,8 +5601,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_services_marketmerge_test_ffc",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "ffc"
     },
     {
@@ -6767,7 +6767,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_tradevalue",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "tradevalue.js"
     },
@@ -6778,7 +6778,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_tradevalue_round_configs",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "round_configs"
     },
@@ -6789,7 +6789,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_services_tradevalue_tier_norm",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "tier_norm"
     },
@@ -6800,7 +6800,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_services_tradevalue_year_discount",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "year_discount"
     },
@@ -6822,7 +6822,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "src_services_tradevalue_detectteamprofile",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "detectteamprofile()"
     },
@@ -6833,7 +6833,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "src_services_tradevalue_avgstarterage",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "avgstarterage()"
     },
@@ -6844,7 +6844,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "src_services_tradevalue_agemodifier",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "agemodifier()"
     },
@@ -6855,7 +6855,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "src_services_tradevalue_pickmodifier",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "pickmodifier()"
     },
@@ -6866,7 +6866,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "src_services_tradevalue_applymodifier",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "applymodifier()"
     },
@@ -6877,7 +6877,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "src_services_tradevalue_evaluatetrade",
-      "community": 18,
+      "community": 16,
       "community_name": "tradeValue.js",
       "norm_label": "evaluatetrade()"
     },
@@ -7504,8 +7504,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_utils_formatting_normalizeplayername",
-      "community": 18,
-      "community_name": "tradeValue.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "normalizeplayername()"
     },
     {
@@ -12846,7 +12846,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/components/BoardMobileBar.jsx",
-      "source_location": "L177",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_boardmobilebar_boardmobilebar",
@@ -12859,7 +12859,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/BoardMobileBar.jsx",
-      "source_location": "L139",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_boardmobilebar_boardmobilebar",
@@ -15232,7 +15232,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L4",
+      "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
@@ -15448,7 +15448,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L4",
+      "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
@@ -19073,7 +19073,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L12",
+      "source_location": "L14",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
@@ -19084,7 +19084,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L8",
+      "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
@@ -19096,11 +19096,11 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L2",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
-      "target": "src_stores_uselivestore",
+      "target": "src_services_api",
       "confidence_score": 1.0
     },
     {
@@ -19108,11 +19108,11 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L2",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
-      "target": "src_stores_uselivestore_uselivestore",
+      "target": "src_services_api_fetchjson",
       "confidence_score": 1.0
     },
     {
@@ -19124,7 +19124,7 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
-      "target": "src_utils_formatting",
+      "target": "src_stores_uselivestore",
       "confidence_score": 1.0
     },
     {
@@ -19136,7 +19136,43 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage",
+      "target": "src_stores_uselivestore_uselivestore",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/DraftGridPage.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_pages_draftgridpage",
+      "target": "src_utils_formatting",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/DraftGridPage.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_pages_draftgridpage",
       "target": "src_utils_formatting_cx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/DraftGridPage.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_pages_draftgridpage",
+      "target": "src_utils_formatting_normalizepos",
       "confidence_score": 1.0
     },
     {
@@ -19156,7 +19192,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L64",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage_draftgridpage",
@@ -19169,7 +19205,19 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L13",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_pages_draftgridpage_draftgridpage",
+      "target": "src_services_api_fetchjson"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/pages/DraftGridPage.jsx",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage_draftgridpage",
@@ -19181,11 +19229,23 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/pages/DraftGridPage.jsx",
-      "source_location": "L57",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_pages_draftgridpage_draftgridpage",
       "target": "src_utils_formatting_cx"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/pages/DraftGridPage.jsx",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_pages_draftgridpage_draftgridpage",
+      "target": "src_utils_formatting_normalizepos"
     },
     {
       "relation": "imports",
@@ -31904,5 +31964,5 @@
       "source_file": "CLAUDE.md"
     }
   ],
-  "built_at_commit": "b8619d27953de3340575b8087fa454c1538fd569"
+  "built_at_commit": "26e6b522c9fa6a69bdaa3d68c0aeff07dba6f47f"
 }

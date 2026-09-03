@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import DraftGridPage from './DraftGridPage'
+import DraftGrid from './DraftGrid'
 import { useLiveStore } from '../stores/useLiveStore'
 
 // 4 Teams, 2 Runden -- Runde 2 spiegelt (Snake). draft_order: user -> Slot.
@@ -20,26 +19,22 @@ function pick(round, slot, name) {
   return { round, draft_slot: slot, metadata: { first_name: first, last_name: last, position: 'WR', team: 'CIN' } }
 }
 
-function renderPage(props = {}) {
-  return render(
-    <MemoryRouter>
-      <DraftGridPage selectedDraft={draft} teamsCount={4} ownerLabels={ownerLabels} draftSlot={1} {...props} />
-    </MemoryRouter>
-  )
+function renderGrid(props = {}) {
+  return render(<DraftGrid draft={draft} teamsCount={4} ownerLabels={ownerLabels} draftSlot={1} {...props} />)
 }
 
-describe('DraftGridPage', () => {
+describe('DraftGrid', () => {
   beforeEach(() => {
     useLiveStore.setState({ livePicks: [] })
   })
 
   it('ohne Draft: Hinweis statt Grid', () => {
-    renderPage({ selectedDraft: null })
-    expect(screen.getByText('Kein Draft ausgewählt')).toBeInTheDocument()
+    renderGrid({ draft: null })
+    expect(screen.getByText('Kein Draft ausgewählt.')).toBeInTheDocument()
   })
 
   it('zeigt Team-Labels aus draft_order/ownerLabels als Spaltenkoepfe', () => {
-    renderPage()
+    renderGrid()
     expect(screen.getByText('Alice')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
     // u3/u4 haben keinen ownerLabels-Eintrag -> Fallback
@@ -49,7 +44,7 @@ describe('DraftGridPage', () => {
 
   it('gepickter Spieler erscheint in seiner Runde/Slot-Zelle', () => {
     useLiveStore.setState({ livePicks: [pick(1, 1, 'Ja Chase')] })
-    renderPage()
+    renderGrid()
     expect(screen.getByText('Ja Chase')).toBeInTheDocument()
   })
 
@@ -58,12 +53,12 @@ describe('DraftGridPage', () => {
     useLiveStore.setState({
       livePicks: [pick(1, 1, 'A A'), pick(1, 2, 'B B'), pick(1, 3, 'C C')],
     })
-    renderPage()
+    renderGrid()
     expect(screen.getByText('On the Clock')).toBeInTheDocument()
   })
 
   it('Runde 2 spiegelt die Pick-Nummer (Snake): Slot 1 zeigt 2.04', () => {
-    renderPage()
+    renderGrid()
     expect(screen.getByText('2.04')).toBeInTheDocument()
     expect(screen.getByText('2.01')).toBeInTheDocument()
   })

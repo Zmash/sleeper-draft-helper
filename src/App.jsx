@@ -28,7 +28,6 @@ import { applyTheme } from './theme/applyTheme'
 
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
-import DraftGridPage from './pages/DraftGridPage'
 import ShareTargetPage from './pages/ShareTargetPage'
 import RosterPage from './pages/RosterPage'
 import DashboardPage from './pages/DashboardPage'
@@ -370,7 +369,6 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
         <Route path="/board" element={<BoardPage {...pageProps} />} />
-        <Route path="/board-grid" element={<DraftGridPage {...pageProps} />} />
         <Route path="/share-target" element={<ShareTargetPage />} />
         <Route path="/roster" element={<RosterPage {...pageProps} />} />
         <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />

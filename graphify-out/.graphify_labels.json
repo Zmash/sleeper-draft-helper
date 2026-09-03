@@ -43,6 +43,7 @@
   "41": "SetupPage.jsx",
   "42": "Draft-Strategie: Bibliothek + AI-Recherche",
   "43": "Dateien",
+  "44": "preferences.js",
   "45": "graphify reference: extra exports and benchmark",
   "46": "tipsPrioritizer.js",
   "47": "graphify reference: query, path, explain",
@@ -51,7 +52,16 @@
   "50": "graphify reference: incremental update and cluster-only",
   "51": "graphify reference: GitHub clone and cross-repo merge",
   "52": "graphify reference: transcribe video and audio",
+  "53": "useUIStore.js",
   "54": "storage.js",
   "55": "CLAUDE.md",
-  "56": "extraction-spec.md"
+  "56": "extraction-spec.md",
+  "57": "formatting.js",
+  "58": "DataProvenanceBar.jsx",
+  "59": "aiValidate.js",
+  "60": "AppShell.jsx",
+  "61": "BoardSection.empty.test.jsx",
+  "62": "settingsTransfer.js",
+  "63": "BoardSection.advice-cache.test.jsx",
+  "64": "BoardToolbar.jsx"
 }
