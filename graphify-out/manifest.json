@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "src/App.jsx": {
-    "mtime": 1788436581.3391664,
-    "ast_hash": "a5cc8b63197ffdfaafc8919cda85fadf",
+    "mtime": 1788437474.0748353,
+    "ast_hash": "7005b7ce810b9aa143b4a982b23c4cac",
     "semantic_hash": ""
   },
   "src/components/AdviceDialog.jsx": {
@@ -932,6 +932,11 @@
   "docs/superpowers/specs/2026-08-28-setup-profile-restructure-design.md": {
     "mtime": 1787995699.939254,
     "ast_hash": "0df59eb5ec02609c4bb44dec8b3f3ac2",
+    "semantic_hash": ""
+  },
+  "src/pages/ShareTargetPage.jsx": {
+    "mtime": 1788437467.3391926,
+    "ast_hash": "40c7f3e5758a0d19be8f90b348c3501d",
     "semantic_hash": ""
   }
 }
