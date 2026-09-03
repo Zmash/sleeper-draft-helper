@@ -76,3 +76,38 @@ describe('attachDraftByIdOrUrl', () => {
     expect(result).toBeNull()
   })
 })
+
+describe('loadDraftOptions', () => {
+  // Bug (verifiziert gegen einen echten laufenden Draft, 2026-09-03):
+  // /user/{id}/drafts/nfl/{jahr} liefert fuer einen Draft, der AUCH in der
+  // gerade betrachteten Liga laeuft, eine abgespeckte Variante
+  // (draft_order: null, kein slot_to_roster_id) -- /league/{id}/drafts
+  // liefert dieselbe draft_id vollstaendig. mergeDraftsUnique behaelt bei
+  // doppelten IDs das ERSTE Vorkommen -- die Liga-Variante muss also zuerst
+  // in den Merge, sonst gewinnt dauerhaft die leere User-Variante.
+  const LEAGUE_ID = 'L1'
+  const DRAFT_ID2 = 'D-shared'
+  const userDraftStub = {
+    draft_id: DRAFT_ID2, league_id: LEAGUE_ID, draft_order: null,
+    settings: { teams: 12, rounds: 14 },
+  }
+  const leagueDraftFull = {
+    draft_id: DRAFT_ID2, league_id: LEAGUE_ID,
+    draft_order: { u1: 1, u2: 2 },
+    settings: { teams: 12, rounds: 14 },
+  }
+
+  it('bevorzugt die vollstaendige Liga-Draft-Variante ueber die abgespeckte User-Draft-Variante', async () => {
+    vi.stubGlobal('fetch', mockFetch({
+      [`/user/u0/drafts/`]: [userDraftStub],
+      [`/league/${LEAGUE_ID}/drafts`]: [leagueDraftFull],
+    }))
+    const { useSessionStore } = await import('./useSessionStore')
+    useSessionStore.setState({ sleeperUserId: 'u0' })
+
+    await useSessionStore.getState().loadDraftOptions(LEAGUE_ID)
+
+    const stored = useSessionStore.getState().availableDrafts.find((d) => d.draft_id === DRAFT_ID2)
+    expect(stored.draft_order).toEqual({ u1: 1, u2: 2 })
+  })
+})

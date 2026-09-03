@@ -64,7 +64,13 @@ export const useSessionStore = create(
           loadUserDraftsForYear(userId, seasonYear),
           fetchLeagueDrafts(leagueId),
         ])
-        const merged = mergeDraftsUnique(userDrafts, leagueDrafts)
+        // leagueDrafts zuerst: mergeDraftsUnique behaelt bei doppelten
+        // draft_ids das ERSTE Vorkommen. /user/{id}/drafts liefert fuer
+        // Drafts, die auch in der gerade betrachteten Liga laufen, eine
+        // abgespeckte Variante (draft_order: null, kein slot_to_roster_id)
+        // -- /league/{id}/drafts liefert dieselbe Draft-ID vollstaendig.
+        // Verifiziert gegen einen echten laufenden Draft (2026-09-03).
+        const merged = mergeDraftsUnique(leagueDrafts, userDrafts)
         merged.sort(
           (a, b) =>
             (b.start_time || 0) - (a.start_time || 0) ||
