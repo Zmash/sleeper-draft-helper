@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveStore } from '../stores/useLiveStore'
 import { cx, normalizePos } from '../utils/formatting'
-import { SLEEPER_API_BASE, fetchJson } from '../services/api'
+import { SLEEPER_API_BASE, fetchJson, fetchLeagueRosters } from '../services/api'
 import Icon from './Icon'
 
 // Snake-Position innerhalb der Runde: ungerade Runde direkt, gerade Runde
@@ -18,19 +18,27 @@ function posInRound(round, slot, teams) {
 export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot }) {
   const { livePicks } = useLiveStore()
 
-  // Eigene Liga-User-Abfrage statt der global ausgewaehlten Liga: ein per Link
-  // angehaengter Draft (Kumpel teilt seinen Live-Draft) gehoert i.d.R. NICHT
-  // zur eigenen selectedLeague -- ownerLabels/leagueUsers aus App.jsx waeren
-  // dann leer oder fuer die falsche Liga. draft.league_id ist die einzige
-  // verlaessliche Quelle fuer "wer draftet hier wirklich".
+  // Eigene Liga-User-/Roster-Abfrage statt der global ausgewaehlten Liga: ein
+  // per Link angehaengter Draft (Kumpel teilt seinen Live-Draft) gehoert
+  // i.d.R. NICHT zur eigenen selectedLeague -- ownerLabels/leagueUsers aus
+  // App.jsx waeren dann leer oder fuer die falsche Liga. draft.league_id ist
+  // die einzige verlaessliche Quelle fuer "wer draftet hier wirklich".
   const [draftLeagueUsers, setDraftLeagueUsers] = useState([])
+  const [draftLeagueRosters, setDraftLeagueRosters] = useState([])
   useEffect(() => {
     const leagueId = draft?.league_id
-    if (!leagueId) { setDraftLeagueUsers([]); return }
+    if (!leagueId) { setDraftLeagueUsers([]); setDraftLeagueRosters([]); return }
     let cancelled = false
-    fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`)
-      .then((users) => { if (!cancelled) setDraftLeagueUsers(Array.isArray(users) ? users : []) })
-      .catch(() => { if (!cancelled) setDraftLeagueUsers([]) })
+    Promise.all([
+      fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`),
+      fetchLeagueRosters(leagueId),
+    ])
+      .then(([users, rosters]) => {
+        if (cancelled) return
+        setDraftLeagueUsers(Array.isArray(users) ? users : [])
+        setDraftLeagueRosters(Array.isArray(rosters) ? rosters : [])
+      })
+      .catch(() => { if (!cancelled) { setDraftLeagueUsers([]); setDraftLeagueRosters([]) } })
     return () => { cancelled = true }
   }, [draft?.league_id])
 
@@ -49,11 +57,26 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
   }
   const currentPickNo = (livePicks?.length || 0) + 1
 
+  function userLabel(user) {
+    return user ? user.metadata?.team_name || user.display_name || user.username : null
+  }
+
   function labelForSlot(slot) {
+    // 1) slot_to_roster_id -> Roster -> owner_id -> User. Zuverlaessigste
+    //    Quelle bei echten Liga-Drafts -- draft_order ist dort oft leer,
+    //    bis der Commissioner die Reihenfolge manuell setzt.
+    const rosterId = draft?.slot_to_roster_id?.[slot]
+    if (rosterId != null) {
+      const roster = draftLeagueRosters.find((r) => Number(r.roster_id) === Number(rosterId))
+      const label = roster && userLabel(draftLeagueUsers.find((u) => u.user_id === roster.owner_id))
+      if (label) return label
+    }
+    // 2) draft_order (user_id -> Slot) -- greift bei Mocks/manchen Drafts.
     const order = draft?.draft_order || {}
     const uid = Object.keys(order).find((u) => Number(order[u]) === slot)
-    const user = uid && draftLeagueUsers.find((u2) => u2.user_id === uid)
-    if (user) return user.metadata?.team_name || user.display_name || user.username
+    const byOrder = uid && userLabel(draftLeagueUsers.find((u2) => u2.user_id === uid))
+    if (byOrder) return byOrder
+    // 3) Aus bereits gefallenen Picks abgeleitet (App.jsx ownerLabels).
     const bySlot = ownerLabels?.get(`slot:${slot}`)
     if (bySlot) return bySlot
     const byUser = uid && ownerLabels?.get(`user:${uid}`)
@@ -103,9 +126,8 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
                       </span>
                       <span className="dgc-pickno">{round}.{String(pos).padStart(2, '0')}</span>
                     </div>
-                    <span className="dgc-name">
-                      {pick.metadata?.first_name} {pick.metadata?.last_name}
-                    </span>
+                    <span className="dgc-name-line">{pick.metadata?.first_name}</span>
+                    <span className="dgc-name-line dgc-name-line--last">{pick.metadata?.last_name}</span>
                   </>
                 ) : (
                   <>

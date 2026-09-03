@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import DraftGrid from './DraftGrid'
 import { useLiveStore } from '../stores/useLiveStore'
@@ -42,10 +42,11 @@ describe('DraftGrid', () => {
     expect(screen.getByText('Team 4')).toBeInTheDocument()
   })
 
-  it('gepickter Spieler erscheint in seiner Runde/Slot-Zelle', () => {
+  it('gepickter Spieler erscheint als Vor-/Nachname (2 Zeilen) in seiner Runde/Slot-Zelle', () => {
     useLiveStore.setState({ livePicks: [pick(1, 1, 'Ja Chase')] })
     renderGrid()
-    expect(screen.getByText('Ja Chase')).toBeInTheDocument()
+    expect(screen.getByText('Ja')).toBeInTheDocument()
+    expect(screen.getByText('Chase')).toBeInTheDocument()
   })
 
   it('naechster freier Pick wird als On the Clock markiert', () => {
@@ -61,5 +62,29 @@ describe('DraftGrid', () => {
     renderGrid()
     expect(screen.getByText('2.04')).toBeInTheDocument()
     expect(screen.getByText('2.01')).toBeInTheDocument()
+  })
+
+  it('loest Team-Namen echter Liga-Drafts ueber slot_to_roster_id + Rosters auf (nicht nur draft_order)', async () => {
+    // Bug-Szenario: draft_order ist bei echten Liga-Drafts oft leer, bis der
+    // Commissioner die Reihenfolge manuell setzt -- slot_to_roster_id +
+    // Rosters-Endpoint ist die zuverlaessigere Quelle.
+    const leagueDraft = {
+      draft_id: 'D2',
+      league_id: 'L1',
+      settings: { teams: 4, rounds: 2 },
+      draft_order: {},
+      slot_to_roster_id: { 1: 10, 2: 20 },
+    }
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes('/users')) {
+        return { ok: true, json: async () => [{ user_id: 'u9', display_name: 'Fallback-Name', metadata: { team_name: 'Die Zerstörer' } }] }
+      }
+      if (String(url).includes('/rosters')) {
+        return { ok: true, json: async () => [{ roster_id: 10, owner_id: 'u9' }] }
+      }
+      return { ok: true, json: async () => [] }
+    })
+    renderGrid({ draft: leagueDraft, ownerLabels: new Map() })
+    expect(await screen.findByText('Die Zerstörer')).toBeInTheDocument()
   })
 })

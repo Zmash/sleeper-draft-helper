@@ -3007,25 +3007,27 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .draft-grid-cell {
   background: var(--surface-card);
-  min-height: 52px;
+  min-height: 44px;
   padding: 3px 5px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  justify-content: center;
+  gap: 0;
   font-size: 11px;
   border-left: 3px solid transparent;
 }
 
 .draft-grid-cell--picked { background: var(--surface-raised); }
 
-/* Positions-Farben wie beim echten Sleeper-Board: leichter Farbton je
-   Spielerposition, gleiche Token wie BoardTable (--pos-rb usw.). */
-.draft-grid-cell[data-pos="rb"]  { border-left-color: var(--pos-rb);  background: color-mix(in srgb, var(--pos-rb) 14%, var(--surface-raised)); }
-.draft-grid-cell[data-pos="wr"]  { border-left-color: var(--pos-wr);  background: color-mix(in srgb, var(--pos-wr) 14%, var(--surface-raised)); }
-.draft-grid-cell[data-pos="qb"]  { border-left-color: var(--pos-qb);  background: color-mix(in srgb, var(--pos-qb) 14%, var(--surface-raised)); }
-.draft-grid-cell[data-pos="te"]  { border-left-color: var(--pos-te);  background: color-mix(in srgb, var(--pos-te) 14%, var(--surface-raised)); }
-.draft-grid-cell[data-pos="k"]   { border-left-color: var(--pos-k);   background: color-mix(in srgb, var(--pos-k) 14%, var(--surface-raised)); }
-.draft-grid-cell[data-pos="def"] { border-left-color: var(--pos-def); background: color-mix(in srgb, var(--pos-def) 14%, var(--surface-raised)); }
+/* Positions-Farben wie beim echten Sleeper-Board: kraeftiger, deckender
+   Farbton je Spielerposition (nicht nur ein Hauch) -- gleiche Token wie
+   BoardTable (--pos-rb usw.). */
+.draft-grid-cell[data-pos="rb"]  { border-left-color: var(--pos-rb);  background: color-mix(in srgb, var(--pos-rb) 38%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="wr"]  { border-left-color: var(--pos-wr);  background: color-mix(in srgb, var(--pos-wr) 38%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="qb"]  { border-left-color: var(--pos-qb);  background: color-mix(in srgb, var(--pos-qb) 38%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="te"]  { border-left-color: var(--pos-te);  background: color-mix(in srgb, var(--pos-te) 38%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="k"]   { border-left-color: var(--pos-k);   background: color-mix(in srgb, var(--pos-k) 38%, var(--surface-raised)); }
+.draft-grid-cell[data-pos="def"] { border-left-color: var(--pos-def); background: color-mix(in srgb, var(--pos-def) 38%, var(--surface-raised)); }
 
 .draft-grid-cell--clock {
   background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface-card));
@@ -3045,12 +3047,19 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .dgc-pickno { font-size: 10px; color: var(--text-muted); flex: 0 0 auto; }
 
-.dgc-name {
+/* Exakt 3 Zeilen pro gepickter Kachel: Meta-Zeile (.dgc-top) + Vorname +
+   Nachname, je eine Zeile, kein Umbruch -- flacher und vorhersagbar statt
+   variabel hoher Zellen durch umbrechende Namen. */
+.dgc-name-line {
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.15;
-  overflow-wrap: break-word;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.dgc-name-line--last { font-weight: 700; }
 
 .dgc-meta {
   font-size: 11px;
@@ -3084,11 +3093,11 @@ th.col-pick, td.col-pick { width: 64px; }
     line-height: 1.15;
   }
   .draft-grid-cell {
-    min-height: 50px;
-    padding: 3px 4px;
-    gap: 1px;
+    min-height: 40px;
+    padding: 2px 4px;
+    gap: 0;
   }
-  .dgc-name { font-size: 11px; }
+  .dgc-name-line { font-size: 10px; }
   .dgc-meta { font-size: 9px; }
   .dgc-pickno { font-size: 9px; }
   .draft-grid-round { font-size: 12px; }

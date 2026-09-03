@@ -1355,8 +1355,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_boardsection",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "boardsection.jsx"
     },
     {
@@ -1366,8 +1366,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_components_boardsection_boardsection",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "boardsection()"
     },
     {
@@ -1421,8 +1421,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_boardsection_test",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "boardsection.test.jsx"
     },
     {
@@ -1432,8 +1432,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_components_boardsection_test_boardplayers",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "boardplayers"
     },
     {
@@ -1443,8 +1443,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "src_components_boardsection_test_sseresultresponse",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "sseresultresponse()"
     },
     {
@@ -1454,8 +1454,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "src_components_boardsection_test_harness",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 8,
+      "community_name": "DraftAnalysis.jsx",
       "norm_label": "harness()"
     },
     {
@@ -1520,8 +1520,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_boardtoolbar",
-      "community": 64,
-      "community_name": "BoardToolbar.jsx",
+      "community": 21,
+      "community_name": "DataProvenanceBar.jsx",
       "norm_label": "boardtoolbar.jsx"
     },
     {
@@ -1531,8 +1531,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_components_boardtoolbar_intervals",
-      "community": 64,
-      "community_name": "BoardToolbar.jsx",
+      "community": 21,
+      "community_name": "DataProvenanceBar.jsx",
       "norm_label": "intervals"
     },
     {
@@ -1542,8 +1542,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_components_boardtoolbar_boardtoolbar",
-      "community": 64,
-      "community_name": "BoardToolbar.jsx",
+      "community": 21,
+      "community_name": "DataProvenanceBar.jsx",
       "norm_label": "boardtoolbar()"
     },
     {
@@ -1685,8 +1685,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_draftanalysis",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "draftanalysis.jsx"
     },
     {
@@ -1696,8 +1696,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_components_draftanalysis_draftanalysis",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "draftanalysis()"
     },
     {
@@ -1707,8 +1707,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "draftanalysis.test.jsx"
     },
     {
@@ -1718,8 +1718,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test_emptyparsed",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "emptyparsed"
     },
     {
@@ -1729,8 +1729,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_components_draftanalysis_test_baseprops",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "baseprops"
     },
     {
@@ -1905,8 +1905,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_importresultbanner",
-      "community": 21,
-      "community_name": "DataProvenanceBar.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "importresultbanner.jsx"
     },
     {
@@ -1916,8 +1916,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_components_importresultbanner_importresultbanner",
-      "community": 21,
-      "community_name": "DataProvenanceBar.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "importresultbanner()"
     },
     {
@@ -1927,8 +1927,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_importresultbanner_test",
-      "community": 21,
-      "community_name": "DataProvenanceBar.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "importresultbanner.test.jsx"
     },
     {
@@ -1938,8 +1938,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_components_importresultbanner_test_stats",
-      "community": 21,
-      "community_name": "DataProvenanceBar.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "stats"
     },
     {
@@ -2477,8 +2477,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_strategysection",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "strategysection.jsx"
     },
     {
@@ -2488,8 +2488,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_components_strategysection_scoringlabel",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "scoringlabel()"
     },
     {
@@ -2499,8 +2499,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "src_components_strategysection_empty_strategy",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "empty_strategy"
     },
     {
@@ -2510,8 +2510,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "src_components_strategysection_strategysection",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "strategysection()"
     },
     {
@@ -2521,8 +2521,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "src_components_strategysection_editform",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "editform()"
     },
     {
@@ -3412,8 +3412,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_setuppage_test_jsx_src_pages_setuppage_test",
-      "community": 41,
-      "community_name": "SetupPage.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "setuppage.test.jsx"
     },
     {
@@ -3423,8 +3423,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_pages_setuppage_test_ffc",
-      "community": 41,
-      "community_name": "SetupPage.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "ffc"
     },
     {
@@ -3434,8 +3434,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_pages_setuppage_test_fc",
-      "community": 41,
-      "community_name": "SetupPage.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "fc"
     },
     {
@@ -3445,8 +3445,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "src_pages_setuppage_test_mockfetch",
-      "community": 41,
-      "community_name": "SetupPage.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "mockfetch()"
     },
     {
@@ -3456,8 +3456,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "src_pages_setuppage_test_setup",
-      "community": 41,
-      "community_name": "SetupPage.jsx",
+      "community": 22,
+      "community_name": "SetupPage.test.jsx",
       "norm_label": "setup()"
     },
     {
@@ -4380,8 +4380,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "aidraftreviewclient.js"
     },
     {
@@ -4391,8 +4391,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_builddraftreviewcontext",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "builddraftreviewcontext()"
     },
     {
@@ -4402,8 +4402,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_builddraftreviewpayload",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "builddraftreviewpayload()"
     },
     {
@@ -4413,8 +4413,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_readsseresult",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "readsseresult()"
     },
     {
@@ -4424,8 +4424,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_callaidraftreview",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "callaidraftreview()"
     },
     {
@@ -4435,8 +4435,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_test",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "aidraftreviewclient.test.js"
     },
     {
@@ -4446,8 +4446,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aidraftreviewclient_test_basectxargs",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "basectxargs"
     },
     {
@@ -4457,8 +4457,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aistrategyclient",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "aistrategyclient.js"
     },
     {
@@ -4468,8 +4468,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_readsseresult",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "readsseresult()"
     },
     {
@@ -4479,8 +4479,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_callaidraftstrategy",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "callaidraftstrategy()"
     },
     {
@@ -4490,8 +4490,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "aistrategyclient.test.js"
     },
     {
@@ -4501,8 +4501,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test_payload",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "payload"
     },
     {
@@ -4512,8 +4512,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_aistrategyclient_test_sseresponse",
-      "community": 11,
-      "community_name": "StrategySection.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "sseresponse()"
     },
     {
@@ -4677,8 +4677,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aivalidate",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "aivalidate.js"
     },
     {
@@ -4688,8 +4688,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_services_aivalidate_norm",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "norm()"
     },
     {
@@ -4699,8 +4699,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_services_aivalidate_validateadvice",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "validateadvice()"
     },
     {
@@ -4710,8 +4710,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_services_aivalidate_matchasset",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "matchasset()"
     },
     {
@@ -4721,8 +4721,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_services_aivalidate_validatetradesuggestions",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "validatetradesuggestions()"
     },
     {
@@ -4732,8 +4732,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_aivalidate_test",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "aivalidate.test.js"
     },
     {
@@ -4743,8 +4743,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_aivalidate_test_avail",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "avail"
     },
     {
@@ -4754,8 +4754,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_services_aivalidate_test_p",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "p()"
     },
     {
@@ -4963,8 +4963,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "src_services_api_teamsandroundsfromdraft",
-      "community": 22,
-      "community_name": "SetupPage.test.jsx",
+      "community": 3,
+      "community_name": "App Core & Analysis",
       "norm_label": "teamsandroundsfromdraft()"
     },
     {
@@ -4985,8 +4985,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_boardgate",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "boardgate.js"
     },
     {
@@ -4996,8 +4996,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_boardgate_isadvicebuttondisabled",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "isadvicebuttondisabled()"
     },
     {
@@ -5007,8 +5007,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_services_boardgate_test",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "boardgate.test.js"
     },
     {
@@ -5029,8 +5029,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_services_csv_exportboardascsv",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "exportboardascsv()"
     },
     {
@@ -5447,8 +5447,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_services_key_getopenaikey",
-      "community": 8,
-      "community_name": "DraftAnalysis.jsx",
+      "community": 9,
+      "community_name": "ApiKeyDialog.jsx",
       "norm_label": "getopenaikey()"
     },
     {
@@ -5689,8 +5689,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "src_services_preferences_loadpreferences",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "loadpreferences()"
     },
     {
@@ -6162,8 +6162,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "src_services_strategymatch_resolvestrategytext",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "resolvestrategytext()"
     },
     {
@@ -6877,8 +6877,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "src_services_tradevalue_stripsuffix",
-      "community": 59,
-      "community_name": "aiValidate.js",
+      "community": 25,
+      "community_name": "BoardPage.jsx",
       "norm_label": "stripsuffix()"
     },
     {
@@ -7603,8 +7603,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "src_utils_settingstransfer_exportsettings",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "exportsettings()"
     },
     {
@@ -7625,8 +7625,8 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "src_utils_settingstransfer_importsettingsfromfile",
-      "community": 0,
-      "community_name": "Board & Draft Components",
+      "community": 44,
+      "community_name": "preferences.js",
       "norm_label": "importsettingsfromfile()"
     },
     {
@@ -14992,6 +14992,18 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/DraftGrid.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_draftgrid",
+      "target": "src_services_api_fetchleaguerosters",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -15068,7 +15080,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/components/DraftGrid.jsx",
-      "source_location": "L82",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_draftgrid_draftgrid",
@@ -15081,11 +15093,23 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/DraftGrid.jsx",
-      "source_location": "L31",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_draftgrid_draftgrid",
       "target": "src_services_api_fetchjson"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/DraftGrid.jsx",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_draftgrid_draftgrid",
+      "target": "src_services_api_fetchleaguerosters"
     },
     {
       "relation": "calls",
@@ -15105,7 +15129,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/DraftGrid.jsx",
-      "source_location": "L74",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_draftgrid_draftgrid",
@@ -15117,7 +15141,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/DraftGrid.jsx",
-      "source_location": "L85",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_components_draftgrid_draftgrid",
@@ -31930,5 +31954,5 @@
       "source_file": "CLAUDE.md"
     }
   ],
-  "built_at_commit": "55f3d473afa3cd2476f445332eae92a0d8f51851"
+  "built_at_commit": "b4401c6526150d52a042777f4f296465b35def52"
 }
