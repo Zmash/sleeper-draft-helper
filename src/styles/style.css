@@ -3017,17 +3017,33 @@ th.col-pick, td.col-pick { width: 64px; }
   outline-offset: -2px;
 }
 
-.dgc-pickno { font-size: 10px; color: var(--text-muted); }
+/* Kopfzeile einer gepickten Zelle: Position/Team(Bye) links, Pick-Nummer
+   rechts -- wie beim Sleeper-Board. Bei sehr schmalen Spalten (mobil) darf
+   die Meta-Info abschneiden, der Name (wichtiger) bekommt den Platz. */
+.dgc-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.dgc-pickno { font-size: 10px; color: var(--text-muted); flex: 0 0 auto; }
 
 .dgc-name {
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.15;
+  overflow-wrap: break-word;
+}
+
+.dgc-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.dgc-meta { font-size: 11px; color: var(--text-muted); }
 
 .dgc-clock {
   display: inline-flex;
@@ -3038,9 +3054,11 @@ th.col-pick, td.col-pick { width: 64px; }
   color: var(--accent-text);
 }
 
-/* Mobil: groesserer Touch-Bereich, besser lesbare Schrift statt der knappen
-   Desktop-Groessen, weiches Swipe-Scrolling durch die Team-Spalten. */
+/* Mobil: schmalere Spalten (mehr Teams gleichzeitig sichtbar, naeher an der
+   Sleeper-App), dafuer groessere Schrift/Touch-Flaechen statt der knappen
+   Desktop-Dichte, weiches Swipe-Scrolling durch die Team-Spalten. */
 @media (max-width: 560px) {
+  .draft-grid { --dg-col-w: 100px; }
   .draft-grid-scroll {
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
@@ -3048,16 +3066,18 @@ th.col-pick, td.col-pick { width: 64px; }
   .draft-grid-head,
   .draft-grid-cell { scroll-snap-align: start; }
   .draft-grid-head {
-    font-size: 13px;
-    padding: 10px 8px;
+    font-size: 12px;
+    padding: 8px 6px;
+    white-space: normal;
+    line-height: 1.2;
   }
   .draft-grid-cell {
-    min-height: 74px;
-    padding: 6px 8px;
-    gap: 3px;
+    min-height: 70px;
+    padding: 5px 6px;
+    gap: 2px;
   }
   .dgc-name { font-size: 13px; }
-  .dgc-meta { font-size: 12px; }
-  .dgc-pickno { font-size: 11px; }
+  .dgc-meta { font-size: 10px; }
+  .dgc-pickno { font-size: 10px; }
   .draft-grid-round { font-size: 12px; }
 }

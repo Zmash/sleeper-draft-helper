@@ -80,7 +80,7 @@ export default function DraftGridPage({ selectedDraft, teamsCount, ownerLabels, 
       <div className="draft-grid-scroll">
         <div
           className="draft-grid"
-          style={{ gridTemplateColumns: `var(--dg-round-w, 34px) repeat(${teams}, minmax(120px, 1fr))` }}
+          style={{ gridTemplateColumns: `var(--dg-round-w, 34px) repeat(${teams}, minmax(var(--dg-col-w, 120px), 1fr))` }}
         >
           <div className="draft-grid-head draft-grid-corner" aria-hidden />
           {slots.map((slot) => (
@@ -106,22 +106,30 @@ export default function DraftGridPage({ selectedDraft, teamsCount, ownerLabels, 
                     isOnClock && 'draft-grid-cell--clock'
                   )}
                 >
-                  <span className="dgc-pickno">{round}.{String(pos).padStart(2, '0')}</span>
                   {pick ? (
                     <>
+                      <div className="dgc-top">
+                        <span className="dgc-meta">
+                          {pick.metadata?.position}
+                          {pick.metadata?.team ? ` · ${pick.metadata.team}` : ''}
+                          {pick.metadata?.bye_week ? ` (${pick.metadata.bye_week})` : ''}
+                        </span>
+                        <span className="dgc-pickno">{round}.{String(pos).padStart(2, '0')}</span>
+                      </div>
                       <span className="dgc-name">
                         {pick.metadata?.first_name} {pick.metadata?.last_name}
                       </span>
-                      <span className="dgc-meta">
-                        {pick.metadata?.position}
-                        {pick.metadata?.team ? ` · ${pick.metadata.team}` : ''}
-                      </span>
                     </>
-                  ) : isOnClock ? (
-                    <span className="dgc-clock">
-                      <Icon name="zap" size={12} /> On the Clock
-                    </span>
-                  ) : null}
+                  ) : (
+                    <>
+                      <span className="dgc-pickno">{round}.{String(pos).padStart(2, '0')}</span>
+                      {isOnClock && (
+                        <span className="dgc-clock">
+                          <Icon name="zap" size={12} /> On the Clock
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               )
             }),
