@@ -12,13 +12,38 @@ vi.mock('react-router-dom', async () => ({
 const attach = vi.fn()
 const setSelectedDraftId = vi.fn()
 const setSelectedLeagueId = vi.fn()
+const setDraftViewAs = vi.fn()
 const setBoardPlayers = vi.fn()
 
+// Eigener Mock (ich bin Teilnehmer laut draft_order) -- Tests ueberschreiben
+// availableDrafts/sleeperUserId einzeln fuer den "Freund-Team waehlen"-Fall.
+const sessionState = {
+  sleeperUserId: 'me',
+  attachDraftByIdOrUrl: attach,
+  setSelectedDraftId,
+  setSelectedLeagueId,
+  setDraftViewAs,
+  availableDrafts: [{ draft_id: '12345', draft_order: { me: 1 } }],
+}
+function useSessionStoreMock() { return sessionState }
+useSessionStoreMock.getState = () => sessionState
+
 vi.mock('../stores/useSessionStore', () => ({
-  useSessionStore: () => ({ attachDraftByIdOrUrl: attach, setSelectedDraftId, setSelectedLeagueId }),
+  useSessionStore: useSessionStoreMock,
 }))
 vi.mock('../stores/useBoardStore', () => ({
   useBoardStore: { getState: () => ({ setBoardPlayers }) },
+}))
+vi.mock('../stores/useLiveStore', () => ({
+  useLiveStore: { getState: () => ({ livePicks: [] }) },
+}))
+vi.mock('../utils/teamLabels', () => ({
+  isDraftParticipant: (draft, picks, userId) =>
+    !!(draft?.draft_order && Object.prototype.hasOwnProperty.call(draft.draft_order, userId)),
+  resolveDraftParticipants: vi.fn(async () => [
+    { slot: 1, userId: 'friend-1', label: 'Team Friend' },
+    { slot: 2, userId: 'friend-2', label: 'Team Rival' },
+  ]),
 }))
 
 import MockDraftCard from './MockDraftCard'
@@ -71,5 +96,21 @@ describe('MockDraftCard', () => {
     setup()
     await userEvent.click(screen.getByRole('button', { name: /Starten/i }))
     expect(attach).not.toHaveBeenCalled()
+  })
+
+  it('Freundes-Draft (ich bin kein Teilnehmer): zeigt Team-Picker statt sofort zu navigieren, pinnt gewaehltes Team', async () => {
+    attach.mockResolvedValue('99999')
+    sessionState.availableDrafts = [{ draft_id: '99999', draft_order: { someoneElse: 1 } }]
+    setup()
+    await userEvent.type(screen.getByRole('textbox'), 'https://sleeper.com/draft/nfl/99999')
+    await userEvent.click(screen.getByRole('button', { name: /Starten/i }))
+    expect(navigate).not.toHaveBeenCalled()
+    await screen.findByText(/Welches Team ist deins/i)
+
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'friend-2')
+    await userEvent.click(screen.getByRole('button', { name: /Anpinnen/i }))
+
+    expect(setDraftViewAs).toHaveBeenCalledWith('99999', { userId: 'friend-2', label: 'Team Rival' })
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/board'))
   })
 })

@@ -120,13 +120,13 @@ function SleeperConnectWidget({ compact = false }) {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { sleeperUserId, seasonYear, availableLeagues, availableDrafts } = useSessionStore()
+  const { sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs } = useSessionStore()
   const { draftMode } = useBoardStore()
   const { nflState, cards, loading, lastRefreshed, loadDashboard } = useDashboardStore()
 
   const load = useCallback(() => {
-    loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear })
-  }, [availableLeagues, availableDrafts, sleeperUserId, seasonYear]) // eslint-disable-line
+    loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs })
+  }, [availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs]) // eslint-disable-line
 
   useEffect(() => { load() }, [availableLeagues?.length, sleeperUserId]) // eslint-disable-line
 

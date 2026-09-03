@@ -143,6 +143,8 @@ async function buildDraftCard(draft) {
       draftRounds: Number(live.settings?.rounds || draft.settings?.rounds) || 16,
       draftSeason: live.season || draft.season || null,
       scoringType: live.metadata?.scoring_type || draft.metadata?.scoring_type || 'ppr',
+      // Draft gehoert zu einer echten (fremden) Liga -> "Extern" statt "Mock" im Badge.
+      isExternal: !!(live.league_id || draft.league_id),
       loading: false,
       error: null,
     }
@@ -176,7 +178,7 @@ export const useDashboardStore = create((set, get) => ({
   loading: false,
   lastRefreshed: null,
 
-  loadDashboard: async ({ leagues, availableDrafts, sleeperUserId, seasonYear }) => {
+  loadDashboard: async ({ leagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs }) => {
     if (!leagues?.length && !availableDrafts?.length) {
       set({ cards: [], loading: false })
       return
@@ -205,15 +207,18 @@ export const useDashboardStore = create((set, get) => ({
         buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta)
       )
 
-      // Standalone-Drafts = echte Mocks. Ein Mock hat KEINE Liga (league_id === null,
-      // vgl. formatDraftLabel/isStandaloneDraft). Ein Draft MIT league_id gehoert zu
-      // einer echten Liga und darf nie als "Mock" erscheinen — auch nicht, wenn seine
-      // Liga gerade nicht geladen ist (Bug: Dynasty-Ligen bekommen pro Saison eine neue
-      // league_id, ein alter persistierter Liga-Draft schlug sonst als Mock durch).
-      // Aktuelle Liga-Drafts kommen ueber die Liga-Karte (buildLeagueCard) rein.
-      const standaloneDrafts = (availableDrafts || []).filter(
-        (d) => !(d.league_id || d.metadata?.league_id)
-      )
+      // Standalone-Drafts = echte Mocks (league_id === null, vgl.
+      // formatDraftLabel/isStandaloneDraft) PLUS per Link angepinnte Drafts fremder Ligen
+      // (league_id gesetzt, aber draftViewAs hat einen Eintrag -- MockDraftCard setzt den
+      // nur, wenn ich selbst kein Teilnehmer war und explizit ein Team "angepinnt" habe).
+      // Ein Draft MIT league_id ohne draftViewAs-Eintrag ist entweder eine meiner eigenen
+      // Ligen (die kommt schon ueber die Liga-Karte rein) oder eine alte, nicht mehr
+      // geladene eigene Dynasty-Season (league_id rotiert pro Saison) -- in beiden Faellen
+      // KEIN Freundes-Draft, darf also nicht als eigenstaendige Karte erscheinen.
+      const standaloneDrafts = (availableDrafts || []).filter((d) => {
+        const leagueId = d.league_id || d.metadata?.league_id
+        return !leagueId || !!draftViewAs?.[d.draft_id]
+      })
       const draftCardPromises = standaloneDrafts.map(buildDraftCard)
 
       const [leagueCards, draftCards] = await Promise.all([

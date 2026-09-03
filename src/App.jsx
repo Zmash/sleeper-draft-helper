@@ -46,7 +46,7 @@ export default function App() {
   // ── Store reads ────────────────────────────────────────────────────────────
   const {
     sleeperUserId, selectedLeagueId, selectedDraftId, seasonYear,
-    availableLeagues, leagueUsers, availableDrafts,
+    availableLeagues, leagueUsers, availableDrafts, draftViewAs,
     loadDraftOptions, loadLeagueUsers,
     attachDraftByIdOrUrl, setSelectedDraftId, setSelectedLeagueId,
   } = useSessionStore()
@@ -188,18 +188,24 @@ export default function App() {
     return out
   }, [boardPlayers, livePicks, teamsCount, ownerLabels])
 
-  const myOwnerId = sleeperUserId ? String(sleeperUserId) : null
+  // Freundes-Draft: Anpinnen legt fest, welches Team im ausgewaehlten Draft als
+  // "meins" gilt, wenn ich selbst kein Teilnehmer bin (MockDraftCard-Picker).
+  // Faellt sonst auf den echten Account zurueck -- Dashboard/Roster/Trade
+  // bleiben unberuehrt, die haengen an selectedLeagueId, nicht an dieser Ableitung.
+  const effectiveMeUserId = draftViewAs?.[selectedDraftId]?.userId || sleeperUserId
+
+  const myOwnerId = effectiveMeUserId ? String(effectiveMeUserId) : null
   const myRosterId = useMemo(() => {
     for (const p of livePicks || []) {
-      if (p?.picked_by && String(p.picked_by) === String(sleeperUserId)) return `roster:user:${p.picked_by}`
+      if (p?.picked_by && String(p.picked_by) === String(effectiveMeUserId)) return `roster:user:${p.picked_by}`
     }
     return null
-  }, [livePicks, sleeperUserId])
+  }, [livePicks, effectiveMeUserId])
 
   // ── Tips ───────────────────────────────────────────────────────────────────
   const draftSlot = useMemo(
-    () => inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: sleeperUserId }),
-    [selectedDraft, livePicks, sleeperUserId]
+    () => inferMyDraftSlot({ draft: selectedDraft, picks: livePicks, meUserId: effectiveMeUserId }),
+    [selectedDraft, livePicks, effectiveMeUserId]
   )
 
   const myDraftPicksForTips = useMemo(() => {
@@ -207,7 +213,7 @@ export default function App() {
     const rounds = Number(selectedDraft.settings?.rounds) || 3
     const teams = Number(selectedDraft.settings?.teams) || 12
     const order = selectedDraft.draft_order || {}
-    const mySlot = Number(order[sleeperUserId]) || null
+    const mySlot = Number(order[effectiveMeUserId]) || null
     const pickPos = (slot, round) => (!slot || !teams ? null : round % 2 === 1 ? slot : teams - slot + 1)
     const slotForRoster = (rid) => Number(order[rosterToUserMap[String(rid)]]) || null
     const traded = tradedPicks || []
@@ -219,23 +225,23 @@ export default function App() {
     }
     for (const tp of tradedToMe) result.push({ round: tp.round, type: 'acquired', fromRosterId: tp.roster_id, pick_pos: pickPos(slotForRoster(tp.roster_id), tp.round) })
     return result.sort((a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99))
-  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, effectiveMeUserId])
 
   const redraftTips = useDraftTips({
-    picks: livePicks, boardPlayers, meUserId: sleeperUserId, teamsCount,
+    picks: livePicks, boardPlayers, meUserId: effectiveMeUserId, teamsCount,
     playerPrefs: {}, rosterPositions: effRoster,
     scoringSettings: selectedLeague?.scoring_settings || null,
     scoringType: effScoringType, draftType: selectedDraft?.type || 'snake',
     strategies, draftSlot, draftRounds: format.rounds, enabled: !isRookieMode,
   })
   const rookieTips = useRookieDraftTips({
-    picks: livePicks, boardPlayers, meUserId: sleeperUserId,
+    picks: livePicks, boardPlayers, meUserId: effectiveMeUserId,
     dynastyRoster, teamsCount, draftSlot, myDraftPicks: myDraftPicksForTips,
     enabled: isRookieMode,
   })
   const rawTips = isRookieMode ? rookieTips : redraftTips
   const tips = draftFinished ? [] : prioritizeTips(rawTips, {
-    boardPlayers, picks: livePicks, meUserId: sleeperUserId, teamsCount,
+    boardPlayers, picks: livePicks, meUserId: effectiveMeUserId, teamsCount,
     rosterPositions: effRoster, isSuperflex, currentPickNumber, maxTips: 7, minScore: 10,
   })
 

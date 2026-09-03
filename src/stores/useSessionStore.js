@@ -23,6 +23,9 @@ export const useSessionStore = create(
       availableDrafts: [],
       selectedDraftId: '',
       manualDraftInput: '',
+      // Freundes-Draft: welches Sleeper-Team (userId) in diesem Draft als
+      // "meins" behandelt wird, wenn ich selbst kein Teilnehmer bin.
+      draftViewAs: {},
 
       setSleeperUsername: (v) => set({ sleeperUsername: v }),
       setSleeperUserId: (v) => set({ sleeperUserId: v }),
@@ -34,11 +37,17 @@ export const useSessionStore = create(
       setLeagueUsers: (v) => set({ leagueUsers: v }),
       setAvailableDrafts: (v) => set({ availableDrafts: v }),
       removeDraft: (draftId) =>
-        set((s) => ({
-          availableDrafts: (s.availableDrafts || []).filter((d) => d.draft_id !== draftId),
-          selectedDraftId: s.selectedDraftId === draftId ? '' : s.selectedDraftId,
-        })),
+        set((s) => {
+          const { [draftId]: _removed, ...restViewAs } = s.draftViewAs || {}
+          return {
+            availableDrafts: (s.availableDrafts || []).filter((d) => d.draft_id !== draftId),
+            selectedDraftId: s.selectedDraftId === draftId ? '' : s.selectedDraftId,
+            draftViewAs: restViewAs,
+          }
+        }),
       setManualDraftInput: (v) => set({ manualDraftInput: v }),
+      setDraftViewAs: (draftId, data) =>
+        set((s) => ({ draftViewAs: { ...s.draftViewAs, [draftId]: data } })),
 
       resolveUserId: async () => {
         const { sleeperUserId, sleeperUsername } = get()
@@ -149,6 +158,7 @@ export const useSessionStore = create(
         availableDrafts: s.availableDrafts,
         selectedDraftId: s.selectedDraftId,
         manualDraftInput: s.manualDraftInput,
+        draftViewAs: s.draftViewAs,
       }),
     }
   )

@@ -194,7 +194,8 @@ function LeagueCardInner({ card }) {
 
 function DraftCardInner({ card }) {
   const navigate = useNavigate()
-  const { setSelectedDraftId, removeDraft } = useSessionStore()
+  const { setSelectedDraftId, removeDraft, draftViewAs } = useSessionStore()
+  const trackedTeam = draftViewAs?.[card.draftId]?.label
 
   const isLive = card.draftStatus === 'drafting'
 
@@ -223,12 +224,13 @@ function DraftCardInner({ card }) {
           <span className="lc-name">{card.draftName}</span>
         </div>
         <div className="lc-badges">
-          <span className="badge badge--neutral">Mock</span>
+          <span className="badge badge--neutral">{card.isExternal ? 'Extern' : 'Mock'}</span>
           <span className="badge badge--neutral">{card.draftType}</span>
           {card.draftTeams && <span className="badge badge--neutral">{card.draftTeams} teams</span>}
           {card.draftRounds && <span className="badge badge--neutral">{card.draftRounds} rds</span>}
           <span className="badge badge--neutral">{scoringLabel}</span>
         </div>
+        {trackedTeam && <p className="lc-mock-desc muted">Verfolgt: {trackedTeam}</p>}
       </div>
 
       {card.error ? (
