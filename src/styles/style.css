@@ -1381,6 +1381,42 @@ th.col-pick, td.col-pick { width: 64px; }
   flex-shrink: 0;
 }
 
+.lc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+.lc-name-row .lc-name {
+  flex: initial;
+  min-width: 0;
+}
+.lc-name-edit-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.lc-name-edit-btn:hover,
+.lc-name-edit-btn:focus-visible {
+  color: var(--accent);
+}
+.lc-name-edit {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 .lc-badges {
   display: flex;
   gap: 0.3rem;

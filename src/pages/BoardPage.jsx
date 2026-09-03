@@ -23,7 +23,7 @@ export default function BoardPage({
   onOpenDraftReview,
 }) {
 
-  const { sleeperUserId } = useSessionStore()
+  const { sleeperUserId, selectedDraftId, draftViewAs } = useSessionStore()
   const {
     boardPlayers, searchQuery, positionFilter, teamFilter, draftMode,
     setBoardPlayers, setEnriching,
@@ -38,9 +38,13 @@ export default function BoardPage({
 
   const { dynastyRoster, mySleeperRosterId, rosterToUserMap, tradedPicks } = useDynastyStore()
 
+  // Freundes-Draft: angepinntes Team gilt als "meins" (row-me in der Liste),
+  // genau wie draftSlot/Tips in App.jsx -- vgl. Kommentar dort.
+  const effectiveMeUserId = draftViewAs?.[selectedDraftId]?.userId || sleeperUserId
+
   // Merge live picks into board whenever picks change
   useEffect(() => {
-    mergeLivePicksWithBoard(livePicks, sleeperUserId)
+    mergeLivePicksWithBoard(livePicks, effectiveMeUserId)
   }, [livePicks]) // eslint-disable-line
 
   // ── Deep-link board filters (position + search) via URL query ──────────────
@@ -86,13 +90,12 @@ export default function BoardPage({
   }, [JSON.stringify(boardPlayers), selectedDraft?.season, selectedLeague?.scoring_settings?.ppr]) // eslint-disable-line
 
   // My draft picks for rookie mode
-  const { selectedDraftId } = useSessionStore()
   const myDraftPicks = useMemo(() => {
     if (draftMode !== 'rookie' || !selectedDraft || mySleeperRosterId == null) return []
     const rounds = Number(selectedDraft.settings?.rounds) || 3
     const teams = Number(selectedDraft.settings?.teams) || 12
     const order = selectedDraft.draft_order || {}
-    const mySlot = Number(order[sleeperUserId]) || null
+    const mySlot = Number(order[effectiveMeUserId]) || null
     const pickPos = (slot, round) => {
       if (!slot || !teams) return null
       return round % 2 === 1 ? slot : teams - slot + 1
@@ -132,7 +135,7 @@ export default function BoardPage({
     return result.sort(
       (a, b) => a.round - b.round || (a.pick_pos || 99) - (b.pick_pos || 99)
     )
-  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, sleeperUserId])
+  }, [draftMode, selectedDraft, mySleeperRosterId, tradedPicks, rosterToUserMap, effectiveMeUserId])
 
   // Filtered players
   const filteredPlayers = useMemo(() => {

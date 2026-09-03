@@ -26,6 +26,9 @@ export const useSessionStore = create(
       // Freundes-Draft: welches Sleeper-Team (userId) in diesem Draft als
       // "meins" behandelt wird, wenn ich selbst kein Teilnehmer bin.
       draftViewAs: {},
+      // Custom Kachel-Name auf dem Dashboard, keyed nach leagueId oder draftId
+      // (z.B. "Max" statt dem Sleeper-Liganamen).
+      cardNicknames: {},
 
       setSleeperUsername: (v) => set({ sleeperUsername: v }),
       setSleeperUserId: (v) => set({ sleeperUserId: v }),
@@ -39,15 +42,25 @@ export const useSessionStore = create(
       removeDraft: (draftId) =>
         set((s) => {
           const { [draftId]: _removed, ...restViewAs } = s.draftViewAs || {}
+          const { [draftId]: _removedName, ...restNicknames } = s.cardNicknames || {}
           return {
             availableDrafts: (s.availableDrafts || []).filter((d) => d.draft_id !== draftId),
             selectedDraftId: s.selectedDraftId === draftId ? '' : s.selectedDraftId,
             draftViewAs: restViewAs,
+            cardNicknames: restNicknames,
           }
         }),
       setManualDraftInput: (v) => set({ manualDraftInput: v }),
       setDraftViewAs: (draftId, data) =>
         set((s) => ({ draftViewAs: { ...s.draftViewAs, [draftId]: data } })),
+      setCardNickname: (id, name) =>
+        set((s) => {
+          const trimmed = (name || '').trim()
+          const rest = { ...s.cardNicknames }
+          if (trimmed) rest[id] = trimmed
+          else delete rest[id]
+          return { cardNicknames: rest }
+        }),
 
       resolveUserId: async () => {
         const { sleeperUserId, sleeperUsername } = get()
@@ -159,6 +172,7 @@ export const useSessionStore = create(
         selectedDraftId: s.selectedDraftId,
         manualDraftInput: s.manualDraftInput,
         draftViewAs: s.draftViewAs,
+        cardNicknames: s.cardNicknames,
       }),
     }
   )

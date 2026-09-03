@@ -1,7 +1,48 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import Icon from './Icon'
+
+// ── Editierbarer Kachel-Name (Nickname statt Sleeper-Liga-/Draft-Name) ────────
+
+function EditableTitle({ id, defaultName }) {
+  const { cardNicknames, setCardNickname } = useSessionStore()
+  const [editing, setEditing] = useState(false)
+  const nickname = cardNicknames?.[id]
+
+  if (editing) {
+    return (
+      <input
+        className="control control--sm lc-name-edit"
+        autoFocus
+        defaultValue={nickname || ''}
+        placeholder={defaultName}
+        onBlur={(e) => { setCardNickname(id, e.target.value); setEditing(false) }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    )
+  }
+
+  return (
+    <span className="lc-name-row">
+      <span className="lc-name">{nickname || defaultName}</span>
+      <button
+        type="button"
+        className="lc-name-edit-btn"
+        title="Umbenennen"
+        aria-label="Umbenennen"
+        onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+      >
+        <Icon name="pencil" size={12} />
+      </button>
+    </span>
+  )
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +164,7 @@ function LeagueCardInner({ card }) {
     <div className={`league-card ${isLive ? 'league-card--live' : ''} ${card.error ? 'league-card--error' : ''}`}>
       <div className="lc-header">
         <div className="lc-title-row">
-          <span className="lc-name">{card.leagueName}</span>
+          <EditableTitle id={card.leagueId} defaultName={card.leagueName} />
           {record && <span className="lc-record">{record}</span>}
         </div>
         <div className="lc-badges">
@@ -221,7 +262,7 @@ function DraftCardInner({ card }) {
     <div className={`league-card league-card--draft ${isLive ? 'league-card--live' : ''}`}>
       <div className="lc-header">
         <div className="lc-title-row">
-          <span className="lc-name">{card.draftName}</span>
+          <EditableTitle id={card.draftId} defaultName={card.draftName} />
         </div>
         <div className="lc-badges">
           <span className="badge badge--neutral">{card.isExternal ? 'Extern' : 'Mock'}</span>
