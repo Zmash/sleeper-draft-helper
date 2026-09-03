@@ -27,6 +27,15 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
   const [draftLeagueRosters, setDraftLeagueRosters] = useState([])
   useEffect(() => {
     const leagueId = draft?.league_id
+    // Sichtbares Debug-Signal fuer Team-Namen-Probleme (statt stummem
+    // "Team N"): einmal pro Draft-Wechsel in der Konsole (F12 -> Console),
+    // was tatsaechlich zur Verfuegung stand.
+    console.debug('[DraftGrid] Team-Namen-Aufloesung', {
+      draft_id: draft?.draft_id,
+      league_id: leagueId,
+      hat_draft_order: !!(draft?.draft_order && Object.keys(draft.draft_order).length),
+      hat_slot_to_roster_id: !!(draft?.slot_to_roster_id && Object.keys(draft.slot_to_roster_id).length),
+    })
     if (!leagueId) { setDraftLeagueUsers([]); setDraftLeagueRosters([]); return }
     let cancelled = false
     // allSettled statt all: draft.slot_to_roster_id fehlt in der Liga-Draft-
@@ -51,6 +60,10 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
         setDraftLeagueRosters([])
         if (rostersRes.status === 'rejected') console.warn('[DraftGrid] Liga-Rosters-Fetch fehlgeschlagen:', rostersRes.reason)
       }
+      console.debug('[DraftGrid] Team-Namen-Aufloesung Ergebnis', {
+        users_geladen: usersRes.status === 'fulfilled' ? usersRes.value?.length : `fehlgeschlagen: ${usersRes.reason}`,
+        rosters_geladen: rostersRes.status === 'fulfilled' ? rostersRes.value?.length : `fehlgeschlagen: ${rostersRes.reason}`,
+      })
     })
     return () => { cancelled = true }
   }, [draft?.league_id])

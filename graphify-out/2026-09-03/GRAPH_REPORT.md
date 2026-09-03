@@ -1,7 +1,7 @@
 # Graph Report - sleeper-draft-helper  (2026-09-03)
 
 ## Corpus Check
-- 178 files · ~174,812 words
+- 178 files · ~175,047 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b4401c65`
+- Built from commit: `c890d444`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

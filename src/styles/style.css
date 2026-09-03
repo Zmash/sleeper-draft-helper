@@ -2954,9 +2954,11 @@ th.col-pick, td.col-pick { width: 64px; }
   gap: 1px;
   background: var(--border-soft);
   /* Auch auf dem Desktop kompakt (nicht nur mobil) -- so viele Teams wie
-     moeglich ohne Scrollen sichtbar. Mobile-Media-Query verkleinert weiter. */
-  --dg-col-w: 86px;
-  --dg-round-w: 28px;
+     moeglich ohne Scrollen sichtbar. Bei 12 Teams reichten 86px knapp nicht
+     innerhalb des 1100px-Seitencontainers (.wrap) -- 80px passen 12 Spalten
+     ohne Rest-Scroll hinein. Mobile-Media-Query verkleinert weiter. */
+  --dg-col-w: 80px;
+  --dg-round-w: 24px;
   /* Kein overflow:hidden/aeusserer Rahmen hier -- das Grid ist breiter als
      sein Wrapper (Teams > sichtbare Breite) und muss ueberlaufen duerfen,
      damit .draft-grid-scroll es scrollbar macht. Der abgerundete Look kommt
