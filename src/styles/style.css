@@ -2939,15 +2939,33 @@ th.col-pick, td.col-pick { width: 64px; }
    DRAFT GRID (Board-Ansicht wie Sleeper: Teams als Spalten,
    Runden als Zeilen)
    ========================================================= */
-.draft-grid-scroll { overflow-x: auto; }
+/* touch-action: das Grid liegt in einer vertikal scrollenden Seite (kein
+   eigener .table-wrap-Hoehenkaefig wie bei der Liste) -- ohne den expliziten
+   Hinweis kann der Browser eine horizontale Wisch-Geste faelschlich der
+   Seite statt diesem Container zuordnen und das Grid scrollt gar nicht. */
+.draft-grid-scroll {
+  overflow-x: auto;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
 
 .draft-grid {
   display: grid;
   gap: 1px;
   background: var(--border-soft);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--r-ctl, 8px);
-  overflow: hidden;
+  /* Kein overflow:hidden/aeusserer Rahmen hier -- das Grid ist breiter als
+     sein Wrapper (Teams > sichtbare Breite) und muss ueberlaufen duerfen,
+     damit .draft-grid-scroll es scrollbar macht. Der abgerundete Look kommt
+     stattdessen von den einzelnen Kacheln (siehe unten). */
+}
+
+/* Leicht abgerundete Kacheln statt scharfer Ecken -- dezent, kein
+   Card-Stapel-Look. Der 1px-Grid-Gap (--border-soft) blitzt an den
+   abgerundeten Ecken durch. */
+.draft-grid-head,
+.draft-grid-round,
+.draft-grid-cell {
+  border-radius: 5px;
 }
 
 .draft-grid-head {
@@ -2957,8 +2975,8 @@ th.col-pick, td.col-pick { width: 64px; }
   background: var(--surface-nav);
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 12px;
-  padding: 8px 6px;
+  font-size: 11px;
+  padding: 6px 5px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -2967,36 +2985,34 @@ th.col-pick, td.col-pick { width: 64px; }
 
 .draft-grid-head--me { background: var(--accent-fill); color: var(--accent-on); }
 
-/* Sticky Runden-Spalte links + Ecke oben-links: beim horizontalen Scrollen
-   (mobil unausweichlich bei >6 Teams) bleibt sichtbar, in welcher Runde man
-   gerade ist. */
+/* War mal sticky (links fixiert waehrend horizontalem Scrollen), aber
+   position:sticky auf einem Grid-Item ueber die volle Scroll-Breite hinweg
+   verhielt sich in der Praxis inkonsistent -- Spalte blieb nicht zuverlaessig
+   stehen. Einfacher, robuster: scrollt mit, die Runden-Nummer steht ohnehin
+   in jeder Zelle oben links mit (dgc-pickno). */
 .draft-grid-round {
-  position: sticky;
-  left: 0;
-  z-index: 1;
   background: var(--surface-nav);
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 .draft-grid-corner {
-  position: sticky;
-  left: 0;
   z-index: 3;
+  border-radius: 5px;
 }
 
 .draft-grid-cell {
   background: var(--surface-card);
-  min-height: 64px;
-  padding: 4px 6px;
+  min-height: 52px;
+  padding: 3px 5px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
+  gap: 1px;
+  font-size: 11px;
   border-left: 3px solid transparent;
 }
 
@@ -3054,31 +3070,27 @@ th.col-pick, td.col-pick { width: 64px; }
   color: var(--accent-text);
 }
 
-/* Mobil: schmalere Spalten (mehr Teams gleichzeitig sichtbar, naeher an der
-   Sleeper-App), dafuer groessere Schrift/Touch-Flaechen statt der knappen
-   Desktop-Dichte, weiches Swipe-Scrolling durch die Team-Spalten. */
+/* Mobil: schmalere, kompaktere Kacheln (mehr Teams gleichzeitig sichtbar,
+   naeher an der Sleeper-App) statt der geraeumigeren Desktop-Groessen.
+   Kein scroll-snap mehr -- zusammen mit den sticky Runden-/Eck-Zellen
+   blockierte das auf manchen mobilen Browsern das horizontale Scrollen
+   komplett statt nur einzurasten. */
 @media (max-width: 560px) {
-  .draft-grid { --dg-col-w: 100px; }
-  .draft-grid-scroll {
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-  }
-  .draft-grid-head,
-  .draft-grid-cell { scroll-snap-align: start; }
+  .draft-grid { --dg-col-w: 78px; --dg-round-w: 26px; }
   .draft-grid-head {
-    font-size: 12px;
-    padding: 8px 6px;
+    font-size: 10px;
+    padding: 5px 4px;
     white-space: normal;
-    line-height: 1.2;
+    line-height: 1.15;
   }
   .draft-grid-cell {
-    min-height: 70px;
-    padding: 5px 6px;
-    gap: 2px;
+    min-height: 50px;
+    padding: 3px 4px;
+    gap: 1px;
   }
-  .dgc-name { font-size: 13px; }
-  .dgc-meta { font-size: 10px; }
-  .dgc-pickno { font-size: 10px; }
+  .dgc-name { font-size: 11px; }
+  .dgc-meta { font-size: 9px; }
+  .dgc-pickno { font-size: 9px; }
   .draft-grid-round { font-size: 12px; }
 
   /* Board-Ansicht teilt sich das Chrome mit der Liste (BoardSection):
