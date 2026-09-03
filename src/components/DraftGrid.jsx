@@ -29,16 +29,29 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
     const leagueId = draft?.league_id
     if (!leagueId) { setDraftLeagueUsers([]); setDraftLeagueRosters([]); return }
     let cancelled = false
-    Promise.all([
+    // allSettled statt all: draft.slot_to_roster_id fehlt in der Liga-Draft-
+    // Liste (nur /draft/{id} direkt hat es), Pfad 2 unten braucht also
+    // draftLeagueUsers zuverlaessig -- ein einzelner fehlgeschlagener
+    // Rosters-Call darf die (evtl. erfolgreichen) User-Daten nicht mit
+    // wegwerfen, sonst faellt alles auf "Team N" zurueck.
+    Promise.allSettled([
       fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/users`),
       fetchLeagueRosters(leagueId),
-    ])
-      .then(([users, rosters]) => {
-        if (cancelled) return
-        setDraftLeagueUsers(Array.isArray(users) ? users : [])
-        setDraftLeagueRosters(Array.isArray(rosters) ? rosters : [])
-      })
-      .catch(() => { if (!cancelled) { setDraftLeagueUsers([]); setDraftLeagueRosters([]) } })
+    ]).then(([usersRes, rostersRes]) => {
+      if (cancelled) return
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        setDraftLeagueUsers(usersRes.value)
+      } else {
+        setDraftLeagueUsers([])
+        if (usersRes.status === 'rejected') console.warn('[DraftGrid] Liga-User-Fetch fehlgeschlagen:', usersRes.reason)
+      }
+      if (rostersRes.status === 'fulfilled' && Array.isArray(rostersRes.value)) {
+        setDraftLeagueRosters(rostersRes.value)
+      } else {
+        setDraftLeagueRosters([])
+        if (rostersRes.status === 'rejected') console.warn('[DraftGrid] Liga-Rosters-Fetch fehlgeschlagen:', rostersRes.reason)
+      }
+    })
     return () => { cancelled = true }
   }, [draft?.league_id])
 

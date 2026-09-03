@@ -87,4 +87,32 @@ describe('DraftGrid', () => {
     renderGrid({ draft: leagueDraft, ownerLabels: new Map() })
     expect(await screen.findByText('Die Zerstörer')).toBeInTheDocument()
   })
+
+  it('Rosters-Fetch schlaegt fehl, User-Fetch klappt: draft_order-Fallback greift trotzdem', async () => {
+    // Regression: Promise.all riss bei einem einzelnen fehlgeschlagenen Call
+    // (hier Rosters) auch die erfolgreichen User-Daten mit runter -- dann
+    // blieb draft_order (Pfad 2) mangels User-Daten wirkungslos und alles
+    // fiel auf "Team N" zurueck. Genau das reale Bild: die Liga-Draft-Liste
+    // (/league/{id}/drafts, ueber die der Draft in der App landet) hat
+    // draft_order, aber KEIN slot_to_roster_id -- Pfad 1 greift also nie,
+    // Pfad 2 muss tragen.
+    const leagueDraft = {
+      draft_id: 'D3',
+      league_id: 'L2',
+      settings: { teams: 2, rounds: 1 },
+      draft_order: { u5: 1 },
+      // kein slot_to_roster_id, wie /league/{id}/drafts es wirklich liefert
+    }
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes('/users')) {
+        return { ok: true, json: async () => [{ user_id: 'u5', display_name: 'KneelingLocki', metadata: {} }] }
+      }
+      if (String(url).includes('/rosters')) {
+        throw new Error('network hiccup')
+      }
+      return { ok: true, json: async () => [] }
+    })
+    renderGrid({ draft: leagueDraft, teamsCount: 2, ownerLabels: new Map() })
+    expect(await screen.findByText('KneelingLocki')).toBeInTheDocument()
+  })
 })
