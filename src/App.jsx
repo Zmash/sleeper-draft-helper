@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useSessionStore } from './stores/useSessionStore'
+import { getInitialSharedText, onSharedText } from './services/shareReceiver'
+import { parseDraftId } from './utils/parse'
 import { useBoardStore } from './stores/useBoardStore'
 import { useLiveStore } from './stores/useLiveStore'
 import { useDynastyStore } from './stores/useDynastyStore'
@@ -26,6 +28,7 @@ import { applyTheme } from './theme/applyTheme'
 
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
+import DraftGridPage from './pages/DraftGridPage'
 import RosterPage from './pages/RosterPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
@@ -45,7 +48,9 @@ export default function App() {
     sleeperUserId, selectedLeagueId, selectedDraftId, seasonYear,
     availableLeagues, leagueUsers, availableDrafts,
     loadDraftOptions, loadLeagueUsers,
+    attachDraftByIdOrUrl, setSelectedDraftId, setSelectedLeagueId,
   } = useSessionStore()
+  const navigate = useNavigate()
 
   const { boardPlayers, draftMode, setDraftMode } = useBoardStore()
 
@@ -286,6 +291,23 @@ export default function App() {
     loadTradedPicks(selectedDraftId)
   }, [draftMode, selectedDraftId]) // eslint-disable-line
 
+  // Android "Teilen"-Empfang: ein Kumpel schickt per WhatsApp/Telegram einen
+  // Sleeper-Draft-Link, man teilt die Nachricht an diese App -- laedt den
+  // Draft genau wie das manuelle Einfuegen im Mock-Draft-Feld (MockDraftCard).
+  // Auf Web/iOS ist getInitialSharedText/onSharedText ein No-Op.
+  useEffect(() => {
+    async function handleShared(raw) {
+      if (!raw || !/sleeper\.(com|app)\/draft/i.test(raw)) return
+      const draftId = await attachDraftByIdOrUrl(raw, parseDraftId).catch(() => null)
+      if (!draftId) return
+      setSelectedLeagueId(null)
+      setSelectedDraftId(String(draftId))
+      navigate('/board')
+    }
+    getInitialSharedText().then(handleShared)
+    return onSharedText(handleShared)
+  }, []) // eslint-disable-line
+
   // Polling
   const pollingRef = useRef(null)
   useEffect(() => {
@@ -347,6 +369,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
         <Route path="/board" element={<BoardPage {...pageProps} />} />
+        <Route path="/board-grid" element={<DraftGridPage {...pageProps} />} />
         <Route path="/roster" element={<RosterPage {...pageProps} />} />
         <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
         <Route path="/profiles" element={<ProfilesPage />} />

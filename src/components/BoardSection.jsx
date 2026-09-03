@@ -692,6 +692,7 @@ export default function BoardSection({
           onChangeInterval={onChangeInterval}
           onSync={onSync}
           lastSyncAt={lastSyncAt}
+          draftId={draft?.draft_id}
         />
 
         <div className="btn-group-compact">

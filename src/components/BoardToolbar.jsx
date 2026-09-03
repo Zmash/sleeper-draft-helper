@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import Icon from './Icon'
 
 // Gleiche Stufen wie das Auto-Sync-Sheet der Mobile-Bar (BoardMobileBar).
@@ -13,6 +14,7 @@ export default function BoardToolbar({
   onChangeInterval,
   onSync,
   lastSyncAt,
+  draftId,
 }) {
   const current = Number(refreshIntervalSeconds)
   const value = autoRefreshEnabled ? String(current) : 'off'
@@ -61,6 +63,22 @@ export default function BoardToolbar({
             })}
           </span>
         </span>
+      )}
+      {draftId && (
+        <>
+          <Link className="btn-compact" to="/board-grid" title="Draft als Board-Ansicht anzeigen">
+            <Icon name="board" size={14} /> Board-Ansicht
+          </Link>
+          <a
+            className="btn-compact"
+            href={`https://sleeper.com/draft/nfl/${draftId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Draft auf Sleeper öffnen"
+          >
+            <Icon name="external-link" size={14} /> Sleeper
+          </a>
+        </>
       )}
     </div>
   )
