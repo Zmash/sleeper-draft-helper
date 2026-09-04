@@ -599,6 +599,14 @@ export default function BoardSection({
     }
   }
 
+  // Auto-Jump zur naechsten offenen Position beim Aufruf der Board-Seite und beim
+  // Zurueckwechseln von der Grid- in die Listenansicht -- sonst muss man nach
+  // jedem Wechsel manuell zur aktuellen Stelle runterscrollen.
+  useEffect(() => {
+    if (boardView !== 'list' || !hasBoard) return
+    scrollToNextUndrafted()
+  }, [boardView, hasBoard]) // eslint-disable-line
+
   if (!boardPlayers || boardPlayers.length === 0) {
     const rookie = draftMode === 'rookie'
     return (
