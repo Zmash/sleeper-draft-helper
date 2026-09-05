@@ -4,10 +4,11 @@ import BoardToolbar from './BoardToolbar'
 import FiltersRow from './FiltersRow'
 import BoardTable from './BoardTable'
 import DraftGrid from './DraftGrid'
+import PlayerDetailSheet from './PlayerDetailSheet'
 import DataProvenanceBar from './DataProvenanceBar'
 import BoardMobileBar from './BoardMobileBar'
 import Icon from './Icon'
-import { cx } from '../utils/formatting'
+import { cx, normalizePlayerName } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { useUIStore } from '../stores/useUIStore'
 import { resolveStrategyText } from '../services/strategyMatch'
@@ -85,6 +86,24 @@ export default function BoardSection({
     })
     if (!res.ok) setMarketError(res.error)
     setRefreshingMarket(false)
+  }
+
+  // Detail-Sheet fuer die Board-Ansicht: dort gibt es keine Zeile mit
+  // Praeferenz-Menue, also ist die Kachel selbst der Einstieg.
+  const [gridDetailPlayer, setGridDetailPlayer] = useState(null)
+  function openGridDetail(pick) {
+    const full = `${pick?.metadata?.first_name || ''} ${pick?.metadata?.last_name || ''}`.trim()
+    if (!full) return
+    const key = normalizePlayerName(full)
+    const hit = (boardPlayers || []).find((bp) => (bp.nname || normalizePlayerName(bp.name)) === key)
+    setGridDetailPlayer(hit || {
+      name: full,
+      pos: pick?.metadata?.position,
+      team: pick?.metadata?.team,
+      bye: pick?.metadata?.bye_week,
+      pick_no: pick?.pick_no,
+      injury_status: pick?.metadata?.injury_status,
+    })
   }
 
   const [adviceOpen, setAdviceOpen] = useState(false)
@@ -755,7 +774,13 @@ export default function BoardSection({
       )}
 
       {boardView === 'grid' ? (
-        <DraftGrid draft={draft} teamsCount={teamsCount} ownerLabels={ownerLabels} draftSlot={draftSlot} />
+        <DraftGrid
+          draft={draft}
+          teamsCount={teamsCount}
+          ownerLabels={ownerLabels}
+          draftSlot={draftSlot}
+          onPlayerClick={openGridDetail}
+        />
       ) : (
         <>
           {/* Auf dem Desktop fliesst diese Zeile normal; unter dem Mobile-Breakpoint
@@ -898,6 +923,8 @@ export default function BoardSection({
         reviewMode={reviewMode}
         onOpenDraftReview={onOpenDraftReview}
       />
+
+      <PlayerDetailSheet player={gridDetailPlayer} onClose={() => setGridDetailPlayer(null)} />
 
       <AdviceDialog
         open={adviceOpen}

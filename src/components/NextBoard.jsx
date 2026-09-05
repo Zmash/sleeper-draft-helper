@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
 import DraftGrid from './DraftGrid'
-import { cx, normalizePos, fantasyProsSlug } from '../utils/formatting'
+import { cx, normalizePos, fantasyProsSlug, normalizePlayerName } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
@@ -235,6 +235,19 @@ export default function NextBoard({
     return { primary, all }
   }, [advice])
 
+  // Klick auf eine Board-Kachel zeigt den Spieler in der Detailspalte. Das
+  // Grid kennt nur Sleeper-Picks, der Inspector arbeitet mit boardPlayers —
+  // gematcht wird ueber den normalisierten Namen.
+  function showPickInInspector(pick) {
+    const full = `${pick?.metadata?.first_name || ''} ${pick?.metadata?.last_name || ''}`.trim()
+    if (!full) return
+    const key = normalizePlayerName(full)
+    const hit = boardPlayers.find((bp) => (bp.nname || normalizePlayerName(bp.name)) === key)
+    if (hit) setSelKey(hit.nname || hit.name)
+    setTab('player')
+    setInspOpen(true)
+  }
+
   const pickedCount = boardPlayers.filter((p) => p.status).length
   const hasAdp = useMemo(() => rows.some((p) => p.adp != null), [rows])
   const hasBye = useMemo(() => rows.some((p) => p.bye), [rows])
@@ -335,7 +348,13 @@ export default function NextBoard({
 
         {view === 'board' ? (
           <div className="ns-gridhost">
-            <DraftGrid draft={draft} teamsCount={teamsCount} ownerLabels={ownerLabels} draftSlot={draftSlot} />
+            <DraftGrid
+              draft={draft}
+              teamsCount={teamsCount}
+              ownerLabels={ownerLabels}
+              draftSlot={draftSlot}
+              onPlayerClick={showPickInInspector}
+            />
           </div>
         ) : rows.length === 0 ? (
           <div className="ns-empty">

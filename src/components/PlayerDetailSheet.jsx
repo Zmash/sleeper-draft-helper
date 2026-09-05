@@ -16,7 +16,7 @@ export default function PlayerDetailSheet({ player, onClose }) {
 
   return (
     <>
-      <div className={cx('board-sheet-scrim', open && 'is-open')} onClick={onClose} />
+      <div className={cx('board-sheet-scrim pds-scrim', open && 'is-open')} onClick={onClose} />
       <div className={cx('board-sheet pds-sheet', open && 'is-open')} role="dialog" aria-label="Spieler-Details">
         <div className="board-sheet-head">
           <strong>{player?.name || 'Spieler'}</strong>

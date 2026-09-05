@@ -2564,7 +2564,54 @@ th.col-pick, td.col-pick { width: 64px; }
 .board-sheet-scrim { display: none; }
 .bmb-tips-sheet { display: none; }
 .mob-more-sheet { display: none; }
+
+/* Spieler-Details: am Desktop ein zentriertes Panel, unter 560px ein
+   Bottom-Sheet. Die beiden Varianten liegen in getrennten Media-Queries,
+   damit sie sich nicht ueber die Kaskade in die Quere kommen. */
 .pds-sheet { display: none; }
+
+@media (min-width: 561px) {
+    .pds-sheet {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(460px, 92vw);
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: var(--z-modal);
+    padding: 14px 16px;
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-modal, 0 18px 50px rgba(0, 0, 0, 0.5));
+  }
+  .pds-sheet.is-open { display: block; }
+  .pds-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-backdrop);
+    background: color-mix(in srgb, var(--surface-page) 65%, transparent);
+  }
+  .pds-scrim.is-open { display: block; }
+  .pds-sheet .board-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .pds-sheet .board-sheet-close {
+    border: 0;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+}
+
 .board-status-line { display: none; }
 
 /* Bottom-Bar-Items (rendern nur im mobilen Bar-Container, daher hier neutral) */
@@ -2747,7 +2794,24 @@ th.col-pick, td.col-pick { width: 64px; }
   .mob-more-sheet { display: block; }
 
   /* --- Spieler-Details als Bottom-Sheet --- */
-  .pds-sheet { display: block; }
+  /* Ein-/Ausblenden ueber display statt transform: .board-sheet bringt eigene
+     transform-Regeln mit, und der Kampf darum kostet mehr als die Animation
+     wert ist. Das Panel sitzt fest unten. */
+  .pds-sheet {
+    display: none;
+    position: fixed;
+    left: 0; right: 0; top: auto; bottom: 0;
+    transform: none;
+    width: auto; max-width: none; max-height: 72vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-left: 0; border-right: 0; border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    background: var(--surface-nav);
+    padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 46;
+  }
+  .board-sheet.pds-sheet.is-open { display: block; transform: none; }
   .pds-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 12px; margin-bottom: 8px; }
   .pds-pos {
     min-width: 28px; padding: 1px 5px; text-align: center;
@@ -3207,6 +3271,9 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 .draft-grid-cell--picked { background: var(--surface-raised); }
+.draft-grid-cell--clickable { cursor: pointer; }
+.draft-grid-cell--clickable:hover { filter: brightness(1.15); }
+.draft-grid-cell--clickable:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 
 /* Positions-Farben wie beim echten Sleeper-Board: kraeftiger, deckender
    Farbton je Spielerposition (nicht nur ein Hauch) -- gleiche Token wie

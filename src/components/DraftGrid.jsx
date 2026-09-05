@@ -15,7 +15,7 @@ function posInRound(round, slot, teams) {
 // BoardSection als zweite Ansicht neben BoardTable gerendert, damit Toolbar,
 // Bottom-Bar und alle Dialoge (AI/Filter/Key) fuer beide Ansichten identisch
 // bleiben und nur der Inhalt wechselt.
-export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot }) {
+export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot, onPlayerClick }) {
   const { livePicks } = useLiveStore()
 
   // Eigene Liga-User-/Roster-Abfrage statt der global ausgewaehlten Liga: ein
@@ -139,8 +139,17 @@ export default function DraftGrid({ draft, teamsCount, ownerLabels, draftSlot })
                 className={cx(
                   'draft-grid-cell',
                   pick && 'draft-grid-cell--picked',
+                  pick && onPlayerClick && 'draft-grid-cell--clickable',
                   isOnClock && 'draft-grid-cell--clock'
                 )}
+                onClick={pick && onPlayerClick ? () => onPlayerClick(pick) : undefined}
+                role={pick && onPlayerClick ? 'button' : undefined}
+                tabIndex={pick && onPlayerClick ? 0 : undefined}
+                onKeyDown={
+                  pick && onPlayerClick
+                    ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlayerClick(pick) } }
+                    : undefined
+                }
               >
                 {pick ? (
                   <>
