@@ -5,6 +5,7 @@ import { cx, normalizePos, fantasyProsSlug } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
+import { usePlayerNews } from '../hooks/usePlayerNews'
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { CostHint } from './CostHint'
@@ -461,19 +462,7 @@ export default function NextBoard({
 }
 
 function PlayerPanel({ p, pref, onPref }) {
-  const [news, setNews] = useState(null)
-  const [newsState, setNewsState] = useState('idle')
-
-  useEffect(() => {
-    if (!p?.name) { setNews(null); setNewsState('idle'); return }
-    let cancelled = false
-    setNewsState('loading')
-    fetch(`/api/news/player?name=${encodeURIComponent(p.name)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d) => { if (!cancelled) { setNews(d.items || []); setNewsState('ok') } })
-      .catch(() => { if (!cancelled) { setNews([]); setNewsState('error') } })
-    return () => { cancelled = true }
-  }, [p?.name])
+  const { items: news, state: newsState } = usePlayerNews(p?.name)
 
   if (!p) return <div className="ns-empty">Kein Spieler ausgewählt.</div>
 

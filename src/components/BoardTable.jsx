@@ -1,5 +1,6 @@
 // src/components/BoardTable.jsx
 import React, { useMemo, useRef, useEffect, useState } from 'react'
+import PlayerDetailSheet from './PlayerDetailSheet'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey, getPreference } from '../services/preferences'
 import Icon from './Icon'
@@ -57,6 +58,10 @@ export default function BoardTable({
   // Pfeil-Buttons zum Hoch-/Runterschieben. Einfacher als freier Drag —
   // kein Ghost, kein Scroll-Konflikt.
   const [reorderMenu, setReorderMenu] = useState(null) // { nname, top, bottom } oder null
+  // Kurzer Tap auf eine Zeile oeffnet die Spieler-Details — mobiles
+  // Gegenstueck zur Detailspalte der Desktop-Shell. Der lange Druck bleibt
+  // dem Verschieben vorbehalten, deshalb der longPressActive-Check.
+  const [detailPlayer, setDetailPlayer] = useState(null)
   const longPressTimer = useRef(null)
   const longPressStartY = useRef(0)
   const longPressActive = useRef(false)
@@ -252,6 +257,7 @@ export default function BoardTable({
                   // Wir nutzen Pointer-Events (statt Touch-Events), weil die
                   // auch auf Tablet/Stylus funktionieren und zuverlässiger
                   // gebubblt werden als reine Touch-Events auf <tr>.
+                  onClick={() => { if (!longPressActive.current) setDetailPlayer(p) }}
                   onPointerDown={(e) => {
                     if (!canDrag) return
                     onRowPointerDown(e, p.nname)
@@ -442,6 +448,7 @@ export default function BoardTable({
           </button>
         </div>
       )}
+      <PlayerDetailSheet player={detailPlayer} onClose={() => setDetailPlayer(null)} />
     </>
   )
 }
