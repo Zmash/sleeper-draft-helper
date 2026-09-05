@@ -408,7 +408,7 @@ export default function BoardTable({
             title="Details & News"
             aria-label="Details und News"
           >
-            <Icon name="message" size={15} />
+            <Icon name="info" size={15} />
           </button>
         </div>
       )}
@@ -476,6 +476,15 @@ export default function BoardTable({
             <Icon name="eye-off" size={19} />
           </button>
           <span className="reorder-sep" aria-hidden />
+          <button
+            type="button"
+            className="reorder-btn"
+            onClick={() => { setDetailPlayer(reorderMenu.player); closeReorderMenu() }}
+            aria-label="Details und News"
+            title="Details"
+          >
+            <Icon name="info" size={19} />
+          </button>
           <button
             type="button"
             className="reorder-btn reorder-close"
