@@ -822,6 +822,12 @@ a.ns-rname:hover { color: var(--accent-text); text-decoration: underline; }
   height: 24px;
   font-size: 12px;
 }
+.ns-rrow.is-empty { opacity: 0.55; }
+.ns-rempty {
+  flex: 1;
+  color: var(--text-dim);
+  font-style: italic;
+}
 .ns-rslot {
   flex: 0 0 34px;
   font-family: var(--font-mono);

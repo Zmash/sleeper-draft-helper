@@ -4,6 +4,7 @@ import DraftGrid from './DraftGrid'
 import { cx, normalizePos, fantasyProsSlug } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
+import { rosterRows } from '../services/rosterSlots'
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { CostHint } from './CostHint'
@@ -448,7 +449,7 @@ export default function NextBoard({
             />
           )}
           {tab === 'roster' && (
-            <RosterPanel livePicks={livePicks} meUserId={meUserId} draftSlot={draftSlot} teamsCount={teamsCount} effRoster={effRoster} />
+            <RosterPanel livePicks={livePicks} meUserId={meUserId} draftSlot={draftSlot} teamsCount={teamsCount} boardPlayers={boardPlayers} />
           )}
           {tab === 'draft' && (
             <DraftPanel draft={draft} livePicks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} ownerLabels={ownerLabels} onSearch={setSearchQuery} />
@@ -580,42 +581,58 @@ function PlayerPanel({ p, pref, onPref }) {
   )
 }
 
-function RosterPanel({ livePicks, meUserId, draftSlot, teamsCount, effRoster }) {
-  const mine = useMemo(
-    () => (livePicks || []).filter(
-      (p) => (meUserId && p.picked_by === meUserId) || (draftSlot && Number(p.draft_slot) === Number(draftSlot))
-    ),
-    [livePicks, meUserId, draftSlot]
-  )
-  const byPos = useMemo(() => {
-    const m = {}
-    for (const p of mine) {
-      const pos = normalizePos(p.metadata?.position) || '?'
-      ;(m[pos] ||= []).push(p)
-    }
-    return m
-  }, [mine])
+function RosterPanel({ livePicks, meUserId, draftSlot, teamsCount, boardPlayers }) {
+  // Gleiche Quelle wie die Roster-Seite: Board-Spieler zuerst (sie tragen Bye
+  // und saubere Positionen), Sleeper-Picks als Rueckfall.
+  const mine = useMemo(() => {
+    const fromBoard = (boardPlayers || [])
+      .filter((p) => meUserId && p.picked_by === meUserId)
+      .map((p) => ({ name: p.name, pos: normalizePos(p.pos), team: p.team, bye: p.bye, pick_no: p.pick_no }))
+    if (fromBoard.length) return fromBoard.sort((a, b) => (a.pick_no || 0) - (b.pick_no || 0))
+    return (livePicks || [])
+      .filter((p) => (meUserId && p.picked_by === meUserId) || (draftSlot && Number(p.draft_slot) === Number(draftSlot)))
+      .sort((a, b) => (a.pick_no || 0) - (b.pick_no || 0))
+      .map((p) => ({
+        name: `${p.metadata?.first_name || ''} ${p.metadata?.last_name || ''}`.trim(),
+        pos: normalizePos(p.metadata?.position),
+        team: p.metadata?.team,
+        bye: p.metadata?.bye_week,
+        pick_no: p.pick_no,
+      }))
+  }, [boardPlayers, livePicks, meUserId, draftSlot])
 
-  const want = useMemo(() => {
-    const r = effRoster || {}
-    return { QB: Number(r.QB) || 1, RB: Number(r.RB) || 2, WR: Number(r.WR) || 3, TE: Number(r.TE) || 1 }
-  }, [effRoster])
+  // Leere Slots sind waehrend eines Drafts die eigentliche Information —
+  // deshalb immer die komplette Aufstellung, nicht nur die Treffer.
+  const rows = useMemo(() => rosterRows(mine), [mine])
+  const starters = rows.filter((r) => r.slot !== 'BN')
+  const bench = rows.filter((r) => r.slot === 'BN')
+  const offen = starters.filter((r) => !r.player).length
 
-  if (!mine.length) {
-    return (
-      <>
-        <div className="ns-insp-head">
-          <div className="ns-insp-name">Dein Roster</div>
-          <div className="ns-insp-sub">
-            <span>Slot {draftSlot || '—'}</span>
-            <span className="ns-crumb-sep">·</span>
-            <span>{teamsCount || '—'} Teams</span>
-          </div>
-        </div>
-        <div className="ns-empty">Noch keine eigenen Picks in diesem Draft.</div>
-      </>
-    )
+  const roundPick = (pickNo) => {
+    const t = Number(teamsCount)
+    if (!pickNo || !t) return null
+    return `${Math.ceil(pickNo / t)}.${String(((pickNo - 1) % t) + 1).padStart(2, '0')}`
   }
+
+  const SlotRow = ({ r }) => (
+    <div className={cx('ns-rrow', !r.player && 'is-empty')}>
+      <span className="ns-rslot">{r.slot}</span>
+      {r.player ? (
+        <>
+          <span className="ns-posbadge" style={{ background: `var(--pos-${String(r.player.pos || '').toLowerCase()})` }}>
+            {r.player.pos}
+          </span>
+          <a className="ns-rname" href={FP_PLAYER(r.player.name)} target="_blank" rel="noreferrer">{r.player.name}</a>
+          <span className="ns-team">
+            {r.player.team}{r.player.bye ? ` (${r.player.bye})` : ''}
+          </span>
+          {roundPick(r.player.pick_no) && <span className="ns-rval">{roundPick(r.player.pick_no)}</span>}
+        </>
+      ) : (
+        <span className="ns-rempty">frei</span>
+      )}
+    </div>
+  )
 
   return (
     <>
@@ -625,44 +642,21 @@ function RosterPanel({ livePicks, meUserId, draftSlot, teamsCount, effRoster }) 
           <span>Slot {draftSlot || '—'}</span>
           <span className="ns-crumb-sep">·</span>
           <span>{mine.length} Picks</span>
+          <span className="ns-crumb-sep">·</span>
+          <span>{offen} Starter offen</span>
         </div>
       </div>
 
       <div className="ns-sect">
-        <div className="ns-sect-h"><span>Bedarf</span></div>
-        <div className="ns-needs">
-          {['QB', 'RB', 'WR', 'TE'].map((pos) => {
-            const have = (byPos[pos] || []).length
-            const level = have >= want[pos] ? 'good' : have === 0 ? 'bad' : 'warn'
-            return (
-              <div key={pos} className={cx('ns-need', `is-${level}`)}>
-                <span className="ns-need-pos">{pos}</span>
-                <span className="ns-need-val">{have}/{want[pos]}</span>
-              </div>
-            )
-          })}
-        </div>
+        <div className="ns-sect-h"><span>Startaufstellung</span></div>
+        {starters.map((r, i) => <SlotRow key={`${r.slot}-${i}`} r={r} />)}
       </div>
 
       <div className="ns-sect">
-        <div className="ns-sect-h"><span>Picks</span></div>
-        {mine
-          .slice()
-          .sort((a, b) => (a.pick_no || 0) - (b.pick_no || 0))
-          .map((p) => {
-            const pos = normalizePos(p.metadata?.position) || '?'
-            const name = `${p.metadata?.first_name || ''} ${p.metadata?.last_name || ''}`.trim()
-            return (
-              <div key={p.pick_no} className="ns-rrow">
-                <span className="ns-rslot">{p.round}.{String(p.draft_slot).padStart(2, '0')}</span>
-                <span className="ns-posbadge" style={{ background: `var(--pos-${pos.toLowerCase()})` }}>{pos}</span>
-                {name
-                  ? <a className="ns-rname" href={FP_PLAYER(name)} target="_blank" rel="noreferrer">{name}</a>
-                  : <span className="ns-rname">—</span>}
-                <span className="ns-team">{p.metadata?.team}</span>
-              </div>
-            )
-          })}
+        <div className="ns-sect-h"><span>Bank</span><span className="ns-sect-meta">{bench.length}</span></div>
+        {bench.length === 0
+          ? <div className="ns-news-empty">Noch niemand auf der Bank.</div>
+          : bench.map((r, i) => <SlotRow key={`bn-${i}`} r={r} />)}
       </div>
     </>
   )

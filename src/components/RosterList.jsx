@@ -2,6 +2,7 @@
 import React from 'react'
 import { normalizePlayerName } from '../utils/formatting'
 import { getTeamsCount } from '../services/derive'
+import { ROSTER_SLOT_CONFIG, assignRosterSlots } from '../services/rosterSlots'
 
 const normalizePos = (posRaw = '') => {
   const pos = String(posRaw).toUpperCase()
@@ -71,32 +72,11 @@ export default function RosterList({
       }))
     : myPlayersFromPicks
 
-  // 4) Slots (Sleeper-like)
-  const slotConfig = [
-    { label: 'QB',  count: 1,           pill: 'QB'  },
-    { label: 'RB',  count: 2,           pill: 'RB'  },
-    { label: 'WR',  count: 2,           pill: 'WR'  },
-    { label: 'TE',  count: 1,           pill: 'TE'  },
-    { label: 'FLEX',count: 1,           pill: 'WRT' },
-    { label: 'DEF', count: 1,           pill: 'DEF' },
-    { label: 'BENCH', count: Infinity,  pill: 'BN'  },
-  ]
-
-  const slotMap = {}; const bench = []
-  for (const s of slotConfig) slotMap[s.label] = []
-
-  for (const player of myRoster) {
-    const pos = player.pos
-    const cfgPos  = slotConfig.find(s => s.label === pos)
-    const cfgFlex = slotConfig.find(s => s.label === 'FLEX')
-
-    const placed =
-      (cfgPos && slotMap[pos].length < cfgPos.count && slotMap[pos].push(player)) ||
-      (['RB','WR','TE'].includes(pos) && slotMap.FLEX.length < cfgFlex.count && slotMap.FLEX.push(player))
-
-    if (!placed) bench.push(player)
-  }
-  slotMap.BENCH = bench
+  // 4) Slots (Sleeper-like) — Definition und Zuordnung liegen in
+  //    services/rosterSlots.js, damit die Detailspalte der neuen Shell
+  //    exakt dieselbe Aufstellung zeigt.
+  const slotConfig = ROSTER_SLOT_CONFIG
+  const slotMap = assignRosterSlots(myRoster, slotConfig)
 
   // ---- Pick-Chip (rechts in der Karte, absolut positioniert; CSS hast du bereits)
   const computeRoundInRound = (pickNo, teams) => {
