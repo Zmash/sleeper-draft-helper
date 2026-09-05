@@ -10,6 +10,10 @@ import MobileMoreSheet from './MobileMoreSheet'
 // BoardMobileBar dieselbe Leiste mit board-spezifischen Aktionen. Gleiche
 // Klassen, damit beide identisch aussehen und sich beim Seitenwechsel nichts
 // unter dem Daumen verschiebt.
+//
+// Die Plaetze sind bewusst fest und nicht je Seite anders belegt: eine
+// Bottom-Bar lebt davon, dass der Daumen die Ziele blind trifft. Trade sitzt
+// im Mehr-Sheet, weil es bisher nur fuer Dynasty umgesetzt ist.
 export default function MobileNav() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -51,7 +55,7 @@ export default function MobileNav() {
           {autoRefreshEnabled && selectedDraftId && <span className="bmb-fab-auto" aria-hidden />}
         </button>
 
-        {item('swap', 'Trade', '/trade')}
+        {item('home', 'Start', '/dashboard')}
         <button type="button" className={cx('bmb-item', moreOpen && 'is-active')} onClick={() => setMoreOpen(true)}>
           <Icon name="menu" size={20} /><span>Mehr</span>
         </button>
