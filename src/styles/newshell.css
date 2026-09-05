@@ -391,11 +391,28 @@
 .ns-seg button:last-child { border-right: 0; }
 .ns-seg button:hover { background: var(--surface-raised); color: var(--text-primary); }
 .ns-seg button.is-on { background: var(--accent-fill); color: var(--accent-on); }
+.ns-searchbox { position: relative; display: flex; flex: 0 1 200px; min-width: 90px; }
+.ns-search-x {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+}
+.ns-search-x:hover { color: var(--text-primary); background: var(--surface-raised); }
 .ns-search {
   height: 22px;
-  flex: 0 1 200px;
-  min-width: 90px;
-  padding: 0 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 20px 0 7px;
   background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--r-ctl);
@@ -536,6 +553,7 @@
   font-size: 17px;
   font-weight: 500;
 }
+.ns-stat-sub { margin-left: 5px; font-size: 11px; color: var(--text-dim); }
 .ns-sect { padding: 10px; border-bottom: 1px solid var(--border-soft); }
 .ns-sect-h {
   display: flex;
@@ -911,6 +929,7 @@ a.ns-rname:hover { color: var(--accent-text); text-decoration: underline; }
   white-space: nowrap;
 }
 .ns-chip:hover { color: var(--text-primary); border-color: var(--text-dim); }
+.ns-chip.is-off { color: var(--accent-text); border-color: var(--accent-fill); }
 
 /* ── Statusleiste ────────────────────────────────────────────────────────── */
 .ns-status {

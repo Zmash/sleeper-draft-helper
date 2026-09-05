@@ -259,12 +259,27 @@ export default function NextBoard({
               </button>
             ))}
           </div>
-          <input
-            className="ns-search"
-            placeholder="Spieler filtern …"
-            value={searchQuery || ''}
-            onChange={(e) => onSearchChange?.(e)}
-          />
+          <div className="ns-searchbox">
+            <input
+              className="ns-search"
+              placeholder="Spieler filtern …"
+              value={searchQuery || ''}
+              onChange={(e) => onSearchChange?.(e)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { e.preventDefault(); onSearchChange?.({ target: { value: '' } }) }
+              }}
+            />
+            {searchQuery ? (
+              <button
+                className="ns-search-x"
+                onClick={() => onSearchChange?.({ target: { value: '' } })}
+                title="Suche löschen (Esc)"
+                aria-label="Suche löschen"
+              >
+                <Icon name="x" size={11} />
+              </button>
+            ) : null}
+          </div>
           {teamOptions.length > 0 && (
             <select
               className="ns-select"
@@ -306,6 +321,14 @@ export default function NextBoard({
               <Icon name="chart" size={13} /> Board
             </button>
           </div>
+          <button
+            className={cx('ns-chip', !inspOpen && 'is-off')}
+            onClick={() => setInspOpen((v) => !v)}
+            aria-pressed={inspOpen}
+            title={inspOpen ? 'Detailspalte ausblenden (I)' : 'Detailspalte einblenden (I)'}
+          >
+            <Icon name={inspOpen ? 'minimize' : 'maximize'} size={12} />
+          </button>
         </div>
 
         {view === 'board' ? (
@@ -670,6 +693,7 @@ function DraftPanel({ draft, livePicks, teamsCount, draftSlot, ownerLabels, onSe
           <div className="ns-stat-k">Am Zug</div>
           <div className="ns-stat-v">
             {Math.floor((upcoming - 1) / teams) + 1}.{String(((upcoming - 1) % teams) + 1).padStart(2, '0')}
+            <span className="ns-stat-sub">#{upcoming}</span>
           </div>
         </div>
         <div className="ns-stat">

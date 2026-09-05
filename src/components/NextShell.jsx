@@ -253,6 +253,7 @@ export default function NextShell({ children, pageProps = {} }) {
           <>
             <span className="ns-st" title={`Runde ${round} von ${rounds || '?'} · Pick ${upcoming}`}>
               <b>{onClockLabel}</b>
+              <span className="ns-st-dim">#{upcoming}</span>
               <span className="ns-st-dim">R{round}{rounds ? `/${rounds}` : ''}</span>
             </span>
             {untilMine != null && (
