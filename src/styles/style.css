@@ -34,6 +34,9 @@ body {
 }
 
 /* Top Bar */
+/* Aktionen haengen rechts, unabhaengig davon wie breit der Brand-Text wird. */
+.topbar-actions { margin-left: auto; }
+.mob-draft-switch { display: none; }
 .topbar {
   display: flex;
   align-items: center;
@@ -2799,6 +2802,32 @@ th.col-pick, td.col-pick { width: 64px; }
   }
   .card + .card, .grid > * + * { margin-top: 6px; }
   .topbar, .clockbar { border-left: 0; border-right: 0; border-radius: 0; }
+  /* Die neue Oberflaeche ist ein Desktop-Layout — der Umschalter dorthin
+     gehoert nicht auf ein Geraet, das sie gar nicht anzeigen kann. */
+  .topbar-shell-switch { display: none; }
+  /* Schnellwechsel: auf dem Handy nur das Symbol plus, wenn Platz ist, ein
+     gekuerzter Draft-Name. */
+  /* Nur das Symbol: der Draft-Name passt neben Brand, Theme und
+     Einstellungen nicht mehr in 375px — die Leiste lief sonst ueber. */
+  .mob-draft-switch { display: inline-flex; }
+  .mob-draft-switch-label { display: none; }
+  /* Brand-Zusatz weicht, damit die Aktionen rechts Platz haben. */
+  .topbar .brand small { display: none; }
+  .topbar { padding: 0 10px; gap: 8px; }
+  .mob-draft-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+  .mob-draft-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mob-draft-sub {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mob-draft-live {
+    flex: 0 0 auto; padding: 0 5px;
+    font-family: var(--font-display); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase; color: var(--live);
+    border: 1px solid color-mix(in srgb, var(--live) 45%, transparent);
+    border-radius: var(--r-ctl);
+  }
+  .mob-more-row.is-active { border-color: var(--accent-fill); color: var(--accent-text); }
   h1 { font-size: 20px; margin: 0 0 6px; }
   h2 { font-size: 16px; margin: 0 0 6px; }
   h3 { font-size: 13px; margin: 0 0 5px; }

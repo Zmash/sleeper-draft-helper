@@ -7,6 +7,7 @@ import { useSessionStore } from '../stores/useSessionStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import { THEMES } from '../theme/themes'
+import { groupDrafts, draftLabel, draftSubtitle } from '../services/draftGroups'
 import '../styles/newshell.css'
 
 // Cmd auf Apple, Strg ueberall sonst. Das Zeichen ⌘ ist auf Windows/Linux
@@ -331,19 +332,7 @@ function ThemeMenu({ themeId, onPick, onClose }) {
    man staendig zwischen Liga-Draft und Mocks — dafuer soll man nicht ins
    Setup muessen. */
 function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
-  const leagueName = (id) =>
-    (leagues || []).find((l) => String(l.league_id) === String(id))?.name || null
-
-  const groups = useMemo(() => {
-    const list = Array.isArray(drafts) ? drafts : []
-    const liga = list.filter((d) => d.league_id)
-    const mocks = list.filter((d) => !d.league_id)
-    const byStatus = (a, b) => (a.status === 'drafting' ? -1 : b.status === 'drafting' ? 1 : 0)
-    return [
-      { title: 'Liga-Drafts', items: liga.slice().sort(byStatus) },
-      { title: 'Mock-Drafts', items: mocks.slice().sort(byStatus) },
-    ].filter((g) => g.items.length)
-  }, [drafts, leagues])
+  const groups = useMemo(() => groupDrafts(drafts), [drafts])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -361,12 +350,7 @@ function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
             <div className="ns-menu-group">{g.title}</div>
             {g.items.map((d) => {
               const active = String(d.draft_id) === String(selectedDraftId)
-              const sub = [
-                leagueName(d.league_id),
-                d.season,
-                d.settings?.teams ? `${d.settings.teams} Teams` : null,
-                d.type,
-              ].filter(Boolean).join(' · ')
+              const sub = draftSubtitle(d, leagues)
               return (
                 <button
                   key={d.draft_id}
@@ -375,9 +359,7 @@ function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
                   onClick={() => onPick(d)}
                 >
                   <span className="ns-menu-text">
-                    <span className="ns-menu-main">
-                      {d.metadata?.name || leagueName(d.league_id) || `Draft ${d.draft_id}`}
-                    </span>
+                    <span className="ns-menu-main">{draftLabel(d, leagues)}</span>
                     {sub && <span className="ns-menu-sub">{sub}</span>}
                   </span>
                   {d.status === 'drafting' && <span className="ns-menu-live">Live</span>}
