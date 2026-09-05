@@ -297,7 +297,7 @@ Erwartet: FAIL — Modul `./draftStats` existiert nicht.
 //
 // Grundgroesse ueberall: delta = ecr - pick_no.
 // Positiv heisst: der Spieler ging spaeter als sein Rang, also unter Wert geholt.
-import { normalizePlayerName, normalizePos } from '../../utils/formatting'
+import { normalizePlayerName, normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { teamKeyFromPick } from '../derive'
 
 /** Board -> Map normalisierter Name -> { ecr, name }. Nur mit numerischem ecr. */
@@ -545,11 +545,13 @@ export function positionalScarcity({
     const need = Math.round(teams * starterSlots(pos, rosterPositions))
     if (need <= 0) continue
 
+    // toFiniteOrNull statt Number(): Number(null) waere 0 und damit ein
+    // gueltiger Rang 0 -- der beste Spieler ueberhaupt.
     const pool = (boardPlayers || [])
-      .filter((bp) => Number.isFinite(Number(bp?.ecr))
+      .filter((bp) => toFiniteOrNull(bp?.ecr) !== null
         && normalizePos(bp?.pos) === pos
         && bp?.nname && !taken.has(bp.nname))
-      .sort((a, b) => Number(a.ecr) - Number(b.ecr))
+      .sort((a, b) => toFiniteOrNull(a.ecr) - toFiniteOrNull(b.ecr))
 
     const exhausted = pool.length < need
     const best = pool[0] || null
@@ -562,9 +564,11 @@ export function positionalScarcity({
       startable: Math.min(pool.length, need),
       exhausted,
       bestName: best?.name || null,
-      bestEcr: best ? Number(best.ecr) : null,
-      replacementEcr: replacement ? Number(replacement.ecr) : null,
-      vor: (best && replacement) ? Number(replacement.ecr) - Number(best.ecr) : null,
+      bestEcr: best ? toFiniteOrNull(best.ecr) : null,
+      replacementEcr: replacement ? toFiniteOrNull(replacement.ecr) : null,
+      vor: (best && replacement)
+        ? toFiniteOrNull(replacement.ecr) - toFiniteOrNull(best.ecr)
+        : null,
     })
   }
   return out
@@ -1008,7 +1012,7 @@ Erwartet: FAIL — Modul existiert nicht.
 // Zwei Betriebsarten. Fuehrt das Board dynasty_value, wird der Wert summiert.
 // Sonst wird rein ueber Raenge verglichen -- bewusst OHNE eine Wertkurve ueber
 // die Raenge zu legen, denn die waere eine Annahme, keine Quelle.
-import { normalizePos } from '../../utils/formatting'
+import { normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { starterSlots } from './draftStats'
 
 const SPLIT_POS = ['QB', 'RB', 'WR', 'TE']
@@ -1027,7 +1031,9 @@ export function rosterValueSplit({
   for (const bp of boardPlayers || []) {
     if (bp?.sleeper_id) byId.set(String(bp.sleeper_id), bp)
   }
-  const hasValue = (boardPlayers || []).some((bp) => Number.isFinite(Number(bp?.dynasty_value)))
+  // toFiniteOrNull, nicht Number(): sonst zaehlt dynasty_value: null als 0
+  // und der Wertmodus wuerde auf einem Board ohne Werte anspringen.
+  const hasValue = (boardPlayers || []).some((bp) => toFiniteOrNull(bp?.dynasty_value) !== null)
   const mode = hasValue ? 'value' : 'rank'
 
   let total = 0
@@ -1191,7 +1197,7 @@ Erwartet: FAIL — Modul existiert nicht.
 ```js
 // Markt-Statistiken aus den Feldern, die marketMerge.js mitbringt:
 // stdev (Streuung der ADP), low/high (Extremwerte), adp (Mittel).
-import { normalizePos } from '../../utils/formatting'
+import { normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { pickName } from './draftStats'
 
 /**
@@ -1201,14 +1207,12 @@ import { pickName } from './draftStats'
 export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }) {
   const taken = new Set((picks || []).map(pickName).filter(Boolean))
 
-  // Number(null) ist 0 und damit finite -- deshalb muss die Nullpruefung VOR
-  // die Umwandlung, sonst rutscht ein fehlender Wert als 0 durch.
-  const num = (v) => (v == null || v === '' ? NaN : Number(v))
+  const num = toFiniteOrNull
 
   const usable = (boardPlayers || [])
-    .filter((bp) => Number.isFinite(num(bp?.stdev))
-      && Number.isFinite(num(bp?.low))
-      && Number.isFinite(num(bp?.high))
+    .filter((bp) => num(bp?.stdev) !== null
+      && num(bp?.low) !== null
+      && num(bp?.high) !== null
       && bp?.nname && !taken.has(bp.nname))
     .map((bp) => ({
       name: bp.name || bp.nname,
