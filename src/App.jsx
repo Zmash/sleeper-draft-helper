@@ -9,7 +9,7 @@ import { useLiveStore } from './stores/useLiveStore'
 import { useDynastyStore } from './stores/useDynastyStore'
 import { useUIStore } from './stores/useUIStore'
 
-import { getTeamsCount } from './services/derive'
+import { getTeamsCount, teamKeyFromPick } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
@@ -120,13 +120,6 @@ export default function App() {
     for (const u of leagueUsers || []) {
       m.set(`user:${u.user_id}`, u.display_name || u.username || u.user_id)
     }
-    const teamKeyFromPick = (p) => {
-      if (p?.picked_by) return `user:${p.picked_by}`
-      if (p?.roster_id != null) return `roster:${p.roster_id}`
-      if (p?.draft_slot != null) return `slot:${p.draft_slot}`
-      if (teamsCount && p?.pick_no) return `slot:${((p.pick_no - 1) % teamsCount) + 1}`
-      return 'slot:unknown'
-    }
     const teamLabelFromPick = (p) => {
       const metaLabel = p?.metadata?.team_name || p?.metadata?.owner || null
       if (metaLabel) return metaLabel
@@ -137,7 +130,7 @@ export default function App() {
       return 'Unknown'
     }
     for (const p of livePicks || []) {
-      const key = teamKeyFromPick(p)
+      const key = teamKeyFromPick(p, teamsCount)
       if (!m.has(key)) m.set(key, teamLabelFromPick(p))
     }
     return m

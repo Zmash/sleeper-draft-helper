@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { picksUntilMyNext, countStarters } from './derive'
+import { picksUntilMyNext, countStarters, teamKeyFromPick } from './derive'
 
 // Szenario aus der Bug-Meldung: 12 Teams, 3 Picks bereits gelaufen, ich habe noch nicht gepickt.
 const picksNoOwnPick = [
@@ -86,6 +86,33 @@ describe('picksUntilMyNext', () => {
       draftSlot: 7,
     })
     expect(result).toBe(2)
+  })
+})
+
+describe('teamKeyFromPick', () => {
+  it('picked_by hat Vorrang vor allem anderen', () => {
+    expect(teamKeyFromPick({ picked_by: 'u1', roster_id: 3, draft_slot: 5 }, 12)).toBe('user:u1')
+  })
+
+  it('ohne picked_by faellt es auf roster_id zurueck', () => {
+    expect(teamKeyFromPick({ roster_id: 3, draft_slot: 5 }, 12)).toBe('roster:3')
+  })
+
+  it('ohne picked_by und roster_id zaehlt der draft_slot', () => {
+    expect(teamKeyFromPick({ draft_slot: 5 }, 12)).toBe('slot:5')
+  })
+
+  it('nur pick_no + teamsCount -> Slot aus der Snake-Rechnung', () => {
+    expect(teamKeyFromPick({ pick_no: 13 }, 12)).toBe('slot:1')
+  })
+
+  it('roster_id 0 ist ein gueltiger Wert, kein fehlender', () => {
+    expect(teamKeyFromPick({ roster_id: 0 }, 12)).toBe('roster:0')
+  })
+
+  it('ohne jede Information -> unknown statt Absturz', () => {
+    expect(teamKeyFromPick({}, 0)).toBe('slot:unknown')
+    expect(teamKeyFromPick(null, 12)).toBe('slot:unknown')
   })
 })
 

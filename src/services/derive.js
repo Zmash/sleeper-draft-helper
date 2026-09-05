@@ -118,3 +118,21 @@ export function countStarters(rosterPositions = []) {
   return req
 }
 
+/**
+ * Stabiler Schluessel je Team fuer einen Pick. Reihenfolge der Fallbacks ist
+ * bewusst: picked_by ist die einzige echte Identitaet, roster_id gilt nur
+ * innerhalb einer Liga, der Slot ist die letzte Rettung fuer Mock-Drafts ohne
+ * Teilnehmer-IDs.
+ *
+ * @param {object|null} pick  Sleeper-Pick
+ * @param {number} teamsCount Teamzahl, nur fuer den pick_no-Fallback noetig
+ * @returns {string} 'user:<id>' | 'roster:<id>' | 'slot:<n>' | 'slot:unknown'
+ */
+export function teamKeyFromPick(pick, teamsCount = 0) {
+  if (pick?.picked_by) return `user:${pick.picked_by}`
+  if (pick?.roster_id != null) return `roster:${pick.roster_id}`
+  if (pick?.draft_slot != null) return `slot:${pick.draft_slot}`
+  if (teamsCount && pick?.pick_no) return `slot:${((pick.pick_no - 1) % teamsCount) + 1}`
+  return 'slot:unknown'
+}
+
