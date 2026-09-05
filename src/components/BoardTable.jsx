@@ -69,9 +69,9 @@ export default function BoardTable({
   const longPressActive = useRef(false)
   const reorderMenuRef = useRef(null)
 
-  function openReorderMenu(tr, nname) {
+  function openReorderMenu(tr, nname, player) {
     const rect = tr.getBoundingClientRect()
-    setReorderMenu({ nname, top: rect.top, bottom: rect.bottom })
+    setReorderMenu({ nname, player, top: rect.top, bottom: rect.bottom })
   }
   function closeReorderMenu() {
     setReorderMenu(null)
@@ -79,7 +79,7 @@ export default function BoardTable({
   // Per-Zeile pointer handler. pointerdown (nur touch) startet den Timer;
   // bewegt sich der Finger zu weit oder kommt pointerup zu frueh, wird der
   // Timer abgebrochen.
-  function onRowPointerDown(e, nname) {
+  function onRowPointerDown(e, nname, player) {
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
     const tr = e.currentTarget
     clearTimeout(longPressTimer.current)
@@ -90,7 +90,7 @@ export default function BoardTable({
       // Haptisches Feedback, wenn verfuegbar — macht das "Menue ist offen"
       // spuerbar ohne ein lauter Vibrieren.
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(25)
-      openReorderMenu(tr, nname)
+      openReorderMenu(tr, nname, player)
     }, 350)
   }
   function onRowPointerMove(e) {
@@ -262,7 +262,7 @@ export default function BoardTable({
                   // gebubblt werden als reine Touch-Events auf <tr>.
                   onPointerDown={(e) => {
                     if (!canDrag) return
-                    onRowPointerDown(e, p.nname)
+                    onRowPointerDown(e, p.nname, p)
                   }}
                   onPointerMove={onRowPointerMove}
                   onPointerUp={onRowPointerUp}
@@ -292,8 +292,8 @@ export default function BoardTable({
                               pref === PlayerPreference.FAVORITE && 'is-favorite',
                               pref === PlayerPreference.AVOID && 'is-avoid'
                             )}
-                            onClick={(e) => openPrefMenu(e, p)}
-                            title="Präferenz setzen"
+                            onClick={() => setDetailPlayer(p)}
+                            title="Details & News"
                           >
                             {pref === PlayerPreference.FAVORITE && (
                               <span className="pref-icon pref-fav" aria-hidden>
@@ -447,18 +447,52 @@ export default function BoardTable({
           >
             <Icon name="chevron-down" size={22} />
           </button>
+          <span className="reorder-sep" aria-hidden />
+          <button
+            type="button"
+            className={cx('reorder-btn', getPreference(playerPrefs, reorderMenu.player) === PlayerPreference.FAVORITE && 'is-on')}
+            onClick={() => { setPref(reorderMenu.nname, PlayerPreference.FAVORITE); closeReorderMenu() }}
+            aria-label="Als Favorit markieren"
+            title="Favorit"
+          >
+            <Icon name="star" size={19} />
+          </button>
+          <button
+            type="button"
+            className="reorder-btn"
+            onClick={() => { setPref(reorderMenu.nname, null); closeReorderMenu() }}
+            aria-label="Präferenz entfernen"
+            title="Neutral"
+          >
+            <Icon name="check-circle" size={19} />
+          </button>
+          <button
+            type="button"
+            className={cx('reorder-btn', getPreference(playerPrefs, reorderMenu.player) === PlayerPreference.AVOID && 'is-on')}
+            onClick={() => { setPref(reorderMenu.nname, PlayerPreference.AVOID); closeReorderMenu() }}
+            aria-label="Meiden"
+            title="Meiden"
+          >
+            <Icon name="eye-off" size={19} />
+          </button>
+          <span className="reorder-sep" aria-hidden />
           <button
             type="button"
             className="reorder-btn reorder-close"
             onClick={closeReorderMenu}
-            aria-label="Verschieben beenden"
+            aria-label="Menü schließen"
             title="Schließen"
           >
             <Icon name="x" size={18} />
           </button>
         </div>
       )}
-      <PlayerDetailSheet player={detailPlayer} onClose={() => setDetailPlayer(null)} />
+      <PlayerDetailSheet
+        player={detailPlayer}
+        onClose={() => setDetailPlayer(null)}
+        pref={detailPlayer ? getPreference(playerPrefs, detailPlayer) : null}
+        onSetPref={(v) => detailPlayer && onSetPlayerPref?.(playerKey(detailPlayer), v)}
+      />
     </>
   )
 }

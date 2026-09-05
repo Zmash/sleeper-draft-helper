@@ -1,11 +1,12 @@
 import Icon from './Icon'
 import { cx, normalizePos, fantasyProsSlug } from '../utils/formatting'
 import { usePlayerNews } from '../hooks/usePlayerNews'
+import { PlayerPreference } from '../services/preferences'
 
 // Spieler-Detail als Bottom-Sheet: mobiles Gegenstueck zur Detailspalte der
 // Desktop-Shell. Oeffnet sich bei kurzem Tippen auf eine Board-Zeile — der
 // lange Druck bleibt dem Verschieben vorbehalten.
-export default function PlayerDetailSheet({ player, onClose }) {
+export default function PlayerDetailSheet({ player, onClose, pref = null, onSetPref }) {
   const { items: news, state } = usePlayerNews(player?.name)
   const open = !!player
 
@@ -20,9 +21,35 @@ export default function PlayerDetailSheet({ player, onClose }) {
       <div className={cx('board-sheet pds-sheet', open && 'is-open')} role="dialog" aria-label="Spieler-Details">
         <div className="board-sheet-head">
           <strong>{player?.name || 'Spieler'}</strong>
-          <button type="button" className="board-sheet-close" onClick={onClose} aria-label="Schließen">
-            <Icon name="x" size={18} />
-          </button>
+          <div className="pds-actions">
+            {onSetPref && (
+              <>
+                <button
+                  type="button"
+                  className={cx('pds-prefbtn', pref === PlayerPreference.FAVORITE && 'is-on')}
+                  onClick={() => onSetPref(pref === PlayerPreference.FAVORITE ? null : PlayerPreference.FAVORITE)}
+                  aria-pressed={pref === PlayerPreference.FAVORITE}
+                  title="Favorit"
+                  aria-label="Als Favorit markieren"
+                >
+                  <Icon name="star" size={16} />
+                </button>
+                <button
+                  type="button"
+                  className={cx('pds-prefbtn', pref === PlayerPreference.AVOID && 'is-on')}
+                  onClick={() => onSetPref(pref === PlayerPreference.AVOID ? null : PlayerPreference.AVOID)}
+                  aria-pressed={pref === PlayerPreference.AVOID}
+                  title="Meiden"
+                  aria-label="Spieler meiden"
+                >
+                  <Icon name="eye-off" size={16} />
+                </button>
+              </>
+            )}
+            <button type="button" className="board-sheet-close" onClick={onClose} aria-label="Schließen">
+              <Icon name="x" size={18} />
+            </button>
+          </div>
         </div>
 
         {player && (
