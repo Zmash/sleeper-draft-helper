@@ -1201,21 +1201,22 @@ import { pickName } from './draftStats'
 export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }) {
   const taken = new Set((picks || []).map(pickName).filter(Boolean))
 
+  // Number(null) ist 0 und damit finite -- deshalb muss die Nullpruefung VOR
+  // die Umwandlung, sonst rutscht ein fehlender Wert als 0 durch.
+  const num = (v) => (v == null || v === '' ? NaN : Number(v))
+
   const usable = (boardPlayers || [])
-    .filter((bp) => {
-      const stdev = Number(bp?.stdev)
-      const low = Number(bp?.low)
-      const high = Number(bp?.high)
-      return Number.isFinite(stdev) && Number.isFinite(low) && Number.isFinite(high)
-        && bp?.nname && !taken.has(bp.nname)
-    })
+    .filter((bp) => Number.isFinite(num(bp?.stdev))
+      && Number.isFinite(num(bp?.low))
+      && Number.isFinite(num(bp?.high))
+      && bp?.nname && !taken.has(bp.nname))
     .map((bp) => ({
       name: bp.name || bp.nname,
       pos: normalizePos(bp.pos),
-      adp: Number(bp.adp),
-      low: Number(bp.low),
-      high: Number(bp.high),
-      stdev: Number(bp.stdev),
+      adp: num(bp.adp),
+      low: num(bp.low),
+      high: num(bp.high),
+      stdev: num(bp.stdev),
     }))
     .sort((a, b) => b.stdev - a.stdev)
 
@@ -1230,23 +1231,13 @@ export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }
 }
 ```
 
-Hinweis: `Number(null)` ist `0`, aber `Number.isFinite(0)` ist `true` — deshalb prüft der Filter `bp?.stdev` über `Number(...)` **und** die Testfixture nutzt `null`, was zu `0` würde. Damit `null` wirklich herausfällt, prüft der Filter zusätzlich auf `bp.stdev != null`:
-
-```js
-      const stdev = bp?.stdev != null ? Number(bp.stdev) : NaN
-      const low = bp?.low != null ? Number(bp.low) : NaN
-      const high = bp?.high != null ? Number(bp.high) : NaN
-```
-
-Diese drei Zeilen ersetzen die entsprechenden Zeilen im Filter oben.
-
 - [ ] **Step 4: Test laufen lassen, Erfolg bestätigen**
 
 ```bash
 npx vitest run src/services/analysis/marketStats.test.js
 ```
 
-Erwartet: PASS, 7 Tests. Schlägt „Spieler ohne stdev" fehl, wurde der Hinweis aus Step 3 nicht eingebaut.
+Erwartet: PASS, 7 Tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1357,9 +1348,27 @@ git commit -m "feat(store): Liga-Kader auch in Redraft-Ligen laden und behalten"
 **Files:**
 - Create: `src/components/analysis/StatCard.jsx`
 - Create: `src/styles/analysis.css`
+- Modify: `src/utils/formatting.js`
 
 **Interfaces:**
-- Produces: `<StatCard title hint headline sub basis wide empty>{children}</StatCard>` — rendert `empty` als Begründungstext statt des Inhalts, wenn gesetzt.
+- Produces:
+  - `posColor(pos) → string` (CSS-`var()`-Ausdruck) und `signed(n) → string` in `src/utils/formatting.js` — beide werden von Task 10 **und** 11 gebraucht; sie liegen zentral, damit sie nicht in drei Reiter-Komponenten dupliziert werden.
+  - `<StatCard title hint headline sub basis wide empty>{children}</StatCard>` — rendert `empty` als Begründungstext statt des Inhalts, wenn gesetzt.
+
+- [ ] **Step 0: Gemeinsame Helfer in `formatting.js`**
+
+An `src/utils/formatting.js` anhängen — beide Reiter-Komponenten brauchen sie, deshalb liegen sie neben `cx` und `normalizePos` statt je Komponente noch einmal:
+
+```js
+/** Positionsfarbe als CSS-var mit Rueckfall, fuer inline styles. */
+export const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
+
+/** Zahl mit sichtbarem Vorzeichen, gerundet. 0 bleibt "0". */
+export const signed = (n) => {
+  const v = Math.round(Number(n) || 0)
+  return v > 0 ? `+${v}` : String(v)
+}
+```
 
 - [ ] **Step 1: Komponente schreiben**
 
@@ -1608,10 +1617,7 @@ git commit -m "feat(analyse): Kachel-Geruest und Stile"
 
 ```jsx
 import StatCard from './StatCard'
-import { cx } from '../../utils/formatting'
-
-const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
-const signed = (n) => (n > 0 ? `+${n}` : String(n))
+import { cx, posColor, signed } from '../../utils/formatting'
 
 function TeamRanking({ r, myTeamKey }) {
   if (!r.teams.length) {
@@ -1621,7 +1627,7 @@ function TeamRanking({ r, myTeamKey }) {
     <StatCard
       title="Team-Draft-Ranking"
       hint="Summe aus Experten-Rang minus Pick-Nummer. Positiv heisst: unter Wert geholt."
-      headline={r.myDelta !== null ? signed(Math.round(r.myDelta)) : '—'}
+      headline={r.myDelta !== null ? signed(r.myDelta) : '—'}
       sub={r.myRank ? `Platz ${r.myRank} von ${r.teams.length}` : 'Dein Team nicht erkannt'}
       basis={`aus ${r.matched} bewerteten Picks${r.unmatched ? ` · ${r.unmatched} ohne Ranking-Treffer` : ''}`}
       wide
@@ -1639,7 +1645,7 @@ function TeamRanking({ r, myTeamKey }) {
               <td>{i + 1}</td>
               <td>{t.label}</td>
               <td className={cx('an-num', t.delta > 0 ? 'an-pos-good' : t.delta < 0 && 'an-pos-bad')}>
-                {signed(Math.round(t.delta))}
+                {signed(t.delta)}
               </td>
               <td>{t.best ? `${t.best.name} (${signed(t.best.delta)})` : '—'}</td>
               <td>{t.worst ? `${t.worst.name} (${signed(t.worst.delta)})` : '—'}</td>
@@ -1812,10 +1818,7 @@ git commit -m "feat(analyse): Reiter Draft mit Ranking, Knappheit, Tiers und Run
 
 ```jsx
 import StatCard from './StatCard'
-import { cx } from '../../utils/formatting'
-
-const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
-const signed = (n) => (n > 0 ? `+${Math.round(n)}` : String(Math.round(n)))
+import { cx, posColor, signed } from '../../utils/formatting'
 
 export default function RosterTab({ split }) {
   const { mode, positions, coverage, teamCount } = split
@@ -1886,8 +1889,7 @@ export default function RosterTab({ split }) {
 
 ```jsx
 import StatCard from './StatCard'
-
-const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
+import { posColor } from '../../utils/formatting'
 
 export default function MarketTab({ market, nextPickNo = null }) {
   const { players, basis, scaleMin, scaleMax } = market
