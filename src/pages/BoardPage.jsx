@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { buildBoardSearch, parseBoardParams } from '../utils/urlState'
@@ -27,6 +27,19 @@ export default function BoardPage({
 
   const { sleeperUserId, selectedDraftId, draftViewAs } = useSessionStore()
   const shellVersion = useUIStore((s) => s.shellVersion)
+  // Muss zur Shell-Wahl in App.jsx passen: unter 900px gilt immer die mobil
+  // optimierte Ansicht, sonst saesse NextBoard ohne seine Huelle in der
+  // alten Seite.
+  const [wideViewport, setWideViewport] = useState(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 900px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 900px)')
+    const onChange = (e) => setWideViewport(e.matches)
+    mq.addEventListener('change', onChange)
+    setWideViewport(mq.matches)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
   const {
     boardPlayers, searchQuery, positionFilter, teamFilter, draftMode,
     setBoardPlayers, setEnriching,
@@ -168,7 +181,7 @@ export default function BoardPage({
 
   // Die neue Shell zeigt dieselben Daten in ihrer eigenen Arbeitsflaeche.
   // Alle Effekte oben (Merge, Enrichment, URL-Deeplink) laufen unveraendert.
-  if (shellVersion === 'next') {
+  if (shellVersion === 'next' && wideViewport) {
     return (
       <NextBoard
         filteredPlayers={filteredPlayers}

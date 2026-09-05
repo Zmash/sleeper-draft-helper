@@ -36,6 +36,22 @@ import TradePage from './pages/TradePage'
 import ProfilesPage from './pages/ProfilesPage'
 
 // ── Redirect from / based on account state ───────────────────────────────────
+const NEXT_SHELL_MIN_WIDTH = 900
+
+function useIsWideViewport(min = NEXT_SHELL_MIN_WIDTH) {
+  const [wide, setWide] = useState(
+    () => typeof window === 'undefined' || window.matchMedia(`(min-width: ${min}px)`).matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${min}px)`)
+    const onChange = (e) => setWide(e.matches)
+    mq.addEventListener('change', onChange)
+    setWide(mq.matches)
+    return () => mq.removeEventListener('change', onChange)
+  }, [min])
+  return wide
+}
+
 function RootRedirect() {
   const { sleeperUserId } = useSessionStore()
   return <Navigate to={sleeperUserId ? '/dashboard' : '/setup'} replace />
@@ -44,6 +60,8 @@ function RootRedirect() {
 export default function App() {
   const isAndroid = /Android/i.test(navigator.userAgent)
   const shellVersion = useUIStore((st) => st.shellVersion)
+  const isWideViewport = useIsWideViewport()
+  const useNextShell = shellVersion === 'next' && isWideViewport
 
   // ── Store reads ────────────────────────────────────────────────────────────
   const {
@@ -397,7 +415,7 @@ export default function App() {
   return (
     <>
       <div className="sr-only" aria-live="polite" aria-atomic="true">{pickAnnouncement}</div>
-      {shellVersion === 'next' ? (
+      {useNextShell ? (
         <NextShell pageProps={pageProps}>{shellContent}</NextShell>
       ) : (
         <AppShell
