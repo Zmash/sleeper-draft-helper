@@ -34,7 +34,7 @@ export default function NextShell({ children, pageProps = {} }) {
   const setBoardDensity = useUIStore((s) => s.setBoardDensity)
 
   const {
-    selectedDraftId, selectedLeagueId, availableLeagues, availableDrafts,
+    selectedDraftId, selectedLeagueId, availableLeagues, availableDrafts, cardNicknames,
     setSelectedDraftId, setSelectedLeagueId,
   } = useSessionStore()
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -108,7 +108,8 @@ export default function NextShell({ children, pageProps = {} }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [cmdOpen, selectedDraftId]) // eslint-disable-line
 
-  const leagueName = selectedLeague?.name || (selectedDraft ? 'Mock Draft' : 'Kein Draft')
+  const nick = cardNicknames?.[selectedLeague?.league_id] || cardNicknames?.[selectedDraftId]
+  const leagueName = nick || selectedLeague?.name || (selectedDraft ? 'Mock Draft' : 'Kein Draft')
   const draftName = selectedDraft
     ? `${selectedDraft.metadata?.name || (draftMode === 'rookie' ? 'Rookie Draft' : 'Draft')} ${selectedDraft.season || ''}`.trim()
     : '—'
@@ -183,6 +184,7 @@ export default function NextShell({ children, pageProps = {} }) {
                 drafts={availableDrafts}
                 leagues={availableLeagues}
                 selectedDraftId={selectedDraftId}
+                nicknames={cardNicknames}
                 onPick={(d) => {
                   // Der Draft bestimmt die Liga mit: ein Mock hat league_id null,
                   // sonst bliebe die zuletzt gewaehlte Liga faelschlich stehen.
@@ -331,7 +333,7 @@ function ThemeMenu({ themeId, onPick, onClose }) {
 /* Draft-Umschalter direkt im Breadcrumb: waehrend eines Draft-Abends wechselt
    man staendig zwischen Liga-Draft und Mocks — dafuer soll man nicht ins
    Setup muessen. */
-function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
+function DraftSwitcher({ drafts, leagues, nicknames, selectedDraftId, onPick, onClose }) {
   const groups = useMemo(() => groupDrafts(drafts), [drafts])
 
   useEffect(() => {
@@ -350,7 +352,7 @@ function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
             <div className="ns-menu-group">{g.title}</div>
             {g.items.map((d) => {
               const active = String(d.draft_id) === String(selectedDraftId)
-              const sub = draftSubtitle(d, leagues)
+              const sub = draftSubtitle(d, leagues, nicknames)
               return (
                 <button
                   key={d.draft_id}
@@ -359,7 +361,7 @@ function DraftSwitcher({ drafts, leagues, selectedDraftId, onPick, onClose }) {
                   onClick={() => onPick(d)}
                 >
                   <span className="ns-menu-text">
-                    <span className="ns-menu-main">{draftLabel(d, leagues)}</span>
+                    <span className="ns-menu-main">{draftLabel(d, leagues, nicknames)}</span>
                     {sub && <span className="ns-menu-sub">{sub}</span>}
                   </span>
                   {d.status === 'drafting' && <span className="ns-menu-live">Live</span>}

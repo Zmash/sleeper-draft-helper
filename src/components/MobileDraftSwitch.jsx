@@ -10,7 +10,7 @@ import { groupDrafts, draftLabel, draftSubtitle } from '../services/draftGroups'
 // soll man nicht ueber das Setup gehen muessen.
 export default function MobileDraftSwitch() {
   const {
-    availableDrafts, availableLeagues, selectedDraftId,
+    availableDrafts, availableLeagues, selectedDraftId, cardNicknames,
     setSelectedDraftId, setSelectedLeagueId,
   } = useSessionStore()
   const [open, setOpen] = useState(false)
@@ -39,7 +39,7 @@ export default function MobileDraftSwitch() {
       >
         <Icon name="shuffle" size={16} />
         <span className="mob-draft-switch-label">
-          {current ? draftLabel(current, availableLeagues) : 'Draft'}
+          {current ? draftLabel(current, availableLeagues, cardNicknames) : 'Draft'}
         </span>
       </button>
 
@@ -65,8 +65,8 @@ export default function MobileDraftSwitch() {
                   onClick={() => pick(d)}
                 >
                   <span className="mob-draft-text">
-                    <span className="mob-draft-name">{draftLabel(d, availableLeagues)}</span>
-                    <span className="mob-draft-sub">{draftSubtitle(d, availableLeagues)}</span>
+                    <span className="mob-draft-name">{draftLabel(d, availableLeagues, cardNicknames)}</span>
+                    <span className="mob-draft-sub">{draftSubtitle(d, availableLeagues, cardNicknames)}</span>
                   </span>
                   {d.status === 'drafting' && <span className="mob-draft-live">Live</span>}
                   {active && <Icon name="check" size={15} />}

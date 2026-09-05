@@ -7,15 +7,24 @@ export function leagueNameOf(leagues, leagueId) {
   return (leagues || []).find((l) => String(l.league_id) === String(leagueId))?.name || null
 }
 
-/** Beschriftung einer Draft-Zeile: Name, sonst Liga, sonst die ID. */
-export function draftLabel(draft, leagues) {
-  return draft?.metadata?.name || leagueNameOf(leagues, draft?.league_id) || `Draft ${draft?.draft_id}`
+/**
+ * Beschriftung einer Draft-Zeile. Der selbstvergebene Kachel-Nickname geht
+ * vor — wer eine Liga umbenannt hat, will sie ueberall unter diesem Namen
+ * wiederfinden. Genau wie im Dashboard liegt er unter der league_id, bei
+ * Mocks unter der draft_id (siehe LeagueCard/EditableTitle).
+ */
+export function draftLabel(draft, leagues, nicknames) {
+  const nick = nicknames?.[draft?.league_id] || nicknames?.[draft?.draft_id]
+  return nick || draft?.metadata?.name || leagueNameOf(leagues, draft?.league_id) || `Draft ${draft?.draft_id}`
 }
 
 /** Zweite Zeile: Liga, Saison, Teams, Typ — was davon vorhanden ist. */
-export function draftSubtitle(draft, leagues) {
+export function draftSubtitle(draft, leagues, nicknames) {
+  const nick = nicknames?.[draft?.league_id] || nicknames?.[draft?.draft_id]
+  const real = leagueNameOf(leagues, draft?.league_id)
   return [
-    leagueNameOf(leagues, draft?.league_id),
+    // Bei gesetztem Nickname steht der echte Name hier — sonst waere er weg.
+    nick ? real : (real === draftLabel(draft, leagues, nicknames) ? null : real),
     draft?.season,
     draft?.settings?.teams ? `${draft.settings.teams} Teams` : null,
     draft?.type,
