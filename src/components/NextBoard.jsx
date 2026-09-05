@@ -460,7 +460,7 @@ function PlayerPanel({ p, pref, onPref }) {
         <div className="ns-insp-title">
           <span className="ns-insp-name">{p.name}</span>
           <a className="ns-extlink" href={FP_PLAYER(p.name)} target="_blank" rel="noreferrer" title="Auf FantasyPros öffnen">
-            <img src="/fantasypros.ico" alt="" /> FantasyPros
+            <span className="ns-brandico ns-brandico--fantasypros" /> FantasyPros
           </a>
         </div>
         <div className="ns-insp-sub">

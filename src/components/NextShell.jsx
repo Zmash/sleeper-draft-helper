@@ -234,7 +234,7 @@ export default function NextShell({ children, pageProps = {} }) {
               title="Draft in Sleeper öffnen"
               aria-label="Draft in Sleeper öffnen"
             >
-              <img src="/sleeper.ico" alt="" />
+              <span className="ns-brandico ns-brandico--sleeper" />
             </a>
           )}
           <button className="ns-icon-btn" onClick={backToClassic} title="Zurück zum alten Design" aria-label="Zurück zum alten Design">
