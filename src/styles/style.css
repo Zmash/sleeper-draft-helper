@@ -2560,6 +2560,7 @@ th.col-pick, td.col-pick { width: 64px; }
 .board-sheet-head { display: none; }
 .board-sheet-scrim { display: none; }
 .bmb-tips-sheet { display: none; }
+.mob-more-sheet { display: none; }
 .board-status-line { display: none; }
 
 /* Bottom-Bar-Items (rendern nur im mobilen Bar-Container, daher hier neutral) */
@@ -2737,6 +2738,55 @@ th.col-pick, td.col-pick { width: 64px; }
   }
   .board-sheet.is-open { transform: none; }
   .bmb-tips-sheet { display: block; }
+
+  /* --- Menue-Sheet der Bottom-Navigation --- */
+  .mob-more-sheet { display: block; }
+  .mob-more-group {
+    margin: 10px 0 6px;
+    font-family: var(--font-display);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .mob-more-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .mob-more-tile {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 10px 4px;
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: var(--r-card); color: var(--text-muted);
+    font-size: 11px; cursor: pointer;
+  }
+  .mob-more-tile.is-active { color: var(--accent-text); border-color: var(--accent-fill); }
+  .mob-more-row {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 10px 8px; margin-bottom: 4px;
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: var(--r-card); color: var(--text-primary);
+    font-size: 13px; text-align: left; cursor: pointer;
+  }
+  .mob-more-themes { display: flex; flex-wrap: wrap; gap: 5px; }
+  .mob-more-theme {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 9px;
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text-muted);
+    font-size: 11px; cursor: pointer;
+  }
+  .mob-more-theme.is-active { color: var(--accent-text); border-color: var(--accent-fill); }
+
+  /* Aktiver Eintrag in der Bottom-Bar */
+  .bmb-item.is-active { color: var(--accent-text); }
+
+  /* Platz fuer die Bar auf allen Seiten ausser dem Board (dort macht das
+     board-mobile-active bereits). .wrap ist doppelt belegt — Container UND
+     flex-wrap-Utility — deshalb :not(.row). */
+  body.mobile-nav-active .wrap:not(.row) { padding-bottom: 88px; }
+  /* Die Bottom-Bar IST die Navigation — die Tab-Leiste oben waere ein
+     zweites Menue fuer dieselben Ziele. Footer und Tipps-Dock wuerden
+     ausserdem unter der Bar liegen. */
+  body.mobile-nav-active .tabs,
+  body.mobile-nav-active .tips-dock-toggle,
+  body.mobile-nav-active .tips-dock-panel,
+  body.mobile-nav-active footer { display: none; }
   .board-sheet-head {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
   }

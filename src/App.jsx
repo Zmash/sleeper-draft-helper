@@ -21,6 +21,7 @@ import { startSync } from './services/syncClient'
 
 import AppShell from './components/AppShell'
 import NextShell from './components/NextShell'
+import MobileNav from './components/MobileNav'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
 import Icon from './components/Icon'
@@ -61,6 +62,7 @@ export default function App() {
   const isAndroid = /Android/i.test(navigator.userAgent)
   const shellVersion = useUIStore((st) => st.shellVersion)
   const isWideViewport = useIsWideViewport()
+  const nsPathname = useLocation().pathname
   const useNextShell = shellVersion === 'next' && isWideViewport
 
   // ── Store reads ────────────────────────────────────────────────────────────
@@ -415,6 +417,10 @@ export default function App() {
   return (
     <>
       <div className="sr-only" aria-live="polite" aria-atomic="true">{pickAnnouncement}</div>
+      {/* Mobil traegt jede Seite dieselbe Bottom-Navigation. Auf /board
+          uebernimmt BoardMobileBar dieselbe Leiste mit den Board-Aktionen —
+          sonst laegen zwei Bars uebereinander. */}
+      {!isWideViewport && !nsPathname.startsWith('/board') && <MobileNav />}
       {useNextShell ? (
         <NextShell pageProps={pageProps}>{shellContent}</NextShell>
       ) : (

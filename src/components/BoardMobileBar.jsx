@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
+import MobileMoreSheet from './MobileMoreSheet'
 
 // Presets fuer den Auto-Sync (Long-Press auf den Sync-Button). „Aus" schaltet
 // den Auto-Refresh ab, eine Zahl aktiviert ihn mit diesem Intervall.
@@ -17,9 +18,8 @@ const SYNC_PRESETS = [
 // Center-Button (nur Symbol) fuer den manuellen Sync, flankiert von je zwei
 // Items — links Setup + Filter, rechts AI + Board/Liste-Umschalter. Sichtbar
 // erst unter dem Mobile-Breakpoint (siehe .board-mobile-bar in style.css).
-// Navigation zu den anderen Seiten laeuft ueber den Setup-Button (die
-// Setup-Seite blendet die Haupt-Tabs wieder ein) sowie ueber die
-// Sprungziele im Filter-Sheet.
+// Navigation zu den anderen Seiten laeuft ueber den Mehr-Button
+// (MobileMoreSheet) sowie ueber die Sprungziele im Filter-Sheet.
 export default function BoardMobileBar({
   onSync,
   onFilter,
@@ -34,8 +34,9 @@ export default function BoardMobileBar({
   reviewMode = false,
   onOpenDraftReview,
 }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate() // eslint-disable-line no-unused-vars -- bleibt fuer kuenftige Direktziele
   const [syncOpen, setSyncOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   // Kurzer Tap = Sync, langer Druck (>=500ms) = Auto-Sync-Sheet. Der
   // longPress-Ref verhindert, dass der nachfolgende click nochmal synchronisiert.
@@ -77,10 +78,10 @@ export default function BoardMobileBar({
       <nav className="board-mobile-bar" aria-label="Board-Aktionen">
         <button
           type="button"
-          className="bmb-item"
-          onClick={() => navigate('/setup', { state: { mode: 'edit' } })}
+          className={cx('bmb-item', moreOpen && 'is-active')}
+          onClick={() => setMoreOpen(true)}
         >
-          <Icon name="settings" size={20} /><span>Setup</span>
+          <Icon name="menu" size={20} /><span>Mehr</span>
         </button>
         <button type="button" className="bmb-item" onClick={onFilter}>
           <Icon name="filter" size={20} /><span>Filter</span>
@@ -120,6 +121,8 @@ export default function BoardMobileBar({
           <Icon name="board" size={20} /><span>{boardView === 'list' ? 'Board' : 'Liste'}</span>
         </button>
       </nav>
+
+      <MobileMoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
 
       {/* Auto-Sync-Sheet: per Long-Press auf den Sync-Button */}
       <div className={cx('board-sheet-scrim', syncOpen && 'is-open')} onClick={() => setSyncOpen(false)} />
