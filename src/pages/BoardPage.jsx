@@ -8,6 +8,8 @@ import { useDynastyStore } from '../stores/useDynastyStore'
 import { enrichBoardPlayersWithSleeper } from '../services/enrichBoardWithSleeper'
 import { normalizePos, normalizePlayerName } from '../utils/formatting'
 import BoardSection from '../components/BoardSection'
+import NextBoard from '../components/NextBoard'
+import { useUIStore } from '../stores/useUIStore'
 
 export default function BoardPage({
   ownerLabels,
@@ -24,6 +26,7 @@ export default function BoardPage({
 }) {
 
   const { sleeperUserId, selectedDraftId, draftViewAs } = useSessionStore()
+  const shellVersion = useUIStore((s) => s.shellVersion)
   const {
     boardPlayers, searchQuery, positionFilter, teamFilter, draftMode,
     setBoardPlayers, setEnriching,
@@ -162,6 +165,40 @@ export default function BoardPage({
   const currentPickNumber = livePicks?.length
     ? Math.max(...livePicks.map((p) => p.pick_no || 0))
     : 0
+
+  // Die neue Shell zeigt dieselben Daten in ihrer eigenen Arbeitsflaeche.
+  // Alle Effekte oben (Merge, Enrichment, URL-Deeplink) laufen unveraendert.
+  if (shellVersion === 'next') {
+    return (
+      <NextBoard
+        filteredPlayers={filteredPlayers}
+        boardPlayers={boardPlayers}
+        livePicks={livePicks}
+        searchQuery={searchQuery}
+        positionFilter={positionFilter}
+        teamFilter={teamFilter}
+        onSearchChange={(e) => setSearchQuery(e.target.value)}
+        onPositionChange={(e) => setPositionFilter(e.target.value)}
+        onTeamFilterChange={(e) => setTeamFilter(e.target.value)}
+        ownerLabels={ownerLabels}
+        draft={selectedDraft}
+        draftSlot={draftSlot}
+        teamsCount={teamsCount}
+        meUserId={effectiveMeUserId}
+        effRoster={effRoster}
+        draftMode={draftMode}
+        league={selectedLeague}
+        isSuperflex={isSuperflex}
+        scoringType={effScoringType}
+        currentPickNumber={currentPickNumber}
+        tips={tips}
+        dynastyRoster={dynastyRoster}
+        myDraftPicks={myDraftPicks}
+        draftFinished={draftFinished}
+        onOpenDraftReview={onOpenDraftReview}
+      />
+    )
+  }
 
   return (
     <>

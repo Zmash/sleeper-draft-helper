@@ -2,6 +2,7 @@
 // die alte Regel "index.js und prod.js synchron halten" ist damit Geschichte.
 import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
+import { fantasyProsSlug } from '../utils/formatting.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -491,6 +492,70 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       res.json({ ok: true, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })
+    }
+  })
+
+  // ---------- Spieler-News (FantasyPros) ----------
+  // Sleeper hat keinen News-Endpoint (404 auf /news/nfl), ESPN sperrt
+  // athletes/{id}/news mit 403. FantasyPros liefert beides: einen Index mit
+  // den letzten ~20 Meldungen und eine Seite je Spieler.
+  const FP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  const newsCache = new Map() // slug -> { at, items }
+  const NEWS_TTL_MS = 10 * 60 * 1000
+
+  function parsePlayerNews(html, slug, limit) {
+    const $ = cheerioLoad(html)
+    const items = []
+    // Struktur der Spielerseite: .subsection.feature-stretch > .body-row >
+    // .content (Headline-Link + Absaetze), daneben .foot-row (Autor + Datum).
+    $('.subsection.feature-stretch').each((_i, el) => {
+      const $sec = $(el)
+      const $a = $sec.find('.content a[href^="/nfl/news/"]').first()
+      const href = $a.attr('href') || ''
+      if (!/^\/nfl\/news\/\d+\//.test(href)) return
+      // FantasyPros liefert fuer unbekannte Spieler 200 mit der allgemeinen
+      // News-Uebersicht statt 404. Ohne diesen Abgleich landen fremde
+      // Meldungen beim falschen Spieler.
+      if (slug && !href.includes(slug.split('-').pop())) return
+      const headline = $a.text().trim()
+      if (!headline) return
+      const paras = $sec.find('.content p').map((_j, pEl) => $(pEl).text().trim()).get().filter(Boolean)
+      const body = paras.find((t) => t.length > 30 && !/^Fantasy Impact$/i.test(t)) || ''
+      const impact = paras[paras.findIndex((t) => /^Fantasy Impact$/i.test(t)) + 1] || ''
+      items.push({
+        headline,
+        body: body.slice(0, 400),
+        impact: impact && impact !== body ? impact.slice(0, 400) : null,
+        date: $sec.find('.foot-row span.timestamp').first().text().trim() || null,
+        author: $sec.find('.foot-row a').first().text().trim() || null,
+        url: `https://www.fantasypros.com${href}`,
+      })
+    })
+    return items.slice(0, limit)
+  }
+
+  app.get('/api/news/player', async (req, res) => {
+    const name = String(req.query.name || '').trim()
+    if (!name) return res.status(400).json({ ok: false, error: 'name fehlt' })
+    const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 3))
+    const slug = fantasyProsSlug(name)
+    if (!slug) return res.json({ ok: true, items: [] })
+
+    const hit = newsCache.get(slug)
+    if (hit && Date.now() - hit.at < NEWS_TTL_MS) return res.json({ ok: true, cached: true, items: hit.items.slice(0, limit) })
+
+    try {
+      const upstream = await fetch(`https://www.fantasypros.com/nfl/news/${slug}.php`, { headers: FP_HEADERS })
+      if (!upstream.ok) {
+        // Unbekannter Spieler ist kein Serverfehler — leere Liste statt 502.
+        newsCache.set(slug, { at: Date.now(), items: [] })
+        return res.json({ ok: true, items: [] })
+      }
+      const items = parsePlayerNews(await upstream.text(), slug, 10)
+      newsCache.set(slug, { at: Date.now(), items })
+      res.json({ ok: true, items: items.slice(0, limit) })
+    } catch (err) {
+      res.status(502).json({ ok: false, error: err.message || 'FantasyPros nicht erreichbar' })
     }
   })
 

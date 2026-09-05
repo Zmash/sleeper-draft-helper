@@ -20,6 +20,7 @@ import { inferMyDraftSlot } from './services/api'
 import { startSync } from './services/syncClient'
 
 import AppShell from './components/AppShell'
+import NextShell from './components/NextShell'
 import DraftAnalysis from './components/DraftAnalysis'
 import Modal from './components/Modal'
 import Icon from './components/Icon'
@@ -42,6 +43,7 @@ function RootRedirect() {
 
 export default function App() {
   const isAndroid = /Android/i.test(navigator.userAgent)
+  const shellVersion = useUIStore((st) => st.shellVersion)
 
   // ── Store reads ────────────────────────────────────────────────────────────
   const {
@@ -358,46 +360,59 @@ export default function App() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  // Beide Shells umschliessen exakt denselben Routen-Baum. Die neue Shell
+  // ersetzt nur die Huelle (Rail/Kontextleiste/Statusleiste) — jede bestehende
+  // Seite laeuft darin unveraendert weiter.
+  const shellContent = (
+    <>
+    <Routes>
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
+      <Route path="/board" element={<BoardPage {...pageProps} />} />
+      <Route path="/share-target" element={<ShareTargetPage />} />
+      <Route path="/roster" element={<RosterPage {...pageProps} />} />
+      <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
+      <Route path="/profiles" element={<ProfilesPage />} />
+      <Route path="*" element={<RootRedirect />} />
+    </Routes>
+
+    <Modal open={analysisOpen} onClose={() => setAnalysisOpen(false)} title="AI Draft Review">
+      <DraftAnalysis
+        ownerLabels={ownerLabels}
+        league={selectedLeague}
+        picks={livePicks}
+        teamByRosterId={teamByRosterId}
+        myOwnerId={myOwnerId}
+        myRosterId={myRosterId}
+        board={{ players: boardPlayers, metadata: { season: selectedLeague?.season } }}
+        draftMode={draftMode}
+        format={{ scoringType: effScoringType, teams: teamsCount, isSuperflex }}
+        reviewResult={reviewResult}
+        onReviewResult={setReviewResult}
+      />
+    </Modal>
+    </>
+  )
+
   return (
     <>
       <div className="sr-only" aria-live="polite" aria-atomic="true">{pickAnnouncement}</div>
-    <AppShell
-      tips={tips}
-      themeId={themeId}
-      setTheme={setTheme}
-      clockBar={
-        selectedDraft && !draftFinished ? (
-          <OnTheClockBar draft={selectedDraft} picks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} />
-        ) : null
-      }
-    >
-      <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
-        <Route path="/board" element={<BoardPage {...pageProps} />} />
-        <Route path="/share-target" element={<ShareTargetPage />} />
-        <Route path="/roster" element={<RosterPage {...pageProps} />} />
-        <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
-        <Route path="/profiles" element={<ProfilesPage />} />
-        <Route path="*" element={<RootRedirect />} />
-      </Routes>
-
-      <Modal open={analysisOpen} onClose={() => setAnalysisOpen(false)} title="AI Draft Review">
-        <DraftAnalysis
-          ownerLabels={ownerLabels}
-          league={selectedLeague}
-          picks={livePicks}
-          teamByRosterId={teamByRosterId}
-          myOwnerId={myOwnerId}
-          myRosterId={myRosterId}
-          board={{ players: boardPlayers, metadata: { season: selectedLeague?.season } }}
-          draftMode={draftMode}
-          format={{ scoringType: effScoringType, teams: teamsCount, isSuperflex }}
-          reviewResult={reviewResult}
-          onReviewResult={setReviewResult}
-        />
-      </Modal>
-    </AppShell>
+      {shellVersion === 'next' ? (
+        <NextShell pageProps={pageProps}>{shellContent}</NextShell>
+      ) : (
+        <AppShell
+          tips={tips}
+          themeId={themeId}
+          setTheme={setTheme}
+          clockBar={
+            selectedDraft && !draftFinished ? (
+              <OnTheClockBar draft={selectedDraft} picks={livePicks} teamsCount={teamsCount} draftSlot={draftSlot} />
+            ) : null
+          }
+        >
+          {shellContent}
+        </AppShell>
+      )}
     </>
   )
 }

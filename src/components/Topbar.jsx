@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import ThemeSelect from './ThemeSelect'
 import Modal from './Modal'
 import Icon from './Icon'
+import { useUIStore } from '../stores/useUIStore'
 
 export default function Topbar({ themeId, setTheme }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const setShellVersion = useUIStore((s) => s.setShellVersion)
 
   function go(path) {
     setMenuOpen(false)
@@ -20,6 +22,13 @@ export default function Topbar({ themeId, setTheme }) {
         <small>Sleeper</small>
       </Link>
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => { setShellVersion('next'); navigate('/board') }}
+          title="Neue Oberfläche ausprobieren"
+        >
+          <Icon name="zap" size={16} /> Neu
+        </button>
         <ThemeSelect themeId={themeId} setTheme={setTheme} />
         <button className="btn btn-ghost btn-sm" onClick={() => setMenuOpen(true)} aria-label="Einstellungen" title="Einstellungen">
           <Icon name="settings" size={18} />
