@@ -45,7 +45,8 @@ export default function BoardTable({
   const primaryKey = useMemo(() => toKey(primaryNname), [primaryNname])
 
   // Popup-State
-  const [menuOpenFor, setMenuOpenFor] = useState(null)
+  const [menuOpenFor, setMenuOpenFor] = useState(null)   // playerKey, steuert das Menue
+  const [menuPlayer, setMenuPlayer] = useState(null)     // dasselbe Objekt, fuer die Details
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
   const menuRef = useRef(null)
 
@@ -58,9 +59,10 @@ export default function BoardTable({
   // Pfeil-Buttons zum Hoch-/Runterschieben. Einfacher als freier Drag —
   // kein Ghost, kein Scroll-Konflikt.
   const [reorderMenu, setReorderMenu] = useState(null) // { nname, top, bottom } oder null
-  // Kurzer Tap auf eine Zeile oeffnet die Spieler-Details — mobiles
-  // Gegenstueck zur Detailspalte der Desktop-Shell. Der lange Druck bleibt
-  // dem Verschieben vorbehalten, deshalb der longPressActive-Check.
+  // Spieler-Details (mobiles Gegenstueck zur Detailspalte der Desktop-Shell).
+  // Geoeffnet wird ueber das Praeferenz-Menue am Spielernamen — die Zeile
+  // selbst ist bereits doppelt belegt: Tap auf den Namen setzt Favorit/Meiden,
+  // langer Druck verschiebt.
   const [detailPlayer, setDetailPlayer] = useState(null)
   const longPressTimer = useRef(null)
   const longPressStartY = useRef(0)
@@ -174,6 +176,7 @@ export default function BoardTable({
     const y = Math.max(pad, Math.min(clickY + 12, vh - menuH - pad))
     setMenuPos({ x, y })
     setMenuOpenFor(playerKey(player))
+    setMenuPlayer(player)
   }
 
   function setPref(playerId, pref) {
@@ -257,7 +260,6 @@ export default function BoardTable({
                   // Wir nutzen Pointer-Events (statt Touch-Events), weil die
                   // auch auf Tablet/Stylus funktionieren und zuverlässiger
                   // gebubblt werden als reine Touch-Events auf <tr>.
-                  onClick={() => { if (!longPressActive.current) setDetailPlayer(p) }}
                   onPointerDown={(e) => {
                     if (!canDrag) return
                     onRowPointerDown(e, p.nname)
@@ -399,6 +401,14 @@ export default function BoardTable({
             aria-label="Avoid"
           >
             <Icon name="x" size={15} />
+          </button>
+          <button
+            className="pref-action pref-action--info"
+            onClick={() => { setDetailPlayer(menuPlayer); setMenuOpenFor(null) }}
+            title="Details & News"
+            aria-label="Details und News"
+          >
+            <Icon name="message" size={15} />
           </button>
         </div>
       )}
