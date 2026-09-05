@@ -72,3 +72,76 @@ export function teamDraftRanking({
     myDelta: myIndex >= 0 ? list[myIndex].delta : null,
   }
 }
+
+const SCARCITY_POS = ['QB', 'RB', 'WR', 'TE']
+
+// Welche Flex-Slots welche Positionen aufnehmen. Der Anteil ist 1 geteilt durch
+// die Zahl der aufnehmbaren Positionen -- ein FLEX ist zu einem Drittel ein
+// RB-Slot, weil sich RB, WR und TE darum bewerben.
+const FLEX_SLOTS = {
+  FLEX: ['RB', 'WR', 'TE'],
+  WRT: ['RB', 'WR', 'TE'],
+  REC_FLEX: ['WR', 'TE'],
+  SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'],
+  SUPERFLEX: ['QB', 'RB', 'WR', 'TE'],
+}
+
+/**
+ * Starter-Slots einer Position, Flex anteilig.
+ * @returns {number} kann gebrochen sein -- erst nach x teamsCount runden.
+ */
+export function starterSlots(pos, rosterPositions = []) {
+  const want = String(pos || '').toUpperCase()
+  let n = 0
+  for (const raw of rosterPositions || []) {
+    const slot = String(raw || '').toUpperCase()
+    if (slot === want) { n += 1; continue }
+    const takers = FLEX_SLOTS[slot]
+    if (takers && takers.includes(want)) n += 1 / takers.length
+  }
+  return n
+}
+
+export function positionalScarcity({
+  boardPlayers = [], picks = [], rosterPositions = [], teamsCount = 12,
+}) {
+  const taken = new Set((picks || []).map(pickName).filter(Boolean))
+  const teams = Number(teamsCount) || 0
+  const out = []
+
+  for (const pos of SCARCITY_POS) {
+    const need = Math.round(teams * starterSlots(pos, rosterPositions))
+    if (need <= 0) continue
+
+    // toFiniteOrNull statt Number(): Number(null) waere 0 und damit ein
+    // gueltiger Rang 0 -- der beste Spieler ueberhaupt.
+    const pool = (boardPlayers || [])
+      .filter((bp) => {
+        if (toFiniteOrNull(bp?.ecr) === null) return false
+        if (normalizePos(bp?.pos) !== pos) return false
+        if (!bp?.nname) return false
+        if (taken.has(bp.nname)) return false
+        return true
+      })
+      .sort((a, b) => toFiniteOrNull(a.ecr) - toFiniteOrNull(b.ecr))
+
+    const exhausted = pool.length < need
+    const best = pool[0] || null
+    const replacement = exhausted ? null : pool[need - 1]
+
+    out.push({
+      pos,
+      need,
+      available: pool.length,
+      startable: Math.min(pool.length, need),
+      exhausted,
+      bestName: best?.name || null,
+      bestEcr: best ? toFiniteOrNull(best.ecr) : null,
+      replacementEcr: replacement ? toFiniteOrNull(replacement.ecr) : null,
+      vor: (best && replacement)
+        ? toFiniteOrNull(replacement.ecr) - toFiniteOrNull(best.ecr)
+        : null,
+    })
+  }
+  return out
+}
