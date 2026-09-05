@@ -76,15 +76,11 @@ export default function BoardMobileBar({
   return (
     <>
       <nav className="board-mobile-bar" aria-label="Board-Aktionen">
-        <button
-          type="button"
-          className={cx('bmb-item', moreOpen && 'is-active')}
-          onClick={() => setMoreOpen(true)}
-        >
-          <Icon name="menu" size={20} /><span>Mehr</span>
-        </button>
         <button type="button" className="bmb-item" onClick={onFilter}>
           <Icon name="filter" size={20} /><span>Filter</span>
+        </button>
+        <button type="button" className="bmb-item" onClick={onToggleBoardView}>
+          <Icon name="board" size={20} /><span>{boardView === 'list' ? 'Board' : 'Liste'}</span>
         </button>
 
         <button
@@ -117,8 +113,12 @@ export default function BoardMobileBar({
         >
           <Icon name="bot" size={20} /><span>AI</span>
         </button>
-        <button type="button" className="bmb-item" onClick={onToggleBoardView}>
-          <Icon name="board" size={20} /><span>{boardView === 'list' ? 'Board' : 'Liste'}</span>
+        <button
+          type="button"
+          className={cx('bmb-item', moreOpen && 'is-active')}
+          onClick={() => setMoreOpen(true)}
+        >
+          <Icon name="menu" size={20} /><span>Mehr</span>
         </button>
       </nav>
 
