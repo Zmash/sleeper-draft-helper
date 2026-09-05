@@ -16,6 +16,16 @@ export const normalizePos = (p = '') =>
     .replace('DST', 'DEF')
     .trim()
 
+/**
+ * Zahl oder null. Bewusst NICHT Number() allein: Number(null) und Number('')
+ * sind 0 und damit endlich -- ein fehlender Wert wuerde als gueltige Null
+ * durchgehen und z.B. als bester Rang gelten.
+ */
+export const toFiniteOrNull = (v) => {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
 
 /**
  * Slug fuer FantasyPros-URLs (/nfl/players/<slug>.php, /nfl/news/<slug>.php).
@@ -29,8 +39,8 @@ export const fantasyProsSlug = (name) =>
   String(name || '')
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[‘’']/g, '')
+    .replace(/[''']/g, '')
     .toLowerCase()
-    .replace(/(ii|iii|iv|v)\.?/g, '')
+    .replace(/(ii|iii|iv|v)\.?/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')

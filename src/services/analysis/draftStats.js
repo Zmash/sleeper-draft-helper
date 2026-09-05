@@ -2,16 +2,16 @@
 //
 // Grundgroesse ueberall: delta = ecr - pick_no.
 // Positiv heisst: der Spieler ging spaeter als sein Rang, also unter Wert geholt.
-import { normalizePlayerName, normalizePos } from '../../utils/formatting'
+import { normalizePlayerName, normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { teamKeyFromPick } from '../derive'
 
 /** Board -> Map normalisierter Name -> { ecr, name }. Nur mit numerischem ecr. */
 function ecrByName(boardPlayers = []) {
   const m = new Map()
   for (const bp of boardPlayers || []) {
-    if (!bp?.nname || bp?.ecr == null) continue
-    const ecr = Number(bp.ecr)
-    if (!Number.isFinite(ecr)) continue
+    if (!bp?.nname) continue
+    const ecr = toFiniteOrNull(bp?.ecr)
+    if (ecr === null) continue
     m.set(bp.nname, { ecr, name: bp.name || bp.nname })
   }
   return m
@@ -45,10 +45,10 @@ export function teamDraftRanking({
     t.picks += 1
 
     const hit = byName.get(pickName(p))
-    const pickNo = Number(p?.pick_no)
+    const pickNo = toFiniteOrNull(p?.pick_no)
     // Kein Treffer heisst "unbekannt", nicht "Wert 0" -- sonst wuerde ein Team
     // belohnt, dessen Picks schlicht nicht im Ranking stehen.
-    if (!hit || !Number.isFinite(pickNo)) { unmatched += 1; continue }
+    if (!hit || pickNo === null) { unmatched += 1; continue }
 
     matched += 1
     const delta = hit.ecr - pickNo
