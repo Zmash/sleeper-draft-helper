@@ -69,7 +69,7 @@ export default function RosterTab({ split }) {
         {positions.map((p) => (
           <div className="an-row" key={p.pos}>
             <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
-            <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" height="12"
+            <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" width="100%" height="12"
                  role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenüber dem Median` : `${p.pos}: keine Daten`}>
               <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
               <rect

@@ -32,7 +32,12 @@
    Spalte aufzieht. */
 .an-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr) statt 1fr: eine Grid-Spur hat sonst einen impliziten
+     Mindestwert von "auto" (= max-content). Eine breite Tabelle (Team-Draft-
+     Ranking) haette dann nicht nur sich selbst, sondern die ganze Spur --
+     und damit Karte, Grid und Seite -- auf ihre Inhaltsbreite aufgezogen,
+     statt vom eigenen overflow-x:auto geclippt zu werden. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   /* stretch statt start: nebeneinanderliegende Kacheln enden auf derselben
      Hoehe. Mit start endet jede dort, wo ihr Inhalt aufhoert, und die Reihe
@@ -99,7 +104,9 @@
 /* Zeilen mit Positions-Pille + Balken, von mehreren Kacheln genutzt. */
 .an-row {
   display: grid;
-  grid-template-columns: 2.5rem 1fr auto;
+  /* minmax(0, 1fr) aus demselben Grund wie bei .an-grid: die mittlere Spur
+     darf nicht auf die Inhaltsbreite eines Kindes (Balken, SVG) wachsen. */
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
   align-items: center;
   gap: .5rem;
   padding: .3rem 0;
@@ -149,7 +156,11 @@
 
 .an-tierseg.is-active { background: var(--accent, #4ea1ff); }
 
-.an-timeline { display: flex; gap: 1px; height: 22px; }
+/* overflow-x:auto wie bei .an-table: die Segmente haben ein eigenes
+   min-width, das bei langen Drafts (18+ Runden) mehr Platz braucht, als eine
+   schmale Karte hat. Ohne Begrenzung wuerde die Zeile -- wie zuvor die
+   Team-Tabelle -- die ganze Karte und damit die Seite aufziehen. */
+.an-timeline { display: flex; gap: 1px; height: 22px; overflow-x: auto; }
 .an-tlseg { flex: 1 1 0; border-radius: 1px; min-width: 2px; }
 
 .an-whisker {
