@@ -60,7 +60,7 @@ export default function RosterTab({ split }) {
         title="Kader gegen das Liga-Feld"
         hint={mode === 'value'
           ? 'Summe der Dynasty-Werte je Position, verglichen mit dem Median der Liga.'
-          : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstände sind nicht wertproportional — die Richtung ist verlaesslich, der Betrag grob.'}
+          : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstände sind nicht wertproportional — die Richtung ist verlässlich, der Betrag grob.'}
         headline={beste?.diff != null ? signed(beste.diff) : '—'}
         sub={hasData && beste?.diff != null ? `${beste.pos} ist deine stärkste Position` : ''}
         basis={`${teamCount} Kader · Deckung ${Math.round(coverage * 100)} % · in ${einheit}`}

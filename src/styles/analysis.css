@@ -198,3 +198,22 @@
 @media (prefers-reduced-motion: reduce) {
   .an-meter-fill { transition: none; }
 }
+
+/* Legende der Markt-Kachel: die Marken auf der Spur sind ohne sie stumme
+   Striche. Steht bewusst UEBER den Zeilen — eine Legende unter zehn Balken
+   erklaert erst, was man schon gelesen hat. */
+.an-wlegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1rem;
+  margin-bottom: .6rem;
+  font-size: .72rem;
+  color: var(--muted, #888);
+}
+
+.an-wlegend span { display: inline-flex; align-items: center; gap: .35rem; }
+
+.an-wkey { display: inline-block; }
+.an-wkey--range { width: 14px; height: 6px; border-radius: 3px; background: var(--accent, #4ea1ff); opacity: .45; }
+.an-wkey--adp { width: 2px; height: 11px; background: var(--fg, #eee); }
+.an-wkey--mine { width: 2px; height: 13px; background: var(--good, #4ec97b); }

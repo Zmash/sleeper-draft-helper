@@ -23,11 +23,19 @@ export default function MarketTab({ market, nextPickNo = null }) {
       <StatCard
         title="Umstrittenste Spieler"
         hint="Große Streuung heißt: der Markt ist sich uneins — hier weichen Ligen am stärksten voneinander ab."
-        headline={players[0].stdev.toFixed(1)}
-        sub={`höchste Streuung: ${players[0].name}`}
-        basis={`${players.length} von ${basis} Spielern mit Marktdaten${nextPickNo ? ` · deine nächste Pick-Nr: ${nextPickNo}` : ''} · Spanne, Streuung und Durchschnitt stammen aus FFC-Drafts (eigene Erhebung, nicht die ADP des übrigen Boards)`}
+        headline={`±${Math.round(players[0].stdev)}`}
+        sub={`Picks Streuung bei ${players[0].name}`}
+        basis={`${players.length} von ${basis} Spielern · Werte aus FFC-Drafts, nicht aus der Board-ADP`}
         wide
       >
+        {/* Legende: ohne sie sind die Marken auf der Spur stumme Striche. Sie
+            steht ueber den Zeilen, nicht unter der Kachel — sonst liest man
+            zehn Balken, bevor man erfaehrt, was sie bedeuten. */}
+        <div className="an-wlegend">
+          <span><i className="an-wkey an-wkey--range" /> Spanne der Draftpositionen</span>
+          <span><i className="an-wkey an-wkey--adp" /> Durchschnitt</span>
+          {nextPickNo && <span><i className="an-wkey an-wkey--mine" /> dein Pick {nextPickNo}</span>}
+        </div>
         {players.map((p) => (
           <div className="an-whisker" key={`${p.pos}-${p.name}`}>
             <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
