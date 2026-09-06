@@ -176,3 +176,54 @@ describe('positionalScarcity', () => {
     expect(r.find((x) => x.pos === 'RB')).toBeUndefined()
   })
 })
+
+import { tierUsage } from './draftStats'
+
+describe('tierUsage', () => {
+  const board = [
+    { nname: 'a a', name: 'A A', pos: 'RB', tier: '1' },
+    { nname: 'b b', name: 'B B', pos: 'RB', tier: '1' },
+    { nname: 'c c', name: 'C C', pos: 'RB', tier: '2' },
+    { nname: 'd d', name: 'D D', pos: 'WR', tier: '1' },
+  ]
+
+  it('zaehlt je Position und Tier Gesamt und Rest', () => {
+    const picks = [{ pick_no: 1, metadata: { first_name: 'A', last_name: 'A' } }]
+    const r = tierUsage({ boardPlayers: board, picks })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.tiers).toEqual([
+      { tier: 1, total: 2, remaining: 1 },
+      { tier: 2, total: 1, remaining: 1 },
+    ])
+  })
+
+  it('aktives Tier ist das oberste mit Restbestand', () => {
+    const picks = [
+      { pick_no: 1, metadata: { first_name: 'A', last_name: 'A' } },
+      { pick_no: 2, metadata: { first_name: 'B', last_name: 'B' } },
+    ]
+    const r = tierUsage({ boardPlayers: board, picks })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.activeTier).toBe(2)       // Tier 1 ist leer
+    expect(rb.remainingInActive).toBe(1)
+  })
+
+  it('nicht-numerische Tier-Werte fallen heraus, ohne den Rest zu stoeren', () => {
+    const mit = [...board, { nname: 'e e', name: 'E E', pos: 'RB', tier: '' },
+                           { nname: 'f f', name: 'F F', pos: 'RB', tier: 'n/a' }]
+    const r = tierUsage({ boardPlayers: mit, picks: [] })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.tiers.reduce((s, t) => s + t.total, 0)).toBe(3)  // nur 1,1,2
+  })
+
+  it('alles gepickt -> kein aktives Tier statt Absturz', () => {
+    const picks = [{ pick_no: 1, metadata: { first_name: 'D', last_name: 'D' } }]
+    const r = tierUsage({ boardPlayers: [board[3]], picks })
+    expect(r.find((x) => x.pos === 'WR').activeTier).toBeNull()
+  })
+
+  it('Board ohne jede Tier-Spalte liefert eine leere Liste', () => {
+    const r = tierUsage({ boardPlayers: [{ nname: 'x x', pos: 'RB' }], picks: [] })
+    expect(r).toEqual([])
+  })
+})

@@ -145,3 +145,37 @@ export function positionalScarcity({
   }
   return out
 }
+
+/**
+ * Tier-Verbrauch je Position. Das oberste Tier mit Restbestand ist das aktive
+ * -- seine Restzahl ist die Cliff-Warnung.
+ */
+export function tierUsage({ boardPlayers = [], picks = [] }) {
+  const taken = new Set((picks || []).map(pickName).filter(Boolean))
+  const byPos = new Map()
+
+  for (const bp of boardPlayers || []) {
+    const tier = Number(String(bp?.tier ?? '').trim())
+    const pos = normalizePos(bp?.pos)
+    if (!Number.isFinite(tier) || tier <= 0 || !pos) continue
+
+    if (!byPos.has(pos)) byPos.set(pos, new Map())
+    const tiers = byPos.get(pos)
+    if (!tiers.has(tier)) tiers.set(tier, { tier, total: 0, remaining: 0 })
+
+    const entry = tiers.get(tier)
+    entry.total += 1
+    if (!bp.nname || !taken.has(bp.nname)) entry.remaining += 1
+  }
+
+  return [...byPos.entries()].map(([pos, tiers]) => {
+    const list = [...tiers.values()].sort((a, b) => a.tier - b.tier)
+    const active = list.find((t) => t.remaining > 0) || null
+    return {
+      pos,
+      tiers: list,
+      activeTier: active?.tier ?? null,
+      remainingInActive: active?.remaining ?? 0,
+    }
+  })
+}
