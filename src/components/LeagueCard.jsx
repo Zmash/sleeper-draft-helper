@@ -147,9 +147,9 @@ function LeagueCardInner({ card }) {
     navigate('/board')
   }
 
-  function openRoster() {
+  function openAnalyse() {
     if (card.leagueId) setSelectedLeagueId(card.leagueId)
-    navigate('/roster')
+    navigate('/analyse')
   }
 
   function openEdit() {
@@ -208,8 +208,8 @@ function LeagueCardInner({ card }) {
           </button>
         )}
         {card.leagueId && (
-          <button className="btn btn-secondary btn-sm" onClick={openRoster}>
-            Roster
+          <button className="btn btn-secondary btn-sm" onClick={openAnalyse}>
+            Analyse
           </button>
         )}
         {card.leagueId && (

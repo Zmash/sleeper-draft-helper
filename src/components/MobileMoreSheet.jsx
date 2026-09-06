@@ -8,7 +8,7 @@ import { cx } from '../utils/formatting'
 const NAV = [
   { icon: 'home', label: 'Dashboard', path: '/dashboard' },
   { icon: 'board', label: 'Board', path: '/board' },
-  { icon: 'roster', label: 'Roster', path: '/roster' },
+  { icon: 'chart', label: 'Analyse', path: '/analyse' },
   { icon: 'swap', label: 'Trade', path: '/trade' },
 ]
 

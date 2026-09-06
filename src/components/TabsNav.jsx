@@ -5,7 +5,7 @@ import Icon from './Icon'
 const TABS = [
   { path: '/dashboard', label: 'Home', icon: 'home' },
   { path: '/board', label: 'Board', icon: 'board' },
-  { path: '/roster', label: 'Roster', icon: 'roster' },
+  { path: '/analyse', label: 'Analyse', icon: 'chart' },
   { path: '/trade', label: 'Trade', icon: 'swap' },
 ]
 

@@ -41,7 +41,7 @@ export default function MobileNav() {
     <>
       <nav className="board-mobile-bar" aria-label="Navigation">
         {item('board', 'Board', '/board')}
-        {item('roster', 'Roster', '/roster')}
+        {item('chart', 'Analyse', '/analyse')}
 
         <button
           type="button"

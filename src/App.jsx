@@ -388,7 +388,10 @@ export default function App() {
       <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
       <Route path="/board" element={<BoardPage {...pageProps} />} />
       <Route path="/share-target" element={<ShareTargetPage />} />
-      <Route path="/roster" element={<AnalysisPage {...pageProps} />} />
+      <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
+      {/* Alte Lesezeichen auf /roster (fruehere Bezeichnung dieser Seite)
+          laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}
+      <Route path="/roster" element={<Navigate to="/analyse" replace />} />
       <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
       <Route path="/profiles" element={<ProfilesPage />} />
       <Route path="*" element={<RootRedirect />} />
