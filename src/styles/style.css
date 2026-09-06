@@ -2768,6 +2768,16 @@ th.col-pick, td.col-pick { width: 64px; }
     color: var(--text-muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  /* "Aktualisieren" fuer Marktdaten/ADP, mobil neben der Herkunfts-Angabe --
+     die Zeile hier ersetzt die verbose .provenance-bar (die den Knopf schon
+     hat), auf Mobile darf er deshalb nicht fehlen. */
+  .bsl-refresh-btn {
+    flex: 0 0 auto; margin-left: 6px;
+    display: inline-flex; align-items: center;
+    background: transparent; border: 0; color: var(--text-muted);
+    font-size: 11px; padding: 0; cursor: pointer;
+  }
+  .bsl-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* --- Bottom-Action-Bar: 2 Items | Center-FAB | 2 Items --- */
   .board-mobile-bar {

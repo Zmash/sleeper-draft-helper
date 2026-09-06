@@ -8,6 +8,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import { THEMES } from '../theme/themes'
 import { groupDrafts, draftLabel, draftSubtitle } from '../services/draftGroups'
+import { useMarketRefresh } from '../hooks/useMarketRefresh'
 import '../styles/newshell.css'
 
 // Cmd auf Apple, Strg ueberall sonst. Das Zeichen ⌘ ist auf Windows/Linux
@@ -21,7 +22,7 @@ const RAIL = [
   { icon: 'home', tip: 'Dashboard', path: '/dashboard' },
   { icon: 'board', tip: 'Board', path: '/board' },
   { icon: 'swap', tip: 'Trade', path: '/trade' },
-  { icon: 'chart', tip: 'Analyse', path: '/roster' },
+  { icon: 'chart', tip: 'Analyse', path: '/analyse' },
 ]
 
 export default function NextShell({ children, pageProps = {} }) {
@@ -50,6 +51,14 @@ export default function NextShell({ children, pageProps = {} }) {
 
   const { selectedLeague, selectedDraft, teamsCount, draftSlot, tips } = pageProps
   const tipList = Array.isArray(tips) ? tips : []
+
+  const {
+    refreshing: marketRefreshing, error: marketError, refresh: refreshMarket,
+  } = useMarketRefresh({
+    isSuperflex: pageProps.isSuperflex,
+    effScoringType: pageProps.effScoringType,
+    numTeams: teamsCount,
+  })
 
   const completed = livePicks?.length || 0
   const teams = Number(teamsCount) || Number(selectedDraft?.settings?.teams) || 12
@@ -81,17 +90,18 @@ export default function NextShell({ children, pageProps = {} }) {
     { group: 'Draft', label: 'Draft in Sleeper öffnen', run: () => selectedDraftId && window.open(`https://sleeper.com/draft/nfl/${selectedDraftId}`, '_blank', 'noreferrer') },
     { group: 'Board', label: `Zeilenhöhe: ${boardDensity === 'compact' ? 'normal' : 'kompakt'}`, run: () => setBoardDensity(boardDensity === 'compact' ? 'normal' : 'compact') },
     { group: 'Board', label: 'Ranking importieren / Setup öffnen', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
+    ...(draftMode !== 'rookie' ? [{ group: 'Board', label: 'Marktdaten aktualisieren', run: refreshMarket }] : []),
     ...(pageProps.draftFinished ? [{ group: 'AI', label: 'AI-Draft-Review öffnen', run: () => pageProps.onOpenDraftReview?.() }] : []),
     { group: 'Gehe zu', label: 'Board', keys: 'G B', run: () => navigate('/board') },
     { group: 'Gehe zu', label: 'Dashboard', keys: 'G D', run: () => navigate('/dashboard') },
-    { group: 'Gehe zu', label: 'Analyse', keys: 'G R', run: () => navigate('/roster') },
+    { group: 'Gehe zu', label: 'Analyse', keys: 'G A', run: () => navigate('/analyse') },
     { group: 'Gehe zu', label: 'Trade-Analyse', keys: 'G T', run: () => navigate('/trade') },
     { group: 'Gehe zu', label: 'Liga/Mock-Setup', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },
     { group: 'Ansicht', label: 'Tipps ein/aus', keys: 'T', run: () => setTipsOpen((v) => !v) },
     { group: 'Ansicht', label: 'Theme wählen', run: () => setThemeOpen(true) },
     { group: 'Ansicht', label: 'Zurück zum alten Design', run: backToClassic },
-  ], [autoRefreshEnabled, boardDensity, selectedDraftId, themeId, pageProps.onOpenDraftReview]) // eslint-disable-line
+  ], [autoRefreshEnabled, boardDensity, selectedDraftId, themeId, draftMode, refreshMarket, pageProps.onOpenDraftReview]) // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e) => {
@@ -292,6 +302,21 @@ export default function NextShell({ children, pageProps = {} }) {
         >
           {boardPlayers.length} Spieler
         </span>
+        {/* Marktdaten/ADP neu laden, ohne die eigene Board-Reihenfolge zu
+            verlieren -- steht neben der Angabe, die er aktualisiert. Im
+            Rookie-Modus bewusst ausgeblendet (Redraft-ADP passt nicht auf
+            Rookie-Raenge), wie in der alten Shell (BoardSection). */}
+        {draftMode !== 'rookie' && (
+          <button
+            className="ns-st ns-st-btn"
+            onClick={refreshMarket}
+            disabled={marketRefreshing || !boardPlayers.length}
+            title={marketError || 'Marktdaten aktualisieren — deine Reihenfolge bleibt'}
+          >
+            <Icon name="refresh" size={11} className={marketRefreshing ? 'ns-spin' : undefined} />
+            {marketRefreshing ? '…' : 'Aktualisieren'}
+          </button>
+        )}
         <button className="ns-st ns-st-btn" onClick={() => setCmdOpen(true)} title="Alle Befehle und Tastenkürzel">
           <kbd className="ns-kbd">{MOD_K}</kbd>
         </button>

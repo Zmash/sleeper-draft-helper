@@ -29,6 +29,7 @@ import { formatEstimate } from '../services/aiCost'
 import { CostHint } from './CostHint'
 import { opponentsUntilMyNext } from '../services/draftFlow'
 import { isAdviceButtonDisabled } from '../services/boardGate'
+import { useMarketRefresh } from '../hooks/useMarketRefresh'
 
 const DEBUG_AI = false
 
@@ -70,23 +71,9 @@ export default function BoardSection({
   const boardDensity = useUIStore(s => s.boardDensity)
   const setBoardDensity = useUIStore(s => s.setBoardDensity)
   const {
-    marketMeta, boardSource, rankingSource, refreshMarketData, boardMode,
+    marketMeta, boardSource, rankingSource, boardMode,
     handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, handleCsvLoad, setCsvRawText, setBoardSource,
   } = useBoardStore()
-  const [refreshingMarket, setRefreshingMarket] = useState(false)
-  const [marketError, setMarketError] = useState(null)
-
-  async function handleRefreshMarket() {
-    setRefreshingMarket(true)
-    setMarketError(null)
-    const res = await refreshMarketData({
-      isSuperflex: draftFormat.isSuperflex,
-      effScoringType: draftFormat.scoringType,
-      numTeams: draftFormat.teams,
-    })
-    if (!res.ok) setMarketError(res.error)
-    setRefreshingMarket(false)
-  }
 
   // Detail-Sheet fuer die Board-Ansicht: dort gibt es keine Zeile mit
   // Praeferenz-Menue, also ist die Kachel selbst der Einstieg.
@@ -243,6 +230,14 @@ export default function BoardSection({
   // beschrieben bekam — und Setup-Overrides gar nicht sah.
   const draftFormat = deriveFormat({ draft, league, overrides: setupOverrides })
   const { rosterPositions } = draftFormat
+
+  const {
+    refreshing: refreshingMarket, error: marketError, refresh: handleRefreshMarket,
+  } = useMarketRefresh({
+    isSuperflex: draftFormat.isSuperflex,
+    effScoringType: draftFormat.scoringType,
+    numTeams: draftFormat.teams,
+  })
 
   // Matching passiert jetzt einmalig in resolveProfile() (Liga-ID/Fingerprint) —
   // hier nur noch principles + profile.strategy zu Text zusammensetzen.
@@ -853,6 +848,18 @@ export default function BoardSection({
                 return adp ? <> · {adp}</> : null
               })()}
             </span>
+            {draftMode !== 'rookie' && (
+              <button
+                type="button"
+                className="bsl-refresh-btn"
+                onClick={handleRefreshMarket}
+                disabled={refreshingMarket}
+                title={marketError || 'Marktdaten aktualisieren — deine Reihenfolge bleibt'}
+                aria-label="Marktdaten aktualisieren"
+              >
+                {refreshingMarket ? '…' : <Icon name="refresh" size={12} />}
+              </button>
+            )}
           </div>
 
           <BoardTable
