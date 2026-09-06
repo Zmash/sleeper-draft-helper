@@ -179,3 +179,51 @@ export function tierUsage({ boardPlayers = [], picks = [] }) {
     }
   })
 }
+
+const RUN_MIN_PICKS = 3      // absolute Untergrenze gegen Zufallstreffer
+const RUN_SHARE_FACTOR = 2   // Fensteranteil muss den Gesamtanteil verdoppeln
+
+/**
+ * Positional Runs im rollierenden Fenster der letzten Picks.
+ *
+ * Beide Bedingungen muessen gelten: absolut mindestens RUN_MIN_PICKS und
+ * anteilig mindestens das RUN_SHARE_FACTOR-fache des Gesamtanteils. Nur die
+ * Quote wuerde am Draft-Anfang bei jeder seltenen Position anschlagen, nur die
+ * absolute Zahl bei jeder haeufigen.
+ *
+ * Ist der Draft nicht laenger als das Fenster, sind Fenster- und Gesamtanteil
+ * identisch -- dann ist keine Aussage moeglich und runs bleibt leer.
+ */
+export function positionalRuns({ picks = [], teamsCount = 12 }) {
+  const sorted = (picks || [])
+    .filter((p) => toFiniteOrNull(p?.pick_no) !== null)
+    .sort((a, b) => toFiniteOrNull(a.pick_no) - toFiniteOrNull(b.pick_no))
+
+  const timeline = sorted.map((p) => ({
+    pick_no: toFiniteOrNull(p.pick_no),
+    pos: normalizePos(p?.metadata?.position) || null,
+  }))
+
+  const window = Math.min(Number(teamsCount) || 12, 8)
+  if (timeline.length <= window) return { window, runs: [], timeline }
+
+  const count = (list) => {
+    const m = {}
+    for (const t of list) if (t.pos) m[t.pos] = (m[t.pos] || 0) + 1
+    return m
+  }
+  const overall = count(timeline)
+  const inWindow = count(timeline.slice(-window))
+
+  const runs = []
+  for (const [pos, c] of Object.entries(inWindow)) {
+    const windowShare = c / window
+    const overallShare = (overall[pos] || 0) / timeline.length
+    if (c >= RUN_MIN_PICKS && overallShare > 0 && windowShare >= RUN_SHARE_FACTOR * overallShare) {
+      runs.push({ pos, count: c, windowShare, overallShare })
+    }
+  }
+  runs.sort((a, b) => b.count - a.count)
+
+  return { window, runs, timeline }
+}

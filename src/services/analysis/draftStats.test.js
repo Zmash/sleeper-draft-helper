@@ -244,3 +244,65 @@ describe('tierUsage', () => {
     expect(r).toEqual([])
   })
 })
+
+import { positionalRuns } from './draftStats'
+
+const rp = (no, pos) => ({ pick_no: no, metadata: { position: pos } })
+
+describe('positionalRuns', () => {
+  it('erkennt einen Run: mindestens 3 Picks UND doppelter Anteil', () => {
+    // 20 Picks, im Fenster der letzten 8 liegen 6 RB. Gesamt-RB-Anteil 6/20 = 0.30,
+    // Fensteranteil 6/8 = 0.75 -> mehr als das Doppelte.
+    const picks = [
+      ...Array.from({ length: 12 }, (_, i) => rp(i + 1, 'WR')),
+      ...Array.from({ length: 6 }, (_, i) => rp(13 + i, 'RB')),
+      rp(19, 'WR'), rp(20, 'WR'),
+    ]
+    const r = positionalRuns({ picks, teamsCount: 12 })
+    const rb = r.runs.find((x) => x.pos === 'RB')
+    expect(rb).toBeDefined()
+    expect(rb.count).toBe(6)
+    expect(r.window).toBe(8)
+  })
+
+  it('2 Picks im Fenster sind kein Run, auch bei hohem Anteil', () => {
+    // QB kommt sonst nie vor -> Anteil vervielfacht sich, aber absolut nur 2.
+    const picks = [
+      ...Array.from({ length: 18 }, (_, i) => rp(i + 1, 'WR')),
+      rp(19, 'QB'), rp(20, 'QB'),
+    ]
+    const r = positionalRuns({ picks, teamsCount: 12 })
+    expect(r.runs.find((x) => x.pos === 'QB')).toBeUndefined()
+  })
+
+  it('3 Picks bei doppeltem Anteil sind ein Run (Gegenprobe zur Grenze)', () => {
+    const picks = [
+      ...Array.from({ length: 17 }, (_, i) => rp(i + 1, 'WR')),
+      rp(18, 'QB'), rp(19, 'QB'), rp(20, 'QB'),
+    ]
+    const r = positionalRuns({ picks, teamsCount: 12 })
+    expect(r.runs.find((x) => x.pos === 'QB')).toBeDefined()
+  })
+
+  it('gleichmaessige Verteilung ergibt keinen Run', () => {
+    const picks = Array.from({ length: 20 }, (_, i) => rp(i + 1, ['QB', 'RB', 'WR', 'TE'][i % 4]))
+    expect(positionalRuns({ picks, teamsCount: 12 }).runs).toEqual([])
+  })
+
+  it('nicht mehr Picks als Fensterbreite -> keine Runs, aber gueltige Struktur', () => {
+    const picks = Array.from({ length: 6 }, (_, i) => rp(i + 1, 'RB'))
+    const r = positionalRuns({ picks, teamsCount: 12 })
+    expect(r.runs).toEqual([])
+    expect(r.timeline).toHaveLength(6)
+  })
+
+  it('Fenster ist durch teamsCount begrenzt, wenn die Liga klein ist', () => {
+    const picks = Array.from({ length: 20 }, (_, i) => rp(i + 1, 'RB'))
+    expect(positionalRuns({ picks, teamsCount: 4 }).window).toBe(4)
+  })
+
+  it('timeline ist nach pick_no sortiert, auch bei unsortierter Eingabe', () => {
+    const r = positionalRuns({ picks: [rp(3, 'RB'), rp(1, 'WR'), rp(2, 'TE')], teamsCount: 12 })
+    expect(r.timeline.map((t) => t.pick_no)).toEqual([1, 2, 3])
+  })
+})
