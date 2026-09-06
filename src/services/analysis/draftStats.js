@@ -29,7 +29,7 @@ export function pickName(pick) {
 // Offensivspieler gerankt -- das ergibt zwangslaeufig riesige Deltas, die
 // keine Draft-Entscheidung widerspiegeln. Sie fliessen daher weder in die
 // Team-Summen noch in die Steal-/Reach-Listen ein (separat in "skipped" gezaehlt).
-const SCORING_EXCLUDED_POS = new Set(['K', 'DEF'])
+export const SCORING_EXCLUDED_POS = new Set(['K', 'DEF'])
 
 export function teamDraftRanking({
   picks = [], boardPlayers = [], teamsCount = 0, ownerLabels = null, myTeamKey = null,

@@ -1,7 +1,7 @@
 // Markt-Statistiken aus den Feldern, die marketMerge.js mitbringt:
 // stdev (Streuung der ADP), low/high (Extremwerte), adp (Mittel).
 import { normalizePos, toFiniteOrNull } from '../../utils/formatting'
-import { pickName } from './draftStats'
+import { pickName, SCORING_EXCLUDED_POS } from './draftStats'
 
 /**
  * Die Spieler, ueber die sich der Markt am wenigsten einig ist -- samt ihrem
@@ -13,7 +13,12 @@ export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }
   const num = toFiniteOrNull
 
   const usable = (boardPlayers || [])
-    .filter((bp) => num(bp?.stdev) !== null
+    // K und DEF fliegen raus, wie schon bei teamDraftRanking: sie haben
+    // naturgemaess die groesste Streuung, weil jede Liga sie irgendwann nimmt
+    // und der Zeitpunkt beliebig ist. Sie wuerden die Liste fuellen, ohne dass
+    // dahinter eine strittige Einschaetzung steckt.
+    .filter((bp) => !SCORING_EXCLUDED_POS.has(normalizePos(bp?.pos))
+      && num(bp?.stdev) !== null
       && num(bp?.low) !== null
       && num(bp?.high) !== null
       && bp?.nname && !taken.has(bp.nname))

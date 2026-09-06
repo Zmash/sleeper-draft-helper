@@ -77,3 +77,20 @@ describe('marketDisagreement — FFC-Konvention von low/high', () => {
     expect(marketDisagreement({ boardPlayers: ohneFfc, picks: [] }).players[0].adp).toBe(40)
   })
 })
+
+describe('marketDisagreement — Kicker und Defenses', () => {
+  // Sie haben naturgemaess die groesste Streuung, weil jede Liga sie irgendwann
+  // nimmt und der Zeitpunkt beliebig ist. Ohne Filter fuellen sie die Liste,
+  // ohne dass dahinter eine strittige Einschaetzung steckt.
+  it('schliesst K und DEF aus, auch bei hoechster Streuung', () => {
+    const board = [
+      { nname: 'k k', name: 'K K', pos: 'K', stdev: 99, adp: 150, high: 100, low: 200 },
+      { nname: 'd d', name: 'D D', pos: 'DEF', stdev: 98, adp: 150, high: 100, low: 200 },
+      { nname: 'x x', name: 'X X', pos: 'DST', stdev: 97, adp: 150, high: 100, low: 200 },
+      { nname: 'w w', name: 'W W', pos: 'WR', stdev: 5, adp: 40, high: 30, low: 50 },
+    ]
+    const r = marketDisagreement({ boardPlayers: board, picks: [] })
+    expect(r.players.map((p) => p.name)).toEqual(['W W'])
+    expect(r.basis).toBe(1)
+  })
+})
