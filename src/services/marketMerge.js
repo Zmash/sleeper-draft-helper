@@ -134,6 +134,32 @@ export function fillMissingBye(boardPlayers, marketPlayers) {
   return { players, stats: { filled } }
 }
 
+// FFC ist die einzige Quelle, die Streuung (stdev/low/high/times_drafted) liefert
+// -- Sleeper (die ADP-Hauptquelle) kennt nur einen einzelnen Wert. Diese Funktion
+// legt AUSSCHLIESSLICH die Streuungsfelder plus die FFC-eigene ADP ueber ein
+// bestehendes Board, unter einem eigenen Feld (market_adp statt adp). Grund:
+// low/high stammen aus FFC-Drafts, nicht aus Sleeper/RotoWire -- eine Spanne, die
+// um die Sleeper-ADP gezeichnet wird, gehoert nicht zur selben Erhebung und waere
+// irrefuehrend. adp (die Haupt-ADP, egal welche Quelle sie fuellte) bleibt unberuehrt.
+const SPREAD_FIELDS = ['stdev', 'low', 'high', 'times_drafted']
+
+export function overlayFfcSpread(boardPlayers, ffcPlayers) {
+  const market = marketIndex(ffcPlayers)
+  let matched = 0
+
+  const players = (boardPlayers || []).map((p) => {
+    const nname = p?.nname || normalizePlayerName(p?.name || '')
+    const hit = market.get(nname)
+    if (!hit) return p
+    matched += 1
+    const spread = {}
+    for (const f of SPREAD_FIELDS) spread[f] = hit[f] ?? null
+    return { ...p, ...spread, market_adp: hit.adp ?? null }
+  })
+
+  return { players, stats: { matched } }
+}
+
 // Weder FantasyCalc noch FFC kennen Verletzungen. Sleeper schon — und seit dem
 // sleeperId-Durchreichen im Rankings-Endpoint haben wir den Schluessel dafuer.
 export function enrichWithInjuries(boardPlayers, playersMeta = {}) {

@@ -25,7 +25,7 @@ export default function MarketTab({ market, nextPickNo = null }) {
         hint="Große Streuung heißt: der Markt ist sich uneins — hier weichen Ligen am stärksten voneinander ab."
         headline={players[0].stdev.toFixed(1)}
         sub={`höchste Streuung: ${players[0].name}`}
-        basis={`${players.length} von ${basis} Spielern mit Marktdaten${nextPickNo ? ` · deine nächste Pick-Nr: ${nextPickNo}` : ''}`}
+        basis={`${players.length} von ${basis} Spielern mit Marktdaten${nextPickNo ? ` · deine nächste Pick-Nr: ${nextPickNo}` : ''} · Spanne, Streuung und Durchschnitt stammen aus FFC-Drafts (eigene Erhebung, nicht die ADP des übrigen Boards)`}
         wide
       >
         {players.map((p) => (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries, fillMissingBye } from './marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, overlayFfcSpread, enrichWithInjuries, fillMissingBye } from './marketMerge'
 
 const fc = [
   { name: 'Bijan Robinson', pos: 'RB', team: 'ATL', overallRank: 1, tier: 1, sleeperId: '9509', value: 10491 },
@@ -129,6 +129,33 @@ describe('overlayMarketData', () => {
     const { stats } = overlayMarketData(boardWithNullHit, ffcWithNullAdp)
     expect(stats.withAdp).toBe(0)
     expect(stats.withoutAdp).toBe(1)
+  })
+})
+
+describe('overlayFfcSpread', () => {
+  it('uebertraegt die Streuungsfelder und setzt market_adp, ohne adp anzufassen', () => {
+    const board = [
+      { name: 'Bijan Robinson', nname: 'bijan robinson', rk: '1', pos: 'RB', adp: 1.4 },
+    ]
+    const ffc = [
+      { name: 'Bijan Robinson', nname: 'bijan robinson', adp: 1.7, stdev: 0.7, high: 1, low: 4, times_drafted: 2072 },
+    ]
+    const { players, stats } = overlayFfcSpread(board, ffc)
+    expect(players[0].stdev).toBe(0.7)
+    expect(players[0].low).toBe(4)
+    expect(players[0].high).toBe(1)
+    expect(players[0].times_drafted).toBe(2072)
+    expect(players[0].market_adp).toBe(1.7)
+    expect(players[0].adp).toBe(1.4) // Haupt-ADP (Sleeper) bleibt unangetastet
+    expect(stats.matched).toBe(1)
+  })
+
+  it('ein Spieler ohne FFC-Treffer bleibt unveraendert', () => {
+    const board = [{ name: 'Ghost Player', nname: 'ghost player', rk: '1', adp: 5.5 }]
+    const { players, stats } = overlayFfcSpread(board, [])
+    expect(players[0]).toEqual(board[0])
+    expect(players[0].market_adp).toBeUndefined()
+    expect(stats.matched).toBe(0)
   })
 })
 

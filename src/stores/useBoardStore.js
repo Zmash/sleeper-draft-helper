@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { normalizePlayerName } from '../utils/formatting'
 import { parseFantasyProsCsv } from '../services/csv'
-import { mergeRankingsWithMarket, overlayMarketData, enrichWithInjuries, fillMissingBye as fillMissingByeInMarket } from '../services/marketMerge'
+import { mergeRankingsWithMarket, overlayMarketData, overlayFfcSpread, enrichWithInjuries, fillMissingBye as fillMissingByeInMarket } from '../services/marketMerge'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useSessionStore } from './useSessionStore'
 import { useLiveStore } from './useLiveStore'
@@ -33,6 +33,20 @@ async function fetchMarketAdp(format, numTeams = 12) {
   try {
     return await fetchJsonOk(`/api/rankings/ffc-adp?format=${format}&teams=${numTeams}`)
   } catch { return null }
+}
+
+// Zusaetzlich zur Haupt-ADP (fetchMarketAdp) IMMER FFC fuer die Streuungsfelder
+// holen -- unabhaengig davon, ob Sleeper geliefert hat. Sleeper kennt keine
+// Streuung, aber bleibt trotzdem die Haupt-ADP-Quelle (siehe overlayFfcSpread).
+// Schlaegt der Abruf fehl, ist das folgenlos: das Board laedt normal weiter,
+// nur der Markt-Reiter der Analyse-Seite bleibt dann leer.
+async function fetchFfcSpread(format, numTeams = 12) {
+  try {
+    const data = await fetchJsonOk(`/api/rankings/ffc-adp?format=${format}&teams=${numTeams}`)
+    return data.players
+  } catch {
+    return null
+  }
 }
 
 export const useBoardStore = create(
@@ -152,17 +166,23 @@ export const useBoardStore = create(
         // Markt ist Kuer — ein Board ohne ADP ist besser als kein Board.
         // Fuer Rookie/Dynasty gibt es keine Redraft-ADP, deshalb gar nicht erst fragen.
         let market = null
+        let spread = null
         if (!isDynasty) {
-          market = await fetchMarketAdp(ffcFormatFor({ isSuperflex, effScoringType }), numTeams)
+          const ffcFormat = ffcFormatFor({ isSuperflex, effScoringType })
+          ;[market, spread] = await Promise.all([
+            fetchMarketAdp(ffcFormat, numTeams),
+            fetchFfcSpread(ffcFormat, numTeams),
+          ])
         }
 
         const { players, stats } = mergeRankingsWithMarket(fc.players, market?.players || [])
+        const withSpread = spread ? overlayFfcSpread(players, spread).players : players
 
         // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
-        let withInjuries = players
+        let withInjuries = withSpread
         try {
           const meta = await loadPlayersMetaCached({ season: new Date().getFullYear() })
-          withInjuries = enrichWithInjuries(players, meta)
+          withInjuries = enrichWithInjuries(withSpread, meta)
         } catch { /* Verletzungsdaten sind Kuer, kein Grund den Import zu kippen */ }
 
         set({
@@ -202,15 +222,20 @@ export const useBoardStore = create(
         }
 
         // Markt-ADP ist Kuer — ein Board ohne ADP ist besser als kein Board.
-        const market = await fetchMarketAdp(ffcFormatFor({ isSuperflex, effScoringType }), numTeams)
+        const ffcFormat = ffcFormatFor({ isSuperflex, effScoringType })
+        const [market, spread] = await Promise.all([
+          fetchMarketAdp(ffcFormat, numTeams),
+          fetchFfcSpread(ffcFormat, numTeams),
+        ])
 
         const { players, stats } = mergeRankingsWithMarket(fp.players, market?.players || [])
+        const withSpread = spread ? overlayFfcSpread(players, spread).players : players
 
         // Verletzungsdaten sind Kuer: schlaegt der Abruf fehl, darf der Import nicht kippen.
-        let withInjuries = players
+        let withInjuries = withSpread
         try {
           const meta = await loadPlayersMetaCached({ season: new Date().getFullYear() })
-          withInjuries = enrichWithInjuries(players, meta)
+          withInjuries = enrichWithInjuries(withSpread, meta)
         } catch { /* Verletzungsdaten sind Kuer, kein Grund den Import zu kippen */ }
 
         set({
@@ -241,11 +266,15 @@ export const useBoardStore = create(
         const format = effScoringType != null
           ? ffcFormatFor({ isSuperflex, effScoringType })
           : (marketMeta?.format || 'ppr')
-        const market = await fetchMarketAdp(format, numTeams)
+        const [market, spread] = await Promise.all([
+          fetchMarketAdp(format, numTeams),
+          fetchFfcSpread(format, numTeams),
+        ])
         if (!market) return { ok: false, error: 'Marktdaten nicht erreichbar' }
         const { players, stats } = overlayMarketData(boardPlayers, market.players)
+        const withSpread = spread ? overlayFfcSpread(players, spread).players : players
         // rk und Reihenfolge bleiben unberuehrt — der Nutzer pflegt sein Board.
-        set({ boardPlayers: players, marketMeta: market.meta })
+        set({ boardPlayers: withSpread, marketMeta: market.meta })
         return { ok: true, stats }
       },
 

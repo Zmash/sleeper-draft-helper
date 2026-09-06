@@ -20,7 +20,11 @@ export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }
     .map((bp) => ({
       name: bp.name || bp.nname,
       pos: normalizePos(bp.pos),
-      adp: num(bp.adp),
+      // low/high/stdev stammen aus FFC-Drafts (siehe overlayFfcSpread) -- der
+      // Bezugswert dazu ist market_adp (dieselbe FFC-Erhebung), nicht adp (die
+      // Board-Haupt-ADP aus Sleeper/RotoWire). Fallback auf adp nur, falls
+      // market_adp fehlt (aeltere Boards ohne FFC-Overlay).
+      adp: num(bp.market_adp ?? bp.adp),
       low: num(bp.low),
       high: num(bp.high),
       stdev: num(bp.stdev),
