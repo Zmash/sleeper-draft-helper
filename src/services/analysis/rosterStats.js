@@ -51,15 +51,16 @@ export function rosterValueSplit({
     // besten Spielers -- summierte Raenge waeren bedeutungslos.
     const scoreOf = (team) => {
       const atPos = team.players
-        .filter((bp) => normalizePos(bp.pos) === pos)
+        .filter((bp) => normalizePos(bp.pos) === pos
+          && (mode === 'value' || toFiniteOrNull(bp.ecr) !== null))
         .sort((a, b) => mode === 'value'
-          ? Number(b.dynasty_value || 0) - Number(a.dynasty_value || 0)
-          : Number(a.ecr ?? Infinity) - Number(b.ecr ?? Infinity))
+          ? (toFiniteOrNull(b.dynasty_value) ?? 0) - (toFiniteOrNull(a.dynasty_value) ?? 0)
+          : toFiniteOrNull(a.ecr) - toFiniteOrNull(b.ecr))
         .slice(0, slots)
       if (!atPos.length) return null
       return mode === 'value'
-        ? atPos.reduce((s, bp) => s + (Number(bp.dynasty_value) || 0), 0)
-        : Number(atPos[0].ecr)
+        ? atPos.reduce((s, bp) => s + (toFiniteOrNull(bp.dynasty_value) ?? 0), 0)
+        : toFiniteOrNull(atPos[0].ecr)
     }
 
     const scores = perTeam.map(scoreOf).filter((v) => Number.isFinite(v))

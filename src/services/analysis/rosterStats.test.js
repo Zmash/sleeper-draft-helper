@@ -11,6 +11,9 @@ describe('median', () => {
   it('leere Liste -> null statt NaN', () => {
     expect(median([])).toBeNull()
   })
+  it('sortiert numerisch, nicht lexikografisch', () => {
+    expect(median([1, 10, 9])).toBe(9)
+  })
 })
 
 const board = [
@@ -80,5 +83,71 @@ describe('rosterValueSplit', () => {
     expect(rb.mine).toBeNull()
     expect(rb.diff).toBeNull()
     expect(rb.median).toBe(40)
+  })
+
+  it('Befund 1: Spieler mit leerem ECR wird im Rangmodus gefiltert, nicht als bester sortiert', () => {
+    // Testfall: ein Spieler mit ecr: '' (wird zu Number('') = 0, also sehr gut wenn nicht gefiltert)
+    // und ein Spieler mit ecr: 50 (legitim)
+    const boardWithEmptyECR = [
+      { sleeper_id: '1', nname: 'bad', pos: 'RB', ecr: '', dynasty_value: 10 },
+      { sleeper_id: '2', nname: 'good', pos: 'RB', ecr: 50, dynasty_value: 5 },
+    ]
+    const rostersForEmpty = [
+      { roster_id: 1, players: ['1'] },  // nur Spieler mit ecr: ''
+      { roster_id: 2, players: ['2'] },  // Spieler mit ecr: 50
+    ]
+    const ohneWert = boardWithEmptyECR.map(({ dynasty_value, ...rest }) => rest)
+    const r = rosterValueSplit({
+      leagueRosters: rostersForEmpty, boardPlayers: ohneWert, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    // Der Spieler mit leerem ECR sollte gefiltert werden, daher mine = null
+    expect(rb.mine).toBeNull()
+    // Der Median sollte nur den gültigen Rang enthalten (50)
+    expect(rb.median).toBe(50)
+  })
+
+  it('Rangmodus: eigenes Team schlechter als Median -> diff negativ', () => {
+    // Testfall: eigenes Team hat Rang 80 (schlecht), Liga-Median ist 50 (besser)
+    // diff sollte negativ sein: median - mine = 50 - 80 = -30
+    const rankBoard = [
+      { sleeper_id: '1', nname: 'my worst', pos: 'RB', ecr: 80 },
+      { sleeper_id: '2', nname: 'league best', pos: 'RB', ecr: 5 },
+      { sleeper_id: '3', nname: 'league mid', pos: 'RB', ecr: 50 },
+    ]
+    const rankRosters = [
+      { roster_id: 1, players: ['1'] },  // mein schlechter Rang
+      { roster_id: 2, players: ['2'] },  // Liga: bester
+      { roster_id: 3, players: ['3'] },  // Liga: mittler
+    ]
+    const r = rosterValueSplit({
+      leagueRosters: rankRosters, boardPlayers: rankBoard, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.mine).toBe(80)
+    expect(rb.median).toBe(50)
+    expect(rb.diff).toBe(-30)  // negativ, weil ich schlechter bin
+  })
+
+  it('Wertmodus: eigenes Team schlechter als Median -> diff negativ', () => {
+    // Testfall: eigenes Team hat value 10 (niedrig), Liga-Median ist 50 (besser)
+    // diff sollte negativ sein: mine - median = 10 - 50 = -40
+    const valueBoard = [
+      { sleeper_id: '1', nname: 'my low', pos: 'RB', dynasty_value: 10 },
+      { sleeper_id: '2', nname: 'league high', pos: 'RB', dynasty_value: 100 },
+      { sleeper_id: '3', nname: 'league mid', pos: 'RB', dynasty_value: 50 },
+    ]
+    const valueRosters = [
+      { roster_id: 1, players: ['1'] },  // mein niedriger Wert
+      { roster_id: 2, players: ['2'] },  // Liga: höchster
+      { roster_id: 3, players: ['3'] },  // Liga: Median
+    ]
+    const r = rosterValueSplit({
+      leagueRosters: valueRosters, boardPlayers: valueBoard, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.mine).toBe(10)
+    expect(rb.median).toBe(50)
+    expect(rb.diff).toBe(-40)  // negativ, weil ich schlechter bin
   })
 })
