@@ -83,8 +83,10 @@ function Scarcity({ rows }) {
     <StatCard
       title="Positionsknappheit"
       hint="Verfügbare Spieler, die es für die Liga noch gibt — gemessen am Bedarf aller Teams."
-      headline={knappste.exhausted ? 'erschöpft' : `${knappste.available}/${knappste.need}`}
-      sub={`${knappste.pos} am knappsten`}
+      headline={`${knappste.available}/${knappste.need}`}
+      sub={knappste.exhausted
+        ? `${knappste.pos} reicht nicht mehr für alle Teams`
+        : `${knappste.pos} am knappsten`}
       basis={`Bedarf = Teams x Starter-Slots, FLEX anteilig · nur die ersten ${knappste.relevanceLimit} Ränge gezählt`}
     >
       {rows.map((r) => (
@@ -96,7 +98,9 @@ function Scarcity({ rows }) {
             <rect x="0" y="0" width={Math.min(r.available, max)} height="1" fill={posColor(r.pos)} />
           </svg>
           <span className="an-num">
-            {r.exhausted ? 'erschöpft' : `${r.available}/${r.need}`}
+            {/* Auch im erschoepften Fall die Zahl zeigen: "8 von 32" ist eine
+                andere Lage als "0 von 32", und genau hier wird es interessant. */}
+            <span className={cx(r.exhausted && 'an-pos-bad')}>{r.available}/{r.need}</span>
             {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
                 Experten-Ränge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
             {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
