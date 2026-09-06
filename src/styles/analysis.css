@@ -34,7 +34,10 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
-  align-items: start;
+  /* stretch statt start: nebeneinanderliegende Kacheln enden auf derselben
+     Hoehe. Mit start endet jede dort, wo ihr Inhalt aufhoert, und die Reihe
+     bekommt eine ausgefranste Unterkante. */
+  align-items: stretch;
 }
 
 @media (min-width: 900px) {
@@ -263,3 +266,9 @@
 @media (min-width: 900px) {
   .an-card table.an-table { display: table; white-space: normal; }
 }
+
+/* Kachel als Spalte: die Datengrundlage sitzt am Boden, damit sie bei
+   gestreckten Kacheln nicht mitten in der Flaeche haengt. */
+.an-card { display: flex; flex-direction: column; }
+.an-card-body { flex: 1 1 auto; }
+.an-card-basis { margin-top: auto; }
