@@ -25,9 +25,21 @@ export default function RosterTab({ split }) {
     )
   }
 
+  if (!positions.length) {
+    return (
+      <div className="an-grid">
+        <StatCard
+          title="Kader gegen das Liga-Feld"
+          empty="Fuer keine Position konnte ein Vergleich ermittelt werden — moeglichweise hat keine Position einen Starter-Slot in dieser Liga."
+        />
+      </div>
+    )
+  }
+
   const einheit = mode === 'value' ? 'Punkten' : 'Raengen'
   const beste = positions.slice().sort((a, b) => (b.diff ?? -Infinity) - (a.diff ?? -Infinity))[0]
   const maxAbs = Math.max(...positions.map((p) => Math.abs(p.diff ?? 0)), 1)
+  const hasData = positions.some((p) => p.diff != null)
 
   return (
     <div className="an-grid">
@@ -37,7 +49,7 @@ export default function RosterTab({ split }) {
           ? 'Summe der Dynasty-Werte je Position, verglichen mit dem Median der Liga.'
           : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstaende sind nicht wertproportional — die Richtung ist verlaesslich, der Betrag grob.'}
         headline={beste?.diff != null ? signed(beste.diff) : '—'}
-        sub={beste ? `${beste.pos} ist deine staerkste Position` : ''}
+        sub={hasData && beste?.diff != null ? `${beste.pos} ist deine staerkste Position` : ''}
         basis={`${teamCount} Kader · Deckung ${Math.round(coverage * 100)} % · in ${einheit}`}
         wide
       >
@@ -45,7 +57,7 @@ export default function RosterTab({ split }) {
           <div className="an-row" key={p.pos}>
             <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
             <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" height="12"
-                 role="img" aria-label={`${p.pos}: ${Math.round(p.diff ?? 0)} gegenueber dem Median`}>
+                 role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenueber dem Median` : `${p.pos}: keine Daten`}>
               <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
               <rect
                 x={Math.min(0, p.diff ?? 0)} y="0.15"

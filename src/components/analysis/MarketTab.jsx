@@ -29,10 +29,10 @@ export default function MarketTab({ market, nextPickNo = null }) {
         wide
       >
         {players.map((p) => (
-          <div className="an-whisker" key={p.name}>
+          <div className="an-whisker" key={`${p.pos}-${p.name}`}>
             <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
             <span className="an-wname">{p.name}</span>
-            <div className="an-wtrack">
+            <div className="an-wtrack" role="img" aria-label={`Spanne ${Math.round(p.low)} bis ${Math.round(p.high)}${Number.isFinite(p.adp) ? `, Durchschnitt ${Math.round(p.adp)}` : ''}${nextPickNo && nextPickNo >= scaleMin && nextPickNo <= scaleMax ? `, dein Pick ${nextPickNo}` : ''}`}>
               <span className="an-wrange"
                     style={{ left: `${pct(p.low)}%`, width: `${pct(p.high) - pct(p.low)}%` }} />
               {Number.isFinite(p.adp) && (
