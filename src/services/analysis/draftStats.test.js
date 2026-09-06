@@ -1,29 +1,31 @@
 import { describe, it, expect } from 'vitest'
 import { teamDraftRanking } from './draftStats'
 
-// ECR 1 = bester Spieler. delta = ecr - pick_no, positiv = unter Wert geholt.
+// ECR 1 = bester Spieler (kleiner Rang = besser). delta = pick_no - ecr,
+// positiv = spaeter gegangen als der Rang hergibt = unter Wert geholt.
 const board = [
   { nname: 'aaron jones', name: 'Aaron Jones', pos: 'RB', ecr: 5 },
   { nname: 'brian burns', name: 'Brian Burns', pos: 'WR', ecr: 20 },
   { nname: 'carl carter', name: 'Carl Carter', pos: 'TE', ecr: 30 },
 ]
 
-const pick = (no, first, last, user) => ({
+const pick = (no, first, last, user, pos = 'RB') => ({
   pick_no: no,
   picked_by: user,
-  metadata: { first_name: first, last_name: last, position: 'RB' },
+  metadata: { first_name: first, last_name: last, position: pos },
 })
 
 describe('teamDraftRanking', () => {
-  it('summiert ecr - pick_no je Team und sortiert absteigend', () => {
+  it('summiert pick_no - ecr je Team und sortiert absteigend', () => {
     const picks = [
-      pick(1, 'Aaron', 'Jones', 'u1'),   // 5 - 1 = +4
-      pick(2, 'Brian', 'Burns', 'u2'),   // 20 - 2 = +18
+      pick(1, 'Aaron', 'Jones', 'u1'),   // 1 - 5 = -4
+      pick(2, 'Brian', 'Burns', 'u2'),   // 2 - 20 = -18
     ]
     const r = teamDraftRanking({ picks, boardPlayers: board, teamsCount: 2 })
-    expect(r.teams.map((t) => t.key)).toEqual(['user:u2', 'user:u1'])
-    expect(r.teams[0].delta).toBe(18)
-    expect(r.teams[1].delta).toBe(4)
+    // -4 ist der bessere (weniger negative) Wert -> u1 vor u2.
+    expect(r.teams.map((t) => t.key)).toEqual(['user:u1', 'user:u2'])
+    expect(r.teams[0].delta).toBe(-4)
+    expect(r.teams[1].delta).toBe(-18)
   })
 
   it('Picks ohne Board-Treffer zaehlen NICHT als 0, sondern als unmatched', () => {
@@ -32,7 +34,7 @@ describe('teamDraftRanking', () => {
       pick(2, 'Unbekannt', 'Spieler', 'u1'),
     ]
     const r = teamDraftRanking({ picks, boardPlayers: board, teamsCount: 2 })
-    expect(r.teams[0].delta).toBe(4)   // nur der getroffene Pick
+    expect(r.teams[0].delta).toBe(-4)  // nur der getroffene Pick
     expect(r.teams[0].picks).toBe(2)   // aber beide Picks gezaehlt
     expect(r.unmatched).toBe(1)
     expect(r.matched).toBe(1)
@@ -48,15 +50,40 @@ describe('teamDraftRanking', () => {
 
   it('Steals und Reaches sind nach Betrag sortiert und auf 5 begrenzt', () => {
     const picks = [
-      pick(1, 'Carl', 'Carter', 'u1'),   // 30 - 1 = +29  Steal
-      pick(40, 'Aaron', 'Jones', 'u2'),  //  5 - 40 = -35 Reach
+      pick(1, 'Carl', 'Carter', 'u1'),   // 1 - 30 = -29  Reach (viel zu frueh)
+      pick(40, 'Aaron', 'Jones', 'u2'),  // 40 - 5 = +35  Steal (spaet gegangen)
     ]
     const r = teamDraftRanking({ picks, boardPlayers: board, teamsCount: 2 })
-    expect(r.steals[0].name).toBe('Carl Carter')
-    expect(r.steals[0].delta).toBe(29)
-    expect(r.reaches[0].name).toBe('Aaron Jones')
-    expect(r.reaches[0].delta).toBe(-35)
+    expect(r.steals[0].name).toBe('Aaron Jones')
+    expect(r.steals[0].delta).toBe(35)
+    expect(r.reaches[0].name).toBe('Carl Carter')
+    expect(r.reaches[0].delta).toBe(-29)
     expect(r.steals.length).toBeLessThanOrEqual(5)
+  })
+
+  it('Vorzeichen-Regression: Rang 10 bei Pick 50 ist ein Steal, Rang 150 bei Pick 20 ein Reach', () => {
+    // Reproduziert den Befund aus dem Bugreport (Josh Jacobs / Caleb Williams):
+    // ein spaet gezogener Top-Spieler ist ein Schnaeppchen, ein frueh gezogener
+    // Nachzuegler ein Fehlgriff -- unabhaengig vom absoluten Betrag der Zahl.
+    const b = [
+      { nname: 'late steal', name: 'Late Steal', pos: 'WR', ecr: 10 },
+      { nname: 'early reach', name: 'Early Reach', pos: 'WR', ecr: 150 },
+    ]
+    const picks = [
+      pick(50, 'Late', 'Steal', 'u1'),   // Rang 10, erst Pick 50 -> Steal
+      pick(20, 'Early', 'Reach', 'u2'),  // Rang 150, schon Pick 20 -> Reach
+    ]
+    const r = teamDraftRanking({ picks, boardPlayers: b, teamsCount: 2 })
+
+    expect(r.steals.some((s) => s.name === 'Late Steal')).toBe(true)
+    expect(r.steals.some((s) => s.name === 'Early Reach')).toBe(false)
+    expect(r.reaches.some((s) => s.name === 'Early Reach')).toBe(true)
+    expect(r.reaches.some((s) => s.name === 'Late Steal')).toBe(false)
+
+    const lateSteal = r.steals.find((s) => s.name === 'Late Steal')
+    const earlyReach = r.reaches.find((s) => s.name === 'Early Reach')
+    expect(lateSteal.delta).toBe(40)    // 50 - 10
+    expect(earlyReach.delta).toBe(-130) // 20 - 150
   })
 
   it('myTeamKey liefert Rang und Delta; ohne ihn bleiben beide null', () => {
@@ -65,8 +92,8 @@ describe('teamDraftRanking', () => {
       pick(2, 'Brian', 'Burns', 'u2'),
     ]
     const mit = teamDraftRanking({ picks, boardPlayers: board, teamsCount: 2, myTeamKey: 'user:u1' })
-    expect(mit.myRank).toBe(2)
-    expect(mit.myDelta).toBe(4)
+    expect(mit.myRank).toBe(1)
+    expect(mit.myDelta).toBe(-4)
 
     const ohne = teamDraftRanking({ picks, boardPlayers: board, teamsCount: 2 })
     expect(ohne.myRank).toBeNull()
@@ -78,6 +105,36 @@ describe('teamDraftRanking', () => {
     expect(r.teams).toEqual([])
     expect(r.steals).toEqual([])
     expect(r.matched).toBe(0)
+  })
+
+  it('Kicker und Defense werden aus Team-Summen und Steal-/Reach-Listen ausgeschlossen und als skipped gezaehlt', () => {
+    const b = [
+      ...board,
+      { nname: 'league kicker', name: 'League Kicker', pos: 'K', ecr: 200 },
+      { nname: 'dst one', name: 'DST One', pos: 'DST', ecr: 186 },
+      { nname: 'dst two', name: 'DST Two', pos: 'D/ST', ecr: 190 },
+    ]
+    const picks = [
+      pick(1, 'Aaron', 'Jones', 'u1', 'RB'),      // zaehlt normal
+      pick(150, 'League', 'Kicker', 'u1', 'K'),   // ausgeschlossen
+      pick(151, 'DST', 'One', 'u1', 'DEF'),       // ausgeschlossen
+      pick(152, 'DST', 'Two', 'u1', 'DEF'),       // ausgeschlossen
+    ]
+    const r = teamDraftRanking({ picks, boardPlayers: b, teamsCount: 2 })
+
+    // Nur der RB-Pick zaehlt in Team-Delta und matched; die drei anderen sind
+    // "skipped", nicht "unmatched" -- sie hatten einen Ranking-Treffer, wurden
+    // aber bewusst herausgefiltert.
+    expect(r.matched).toBe(1)
+    expect(r.unmatched).toBe(0)
+    expect(r.skipped).toBe(3)
+    expect(r.teams[0].delta).toBe(-4) // 1 - 5, nur Aaron Jones
+    expect(r.teams[0].picks).toBe(4)  // alle vier Picks zaehlen als Picks
+
+    expect(r.steals.some((s) => s.name.includes('Kicker'))).toBe(false)
+    expect(r.steals.some((s) => s.name.includes('DST'))).toBe(false)
+    expect(r.reaches.some((s) => s.name.includes('Kicker'))).toBe(false)
+    expect(r.reaches.some((s) => s.name.includes('DST'))).toBe(false)
   })
 })
 

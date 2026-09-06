@@ -8,10 +8,10 @@ function TeamRanking({ r, myTeamKey }) {
   return (
     <StatCard
       title="Team-Draft-Ranking"
-      hint="Summe aus Experten-Rang minus Pick-Nummer. Positiv heißt: unter Wert geholt."
+      hint="Summe aus Pick-Nummer minus Experten-Rang. Positiv heißt: unter Wert geholt."
       headline={r.myDelta !== null ? signed(r.myDelta) : '—'}
       sub={r.myRank ? `Platz ${r.myRank} von ${r.teams.length}` : 'Dein Team nicht erkannt'}
-      basis={`aus ${r.matched} bewerteten Picks${r.unmatched ? ` · ${r.unmatched} ohne Ranking-Treffer` : ''}`}
+      basis={`aus ${r.matched} bewerteten Picks${r.unmatched ? ` · ${r.unmatched} ohne Ranking-Treffer` : ''}${r.skipped ? ` · ${r.skipped} Kicker/Defense ausgeschlossen` : ''}`}
       wide
     >
       <table className="an-table">

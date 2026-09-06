@@ -1,7 +1,8 @@
 // Gerechnete Draft-Statistiken. Reine Funktionen, kein React, kein Netz.
 //
-// Grundgroesse ueberall: delta = ecr - pick_no.
-// Positiv heisst: der Spieler ging spaeter als sein Rang, also unter Wert geholt.
+// Grundgroesse ueberall: delta = pick_no - ecr.
+// ecr ist ein Rang (kleiner = besser). Positiv heisst: der Spieler ging spaeter
+// als sein Rang vermuten liess, also unter Wert geholt.
 import { normalizePlayerName, normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { teamKeyFromPick } from '../derive'
 
@@ -12,7 +13,7 @@ function ecrByName(boardPlayers = []) {
     if (!bp?.nname) continue
     const ecr = toFiniteOrNull(bp?.ecr)
     if (ecr === null) continue
-    m.set(bp.nname, { ecr, name: bp.name || bp.nname })
+    m.set(bp.nname, { ecr, name: bp.name || bp.nname, pos: bp.pos })
   }
   return m
 }
@@ -23,6 +24,12 @@ export function pickName(pick) {
   return full ? normalizePlayerName(full) : ''
 }
 
+// K und DEF/DST werden immer in den letzten Runden gedraftet, aber gegen alle
+// Offensivspieler gerankt -- das ergibt zwangslaeufig riesige Deltas, die
+// keine Draft-Entscheidung widerspiegeln. Sie fliessen daher weder in die
+// Team-Summen noch in die Steal-/Reach-Listen ein (separat in "skipped" gezaehlt).
+const SCORING_EXCLUDED_POS = new Set(['K', 'DEF'])
+
 export function teamDraftRanking({
   picks = [], boardPlayers = [], teamsCount = 0, ownerLabels = null, myTeamKey = null,
 }) {
@@ -31,6 +38,7 @@ export function teamDraftRanking({
   const scored = []
   let matched = 0
   let unmatched = 0
+  let skipped = 0
 
   for (const p of picks || []) {
     const key = teamKeyFromPick(p, teamsCount)
@@ -50,8 +58,12 @@ export function teamDraftRanking({
     // belohnt, dessen Picks schlicht nicht im Ranking stehen.
     if (!hit || pickNo === null) { unmatched += 1; continue }
 
+    // Position kann am Board-Spieler oder am Pick stehen -- beide pruefen.
+    const pos = normalizePos(hit.pos ?? p?.metadata?.position)
+    if (SCORING_EXCLUDED_POS.has(pos)) { skipped += 1; continue }
+
     matched += 1
-    const delta = hit.ecr - pickNo
+    const delta = pickNo - hit.ecr
     t.delta += delta
     const entry = { name: hit.name, pick_no: pickNo, delta, teamLabel: t.label }
     scored.push(entry)
@@ -68,6 +80,7 @@ export function teamDraftRanking({
     reaches: scored.filter((s) => s.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 5),
     matched,
     unmatched,
+    skipped,
     myRank: myIndex >= 0 ? myIndex + 1 : null,
     myDelta: myIndex >= 0 ? list[myIndex].delta : null,
   }
