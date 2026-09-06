@@ -1,0 +1,163 @@
+/* Analyse-Seite: Reiter, Kachel-Raster, Kachel-Innereien.
+   Farben und Abstaende kommen aus den bestehenden Tokens der Shell. */
+
+.an-tabs {
+  display: flex;
+  gap: .25rem;
+  border-bottom: 1px solid var(--border, #2a2a2a);
+  margin-bottom: 1rem;
+}
+
+.an-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: .6rem 1rem;
+  color: var(--muted, #888);
+  font: inherit;
+  cursor: pointer;
+}
+
+.an-tab.is-on {
+  color: var(--fg, #eee);
+  border-bottom-color: var(--accent, #4ea1ff);
+}
+
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.an-card {
+  background: var(--card-bg, #161616);
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+/* Breite Kacheln nur, wenn das Raster ueberhaupt zwei Spalten hat. */
+@media (min-width: 720px) {
+  .an-card--wide { grid-column: span 2; }
+}
+
+.an-card-title { margin: 0; font-size: .95rem; }
+
+.an-card-hint {
+  margin: .15rem 0 0;
+  font-size: .78rem;
+  color: var(--muted, #888);
+}
+
+.an-card-headline {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  margin: .75rem 0;
+}
+
+.an-headline-value {
+  font-size: 2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.an-headline-sub { font-size: .85rem; color: var(--muted, #888); }
+
+.an-card-basis {
+  margin-top: .75rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border, #2a2a2a);
+  font-size: .72rem;
+  color: var(--muted, #888);
+}
+
+.an-card-empty {
+  margin: .75rem 0 0;
+  font-size: .85rem;
+  color: var(--muted, #888);
+}
+
+/* Zeilen mit Positions-Pille + Balken, von mehreren Kacheln genutzt. */
+.an-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: .5rem;
+  padding: .3rem 0;
+}
+
+.an-pos {
+  font-size: .72rem;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 3px;
+  padding: .15rem 0;
+  color: #000;
+}
+
+.an-num { font-variant-numeric: tabular-nums; }
+.an-pos-good { color: var(--good, #4ec97b); }
+.an-pos-bad { color: var(--bad, #e0555a); }
+
+.an-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.an-table th, .an-table td { padding: .35rem .5rem; text-align: left; }
+.an-table th { color: var(--muted, #888); font-weight: 500; }
+.an-table td.an-num, .an-table th.an-num { text-align: right; }
+.an-table tr.is-me { background: color-mix(in srgb, var(--accent, #4ea1ff) 12%, transparent); }
+
+.an-steals { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.an-steals h4 { margin: 0 0 .35rem; font-size: .8rem; color: var(--muted, #888); }
+.an-steals ol { margin: 0; padding-left: 1.1rem; font-size: .82rem; }
+.an-steals li { padding: .1rem 0; }
+
+.an-tierbar { display: flex; gap: 2px; height: 10px; }
+.an-tierseg { background: var(--border, #2a2a2a); border-radius: 2px; }
+.an-tierseg.is-done { opacity: .3; }
+.an-tierseg.is-active { background: var(--accent, #4ea1ff); }
+
+.an-timeline { display: flex; gap: 1px; height: 22px; }
+.an-tlseg { flex: 1 1 0; border-radius: 1px; min-width: 2px; }
+
+.an-whisker {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(6rem, 1fr) 2fr auto;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem 0;
+  font-size: .82rem;
+}
+
+.an-wname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.an-wtrack {
+  position: relative;
+  height: 10px;
+  background: var(--border, #2a2a2a);
+  border-radius: 5px;
+}
+
+.an-wrange {
+  position: absolute; top: 0; height: 100%;
+  background: var(--accent, #4ea1ff);
+  opacity: .45;
+  border-radius: 5px;
+}
+
+.an-wadp {
+  position: absolute; top: -2px; width: 2px; height: 14px;
+  background: var(--fg, #eee);
+}
+
+.an-wmine {
+  position: absolute; top: -4px; width: 2px; height: 18px;
+  background: var(--good, #4ec97b);
+}
+
+@media (max-width: 720px) {
+  .an-steals { grid-template-columns: 1fr; }
+  .an-whisker { grid-template-columns: 2.5rem 1fr auto; }
+  .an-whisker .an-wtrack { grid-column: 1 / -1; }
+}

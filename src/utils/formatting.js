@@ -44,3 +44,12 @@ export const fantasyProsSlug = (name) =>
     .replace(/(ii|iii|iv|v)\.?/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
+/** Positionsfarbe als CSS-var mit Rueckfall, fuer inline styles. */
+export const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
+
+/** Zahl mit sichtbarem Vorzeichen, gerundet. 0 bleibt "0". */
+export const signed = (n) => {
+  const v = Math.round(Number(n) || 0)
+  return v > 0 ? `+${v}` : String(v)
+}

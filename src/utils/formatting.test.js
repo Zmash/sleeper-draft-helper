@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toFiniteOrNull, normalizePlayerName, normalizePos } from './formatting'
+import { toFiniteOrNull, normalizePlayerName, normalizePos, signed } from './formatting'
 
 describe('toFiniteOrNull', () => {
   it('echte Zahl kommt durch', () => {
@@ -43,5 +43,28 @@ describe('toFiniteOrNull', () => {
     expect(toFiniteOrNull(Infinity)).toBeNull()
     expect(toFiniteOrNull(-Infinity)).toBeNull()
     expect(toFiniteOrNull(NaN)).toBeNull()
+  })
+})
+
+describe('signed', () => {
+  it('positive Zahl bekommt ein +', () => {
+    expect(signed(5)).toBe('+5')
+    expect(signed(42)).toBe('+42')
+  })
+
+  it('negative Zahl behaelt ihr -', () => {
+    expect(signed(-3)).toBe('-3')
+    expect(signed(-10)).toBe('-10')
+  })
+
+  it('0 bleibt "0" ohne Vorzeichen', () => {
+    expect(signed(0)).toBe('0')
+  })
+
+  it('Bruchwert wird gerundet', () => {
+    expect(signed(3.4)).toBe('+3')
+    expect(signed(3.6)).toBe('+4')
+    expect(signed(-2.4)).toBe('-2')
+    expect(signed(-2.6)).toBe('-3')
   })
 })
