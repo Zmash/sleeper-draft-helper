@@ -19,8 +19,10 @@ export function rosterValueSplit({
   leagueRosters = [], boardPlayers = [], rosterPositions = [], myRosterId = null,
 }) {
   const byId = new Map()
+  const byName = new Map()
   for (const bp of boardPlayers || []) {
     if (bp?.sleeper_id) byId.set(String(bp.sleeper_id), bp)
+    if (bp?.nname) byName.set(bp.nname, bp)
   }
   // toFiniteOrNull, nicht Number(): sonst zaehlt dynasty_value: null als 0
   // und der Wertmodus wuerde auf einem Board ohne Werte anspringen.
@@ -33,9 +35,12 @@ export function rosterValueSplit({
 
   for (const roster of leagueRosters || []) {
     const players = []
-    for (const id of roster?.players || []) {
+    for (const p of roster?.players || []) {
       total += 1
-      const bp = byId.get(String(id))
+      // Erst ueber sleeper_id, hilfsweise ueber den normalisierten Namen: die
+      // Board-sleeper_id ist bei den ersten ~250 Eintraegen kaputt (Zeilennummer
+      // statt echter ID), der Name ist dort die einzige verlaessliche Bruecke.
+      const bp = byId.get(String(p?.sleeper_id)) ?? (p?.nname ? byName.get(p.nname) : null)
       if (bp) { matched += 1; players.push(bp) }
     }
     perTeam.push({ rosterId: roster?.roster_id ?? null, players })
@@ -79,5 +84,13 @@ export function rosterValueSplit({
     positions.push({ pos, mine, median: med, diff })
   }
 
-  return { mode, positions, coverage: total ? matched / total : 0, teamCount: perTeam.length }
+  return {
+    mode,
+    positions,
+    coverage: total ? matched / total : 0,
+    teamCount: perTeam.length,
+    // Getrennt von coverage: 0/0 (Draft laeuft noch, Sleeper liefert leere Kader)
+    // sieht sonst wie "0 % Deckung" aus -- das waere die falsche Diagnose.
+    totalPlayers: total,
+  }
 }

@@ -24,6 +24,17 @@ const ROSTERS_B = [
   { roster_id: 9, owner_id: 'U9', players: ['900'], starters: ['900'], taxi: [], reserve: [] },
 ]
 
+// leagueRosters wird seit Befund 1 angereichert (Name, normalisierter Name, Position
+// je Spieler statt der rohen ID) -- die Mocks liefern keine playersMeta ('/players/nfl': {}),
+// darum bleibt der Name ueberall der Platzhalter "#<id>" und pos/nname leer.
+function enriched(rosters) {
+  return rosters.map((r) => ({
+    roster_id: r.roster_id,
+    owner_id: r.owner_id,
+    players: r.players.map((id) => ({ sleeper_id: id, name: `#${id}`, nname: '', pos: '' })),
+  }))
+}
+
 // Fetch-Mock fuer den Wettlauf-Test: die Antwort auf `holdKey` wird nicht sofort aufgeloest,
 // sondern haengt in einem Promise, dessen Resolver der Test spaeter selbst aufruft (`resolveHeld`).
 // Es reicht, genau eine Antwort (die des aelteren Aufrufs) zurueckzuhalten - Promise.all im
@@ -59,7 +70,7 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
       seasonYear: '2026',
     })
 
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS))
     expect(useDynastyStore.getState().dynastyRoster).toHaveLength(2)
   })
 
@@ -76,7 +87,7 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
       seasonYear: '2026',
     })
 
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS))
     expect(useDynastyStore.getState().dynastyRoster).toEqual([])
   })
 
@@ -123,7 +134,7 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
       sleeperUserId: 'U1',
       seasonYear: '2026',
     })
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS))
 
     // Dann zu Liga B wechseln, in der der Nutzer keinen eigenen Kader hat.
     await useDynastyStore.getState().loadDynastyRoster({
@@ -132,7 +143,7 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
       seasonYear: '2026',
     })
 
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS_B)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS_B))
     expect(useDynastyStore.getState().dynastyRoster).toEqual([])
   })
 
@@ -159,14 +170,14 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
 
     // B (neuer, schneller) trifft zuerst ein und setzt seine Werte.
     await laufB
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS_B)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS_B))
 
     // Jetzt erst loest die zurueckgehaltene, aeltere Antwort fuer A auf.
     resolveHeld()
     await laufA
 
     // Ohne Schutz wuerde A hier B ueberschreiben - das darf nicht passieren.
-    expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS_B)
+    expect(useDynastyStore.getState().leagueRosters).toEqual(enriched(ROSTERS_B))
     expect(useDynastyStore.getState().mySleeperRosterId).toBe(9)
   })
 

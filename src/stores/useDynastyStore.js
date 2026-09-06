@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { fetchLeagueRosters, fetchTradedPicks } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
+import { normalizePlayerName } from '../utils/formatting'
 
 // Schuetzt vor einem Wettlauf beim schnellen Ligawechsel: wird bei jedem Aufruf
 // von loadDynastyRoster erhoeht. Trifft eine spaeter gestartete Antwort zuerst
@@ -54,9 +55,29 @@ export const useDynastyStore = create((set) => ({
         if (r.roster_id != null && r.owner_id) rMap[String(r.roster_id)] = String(r.owner_id)
       }
       // leagueRosters wird hier gesetzt (nicht erst nach dem myRoster-Fund): auch wenn unten
-      // kein eigener Kader gefunden wird, sind die rohen Liga-Kader fuer den Liga-Feld-Vergleich
+      // kein eigener Kader gefunden wird, sind die Liga-Kader fuer den Liga-Feld-Vergleich
       // brauchbar und bleiben bewusst erhalten.
-      set({ rosterToUserMap: rMap, leagueRosters: rosters || [] })
+      //
+      // Angereichert statt roh: die Board-sleeper_id ist bei den ersten ~250 Eintraegen
+      // kaputt (Zeilennummer statt echter ID, siehe rosterStats.js), darum braucht der
+      // Vergleich dort zusaetzlich den normalisierten Namen als verlaessliche Bruecke.
+      // playersMeta kann einen Spieler nicht kennen (z.B. Free Agents, DEF-Eintraege) --
+      // dann bleibt der Name der Platzhalter "#<id>".
+      const enrichedRosters = (rosters || []).map((r) => ({
+        roster_id: r.roster_id ?? null,
+        owner_id: r.owner_id ?? null,
+        players: (r.players || []).map((id) => {
+          const meta = playersMeta[id] || {}
+          const name = meta.full_name || `#${id}`
+          return {
+            sleeper_id: id,
+            name,
+            nname: normalizePlayerName(name),
+            pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
+          }
+        }),
+      }))
+      set({ rosterToUserMap: rMap, leagueRosters: enrichedRosters })
       const myRoster = (rosters || []).find((r) => String(r.owner_id) === String(sleeperUserId))
       if (!myRoster) { set({ dynastyRoster: [], mySleeperRosterId: null }); return }
       set({ mySleeperRosterId: myRoster.roster_id ?? null })

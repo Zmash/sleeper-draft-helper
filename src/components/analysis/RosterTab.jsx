@@ -2,7 +2,7 @@ import StatCard from './StatCard'
 import { cx, posColor, signed } from '../../utils/formatting'
 
 export default function RosterTab({ split }) {
-  const { mode, positions, coverage, teamCount } = split
+  const { mode, positions, coverage, teamCount, totalPlayers } = split
 
   if (!teamCount) {
     return (
@@ -10,6 +10,19 @@ export default function RosterTab({ split }) {
         <StatCard
           title="Kader gegen das Liga-Feld"
           empty="Nur für echte Ligen — Mock-Drafts haben keine Kader."
+        />
+      </div>
+    )
+  }
+  // Waehrend eines laufenden Drafts liefert Sleeper alle Kader leer (0/0) --
+  // erst nach Draft-Ende sind sie befuellt. Das ist kein Deckungsproblem und
+  // braucht daher eine eigene Meldung statt der "Ranking zu duenn"-Meldung unten.
+  if (!totalPlayers) {
+    return (
+      <div className="an-grid">
+        <StatCard
+          title="Kader gegen das Liga-Feld"
+          empty="Die Kader sind noch leer — Sleeper füllt sie erst nach Ende des Drafts. Danach steht der Vergleich hier zur Verfügung."
         />
       </div>
     )
