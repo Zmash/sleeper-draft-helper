@@ -169,4 +169,36 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
     expect(useDynastyStore.getState().leagueRosters).toEqual(ROSTERS_B)
     expect(useDynastyStore.getState().mySleeperRosterId).toBe(9)
   })
+
+  it('clearDynastyData entwertet einen noch laufenden loadDynastyRoster-Aufruf (Liga abwaehlen waehrend des Ladens)', async () => {
+    const { fetchMock, resolveHeld } = controllableFetch({
+      '/league/L1/rosters': ROSTERS, // haengt, bis der Test sie aufloest
+      '/players/nfl': {},
+    }, '/league/L1/rosters')
+    vi.stubGlobal('fetch', fetchMock)
+    const { useDynastyStore } = await import('./useDynastyStore')
+
+    // Laden fuer Liga L1 anstossen, aber Antwort haengt noch.
+    const lauf = useDynastyStore.getState().loadDynastyRoster({
+      selectedLeagueId: 'L1',
+      sleeperUserId: 'U1',
+      seasonYear: '2026',
+    })
+
+    // Waehrend die Antwort noch aussteht: Liga abwaehlen (z.B. Logout/Mock-Draft-Wechsel).
+    useDynastyStore.getState().clearDynastyData()
+    expect(useDynastyStore.getState().leagueRosters).toEqual([])
+    expect(useDynastyStore.getState().dynastyRoster).toEqual([])
+    expect(useDynastyStore.getState().mySleeperRosterId).toBeNull()
+
+    // Jetzt erst trifft die (veraltete) Antwort fuer L1 ein.
+    resolveHeld()
+    await lauf
+
+    // Der Store muss leer bleiben - die verspaetete Antwort der abgewaehlten Liga
+    // darf nicht mehr zurueckschreiben.
+    expect(useDynastyStore.getState().leagueRosters).toEqual([])
+    expect(useDynastyStore.getState().dynastyRoster).toEqual([])
+    expect(useDynastyStore.getState().mySleeperRosterId).toBeNull()
+  })
 })

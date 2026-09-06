@@ -304,8 +304,7 @@ export default function App() {
   // als die Draft-Picks. Mock-Drafts haben keine league_id und loesen weiterhin nichts aus.
   useEffect(() => {
     if (!selectedLeagueId || !sleeperUserId) {
-      useDynastyStore.getState().setDynastyRoster([])
-      useDynastyStore.getState().setLeagueRosters([])
+      useDynastyStore.getState().clearDynastyData()
       return
     }
     loadDynastyRoster({ selectedLeagueId, sleeperUserId, seasonYear })

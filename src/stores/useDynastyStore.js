@@ -17,11 +17,18 @@ export const useDynastyStore = create((set) => ({
   rosterToUserMap: {},
   tradedPicks: [],
 
-  setDynastyRoster: (v) => set({ dynastyRoster: v }),
-  setLeagueRosters: (v) => set({ leagueRosters: v }),
   setMySleeperRosterId: (v) => set({ mySleeperRosterId: v }),
   setRosterToUserMap: (v) => set({ rosterToUserMap: v }),
   setTradedPicks: (v) => set({ tradedPicks: v }),
+
+  // Leert Kader-Daten UND entwertet gleichzeitig laufende loadDynastyRoster-Aufrufe
+  // (z.B. beim Abwaehlen einer Liga). Das Erhoehen von ladeLauf gehoert untrennbar
+  // zum Leeren dazu: ohne das wuerde ein noch laufender, inzwischen ueberholter
+  // Ladevorgang nach dem Leeren hier seine (veralteten) Daten wieder reinschreiben.
+  clearDynastyData: () => {
+    ladeLauf += 1
+    set({ dynastyRoster: [], leagueRosters: [], mySleeperRosterId: null })
+  },
 
   loadDynastyRoster: async ({ selectedLeagueId, sleeperUserId, seasonYear }) => {
     // Frueher Ruecksprung vor dem ersten await: kein Wettlauf moeglich, schreibt sofort.
