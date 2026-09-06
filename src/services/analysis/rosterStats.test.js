@@ -150,4 +150,30 @@ describe('rosterValueSplit', () => {
     expect(rb.median).toBe(50)
     expect(rb.diff).toBe(-40)  // negativ, weil ich schlechter bin
   })
+
+  it('Rangmodus: Spieler mit leerem ECR wird nicht vor gültigem Rang sortiert', () => {
+    // Befund 2: Ein Spieler mit ecr: '' würde durch Number('') = 0 als bester Rang einsortiert,
+    // wenn nicht gefiltert. Testfall: zwei Spieler an RB im eigenen Kader (einer ecr: '', einer ecr: 30),
+    // nur ein Starter-Slot. Der gültige Spieler (30) sollte den Slot bekommen, nicht der leere.
+    const boardWithEmptyAndValid = [
+      { sleeper_id: '10', nname: 'empty ecr', pos: 'RB', ecr: '' },
+      { sleeper_id: '11', nname: 'valid ecr 30', pos: 'RB', ecr: 30 },
+      { sleeper_id: '12', nname: 'valid ecr 50', pos: 'RB', ecr: 50 },
+    ]
+    const rostersWithBoth = [
+      { roster_id: 1, players: ['10', '11'] },  // mein Kader: einer mit leerem ECR, einer mit 30
+      { roster_id: 2, players: ['12'] },        // zweiter Kader mit 50, damit Median entsteht
+    ]
+    const r = rosterValueSplit({
+      leagueRosters: rostersWithBoth,
+      boardPlayers: boardWithEmptyAndValid,
+      rosterPositions: ['RB'],  // 1 Starter-Slot an RB
+      myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    // Mit neuer Implementierung: Filter entfernt ecr:'', nur ecr:30 bleibt im Kader 1 -> mine = 30
+    // Mit alter Implementierung (ohne Filter): ecr:'' wird zu Number('') = 0, sortiert vor 30 -> mine = 0 (BUG)
+    expect(rb.mine).toBe(30)
+    expect(rb.median).toBe(40)  // (30 + 50) / 2
+  })
 })
