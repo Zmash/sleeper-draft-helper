@@ -102,7 +102,7 @@ function Scarcity({ rows, picksUntilMyNext }) {
       hint="Verfügbare gegen benötigte Spieler je Position — rot markiert, was laut Draft-Tempo vor deinem nächsten Pick weg sein könnte."
       headline={String(featured.available)}
       sub={sub}
-      basis={`Bedarf = (feste Slots + Flex-Anteil) × Teams · nur die ersten ${featured.relevanceLimit} Ränge gezählt`}
+      basis={`Frei = ungedraftete Spieler aus deinem Ranking mit Rang ≤ ${featured.relevanceLimit} · Bedarf = (feste Slots + Flex-Anteil) × Teams`}
     >
       {rows.map((r) => {
         const anteil = deckung(r)
