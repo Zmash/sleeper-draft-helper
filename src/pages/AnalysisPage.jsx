@@ -74,8 +74,10 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
         {TABS.map(([id, label]) => (
           <button
             key={id}
+            id={`an-tab-${id}`}
             role="tab"
             aria-selected={tab === id}
+            aria-controls={`an-panel-${id}`}
             className={cx('an-tab', tab === id && 'is-on')}
             onClick={() => setTab(id)}
           >
@@ -84,11 +86,16 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
         ))}
       </nav>
 
-      {tab === 'draft' && (
-        <DraftTab ranking={ranking} scarcity={scarcity} tiers={tiers} runs={runs} myTeamKey={myTeamKey} />
-      )}
-      {tab === 'roster' && <RosterTab split={split} />}
-      {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}
+      {/* Ein tabpanel je Reiter, per aria-labelledby an seinen Knopf gebunden:
+          sonst hoert ein Screenreader zwar die Reiter, kann den angezeigten
+          Inhalt aber keinem davon zuordnen. */}
+      <div role="tabpanel" id={`an-panel-${tab}`} aria-labelledby={`an-tab-${tab}`}>
+        {tab === 'draft' && (
+          <DraftTab ranking={ranking} scarcity={scarcity} tiers={tiers} runs={runs} myTeamKey={myTeamKey} />
+        )}
+        {tab === 'roster' && <RosterTab split={split} />}
+        {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}
+      </div>
     </section>
   )
 }
