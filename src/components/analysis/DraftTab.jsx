@@ -89,7 +89,9 @@ function Scarcity({ rows }) {
           </svg>
           <span className="an-num">
             {r.exhausted ? 'erschoepft' : `${r.startable}/${r.need}`}
-            {r.vor !== null && <span className="muted"> · Vorsprung {r.vor}</span>}
+            {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
+                Experten-Raenge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
+            {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
           </span>
         </div>
       ))}
@@ -116,7 +118,13 @@ function Tiers({ rows }) {
       {rows.map((r) => (
         <div className="an-row" key={r.pos}>
           <span className="an-pos" style={{ background: posColor(r.pos) }}>{r.pos}</span>
-          <div className="an-tierbar">
+          <div
+            className="an-tierbar"
+            role="img"
+            aria-label={r.activeTier !== null
+              ? `${r.pos}: Tier ${r.activeTier} ist das beste offene, ${r.remainingInActive} Spieler frei`
+              : `${r.pos}: alle Tiers leer`}
+          >
             {r.tiers.map((t) => (
               <span
                 key={t.tier}
