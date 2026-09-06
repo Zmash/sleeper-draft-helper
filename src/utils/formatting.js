@@ -46,7 +46,10 @@ export const fantasyProsSlug = (name) =>
     .replace(/^-+|-+$/g, '')
 
 /** Positionsfarbe als CSS-var mit Rueckfall, fuer inline styles. */
-export const posColor = (pos) => `var(--pos-${String(pos || '').toLowerCase()}, #666)`
+// normalizePos zuerst: ein roher Wert wie "D/ST" ergaebe var(--pos-d/st, #666),
+// und der Schraegstrich macht den ganzen Ausdruck ungueltig — dann greift nicht
+// einmal der Rueckfallwert und die Kachel bliebe farblos.
+export const posColor = (pos) => `var(--pos-${normalizePos(pos).toLowerCase()}, #666)`
 
 /** Zahl mit sichtbarem Vorzeichen, gerundet. 0 bleibt "0". */
 export const signed = (n) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toFiniteOrNull, normalizePlayerName, normalizePos, signed } from './formatting'
+import { toFiniteOrNull, normalizePlayerName, normalizePos, signed, posColor } from './formatting'
 
 describe('toFiniteOrNull', () => {
   it('echte Zahl kommt durch', () => {
@@ -66,5 +66,24 @@ describe('signed', () => {
     expect(signed(3.6)).toBe('+4')
     expect(signed(-2.4)).toBe('-2')
     expect(signed(-2.6)).toBe('-3')
+  })
+})
+
+describe('posColor', () => {
+  it('baut die CSS-Variable aus der normalisierten Position', () => {
+    expect(posColor('RB')).toBe('var(--pos-rb, #666)')
+    expect(posColor('rb')).toBe('var(--pos-rb, #666)')
+  })
+
+  it('normalisiert D/ST zu def - roh waere der Ausdruck ungueltig (Regression)', () => {
+    // var(--pos-d/st, #666) ist kein gueltiges CSS: der Schraegstrich bricht das
+    // Ident-Token, damit faellt die ganze Deklaration weg statt auf #666.
+    expect(posColor('D/ST')).toBe('var(--pos-def, #666)')
+    expect(posColor('DST')).toBe('var(--pos-def, #666)')
+  })
+
+  it('leere Eingaben ergeben einen syntaktisch gueltigen Ausdruck', () => {
+    expect(posColor(null)).toBe('var(--pos-, #666)')
+    expect(posColor('')).toBe('var(--pos-, #666)')
   })
 })
