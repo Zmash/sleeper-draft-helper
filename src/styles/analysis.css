@@ -146,14 +146,23 @@
   border-radius: 5px;
 }
 
+/* Durchschnitt: bewusst zurueckhaltender als die eigene Pick-Marke -- kuerzer,
+   duenner, gedaempft. Die beiden duerfen sich nicht verwechseln lassen. */
 .an-wadp {
-  position: absolute; top: -2px; width: 2px; height: 14px;
+  position: absolute; top: 1px; width: 2px; height: 8px;
   background: var(--fg, #eee);
+  opacity: .55;
 }
 
+/* Die eigene Pick-Nummer ist die wichtigste Marke der Zeile und darf nicht
+   in der Balkenfarbe untergehen -- in gruenen Themes ist --good fast der
+   Akzent. Heller Kern mit dunkler Fassung haelt sie auf jedem Untergrund
+   sichtbar, ohne eine weitere Farbe einzufuehren. */
 .an-wmine {
-  position: absolute; top: -4px; width: 2px; height: 18px;
-  background: var(--good, #4ec97b);
+  position: absolute; top: -5px; width: 3px; height: 20px;
+  background: var(--fg, #eee);
+  box-shadow: 0 0 0 1px var(--card-bg, #161616);
+  border-radius: 1px;
 }
 
 @media (max-width: 720px) {
@@ -215,5 +224,5 @@
 
 .an-wkey { display: inline-block; }
 .an-wkey--range { width: 14px; height: 6px; border-radius: 3px; background: var(--accent, #4ea1ff); opacity: .45; }
-.an-wkey--adp { width: 2px; height: 11px; background: var(--fg, #eee); }
-.an-wkey--mine { width: 2px; height: 13px; background: var(--good, #4ec97b); }
+.an-wkey--adp { width: 2px; height: 8px; background: var(--fg, #eee); opacity: .55; }
+.an-wkey--mine { width: 3px; height: 14px; background: var(--fg, #eee); border-radius: 1px; }
