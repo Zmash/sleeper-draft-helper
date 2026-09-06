@@ -298,15 +298,21 @@ export default function App() {
     // draftMode bewusst NICHT in den Deps -- die if-Guard oben verhindert die Endlosschleife.
   }, [selectedLeague?.league_id, selectedLeague?.settings?.type, selectedDraft?.draft_id]) // eslint-disable-line
 
-  // Dynasty roster + traded picks
+  // Liga-Kader werden fuer JEDE echte Liga geladen, nicht nur im Rookie-Modus: die
+  // Analyse-Seite vergleicht den eigenen Kader gegen das Liga-Feld, und in einer
+  // Redraft-Liga ist der aktuelle Stand (nach Waivers/Trades) eine andere Information
+  // als die Draft-Picks. Mock-Drafts haben keine league_id und loesen weiterhin nichts aus.
   useEffect(() => {
-    if (draftMode !== 'rookie' || !selectedLeagueId || !sleeperUserId) {
+    if (!selectedLeagueId || !sleeperUserId) {
       useDynastyStore.getState().setDynastyRoster([])
+      useDynastyStore.getState().setLeagueRosters([])
       return
     }
     loadDynastyRoster({ selectedLeagueId, sleeperUserId, seasonYear })
-  }, [draftMode, selectedLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
+  }, [selectedLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
 
+  // Getauschte Draft-Picks bleiben ein reines Dynasty-Thema -- unveraendert an
+  // draftMode === 'rookie' gebunden.
   useEffect(() => {
     if (draftMode !== 'rookie' || !selectedDraftId) { loadTradedPicks(null); return }
     loadTradedPicks(selectedDraftId)
