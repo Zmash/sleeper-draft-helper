@@ -155,9 +155,9 @@ export function tierUsage({ boardPlayers = [], picks = [] }) {
   const byPos = new Map()
 
   for (const bp of boardPlayers || []) {
-    const tier = Number(String(bp?.tier ?? '').trim())
+    const tier = toFiniteOrNull(bp?.tier)
     const pos = normalizePos(bp?.pos)
-    if (!Number.isFinite(tier) || tier <= 0 || !pos) continue
+    if (tier === null || tier <= 0 || !pos) continue
 
     if (!byPos.has(pos)) byPos.set(pos, new Map())
     const tiers = byPos.get(pos)

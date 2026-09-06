@@ -220,6 +220,23 @@ describe('tierUsage', () => {
     const picks = [{ pick_no: 1, metadata: { first_name: 'D', last_name: 'D' } }]
     const r = tierUsage({ boardPlayers: [board[3]], picks })
     expect(r.find((x) => x.pos === 'WR').activeTier).toBeNull()
+    expect(r.find((x) => x.pos === 'WR').remainingInActive).toBe(0)
+  })
+
+  it('Tiers werden aufsteigend sortiert auch wenn Board sie absteigend hat', () => {
+    // Board mit Tiers in absteigender Reihenfolge (10 vor 2)
+    const unsortedBoard = [
+      { nname: 'ann berg', name: 'Ann Berg', pos: 'RB', tier: '10' },
+      { nname: 'carl dorn', name: 'Carl Dorn', pos: 'RB', tier: '2' },
+    ]
+    const picks = []
+    const r = tierUsage({ boardPlayers: unsortedBoard, picks })
+    const rb = r.find((x) => x.pos === 'RB')
+    // Tiers müssen aufsteigend sein, nicht lexikografisch oder in Board-Reihenfolge
+    expect(rb.tiers.map((t) => t.tier)).toEqual([2, 10])
+    // Aktives Tier ist das kleinste mit Restbestand
+    expect(rb.activeTier).toBe(2)
+    expect(rb.remainingInActive).toBe(1)
   })
 
   it('Board ohne jede Tier-Spalte liefert eine leere Liste', () => {
