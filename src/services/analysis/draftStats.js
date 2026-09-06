@@ -5,6 +5,7 @@
 // als sein Rang vermuten liess, also unter Wert geholt.
 import { normalizePlayerName, normalizePos, toFiniteOrNull } from '../../utils/formatting'
 import { teamKeyFromPick } from '../derive'
+import { FORMAT_DEFAULTS } from '../draftFormat'
 
 /** Board -> Map normalisierter Name -> { ecr, name }. Nur mit numerischem ecr. */
 function ecrByName(boardPlayers = []) {
@@ -115,11 +116,30 @@ export function starterSlots(pos, rosterPositions = []) {
   return n
 }
 
+// Puffer ueber die reine Pickzahl (teamsCount x rounds) hinaus: ein reales
+// Ranking und ein realer Draft stimmen nie exakt ueberein (Team-Bedarf,
+// persoenliche Boards, Reaches), also ist ein Spieler knapp hinter der
+// letzten Pick-Nummer noch realistisch erreichbar. 25% sind ein Mittelweg --
+// 0% wuerde jeden Reach faelschlich als "nicht mehr draftbar" ausschliessen,
+// ein Vielfaches wuerde den Bugreport-Fall (Rang 200+ zaehlt mit) reproduzieren.
+const RELEVANCE_BUFFER = 1.25
+
 export function positionalScarcity({
-  boardPlayers = [], picks = [], rosterPositions = [], teamsCount = 12,
+  boardPlayers = [], picks = [], rosterPositions = [], teamsCount = 12, rounds = null,
 }) {
   const taken = new Set((picks || []).map(pickName).filter(Boolean))
   const teams = Number(teamsCount) || 0
+
+  // Ohne Rundenzahl (z.B. ein Mock-Draft ohne eigene Einstellung) gilt derselbe
+  // Rueckfall wie in deriveFormat() -- FORMAT_DEFAULTS.rounds. Ein zweiter,
+  // abweichender Standardwert waere nur eine weitere Quelle der Wahrheit.
+  const effRounds = toFiniteOrNull(rounds) > 0 ? toFiniteOrNull(rounds) : FORMAT_DEFAULTS.rounds
+  // Alles jenseits dieses Rangs wird in dieser Liga nie gedraftet -- so ein
+  // Spieler darf den "verfuegbar"-Zaehler nicht mehr aufblaehen (Kernproblem
+  // aus dem Bugreport: 361 verfuegbare RB bei Bedarf 28, weil das ganze Board
+  // mitgezaehlt wurde).
+  const relevanceLimit = Math.round(teams * effRounds * RELEVANCE_BUFFER)
+
   const out = []
 
   for (const pos of SCARCITY_POS) {
@@ -130,7 +150,9 @@ export function positionalScarcity({
     // gueltiger Rang 0 -- der beste Spieler ueberhaupt.
     const pool = (boardPlayers || [])
       .filter((bp) => {
-        if (toFiniteOrNull(bp?.ecr) === null) return false
+        const ecr = toFiniteOrNull(bp?.ecr)
+        if (ecr === null) return false
+        if (ecr > relevanceLimit) return false
         if (normalizePos(bp?.pos) !== pos) return false
         if (!bp?.nname) return false
         if (taken.has(bp.nname)) return false
@@ -154,6 +176,8 @@ export function positionalScarcity({
       vor: (best && replacement)
         ? toFiniteOrNull(replacement.ecr) - toFiniteOrNull(best.ecr)
         : null,
+      // Fuer die Fusszeile: die Kachel muss offenlegen, worauf "available" beruht.
+      relevanceLimit,
     })
   }
   return out

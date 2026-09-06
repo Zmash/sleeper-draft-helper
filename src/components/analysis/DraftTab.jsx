@@ -85,7 +85,7 @@ function Scarcity({ rows }) {
       hint="Verfügbare Spieler, die es für die Liga noch gibt — gemessen am Bedarf aller Teams."
       headline={knappste.exhausted ? 'erschöpft' : `${knappste.available}/${knappste.need}`}
       sub={`${knappste.pos} am knappsten`}
-      basis="Bedarf = Teams x Starter-Slots, FLEX anteilig"
+      basis={`Bedarf = Teams x Starter-Slots, FLEX anteilig · nur die ersten ${knappste.relevanceLimit} Ränge gezählt`}
     >
       {rows.map((r) => (
         <div className="an-row" key={r.pos}>

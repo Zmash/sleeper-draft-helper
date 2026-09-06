@@ -17,7 +17,7 @@ import '../styles/analysis.css'
 
 const TABS = [['draft', 'Draft'], ['roster', 'Kader'], ['market', 'Markt']]
 
-export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draftSlot }) {
+export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft }) {
   const [tab, setTab] = useState('draft')
   const { sleeperUserId } = useSessionStore()
   const { boardPlayers } = useBoardStore()
@@ -46,8 +46,11 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
     [livePicks, boardPlayers, teams, ownerLabels, myTeamKey]
   )
   const scarcity = useMemo(
-    () => positionalScarcity({ boardPlayers, picks: livePicks, rosterPositions: effRoster, teamsCount: teams }),
-    [boardPlayers, livePicks, effRoster, teams]
+    () => positionalScarcity({
+      boardPlayers, picks: livePicks, rosterPositions: effRoster, teamsCount: teams,
+      rounds: selectedDraft?.settings?.rounds,
+    }),
+    [boardPlayers, livePicks, effRoster, teams, selectedDraft?.settings?.rounds]
   )
   const tiers = useMemo(
     () => tierUsage({ boardPlayers, picks: livePicks }),

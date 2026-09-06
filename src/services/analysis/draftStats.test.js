@@ -181,10 +181,13 @@ describe('positionalScarcity', () => {
     { nname: 'jonathan taylor', name: 'Jonathan Taylor', pos: 'RB', ecr: 10 },
   ]
 
+  // rounds explizit gesetzt (statt den FORMAT_DEFAULTS-Rueckfall zu nutzen):
+  // 2 Teams x 16 Runden x 1.25 Puffer = 40 -- weit ueber dem hoechsten ecr
+  // (10) im Fixture, der Relevanzfilter greift in diesen Tests also nicht ein.
   it('Replacement ist der bedarf-te verfuegbare Spieler', () => {
     // 2 Teams x 2 RB-Slots = Bedarf 4 -> Replacement ist ecr 4
     const r = positionalScarcity({
-      boardPlayers: rbBoard, picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 2,
+      boardPlayers: rbBoard, picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 2, rounds: 16,
     })
     const rb = r.find((x) => x.pos === 'RB')
     expect(rb.need).toBe(4)
@@ -200,7 +203,7 @@ describe('positionalScarcity', () => {
       { pick_no: 2, metadata: { first_name: 'Josh', last_name: 'Allen', position: 'RB' } },
     ]
     const r = positionalScarcity({
-      boardPlayers: rbBoard, picks, rosterPositions: ['RB', 'RB'], teamsCount: 2,
+      boardPlayers: rbBoard, picks, rosterPositions: ['RB', 'RB'], teamsCount: 2, rounds: 16,
     })
     const rb = r.find((x) => x.pos === 'RB')
     expect(rb.available).toBe(8)
@@ -210,7 +213,7 @@ describe('positionalScarcity', () => {
 
   it('weniger verfuegbar als Bedarf -> erschoepft, kein Replacement', () => {
     const r = positionalScarcity({
-      boardPlayers: rbBoard.slice(0, 2), picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 12,
+      boardPlayers: rbBoard.slice(0, 2), picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 12, rounds: 16,
     })
     const rb = r.find((x) => x.pos === 'RB')
     expect(rb.exhausted).toBe(true)
@@ -221,16 +224,73 @@ describe('positionalScarcity', () => {
   it('Bruchteile werden erst nach der Multiplikation gerundet', () => {
     // 12 Teams x 1/3 FLEX = 4.0 -> Bedarf 4, nicht 12 x round(1/3) = 0
     const r = positionalScarcity({
-      boardPlayers: rbBoard, picks: [], rosterPositions: ['FLEX'], teamsCount: 12,
+      boardPlayers: rbBoard, picks: [], rosterPositions: ['FLEX'], teamsCount: 12, rounds: 16,
     })
     expect(r.find((x) => x.pos === 'RB').need).toBe(4)
   })
 
   it('Position ohne Starter-Slot taucht nicht auf', () => {
     const r = positionalScarcity({
-      boardPlayers: rbBoard, picks: [], rosterPositions: ['QB'], teamsCount: 12,
+      boardPlayers: rbBoard, picks: [], rosterPositions: ['QB'], teamsCount: 12, rounds: 16,
     })
     expect(r.find((x) => x.pos === 'RB')).toBeUndefined()
+  })
+
+  it('ohne Rundenzahl greift derselbe Rueckfall wie deriveFormat (FORMAT_DEFAULTS.rounds)', () => {
+    // Kein rounds-Feld (z.B. Mock-Draft ohne eigene Einstellung): 2 Teams x
+    // FORMAT_DEFAULTS.rounds(16) x 1.25 Puffer = 40 -- deckt das Fixture
+    // (ecr bis 10) komplett ab, exakt wie mit explizit gesetztem rounds: 16.
+    const r = positionalScarcity({
+      boardPlayers: rbBoard, picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 2,
+    })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.available).toBe(10)
+    expect(rb.relevanceLimit).toBe(40)
+  })
+
+  it('Spieler weit hinter der Pickzahl blaehen "available" nicht auf', () => {
+    // 12 Teams x 14 Runden x 1.25 Puffer = 210 Relevanzgrenze. 5 relevante RB
+    // (ecr 1-5) plus 50 voellig irrelevante (ecr 300+, weit jenseits jeder
+    // realistischen Pickzahl in dieser Liga) -- ohne Filter waeren es 55.
+    const relevant = rbBoard.slice(0, 5)
+    const irrelevant = Array.from({ length: 50 }, (_, i) => ({
+      nname: `bench rb ${i}`, name: `Bench RB ${i}`, pos: 'RB', ecr: 300 + i,
+    }))
+    const r = positionalScarcity({
+      boardPlayers: [...relevant, ...irrelevant],
+      picks: [],
+      rosterPositions: ['RB', 'RB'],
+      teamsCount: 12,
+      rounds: 14,
+    })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.relevanceLimit).toBe(210)
+    expect(rb.available).toBe(5)     // nicht 55
+    expect(rb.exhausted).toBe(true)  // 5 verfuegbar, aber 24 Slots (12 x 2) noetig
+  })
+
+  it('Position wird sichtbar knapp, wenn der relevante Pool schrumpft', () => {
+    // 3 Teams x 2 RB-Slots = Bedarf 6, genau 6 relevante RB im Board.
+    const board = rbBoard.slice(0, 6)
+    const before = positionalScarcity({
+      boardPlayers: board, picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 3, rounds: 10,
+    })
+    const rbBefore = before.find((x) => x.pos === 'RB')
+    expect(rbBefore.available).toBe(6)
+    expect(rbBefore.exhausted).toBe(false)
+
+    // Zwei der sechs relevanten RB werden gedraftet -> der Pool schrumpft
+    // sichtbar unter den Bedarf.
+    const picks = [
+      { pick_no: 1, metadata: { first_name: 'Joe', last_name: 'Burrow', position: 'RB' } },
+      { pick_no: 2, metadata: { first_name: 'Josh', last_name: 'Allen', position: 'RB' } },
+    ]
+    const after = positionalScarcity({
+      boardPlayers: board, picks, rosterPositions: ['RB', 'RB'], teamsCount: 3, rounds: 10,
+    })
+    const rbAfter = after.find((x) => x.pos === 'RB')
+    expect(rbAfter.available).toBe(4)
+    expect(rbAfter.exhausted).toBe(true)
   })
 })
 
