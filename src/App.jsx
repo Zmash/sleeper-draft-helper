@@ -31,7 +31,7 @@ import { applyTheme } from './theme/applyTheme'
 import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
 import ShareTargetPage from './pages/ShareTargetPage'
-import RosterPage from './pages/RosterPage'
+import AnalysisPage from './pages/AnalysisPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
 import ProfilesPage from './pages/ProfilesPage'
@@ -388,7 +388,7 @@ export default function App() {
       <Route path="/setup" element={<SetupPage {...pageProps} isAndroid={isAndroid} />} />
       <Route path="/board" element={<BoardPage {...pageProps} />} />
       <Route path="/share-target" element={<ShareTargetPage />} />
-      <Route path="/roster" element={<RosterPage {...pageProps} />} />
+      <Route path="/roster" element={<AnalysisPage {...pageProps} />} />
       <Route path="/trade" element={<TradePage selectedLeague={selectedLeague} />} />
       <Route path="/profiles" element={<ProfilesPage />} />
       <Route path="*" element={<RootRedirect />} />

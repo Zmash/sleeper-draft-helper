@@ -21,7 +21,7 @@ const RAIL = [
   { icon: 'home', tip: 'Dashboard', path: '/dashboard' },
   { icon: 'board', tip: 'Board', path: '/board' },
   { icon: 'swap', tip: 'Trade', path: '/trade' },
-  { icon: 'chart', tip: 'Roster & Analyse', path: '/roster' },
+  { icon: 'chart', tip: 'Analyse', path: '/roster' },
 ]
 
 export default function NextShell({ children, pageProps = {} }) {
@@ -84,7 +84,7 @@ export default function NextShell({ children, pageProps = {} }) {
     ...(pageProps.draftFinished ? [{ group: 'AI', label: 'AI-Draft-Review öffnen', run: () => pageProps.onOpenDraftReview?.() }] : []),
     { group: 'Gehe zu', label: 'Board', keys: 'G B', run: () => navigate('/board') },
     { group: 'Gehe zu', label: 'Dashboard', keys: 'G D', run: () => navigate('/dashboard') },
-    { group: 'Gehe zu', label: 'Roster & Analyse', keys: 'G R', run: () => navigate('/roster') },
+    { group: 'Gehe zu', label: 'Analyse', keys: 'G R', run: () => navigate('/roster') },
     { group: 'Gehe zu', label: 'Trade-Analyse', keys: 'G T', run: () => navigate('/trade') },
     { group: 'Gehe zu', label: 'Liga/Mock-Setup', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },
