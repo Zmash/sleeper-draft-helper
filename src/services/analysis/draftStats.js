@@ -104,16 +104,59 @@ const FLEX_SLOTS = {
  * Starter-Slots einer Position, Flex anteilig.
  * @returns {number} kann gebrochen sein -- erst nach x teamsCount runden.
  */
-export function starterSlots(pos, rosterPositions = []) {
+/**
+ * Wie starterSlots, aber mit fester/anteiliger Herkunft getrennt -- die
+ * Scarcity-Kachel zeigt diese Aufschluesselung an, sonst ist "Bedarf 28" bei
+ * FLEX-Ligen eine unerklaerte Zahl (siehe Nutzer-Nachfrage: "wieso genau 28
+ * WR und RB, wieso 16 TE").
+ */
+export function starterSlotsBreakdown(pos, rosterPositions = []) {
   const want = String(pos || '').toUpperCase()
-  let n = 0
+  let dedicated = 0
+  let flexShare = 0
   for (const raw of rosterPositions || []) {
     const slot = String(raw || '').toUpperCase()
-    if (slot === want) { n += 1; continue }
+    if (slot === want) { dedicated += 1; continue }
     const takers = FLEX_SLOTS[slot]
-    if (takers && takers.includes(want)) n += 1 / takers.length
+    if (takers && takers.includes(want)) flexShare += 1 / takers.length
   }
-  return n
+  return { dedicated, flexShare }
+}
+
+export function starterSlots(pos, rosterPositions = []) {
+  const { dedicated, flexShare } = starterSlotsBreakdown(pos, rosterPositions)
+  return dedicated + flexShare
+}
+
+// Fuer die Anzeige "(2+⅓) × 12" statt einer nichtssagenden Dezimalzahl --
+// nur die ueblichen Flex-Nenner (2/3/4 Positionen teilen sich einen Slot).
+const FLEX_FRACTION_LABELS = [
+  [0.25, '¼'], [1 / 3, '⅓'], [0.5, '½'], [2 / 3, '⅔'], [0.75, '¾'],
+]
+function formatFlexShare(share) {
+  for (const [value, label] of FLEX_FRACTION_LABELS) {
+    if (Math.abs(share - value) < 0.001) return label
+  }
+  return share.toFixed(2)
+}
+
+function formatComposition(dedicated, flexShare, teams) {
+  const flexPart = flexShare > 0.001 ? `+${formatFlexShare(flexShare)}` : ''
+  return `(${dedicated}${flexPart}) × ${teams}`
+}
+
+/** Wie oft wurde jede Position bisher gepickt -- Tempo-Grundlage fuer die
+ * Hochrechnung "was ist wohl weg, bevor ich wieder dran bin". */
+function pickPositionCounts(picks = []) {
+  const counts = {}
+  let total = 0
+  for (const p of picks || []) {
+    const pos = normalizePos(p?.metadata?.position)
+    if (!pos) continue
+    counts[pos] = (counts[pos] || 0) + 1
+    total += 1
+  }
+  return { counts, total }
 }
 
 // Puffer ueber die reine Pickzahl (teamsCount x rounds) hinaus: ein reales
@@ -126,6 +169,10 @@ const RELEVANCE_BUFFER = 1.25
 
 export function positionalScarcity({
   boardPlayers = [], picks = [], rosterPositions = [], teamsCount = 12, rounds = null,
+  // Picks bis zu meinem naechsten Zug (aus derive.js:picksUntilMyNext) --
+  // ohne diesen Wert (Zuschauer, Draft vorbei) bleiben projected/atRisk
+  // schlicht null/false, der Rest der Funktion aendert sich nicht.
+  picksUntilMyNext = null,
 }) {
   const taken = new Set((picks || []).map(pickName).filter(Boolean))
   const teams = Number(teamsCount) || 0
@@ -140,10 +187,14 @@ export function positionalScarcity({
   // mitgezaehlt wurde).
   const relevanceLimit = Math.round(teams * effRounds * RELEVANCE_BUFFER)
 
+  const { counts: posCounts, total: totalPicks } = pickPositionCounts(picks)
+  const untilMyNext = toFiniteOrNull(picksUntilMyNext)
+
   const out = []
 
   for (const pos of SCARCITY_POS) {
-    const need = Math.round(teams * starterSlots(pos, rosterPositions))
+    const { dedicated, flexShare } = starterSlotsBreakdown(pos, rosterPositions)
+    const need = Math.round(teams * (dedicated + flexShare))
     if (need <= 0) continue
 
     // toFiniteOrNull statt Number(): Number(null) waere 0 und damit ein
@@ -164,12 +215,24 @@ export function positionalScarcity({
     const best = pool[0] || null
     const replacement = exhausted ? null : pool[need - 1]
 
+    // Tempo dieser Position (Anteil an allen bisherigen Picks) auf die Picks
+    // bis zu meinem naechsten Zug hochgerechnet. atRisk heisst: bei diesem
+    // Tempo waere der relevante Pool leer, bevor ich wieder dran bin -- das
+    // ist die live-relevante Frage, "exhausted" (saisonlanger Bedarf) ist es
+    // nur strukturell.
+    const rate = totalPicks > 0 ? (posCounts[pos] || 0) / totalPicks : 0
+    const projected = untilMyNext !== null ? Math.round(rate * untilMyNext) : null
+    const atRisk = pool.length > 0 && projected !== null && projected >= pool.length
+
     out.push({
       pos,
       need,
       available: pool.length,
       startable: Math.min(pool.length, need),
       exhausted,
+      projected,
+      atRisk,
+      compositionShort: formatComposition(dedicated, flexShare, teams),
       bestName: best?.name || null,
       bestEcr: best ? toFiniteOrNull(best.ecr) : null,
       replacementEcr: replacement ? toFiniteOrNull(replacement.ecr) : null,

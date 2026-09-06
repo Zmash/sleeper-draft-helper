@@ -8,7 +8,7 @@ import {
 } from '../services/analysis/draftStats'
 import { rosterValueSplit } from '../services/analysis/rosterStats'
 import { marketDisagreement } from '../services/analysis/marketStats'
-import { teamKeyFromPick } from '../services/derive'
+import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '../services/derive'
 import DraftTab from '../components/analysis/DraftTab'
 import RosterTab from '../components/analysis/RosterTab'
 import MarketTab from '../components/analysis/MarketTab'
@@ -41,6 +41,11 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
 
   const nextPickNo = (livePicks?.length || 0) + 1
 
+  const myPicksUntilNext = useMemo(
+    () => computePicksUntilMyNext({ picks: livePicks, meUserId: sleeperUserId, teamsCount: teams, draftSlot }),
+    [livePicks, sleeperUserId, teams, draftSlot]
+  )
+
   const ranking = useMemo(
     () => teamDraftRanking({ picks: livePicks, boardPlayers, teamsCount: teams, ownerLabels, myTeamKey }),
     [livePicks, boardPlayers, teams, ownerLabels, myTeamKey]
@@ -48,9 +53,9 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
   const scarcity = useMemo(
     () => positionalScarcity({
       boardPlayers, picks: livePicks, rosterPositions: effRoster, teamsCount: teams,
-      rounds: selectedDraft?.settings?.rounds,
+      rounds: selectedDraft?.settings?.rounds, picksUntilMyNext: myPicksUntilNext,
     }),
-    [boardPlayers, livePicks, effRoster, teams, selectedDraft?.settings?.rounds]
+    [boardPlayers, livePicks, effRoster, teams, selectedDraft?.settings?.rounds, myPicksUntilNext]
   )
   const tiers = useMemo(
     () => tierUsage({ boardPlayers, picks: livePicks }),
@@ -94,7 +99,10 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
           Inhalt aber keinem davon zuordnen. */}
       <div role="tabpanel" id={`an-panel-${tab}`} aria-labelledby={`an-tab-${tab}`}>
         {tab === 'draft' && (
-          <DraftTab ranking={ranking} scarcity={scarcity} tiers={tiers} runs={runs} myTeamKey={myTeamKey} />
+          <DraftTab
+            ranking={ranking} scarcity={scarcity} tiers={tiers} runs={runs}
+            myTeamKey={myTeamKey} picksUntilMyNext={myPicksUntilNext}
+          />
         )}
         {tab === 'roster' && <RosterTab split={split} />}
         {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}

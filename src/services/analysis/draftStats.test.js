@@ -292,6 +292,54 @@ describe('positionalScarcity', () => {
     expect(rbAfter.available).toBe(4)
     expect(rbAfter.exhausted).toBe(true)
   })
+
+  it('compositionShort zeigt feste Slots und Flex-Anteil getrennt', () => {
+    // 2 feste RB-Slots + 1 FLEX (RB/WR/TE, je 1/3) -- reproduziert die vom
+    // Nutzer angefragten Werte: (2+1/3) x 12 = 28.
+    const r = positionalScarcity({
+      boardPlayers: rbBoard, picks: [], rosterPositions: ['RB', 'RB', 'FLEX'], teamsCount: 12, rounds: 16,
+    })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.need).toBe(28)
+    expect(rb.compositionShort).toBe('(2+⅓) × 12')
+  })
+
+  it('ohne picksUntilMyNext bleibt projected/atRisk unveraendert (Rueckwaertskompatibilitaet)', () => {
+    const r = positionalScarcity({
+      boardPlayers: rbBoard.slice(0, 2), picks: [], rosterPositions: ['RB', 'RB'], teamsCount: 12, rounds: 16,
+    })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.projected).toBeNull()
+    expect(rb.atRisk).toBe(false)
+  })
+
+  it('atRisk, wenn das Tempo der Position den relevanten Pool vor dem naechsten eigenen Pick leeren wuerde', () => {
+    // 3 von 4 bisherigen Picks waren RB -> Tempo 0.75. Bei 4 Picks bis zum
+    // naechsten eigenen Zug sind das hochgerechnet 3 RB -- genau so viele
+    // relevante RB sind noch da (Pool exakt so gross wie die Prognose).
+    const picks = [
+      { pick_no: 1, metadata: { first_name: 'Joe', last_name: 'Burrow', position: 'RB' } },
+      { pick_no: 2, metadata: { first_name: 'Josh', last_name: 'Allen', position: 'RB' } },
+      { pick_no: 3, metadata: { first_name: 'Patrick', last_name: 'Mahomes', position: 'RB' } },
+      { pick_no: 4, metadata: { first_name: 'Someone', last_name: 'Else', position: 'WR' } },
+    ]
+    const r = positionalScarcity({
+      boardPlayers: rbBoard, picks, rosterPositions: ['RB', 'RB'], teamsCount: 12, rounds: 16,
+      picksUntilMyNext: 4,
+    })
+    const rb = r.find((x) => x.pos === 'RB')
+    expect(rb.available).toBe(7)   // 10 - 3 gepickte
+    expect(rb.projected).toBe(3)   // round(0.75 * 4)
+    expect(rb.atRisk).toBe(false)  // 3 < 7, Pool haelt
+
+    const r2 = positionalScarcity({
+      boardPlayers: rbBoard, picks, rosterPositions: ['RB', 'RB'], teamsCount: 12, rounds: 16,
+      picksUntilMyNext: 10,
+    })
+    const rb2 = r2.find((x) => x.pos === 'RB')
+    expect(rb2.projected).toBe(8)  // round(0.75 * 10)
+    expect(rb2.atRisk).toBe(true)  // 8 >= 7 verfuegbare
+  })
 })
 
 import { tierUsage } from './draftStats'

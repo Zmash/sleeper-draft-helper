@@ -64,7 +64,7 @@ function TeamRanking({ r, myTeamKey }) {
   )
 }
 
-function Scarcity({ rows }) {
+function Scarcity({ rows, picksUntilMyNext }) {
   if (!rows.length) {
     return <StatCard title="Positionsknappheit" empty="Kein Ranking importiert." />
   }
@@ -75,21 +75,35 @@ function Scarcity({ rows }) {
   // gleich lang aus -- bei genau gegensaetzlicher Lage. "Voll" heisst jetzt
   // ueberall dasselbe: der Bedarf der Liga ist gedeckt.
   const deckung = (r) => (r.need > 0 ? r.available / r.need : 0)
-  const knappste = rows.slice().sort((a, b) => deckung(a) - deckung(b))[0]
+
+  // Live-relevant schlaegt saisonlang: welche Position ist es wert, JETZT
+  // gezogen zu werden, weil sie laut Tempo vor meinem naechsten Pick weg
+  // waere? Ohne bekannten naechsten Pick (Zuschauer, Draft vorbei) hat keine
+  // Zeile atRisk=true, und es faellt automatisch auf die alte, saisonlange
+  // Betrachtung (Deckungsgrad) zurueck.
+  const atRiskRows = rows.filter((r) => r.atRisk)
+  const featured = atRiskRows.length
+    ? atRiskRows.slice().sort((a, b) => (b.projected - b.available) - (a.projected - a.available))[0]
+    : rows.slice().sort((a, b) => deckung(a) - deckung(b))[0]
+
+  const sub = featured.atRisk
+    ? `${featured.pos}: laut Tempo weg, bevor du in ${picksUntilMyNext} Picks dran bist`
+    : (featured.exhausted
+        ? `${featured.pos} reicht nicht mehr für alle Teams`
+        : `${featured.pos} am knappsten`)
 
   return (
     <StatCard
       title="Positionsknappheit"
-      hint="Verfügbare Spieler, die es für die Liga noch gibt — gemessen am Bedarf aller Teams."
-      headline={`${knappste.available}/${knappste.need}`}
-      sub={knappste.exhausted
-        ? `${knappste.pos} reicht nicht mehr für alle Teams`
-        : `${knappste.pos} am knappsten`}
-      basis={`Bedarf = Teams x Starter-Slots, FLEX anteilig · nur die ersten ${knappste.relevanceLimit} Ränge gezählt`}
+      hint="Bedarf je Position (Slots + anteiliger Flex) gegen verfügbare Spieler — rot markiert, was laut Draft-Tempo vor deinem nächsten Pick weg sein könnte."
+      headline={`${featured.available}/${featured.need}`}
+      sub={sub}
+      basis={`Bedarf = (feste Slots + Flex-Anteil) × Teams · nur die ersten ${featured.relevanceLimit} Ränge gezählt`}
     >
       {rows.map((r) => {
         const anteil = deckung(r)
         const prozent = Math.round(anteil * 100)
+        const risky = r.exhausted || r.atRisk
         return (
           <div className="an-row" key={r.pos}>
             <span className="an-pos" style={{ background: posColor(r.pos) }}>{r.pos}</span>
@@ -97,9 +111,9 @@ function Scarcity({ rows }) {
                 weiter, sondern zeigt sich als Streifen am rechten Rand -- sonst
                 muesste die Skala mitwachsen und der Vergleich waere wieder hin. */}
             <span
-              className={cx('an-meter', r.exhausted && 'is-short', anteil > 1 && 'is-over')}
+              className={cx('an-meter', risky && 'is-short', anteil > 1 && 'is-over')}
               role="img"
-              aria-label={`${r.pos}: ${r.available} von ${r.need} benötigten Spielern verfügbar, ${prozent} Prozent`}
+              aria-label={`${r.pos}: ${r.available} von ${r.need} benötigten Spielern verfügbar (Bedarf ${r.compositionShort}), ${prozent} Prozent${r.atRisk ? `, laut Tempo weg vor deinem naechsten Pick in ${picksUntilMyNext}` : ''}`}
             >
               <span
                 className="an-meter-fill"
@@ -109,10 +123,10 @@ function Scarcity({ rows }) {
             <span className="an-num">
               {/* Auch im erschoepften Fall die Zahl zeigen: "8 von 32" ist eine
                   andere Lage als "0 von 32", und genau hier wird es interessant. */}
-              <span className={cx(r.exhausted && 'an-pos-bad')}>{r.available}/{r.need}</span>
-              {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
-                  Experten-Ränge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
-              {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
+              <span className={cx(risky && 'an-pos-bad')}>{r.available}/{r.need}</span>
+              {/* Beantwortet direkt in der Zeile "wieso genau 28": (2+⅓) × 12
+                  Teams -- statt einer unerklaerten Zahl im Fliesstext. */}
+              <span className="muted an-composition">{r.compositionShort}</span>
             </span>
           </div>
         )
@@ -193,11 +207,11 @@ function Runs({ r }) {
   )
 }
 
-export default function DraftTab({ ranking, scarcity, tiers, runs, myTeamKey }) {
+export default function DraftTab({ ranking, scarcity, tiers, runs, myTeamKey, picksUntilMyNext }) {
   return (
     <div className="an-grid">
       <TeamRanking r={ranking} myTeamKey={myTeamKey} />
-      <Scarcity rows={scarcity} />
+      <Scarcity rows={scarcity} picksUntilMyNext={picksUntilMyNext} />
       <Tiers rows={tiers} />
       <Runs r={runs} />
     </div>

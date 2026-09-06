@@ -122,6 +122,10 @@
 }
 
 .an-num { font-variant-numeric: tabular-nums; }
+
+/* Zweite, ruhigere Zeile unter der Bedarfszahl -- "(2+⅓) × 12" erklaert, wie
+   der Bedarf zustande kommt, ohne die Kachel im Fliesstext zu erklaeren. */
+.an-composition { display: block; font-size: .68rem; color: var(--muted, #888); }
 .an-pos-good { color: var(--good, #4ec97b); }
 .an-pos-bad { color: var(--bad, #e0555a); }
 
