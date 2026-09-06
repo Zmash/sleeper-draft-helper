@@ -86,17 +86,21 @@ function Scarcity({ rows, picksUntilMyNext }) {
     ? atRiskRows.slice().sort((a, b) => (b.projected - b.available) - (a.projected - a.available))[0]
     : rows.slice().sort((a, b) => deckung(a) - deckung(b))[0]
 
+  // "10/28" laesst offen, welche Zahl verfuegbar und welche benoetigt ist
+  // (Nutzer-Rueckfrage: "10 von 28 sind weg? oder 28 von 10?"). Ausgeschrieben
+  // statt als Bruch, in Kachel-Kopf UND Zeile.
+  const basePhrase = (r) => `von ${r.need} benötigten ${r.pos} noch frei`
   const sub = featured.atRisk
-    ? `${featured.pos}: laut Tempo weg, bevor du in ${picksUntilMyNext} Picks dran bist`
+    ? `${basePhrase(featured)} – laut Tempo weg, bevor du in ${picksUntilMyNext} Picks dran bist`
     : (featured.exhausted
-        ? `${featured.pos} reicht nicht mehr für alle Teams`
-        : `${featured.pos} am knappsten`)
+        ? `${basePhrase(featured)} – reicht nicht für alle Teams`
+        : basePhrase(featured))
 
   return (
     <StatCard
       title="Positionsknappheit"
-      hint="Bedarf je Position (Slots + anteiliger Flex) gegen verfügbare Spieler — rot markiert, was laut Draft-Tempo vor deinem nächsten Pick weg sein könnte."
-      headline={`${featured.available}/${featured.need}`}
+      hint="Verfügbare gegen benötigte Spieler je Position — rot markiert, was laut Draft-Tempo vor deinem nächsten Pick weg sein könnte."
+      headline={String(featured.available)}
       sub={sub}
       basis={`Bedarf = (feste Slots + Flex-Anteil) × Teams · nur die ersten ${featured.relevanceLimit} Ränge gezählt`}
     >
@@ -121,12 +125,12 @@ function Scarcity({ rows, picksUntilMyNext }) {
               />
             </span>
             <span className="an-num">
-              {/* Auch im erschoepften Fall die Zahl zeigen: "8 von 32" ist eine
-                  andere Lage als "0 von 32", und genau hier wird es interessant. */}
-              <span className={cx(risky && 'an-pos-bad')}>{r.available}/{r.need}</span>
-              {/* Beantwortet direkt in der Zeile "wieso genau 28": (2+⅓) × 12
-                  Teams -- statt einer unerklaerten Zahl im Fliesstext. */}
-              <span className="muted an-composition">{r.compositionShort}</span>
+              {/* Ausgeschrieben statt "8/32": ein Bruch laesst offen, welche
+                  Zahl frei und welche noetig ist. Auch im erschoepften Fall
+                  zeigen -- "0 frei" ist eine andere Lage als "8 frei". */}
+              <span className={cx(risky && 'an-pos-bad')}>{r.available} frei</span>
+              {/* Beantwortet "wieso genau 28": (2+⅓) × 12 Teams = Bedarf. */}
+              <span className="muted an-composition">{r.need} nötig · {r.compositionShort}</span>
             </span>
           </div>
         )
