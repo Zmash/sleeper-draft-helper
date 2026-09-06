@@ -190,6 +190,9 @@ describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
     expect(useDynastyStore.getState().leagueRosters).toEqual([])
     expect(useDynastyStore.getState().dynastyRoster).toEqual([])
     expect(useDynastyStore.getState().mySleeperRosterId).toBeNull()
+    // roster_id faengt in jeder Liga bei 1 an - eine stehengebliebene Zuordnung
+    // liefert nicht "kein Label", sondern das Label eines fremden Teams.
+    expect(useDynastyStore.getState().rosterToUserMap).toEqual({})
 
     // Jetzt erst trifft die (veraltete) Antwort fuer L1 ein.
     resolveHeld()

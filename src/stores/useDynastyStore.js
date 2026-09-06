@@ -27,7 +27,10 @@ export const useDynastyStore = create((set) => ({
   // Ladevorgang nach dem Leeren hier seine (veralteten) Daten wieder reinschreiben.
   clearDynastyData: () => {
     ladeLauf += 1
-    set({ dynastyRoster: [], leagueRosters: [], mySleeperRosterId: null })
+    // rosterToUserMap gehoert mit dazu: roster_id faengt in JEDER Liga bei 1 an.
+    // Eine stehengebliebene Zuordnung der vorigen Liga liefert damit keine leeren,
+    // sondern falsche Besitzer-Labels (App.jsx:233, BoardPage.jsx:120).
+    set({ dynastyRoster: [], leagueRosters: [], mySleeperRosterId: null, rosterToUserMap: {} })
   },
 
   loadDynastyRoster: async ({ selectedLeagueId, sleeperUserId, seasonYear }) => {
