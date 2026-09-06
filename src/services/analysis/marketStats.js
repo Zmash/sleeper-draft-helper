@@ -25,8 +25,14 @@ export function marketDisagreement({ boardPlayers = [], picks = [], limit = 10 }
       // Board-Haupt-ADP aus Sleeper/RotoWire). Fallback auf adp nur, falls
       // market_adp fehlt (aeltere Boards ohne FFC-Overlay).
       adp: num(bp.market_adp ?? bp.adp),
-      low: num(bp.low),
-      high: num(bp.high),
+      // FFC meint mit "high" die HOECHSTE Draftposition, also den FRUEHESTEN
+      // Pick und damit die KLEINERE Zahl (Jahmyr Gibbs: high 1, low 3).
+      // Projektweit bleibt diese Konvention bestehen (ai.js, useDraftTips.js
+      // lesen sie so), deshalb wird hier beim Lesen nach Pick-Nummern
+      // umsortiert statt die Felder an der Quelle zu tauschen. Ohne das waere
+      // die gezeichnete Balkenbreite negativ.
+      low: Math.min(num(bp.low), num(bp.high)),
+      high: Math.max(num(bp.low), num(bp.high)),
       stdev: num(bp.stdev),
     }))
     .sort((a, b) => b.stdev - a.stdev)

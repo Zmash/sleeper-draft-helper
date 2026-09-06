@@ -54,3 +54,26 @@ describe('marketDisagreement', () => {
     expect(r.basis).toBe(0)
   })
 })
+
+describe('marketDisagreement — FFC-Konvention von low/high', () => {
+  // FFC nennt "high" die hoechste Draftposition: das ist der FRUEHESTE Pick und
+  // damit die KLEINERE Zahl. Echte Antwort fuer Jahmyr Gibbs: high 1, low 3.
+  // Ohne Umsortierung waere pct(high) - pct(low) negativ und der Balken weg.
+  it('sortiert low/high nach Pick-Nummern, egal wie herum sie ankommen', () => {
+    const board = [
+      { nname: 'a a', name: 'A A', pos: 'RB', stdev: 5, adp: 2, high: 1, low: 9 },
+    ]
+    const r = marketDisagreement({ boardPlayers: board, picks: [] })
+    expect(r.players[0].low).toBe(1)   // fruehester Pick
+    expect(r.players[0].high).toBe(9)  // spaetester Pick
+    expect(r.players[0].high).toBeGreaterThan(r.players[0].low)
+  })
+
+  it('nutzt market_adp als Bezugswert, faellt aber auf adp zurueck', () => {
+    const mitFfc = [{ nname: 'a a', name: 'A A', pos: 'RB', stdev: 5, adp: 40, market_adp: 22, high: 10, low: 30 }]
+    expect(marketDisagreement({ boardPlayers: mitFfc, picks: [] }).players[0].adp).toBe(22)
+
+    const ohneFfc = [{ nname: 'b b', name: 'B B', pos: 'RB', stdev: 5, adp: 40, high: 10, low: 30 }]
+    expect(marketDisagreement({ boardPlayers: ohneFfc, picks: [] }).players[0].adp).toBe(40)
+  })
+})
