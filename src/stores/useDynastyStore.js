@@ -2,6 +2,12 @@ import { create } from 'zustand'
 import { fetchLeagueRosters, fetchTradedPicks } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 
+// Schuetzt vor einem Wettlauf beim schnellen Ligawechsel: wird bei jedem Aufruf
+// von loadDynastyRoster erhoeht. Trifft eine spaeter gestartete Antwort zuerst
+// ein, ist der Zaehler schon weitergezaehlt und der aeltere, inzwischen
+// veraltete Aufruf schreibt seine Daten nicht mehr ueber die neueren.
+let ladeLauf = 0
+
 export const useDynastyStore = create((set) => ({
   dynastyRoster: [],
   // Alle Kader der Liga (roh, ungefiltert) - zusaetzlich zu dynastyRoster (nur der eigene,
@@ -18,13 +24,21 @@ export const useDynastyStore = create((set) => ({
   setTradedPicks: (v) => set({ tradedPicks: v }),
 
   loadDynastyRoster: async ({ selectedLeagueId, sleeperUserId, seasonYear }) => {
+    // Frueher Ruecksprung vor dem ersten await: kein Wettlauf moeglich, schreibt sofort.
     if (!selectedLeagueId || !sleeperUserId) { set({ dynastyRoster: [], leagueRosters: [] }); return }
+    // Eigenen Lauf markieren: nur der jeweils zuletzt gestartete Aufruf darf nach
+    // dem await noch schreiben.
+    const eigenerLauf = ++ladeLauf
+    const istAktuell = () => ladeLauf === eigenerLauf
     try {
       const season = Number(seasonYear) || new Date().getFullYear()
       const [rosters, playersMeta] = await Promise.all([
         fetchLeagueRosters(selectedLeagueId),
         loadPlayersMetaCached({ season }),
       ])
+      // Zwischenzeitlich ist ein neuerer loadDynastyRoster-Aufruf gestartet (z.B. Ligawechsel) -
+      // still abbrechen, ohne dessen bereits gesetzte Werte zu ueberschreiben.
+      if (!istAktuell()) return
       const rMap = {}
       for (const r of rosters || []) {
         if (r.roster_id != null && r.owner_id) rMap[String(r.roster_id)] = String(r.owner_id)
@@ -61,6 +75,9 @@ export const useDynastyStore = create((set) => ({
       set({ dynastyRoster: players })
     } catch (e) {
       console.warn('[dynastyRoster] load failed', e)
+      // Auch im Fehlerfall nur schreiben, wenn kein neuerer Aufruf inzwischen erfolgreich war -
+      // sonst wuerde ein veralteter Fehler die frischen Daten des neueren Aufrufs leeren.
+      if (!istAktuell()) return
       set({ dynastyRoster: [], leagueRosters: [] })
     }
   },
