@@ -9,7 +9,7 @@ export default function RosterTab({ split }) {
       <div className="an-grid">
         <StatCard
           title="Kader gegen das Liga-Feld"
-          empty="Nur fuer echte Ligen — Mock-Drafts haben keine Kader."
+          empty="Nur für echte Ligen — Mock-Drafts haben keine Kader."
         />
       </div>
     )
@@ -19,7 +19,7 @@ export default function RosterTab({ split }) {
       <div className="an-grid">
         <StatCard
           title="Kader gegen das Liga-Feld"
-          empty={`Nur ${Math.round(coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu duenn fuer einen Vergleich.`}
+          empty={`Nur ${Math.round(coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu dünn für einen Vergleich.`}
         />
       </div>
     )
@@ -30,13 +30,13 @@ export default function RosterTab({ split }) {
       <div className="an-grid">
         <StatCard
           title="Kader gegen das Liga-Feld"
-          empty="Fuer keine Position konnte ein Vergleich ermittelt werden — moeglichweise hat keine Position einen Starter-Slot in dieser Liga."
+          empty="Für keine Position konnte ein Vergleich ermittelt werden — möglicherweise hat keine Position einen Starter-Slot in dieser Liga."
         />
       </div>
     )
   }
 
-  const einheit = mode === 'value' ? 'Punkten' : 'Raengen'
+  const einheit = mode === 'value' ? 'Punkten' : 'Rängen'
   const beste = positions.slice().sort((a, b) => (b.diff ?? -Infinity) - (a.diff ?? -Infinity))[0]
   const maxAbs = Math.max(...positions.map((p) => Math.abs(p.diff ?? 0)), 1)
   const hasData = positions.some((p) => p.diff != null)
@@ -47,9 +47,9 @@ export default function RosterTab({ split }) {
         title="Kader gegen das Liga-Feld"
         hint={mode === 'value'
           ? 'Summe der Dynasty-Werte je Position, verglichen mit dem Median der Liga.'
-          : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstaende sind nicht wertproportional — die Richtung ist verlaesslich, der Betrag grob.'}
+          : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstände sind nicht wertproportional — die Richtung ist verlaesslich, der Betrag grob.'}
         headline={beste?.diff != null ? signed(beste.diff) : '—'}
-        sub={hasData && beste?.diff != null ? `${beste.pos} ist deine staerkste Position` : ''}
+        sub={hasData && beste?.diff != null ? `${beste.pos} ist deine stärkste Position` : ''}
         basis={`${teamCount} Kader · Deckung ${Math.round(coverage * 100)} % · in ${einheit}`}
         wide
       >
@@ -57,7 +57,7 @@ export default function RosterTab({ split }) {
           <div className="an-row" key={p.pos}>
             <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
             <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" height="12"
-                 role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenueber dem Median` : `${p.pos}: keine Daten`}>
+                 role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenüber dem Median` : `${p.pos}: keine Daten`}>
               <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
               <rect
                 x={Math.min(0, p.diff ?? 0)} y="0.15"

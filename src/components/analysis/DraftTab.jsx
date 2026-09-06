@@ -8,7 +8,7 @@ function TeamRanking({ r, myTeamKey }) {
   return (
     <StatCard
       title="Team-Draft-Ranking"
-      hint="Summe aus Experten-Rang minus Pick-Nummer. Positiv heisst: unter Wert geholt."
+      hint="Summe aus Experten-Rang minus Pick-Nummer. Positiv heißt: unter Wert geholt."
       headline={r.myDelta !== null ? signed(r.myDelta) : '—'}
       sub={r.myRank ? `Platz ${r.myRank} von ${r.teams.length}` : 'Dein Team nicht erkannt'}
       basis={`aus ${r.matched} bewerteten Picks${r.unmatched ? ` · ${r.unmatched} ohne Ranking-Treffer` : ''}`}
@@ -18,7 +18,7 @@ function TeamRanking({ r, myTeamKey }) {
         <thead>
           <tr>
             <th>#</th><th>Team</th><th className="an-num">Bilanz</th>
-            <th>Bester Pick</th><th>Schwaechster</th>
+            <th>Bester Pick</th><th>Schwächster</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +49,7 @@ function TeamRanking({ r, myTeamKey }) {
           </ol>
         </div>
         <div>
-          <h4>Groesste Reaches</h4>
+          <h4>Größte Reaches</h4>
           <ol>
             {r.reaches.map((s) => (
               <li key={`r${s.pick_no}`}>
@@ -74,8 +74,8 @@ function Scarcity({ rows }) {
   return (
     <StatCard
       title="Positionsknappheit"
-      hint="Startbare Spieler, die es fuer die Liga noch gibt — gemessen am Bedarf aller Teams."
-      headline={knappste.exhausted ? 'erschoepft' : String(knappste.startable)}
+      hint="Startbare Spieler, die es für die Liga noch gibt — gemessen am Bedarf aller Teams."
+      headline={knappste.exhausted ? 'erschöpft' : String(knappste.startable)}
       sub={`${knappste.pos} am knappsten`}
       basis="Bedarf = Teams x Starter-Slots, FLEX anteilig"
     >
@@ -88,9 +88,9 @@ function Scarcity({ rows }) {
             <rect x="0" y="0" width={r.startable} height="1" fill={posColor(r.pos)} />
           </svg>
           <span className="an-num">
-            {r.exhausted ? 'erschoepft' : `${r.startable}/${r.need}`}
+            {r.exhausted ? 'erschöpft' : `${r.startable}/${r.need}`}
             {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
-                Experten-Raenge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
+                Experten-Ränge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
             {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
           </span>
         </div>
@@ -101,7 +101,7 @@ function Scarcity({ rows }) {
 
 function Tiers({ rows }) {
   if (!rows.length) {
-    return <StatCard title="Tier-Verbrauch" empty="Dieses Ranking enthaelt keine Tiers." />
+    return <StatCard title="Tier-Verbrauch" empty="Dieses Ranking enthält keine Tiers." />
   }
   const warn = rows
     .filter((r) => r.activeTier !== null)
@@ -145,15 +145,15 @@ function Tiers({ rows }) {
 
 function Runs({ r }) {
   if (!r.timeline.length) {
-    return <StatCard title="Positional Runs" wide empty="Zu frueh im Draft." />
+    return <StatCard title="Positional Runs" wide empty="Zu früh im Draft." />
   }
   const top = r.runs[0] || null
   return (
     <StatCard
       title="Positional Runs"
-      hint={`Rollierendes Fenster ueber die letzten ${r.window} Picks.`}
+      hint={`Rollierendes Fenster über die letzten ${r.window} Picks.`}
       headline={top ? String(top.count) : 'kein Run'}
-      sub={top ? `${top.pos} in den letzten ${r.window} Picks` : 'gleichmaessige Verteilung'}
+      sub={top ? `${top.pos} in den letzten ${r.window} Picks` : 'gleichmäßige Verteilung'}
       basis={`${r.timeline.length} Picks`}
       wide
     >

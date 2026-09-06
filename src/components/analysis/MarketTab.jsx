@@ -9,7 +9,7 @@ export default function MarketTab({ market, nextPickNo = null }) {
       <div className="an-grid">
         <StatCard
           title="Umstrittenste Spieler"
-          empty="Dieses Ranking enthaelt keine Marktdaten (Streuung, Hoch- und Tiefstwerte)."
+          empty="Dieses Ranking enthält keine Marktdaten (Streuung, Hoch- und Tiefstwerte)."
         />
       </div>
     )
@@ -22,10 +22,10 @@ export default function MarketTab({ market, nextPickNo = null }) {
     <div className="an-grid">
       <StatCard
         title="Umstrittenste Spieler"
-        hint="Grosse Streuung heisst: der Markt ist sich uneins — hier weichen Ligen am staerksten voneinander ab."
+        hint="Große Streuung heißt: der Markt ist sich uneins — hier weichen Ligen am stärksten voneinander ab."
         headline={players[0].stdev.toFixed(1)}
-        sub={`hoechste Streuung: ${players[0].name}`}
-        basis={`${players.length} von ${basis} Spielern mit Marktdaten${nextPickNo ? ` · deine naechste Pick-Nr: ${nextPickNo}` : ''}`}
+        sub={`höchste Streuung: ${players[0].name}`}
+        basis={`${players.length} von ${basis} Spielern mit Marktdaten${nextPickNo ? ` · deine nächste Pick-Nr: ${nextPickNo}` : ''}`}
         wide
       >
         {players.map((p) => (
