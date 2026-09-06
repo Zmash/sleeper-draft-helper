@@ -68,16 +68,14 @@ function Scarcity({ rows }) {
   if (!rows.length) {
     return <StatCard title="Positionsknappheit" empty="Kein Ranking importiert." />
   }
-  // viewBox-Skala ueber den Bedarf, nicht ueber "available": sonst wuerde eine
-  // Position mit viel Bedarf und viel Angebot (z.B. WR) den Massstab fuer alle
-  // anderen Positionen strecken. Das Fuellrechteck wird trotzdem auf max
-  // begrenzt (Math.min), sonst wuerde ein Angebot ueber dem eigenen Bedarf
-  // hinaus den Rahmen sprengen -- der angezeigte Zahlenwert bleibt unbegrenzt.
-  const max = Math.max(...rows.map((r) => r.need), 1)
-  // available/need statt available allein: 12 verfuegbare QB bei Bedarf 12 sind
-  // knapper als 28 verfuegbare WR bei Bedarf 28, auch wenn beide Zahlen gleich
-  // "voll" aussehen.
-  const knappste = rows.slice().sort((a, b) => (a.available / a.need) - (b.available / b.need))[0]
+  // JEDER Balken hat seinen EIGENEN Bedarf als Skala, nicht einen gemeinsamen
+  // Massstab ueber alle Positionen. Sonst vergleicht die Grafik Aepfel mit
+  // Birnen: 13 verfuegbare QB (Bedarf 12, gedeckt) und 11 verfuegbare RB
+  // (Bedarf 28, echter Mangel) saehen auf einer gemeinsamen 0..28-Skala fast
+  // gleich lang aus -- bei genau gegensaetzlicher Lage. "Voll" heisst jetzt
+  // ueberall dasselbe: der Bedarf der Liga ist gedeckt.
+  const deckung = (r) => (r.need > 0 ? r.available / r.need : 0)
+  const knappste = rows.slice().sort((a, b) => deckung(a) - deckung(b))[0]
 
   return (
     <StatCard
@@ -89,24 +87,36 @@ function Scarcity({ rows }) {
         : `${knappste.pos} am knappsten`}
       basis={`Bedarf = Teams x Starter-Slots, FLEX anteilig · nur die ersten ${knappste.relevanceLimit} Ränge gezählt`}
     >
-      {rows.map((r) => (
-        <div className="an-row" key={r.pos}>
-          <span className="an-pos" style={{ background: posColor(r.pos) }}>{r.pos}</span>
-          <svg viewBox={`0 0 ${max} 1`} preserveAspectRatio="none" height="10" role="img"
-               aria-label={`${r.pos}: ${r.available} von ${r.need} verfügbar`}>
-            <rect x="0" y="0" width={max} height="1" fill="var(--border, #2a2a2a)" />
-            <rect x="0" y="0" width={Math.min(r.available, max)} height="1" fill={posColor(r.pos)} />
-          </svg>
-          <span className="an-num">
-            {/* Auch im erschoepften Fall die Zahl zeigen: "8 von 32" ist eine
-                andere Lage als "0 von 32", und genau hier wird es interessant. */}
-            <span className={cx(r.exhausted && 'an-pos-bad')}>{r.available}/{r.need}</span>
-            {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
-                Experten-Ränge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
-            {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
-          </span>
-        </div>
-      ))}
+      {rows.map((r) => {
+        const anteil = deckung(r)
+        const prozent = Math.round(anteil * 100)
+        return (
+          <div className="an-row" key={r.pos}>
+            <span className="an-pos" style={{ background: posColor(r.pos) }}>{r.pos}</span>
+            {/* Die Spur ist genau ein Bedarf breit. Ueberschuss laeuft nicht
+                weiter, sondern zeigt sich als Streifen am rechten Rand -- sonst
+                muesste die Skala mitwachsen und der Vergleich waere wieder hin. */}
+            <span
+              className={cx('an-meter', r.exhausted && 'is-short', anteil > 1 && 'is-over')}
+              role="img"
+              aria-label={`${r.pos}: ${r.available} von ${r.need} benötigten Spielern verfügbar, ${prozent} Prozent`}
+            >
+              <span
+                className="an-meter-fill"
+                style={{ width: `${Math.min(anteil, 1) * 100}%`, background: posColor(r.pos) }}
+              />
+            </span>
+            <span className="an-num">
+              {/* Auch im erschoepften Fall die Zahl zeigen: "8 von 32" ist eine
+                  andere Lage als "0 von 32", und genau hier wird es interessant. */}
+              <span className={cx(r.exhausted && 'an-pos-bad')}>{r.available}/{r.need}</span>
+              {/* Runden: ecr darf aus einer CSV auch gebrochen kommen (gemittelte
+                  Experten-Ränge), sonst stuende hier "Vorsprung 3.6666666666666665". */}
+              {r.vor !== null && <span className="muted"> · Vorsprung {Math.round(r.vor)}</span>}
+            </span>
+          </div>
+        )
+      })}
     </StatCard>
   )
 }

@@ -161,3 +161,40 @@
   .an-whisker { grid-template-columns: 2.5rem 1fr auto; }
   .an-whisker .an-wtrack { grid-column: 1 / -1; }
 }
+
+/* Knappheits-Balken: die Spur ist genau EIN Bedarf breit, jede Position hat
+   ihre eigene Skala. Voll heisst darum ueberall dasselbe — der Bedarf der Liga
+   ist gedeckt — statt Laengen ueber unterschiedliche Bezugsgroessen zu
+   vergleichen. */
+.an-meter {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--border, #2a2a2a);
+  overflow: hidden;
+}
+
+.an-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 240ms cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Mangel nicht allein ueber die Laenge zeigen: ein kurzer Balken koennte auch
+   eine kleine Position sein. Die Kontur macht die Unterdeckung eindeutig. */
+.an-meter.is-short {
+  box-shadow: inset 0 0 0 1px var(--bad, #e0555a);
+}
+
+/* Ueberschuss endet nicht ausserhalb der Spur — er wird an der Kante
+   angedeutet, damit die Skala vergleichbar bleibt. */
+.an-meter.is-over .an-meter-fill {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: inset -3px 0 0 var(--fg, #eee);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-meter-fill { transition: none; }
+}
