@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery,
   extractEcrData, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
-  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
+  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer, fantasyProsPositionUrl,
 } from './rankings'
 import { normalizePlayerName } from '../utils/formatting'
 
@@ -178,5 +178,36 @@ describe('isDynastyFromQuery', () => {
     expect(isDynastyFromQuery('false')).toBe(false)
     expect(isDynastyFromQuery('true')).toBe(true)
     expect(isDynastyFromQuery('irgendwas')).toBe(true)
+  })
+})
+
+describe('fantasyProsPositionUrl', () => {
+  it('QB und DST haben keine Scoring-Variante', () => {
+    expect(fantasyProsPositionUrl('QB', 'week', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/qb.php')
+    expect(fantasyProsPositionUrl('DEF', 'week', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/dst.php')
+    expect(fantasyProsPositionUrl('DEF', 'ros', 'std')).toBe('https://www.fantasypros.com/nfl/rankings/ros-dst.php')
+  })
+
+  it('TE hat Scoring-Suffix, Weekly und ROS', () => {
+    expect(fantasyProsPositionUrl('TE', 'week', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ppr-te.php')
+    expect(fantasyProsPositionUrl('TE', 'week', 'half')).toBe('https://www.fantasypros.com/nfl/rankings/half-point-ppr-te.php')
+    expect(fantasyProsPositionUrl('TE', 'week', 'std')).toBe('https://www.fantasypros.com/nfl/rankings/te.php')
+    expect(fantasyProsPositionUrl('TE', 'ros', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ros-ppr-te.php')
+  })
+})
+
+describe('normalizeFantasyProsPlayer mit Weekly-Feldern', () => {
+  it('uebernimmt fantasy_pts und opponent, wenn vorhanden', () => {
+    const raw = { player_name: 'Lamar Jackson', rank_ecr: 1, player_team_id: 'BAL', player_position_id: 'QB', fantasy_pts: '21.4', player_opponent: 'at IND' }
+    const out = normalizeFantasyProsPlayer(raw)
+    expect(out.fantasy_pts).toBe(21.4)
+    expect(out.opponent).toBe('at IND')
+  })
+
+  it('liefert null, wenn die Felder fehlen (ROS/Cheatsheet)', () => {
+    const raw = { player_name: 'Josh Allen', rank_ecr: 1, player_team_id: 'BUF', player_position_id: 'QB' }
+    const out = normalizeFantasyProsPlayer(raw)
+    expect(out.fantasy_pts).toBeNull()
+    expect(out.opponent).toBeNull()
   })
 })

@@ -94,6 +94,29 @@ export const FP_SCORING_URLS = {
 // liefert z. B. auch IDP-Positionen (LB/DB/DL) — die gehoeren nicht ins Board.
 export const FP_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DST']
 
+// ---------- FantasyPros Weekly + ROS je Position (Waiver-Wire) ----------
+// Sleeper/App-Konvention ist "DEF", FantasyPros nennt dieselbe Position "DST".
+const FP_POS_SLUG = { QB: 'qb', RB: 'rb', WR: 'wr', TE: 'te', DEF: 'dst' }
+
+// Nur RB/WR/TE haben eine Scoring-Variante (PPR/Half/Standard aendert ihren
+// Punktwert). QB und DST/DEF sind scoring-unabhaengig -- fuer die gibt es auf
+// FantasyPros keine ppr-/half-point-ppr-Praefix-Seiten.
+const FP_SCORING_HAS_VARIANT = new Set(['RB', 'WR', 'TE'])
+const FP_SCORING_PREFIX = { ppr: 'ppr-', half: 'half-point-ppr-', std: '' }
+
+// scope: 'week' (aktuelle Woche) | 'ros' (Rest of Season). Live gegen
+// fantasypros.com verifiziert (siehe Global Constraints im Plan) -- Muster:
+// [ros-][ppr-|half-point-ppr-]<pos>.php
+export function fantasyProsPositionUrl(pos, scope, scoring = 'ppr') {
+  const slug = FP_POS_SLUG[String(pos).toUpperCase()]
+  if (!slug) throw new Error(`Unbekannte Position fuer FantasyPros: ${pos}`)
+  const scopePrefix = scope === 'ros' ? 'ros-' : ''
+  const scoringPrefix = FP_SCORING_HAS_VARIANT.has(String(pos).toUpperCase())
+    ? (FP_SCORING_PREFIX[scoring] ?? FP_SCORING_PREFIX.ppr)
+    : ''
+  return `https://www.fantasypros.com/nfl/rankings/${scopePrefix}${scoringPrefix}${slug}.php`
+}
+
 // Zieht das `ecrData`-Objekt aus dem HTML. Balanced-Brace-Scan statt Regex:
 // das Objekt enthaelt verschachtelte {} und geschweifte Klammern in Strings,
 // ein `.*?\}` wuerde zu frueh abbrechen. Gibt das geparste Objekt oder null.
@@ -137,6 +160,7 @@ export function extractEcrData(html) {
 export function normalizeFantasyProsPlayer(raw) {
   const name = raw?.player_name || ''
   const ecr = Number(raw?.rank_ecr)
+  const fantasyPts = Number(raw?.fantasy_pts)
   return {
     rk: String(raw?.rank_ecr ?? ''),
     ecr: Number.isFinite(ecr) ? ecr : null,
@@ -154,5 +178,8 @@ export function normalizeFantasyProsPlayer(raw) {
     age: null,
     years_exp: null,
     nname: normalizePlayerName(name),
+    // Nur auf Weekly-Seiten vorhanden (nicht ROS/Cheatsheet) -- dort bleibt's null.
+    fantasy_pts: Number.isFinite(fantasyPts) ? fantasyPts : null,
+    opponent: raw?.player_opponent || null,
   }
 }
