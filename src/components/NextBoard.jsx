@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
 import DraftGrid from './DraftGrid'
-import DepthTag from './DepthTag'
-import { cx, normalizePos, fantasyProsPlayerUrl, normalizePlayerName, positionFiltersFromRoster } from '../utils/formatting'
+import { cx, normalizePos, posBadgeLabel, fantasyProsPlayerUrl, normalizePlayerName, positionFiltersFromRoster } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
@@ -395,7 +394,6 @@ export default function NextBoard({
                       <td className="ns-name">
                         {pref === PlayerPreference.FAVORITE && <Icon name="star" size={10} className="ns-favmark" />}
                         {p.name}
-                        <DepthTag player={p} />
                         {p.injury_status && (
                           <span className={cx('ns-inj', p.injury_status !== 'Questionable' && 'is-out')}>
                             {p.injury_status === 'Questionable' ? 'Q' : p.injury_status}
@@ -409,7 +407,7 @@ export default function NextBoard({
                       <td className="ns-c-pos">
                         {p.pos && (
                           <span className="ns-posbadge" style={{ background: `var(--pos-${normalizePos(p.pos).toLowerCase()})` }}>
-                            {normalizePos(p.pos)}
+                            {posBadgeLabel(p)}
                           </span>
                         )}
                       </td>
@@ -491,7 +489,6 @@ function PlayerPanel({ p, pref, onPref }) {
       <div className="ns-insp-head">
         <div className="ns-insp-title">
           <span className="ns-insp-name">{p.name}</span>
-          <DepthTag player={p} />
           <a className="ns-extlink" href={fantasyProsPlayerUrl(p.name)} target="_blank" rel="noreferrer" title="Auf FantasyPros öffnen">
             <span className="ns-brandico ns-brandico--fantasypros" /> FantasyPros
           </a>
@@ -499,7 +496,7 @@ function PlayerPanel({ p, pref, onPref }) {
         <div className="ns-insp-sub">
           {p.pos && (
             <span className="ns-posbadge" style={{ background: `var(--pos-${normalizePos(p.pos).toLowerCase()})` }}>
-              {normalizePos(p.pos)}
+              {posBadgeLabel(p)}
             </span>
           )}
           <span>{p.team || '—'}</span>

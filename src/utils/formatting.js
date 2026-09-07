@@ -69,17 +69,19 @@ export const signed = (n) => {
 const DEPTH_CHART_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE'])
 
 /**
- * Kompaktes Depth-Chart-Label ("RB2") fuer die vier wichtigsten Positionen,
- * sonst null. Bewusst ueber die eigene Fantasy-Position statt Sleepers
- * depth_chart_position gebildet: Sleeper splittet WR seitenweise (LWR/RWR),
- * der Order-Zaehler startet je Seite neu bei 1 -- zwei "WR1" im selben Team
- * sind darum normal (beide Starter), keine Dopplung.
+ * Text fuer den vorhandenen Pos-Badge, mit Depth-Chart-Tiefe ("RB2") bei den
+ * vier wichtigsten Positionen, sonst die reine Position ("K", "DEF", ...).
+ * Bewusst KEIN eigenes Tag daneben -- das doppelt die Position visuell und
+ * verschiebt jede Zeile. Bewusst ueber die eigene Fantasy-Position statt
+ * Sleepers depth_chart_position gebildet: Sleeper splittet WR seitenweise
+ * (LWR/RWR), der Order-Zaehler startet je Seite neu bei 1 -- zwei "WR1" im
+ * selben Team sind darum normal (beide Starter), keine Dopplung.
  */
-export const depthChartLabel = (player) => {
+export const posBadgeLabel = (player) => {
   const pos = normalizePos(player?.pos || player?.position)
+  if (!pos) return ''
   const order = toFiniteOrNull(player?.depth_chart_order)
-  if (!DEPTH_CHART_POSITIONS.has(pos) || !order) return null
-  return `${pos}${order}`
+  return DEPTH_CHART_POSITIONS.has(pos) && order ? `${pos}${order}` : pos
 }
 
 /**

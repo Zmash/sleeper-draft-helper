@@ -1,6 +1,5 @@
 import Icon from './Icon'
-import DepthTag from './DepthTag'
-import { cx, normalizePos, fantasyProsPlayerUrl } from '../utils/formatting'
+import { cx, normalizePos, posBadgeLabel, fantasyProsPlayerUrl } from '../utils/formatting'
 import { usePlayerNews } from '../hooks/usePlayerNews'
 import { PlayerPreference } from '../services/preferences'
 
@@ -20,7 +19,6 @@ export default function PlayerDetailSheet({ player, onClose, pref = null, onSetP
       <div className={cx('board-sheet pds-sheet', open && 'is-open')} role="dialog" aria-label="Spieler-Details">
         <div className="board-sheet-head">
           <strong>{player?.name || 'Spieler'}</strong>
-          {player && <DepthTag player={player} />}
           <div className="pds-actions">
             {onSetPref && (
               <>
@@ -56,7 +54,7 @@ export default function PlayerDetailSheet({ player, onClose, pref = null, onSetP
           <>
             <div className="pds-meta">
               {pos && (
-                <span className="pds-pos" style={{ background: `var(--pos-${pos.toLowerCase()})` }}>{pos}</span>
+                <span className="pds-pos" style={{ background: `var(--pos-${pos.toLowerCase()})` }}>{posBadgeLabel(player)}</span>
               )}
               <span>{player.team || '—'}</span>
               {player.bye ? <span className="pds-dim">Bye {player.bye}</span> : null}
