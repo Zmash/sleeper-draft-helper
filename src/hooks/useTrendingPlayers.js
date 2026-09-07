@@ -22,6 +22,8 @@ function mergeWithMeta(entries, metaById) {
         team: meta.team || null,
         pos: primaryPos(meta),
         injury_status: meta.injury_status || null,
+        depth_chart_position: meta.depth_chart_position || null,
+        depth_chart_order: meta.depth_chart_order ?? null,
       }
     })
     .filter(Boolean)

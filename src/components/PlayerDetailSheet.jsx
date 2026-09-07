@@ -1,4 +1,5 @@
 import Icon from './Icon'
+import DepthTag from './DepthTag'
 import { cx, normalizePos, fantasyProsPlayerUrl } from '../utils/formatting'
 import { usePlayerNews } from '../hooks/usePlayerNews'
 import { PlayerPreference } from '../services/preferences'
@@ -19,6 +20,7 @@ export default function PlayerDetailSheet({ player, onClose, pref = null, onSetP
       <div className={cx('board-sheet pds-sheet', open && 'is-open')} role="dialog" aria-label="Spieler-Details">
         <div className="board-sheet-head">
           <strong>{player?.name || 'Spieler'}</strong>
+          {player && <DepthTag player={player} />}
           <div className="pds-actions">
             {onSetPref && (
               <>

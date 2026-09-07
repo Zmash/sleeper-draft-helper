@@ -8,6 +8,7 @@ import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { normalizePlayerName } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
 import Icon from './Icon'
+import DepthTag from './DepthTag'
 import { CostHint } from './CostHint'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -48,6 +49,7 @@ function TradeChip({ item, onRemove }) {
       <div className="trade-chip-main">
         <span className="trade-chip-pos">{item.pos || 'PK'}</span>
         <span className="trade-chip-name">{item.name || item.label}</span>
+        <DepthTag player={item} />
         {item.age && <span className="trade-chip-age muted">{item.age}y</span>}
       </div>
       <div className="trade-chip-value">
@@ -159,6 +161,7 @@ function PlayerSearch({ allPlayers, onAdd, onCancel, excludeIds }) {
             <button key={p.id} className="player-search-row" onClick={() => { onAdd(p); setQ('') }}>
               <span className="psr-pos">{p.pos}</span>
               <span className="psr-name">{p.name}</span>
+              <DepthTag player={p} />
               {p.source === 'roster' && <span className="psr-badge psr-badge--roster">Roster</span>}
               {p.source === 'drafted' && <span className="psr-badge psr-badge--drafted">pick {p.draftedAt ?? '?'}</span>}
               {p.team && <span className="psr-team muted">{p.team}</span>}

@@ -22,10 +22,16 @@ describe('useTrendingPlayers', () => {
 
     await waitFor(() => expect(result.current.state).toBe('ok'))
     expect(result.current.adds).toEqual([
-      { player_id: '100', count: 4200, name: 'Puka Nacua', team: 'LAR', pos: 'WR', injury_status: null },
+      {
+        player_id: '100', count: 4200, name: 'Puka Nacua', team: 'LAR', pos: 'WR', injury_status: null,
+        depth_chart_position: null, depth_chart_order: null,
+      },
     ])
     expect(result.current.drops).toEqual([
-      { player_id: '200', count: 900, name: 'Zay Flowers', team: 'BAL', pos: 'WR', injury_status: 'Questionable' },
+      {
+        player_id: '200', count: 900, name: 'Zay Flowers', team: 'BAL', pos: 'WR', injury_status: 'Questionable',
+        depth_chart_position: null, depth_chart_order: null,
+      },
     ])
   })
 

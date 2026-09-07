@@ -66,6 +66,22 @@ export const signed = (n) => {
   return v > 0 ? `+${v}` : String(v)
 }
 
+const DEPTH_CHART_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE'])
+
+/**
+ * Kompaktes Depth-Chart-Label ("RB2") fuer die vier wichtigsten Positionen,
+ * sonst null. Bewusst ueber die eigene Fantasy-Position statt Sleepers
+ * depth_chart_position gebildet: Sleeper splittet WR seitenweise (LWR/RWR),
+ * der Order-Zaehler startet je Seite neu bei 1 -- zwei "WR1" im selben Team
+ * sind darum normal (beide Starter), keine Dopplung.
+ */
+export const depthChartLabel = (player) => {
+  const pos = normalizePos(player?.pos || player?.position)
+  const order = toFiniteOrNull(player?.depth_chart_order)
+  if (!DEPTH_CHART_POSITIONS.has(pos) || !order) return null
+  return `${pos}${order}`
+}
+
 /**
  * Reihenfolge, in der echte (draftbare) Positionen als Filter-Chip auftauchen
  * koennen. FLEX/SUPER_FLEX/IDP_FLEX/BN/WR-RB-TE-Slots sind keine eigenen

@@ -1,6 +1,7 @@
 // src/components/BoardTable.jsx
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import PlayerDetailSheet from './PlayerDetailSheet'
+import DepthTag from './DepthTag'
 import { cx } from '../utils/formatting'
 import { PlayerPreference, playerKey, getPreference } from '../services/preferences'
 import Icon from './Icon'
@@ -306,6 +307,7 @@ export default function BoardTable({
                               </span>
                             )}
                             <span className="player-name-text">{p.name}</span>
+                            <DepthTag player={p} />
                           </button>
 
                           {/* AI/ALT Badges */}

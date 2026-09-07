@@ -1,4 +1,5 @@
 import StatCard from './StatCard'
+import DepthTag from '../DepthTag'
 import { posColor, fantasyProsPlayerUrl, cx } from '../../utils/formatting'
 import { useTrendingPlayers } from '../../hooks/useTrendingPlayers'
 import { FORMAT_LABEL, formatMarketAge } from '../DataProvenanceBar'
@@ -25,6 +26,7 @@ function TrendList({ title, hint, items, state }) {
           <a className="an-trendname" href={fantasyProsPlayerUrl(p.name)} target="_blank" rel="noreferrer">
             {p.name}
           </a>
+          <DepthTag player={p} />
           {p.injury_status && (
             <span className={cx('an-inj', p.injury_status !== 'Questionable' && 'is-out')}>
               {p.injury_status === 'Questionable' ? 'Q' : p.injury_status}

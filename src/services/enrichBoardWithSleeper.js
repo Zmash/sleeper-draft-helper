@@ -53,6 +53,8 @@ function mergePlayer(csv, meta) {
   next.injury_status = meta.injury_status ?? next.injury_status ?? null
   next.age = meta.age ?? next.age ?? null
   next.fantasy_positions = meta.fantasy_positions ?? next.fantasy_positions ?? []
+  next.depth_chart_position = meta.depth_chart_position ?? next.depth_chart_position ?? null
+  next.depth_chart_order = meta.depth_chart_order ?? next.depth_chart_order ?? null
 
   next.enriched = true
   next.enriched_at = Date.now()
