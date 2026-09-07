@@ -1,7 +1,7 @@
 // src/services/playersMeta.js
 import { SLEEPER_API_BASE, fetchJson } from './api'
 
-const CACHE_KEY = 'sdh.playersMeta.v2'
+const CACHE_KEY = 'sdh.playersMeta.v3'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
 // Sleeper liefert kein ADP und keine bye_week (verifiziert 2026-07-16: 0 von
@@ -17,6 +17,7 @@ const SLIM_KEYS = [
   'bye_week',
   'injury_status',
   'age',
+  'status',
 ]
 
 function slimPlayer(p) {
