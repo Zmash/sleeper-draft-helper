@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard } from './waiverStats'
 
 describe('freeAgents', () => {
   const playersMeta = {
@@ -42,5 +42,25 @@ describe('pickupRanking', () => {
   it('markiert trending Adds', () => {
     const out = pickupRanking({ freeAgents: agents, mode: 'redraft', trendingAddIds: new Set(['2']) })
     expect(out.find((p) => p.player_id === '2').trending).toBe(true)
+  })
+})
+
+describe('streamingBoard', () => {
+  const agents = [
+    { player_id: '1', name: 'Def A', nname: 'defa', pos: 'DEF', team: 'SEA' },
+    { player_id: '2', name: 'Def B', nname: 'defb', pos: 'DEF', team: 'NYJ' },
+    { player_id: '3', name: 'TE A', nname: 'tea', pos: 'TE', team: 'KC' },
+  ]
+
+  it('baut Week+ROS-Listen nur fuer angehakte Positionen, sortiert nach ECR', () => {
+    const out = streamingBoard({
+      freeAgents: agents,
+      weeklyRankByKey: new Map([['TEAM:SEA', 3], ['TEAM:NYJ', 1]]),
+      rosRankByKey: new Map([['TEAM:SEA', 1], ['TEAM:NYJ', 5]]),
+      positions: ['DEF'],
+    })
+    expect(out.TE).toBeUndefined()
+    expect(out.DEF.week.map((p) => p.player_id)).toEqual(['2', '1'])
+    expect(out.DEF.ros.map((p) => p.player_id)).toEqual(['1', '2'])
   })
 })

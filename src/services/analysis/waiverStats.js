@@ -54,3 +54,22 @@ export function pickupRanking({
   hasValue.sort((x, y) => (mode === 'dynasty' ? y.value - x.value : x.value - y.value))
   return [...hasValue, ...noValue]
 }
+
+function sortByRank(agents, rankByKey) {
+  return agents
+    .map((a) => ({ ...a, rank: rankByKey.get(matchKey(a.pos, a)) ?? null }))
+    .filter((a) => a.rank != null)
+    .sort((x, y) => x.rank - y.rank)
+}
+
+export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new Map(), rosRankByKey = new Map(), positions = [] } = {}) {
+  const out = {}
+  for (const pos of positions) {
+    const posAgents = agents.filter((a) => a.pos === pos)
+    out[pos] = {
+      week: sortByRank(posAgents, weeklyRankByKey),
+      ros: sortByRank(posAgents, rosRankByKey),
+    }
+  }
+  return out
+}
