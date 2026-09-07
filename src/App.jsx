@@ -60,10 +60,11 @@ function RootRedirect() {
 
 export default function App() {
   const isAndroid = /Android/i.test(navigator.userAgent)
-  const shellVersion = useUIStore((st) => st.shellVersion)
   const isWideViewport = useIsWideViewport()
   const nsPathname = useLocation().pathname
-  const useNextShell = shellVersion === 'next' && isWideViewport
+  // Desktop (>=900px) laeuft ausschliesslich in NextShell, mobil (<900px)
+  // bleibt AppShell die optimierte Bottom-Bar-Shell — kein Umschalter mehr.
+  const useNextShell = isWideViewport
 
   // ── Store reads ────────────────────────────────────────────────────────────
   const {

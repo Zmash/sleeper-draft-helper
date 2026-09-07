@@ -9,7 +9,6 @@ import { enrichBoardPlayersWithSleeper } from '../services/enrichBoardWithSleepe
 import { normalizePos, normalizePlayerName } from '../utils/formatting'
 import BoardSection from '../components/BoardSection'
 import NextBoard from '../components/NextBoard'
-import { useUIStore } from '../stores/useUIStore'
 
 export default function BoardPage({
   ownerLabels,
@@ -26,7 +25,6 @@ export default function BoardPage({
 }) {
 
   const { sleeperUserId, selectedDraftId, draftViewAs } = useSessionStore()
-  const shellVersion = useUIStore((s) => s.shellVersion)
   // Muss zur Shell-Wahl in App.jsx passen: unter 900px gilt immer die mobil
   // optimierte Ansicht, sonst saesse NextBoard ohne seine Huelle in der
   // alten Seite.
@@ -181,7 +179,7 @@ export default function BoardPage({
 
   // Die neue Shell zeigt dieselben Daten in ihrer eigenen Arbeitsflaeche.
   // Alle Effekte oben (Merge, Enrichment, URL-Deeplink) laufen unveraendert.
-  if (shellVersion === 'next' && wideViewport) {
+  if (wideViewport) {
     return (
       <NextBoard
         filteredPlayers={filteredPlayers}

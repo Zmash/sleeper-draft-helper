@@ -28,7 +28,6 @@ const RAIL = [
 export default function NextShell({ children, pageProps = {} }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const setShellVersion = useUIStore((s) => s.setShellVersion)
   const themeId = useUIStore((s) => s.themeId)
   const setTheme = useUIStore((s) => s.setTheme)
   const boardDensity = useUIStore((s) => s.boardDensity)
@@ -82,7 +81,6 @@ export default function NextShell({ children, pageProps = {} }) {
   }, [upcoming, teams, draftSlot, selectedDraft])
 
   function sync() { if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {}) }
-  function backToClassic() { setShellVersion('classic'); navigate('/dashboard') }
 
   const commands = useMemo(() => [
     { group: 'Draft', label: 'Picks jetzt synchronisieren', keys: 'R', run: sync },
@@ -100,7 +98,6 @@ export default function NextShell({ children, pageProps = {} }) {
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },
     { group: 'Ansicht', label: 'Tipps ein/aus', keys: 'T', run: () => setTipsOpen((v) => !v) },
     { group: 'Ansicht', label: 'Theme wählen', run: () => setThemeOpen(true) },
-    { group: 'Ansicht', label: 'Zurück zum alten Design', run: backToClassic },
   ], [autoRefreshEnabled, boardDensity, selectedDraftId, themeId, draftMode, refreshMarket, pageProps.onOpenDraftReview]) // eslint-disable-line
 
   useEffect(() => {
@@ -250,9 +247,6 @@ export default function NextShell({ children, pageProps = {} }) {
               <span className="ns-brandico ns-brandico--sleeper" />
             </a>
           )}
-          <button className="ns-icon-btn" onClick={backToClassic} title="Zurück zum alten Design" aria-label="Zurück zum alten Design">
-            <Icon name="shuffle" size={15} />
-          </button>
         </header>
 
         <div className="ns-content">{children}</div>
