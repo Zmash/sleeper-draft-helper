@@ -6,7 +6,7 @@
 // Deshalb wird die Client-Funktion IMPORTIERT und nicht nachgebaut: eine zweite
 // Implementierung wuerde frueher oder spaeter abweichen, und dann matcht nichts
 // mehr. formatting.js ist abhaengigkeitsfrei und laedt unter node.
-import { normalizePlayerName } from '../utils/formatting.js'
+import { normalizePlayerName, toFiniteOrNull } from '../utils/formatting.js'
 
 export const FFC_FORMATS = ['ppr', 'half-ppr', 'standard', '2qb']
 
@@ -154,5 +154,11 @@ export function normalizeFantasyProsPlayer(raw) {
     age: null,
     years_exp: null,
     nname: normalizePlayerName(name),
+    // Experten-Panel-Streuung: wie uneins sich FantasyPros' Analysten beim
+    // Gesamtrang sind -- unabhaengig von der FFC-Mock-Draft-Streuung (die
+    // reale Drafter-ADP misst statt Analysten-Meinung). Kommt als String an.
+    rank_min: toFiniteOrNull(raw?.rank_min),
+    rank_max: toFiniteOrNull(raw?.rank_max),
+    rank_std: toFiniteOrNull(raw?.rank_std),
   }
 }

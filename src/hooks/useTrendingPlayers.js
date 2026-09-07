@@ -30,7 +30,7 @@ function mergeWithMeta(entries, metaById) {
 // Ligaübergreifende Waiver-Trends fuer den Markt-Tab: wer wird gerade auf
 // Sleeper am meisten geholt/gedroppt (letzte 24h). Gleiches Lade-/Fehler-
 // Verhalten wie usePlayerNews.js.
-export function useTrendingPlayers({ lookbackHours = 24, limit = 15 } = {}) {
+export function useTrendingPlayers({ lookbackHours = 24, limit = 8 } = {}) {
   const [adds, setAdds] = useState([])
   const [drops, setDrops] = useState([])
   const [state, setState] = useState('loading') // loading | ok | error

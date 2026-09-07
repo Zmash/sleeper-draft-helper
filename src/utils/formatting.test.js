@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toFiniteOrNull, normalizePlayerName, normalizePos, signed, posColor } from './formatting'
+import { toFiniteOrNull, normalizePlayerName, normalizePos, signed, posColor, fantasyProsSlug } from './formatting'
 
 describe('toFiniteOrNull', () => {
   it('echte Zahl kommt durch', () => {
@@ -85,5 +85,29 @@ describe('posColor', () => {
   it('leere Eingaben ergeben einen syntaktisch gueltigen Ausdruck', () => {
     expect(posColor(null)).toBe('var(--pos-, #666)')
     expect(posColor('')).toBe('var(--pos-, #666)')
+  })
+})
+
+describe('fantasyProsSlug', () => {
+  it('einfache Namen werden klein geschrieben und mit Bindestrich verbunden', () => {
+    expect(fantasyProsSlug('Ja\'Marr Chase')).toBe('jamarr-chase')
+  })
+
+  it('streift einen eigenstaendigen Roman-Ziffern-Suffix', () => {
+    expect(fantasyProsSlug('Kenneth Walker III')).toBe('kenneth-walker')
+    expect(fantasyProsSlug('Robert Griffin IV')).toBe('robert-griffin')
+  })
+
+  it('laesst "v"/"ii"/"iii"/"iv" als Teil eines echten Wortes stehen (Regression)', () => {
+    // Vorher: der Regex traf jedes einzelne "v" im Namen, nicht nur einen
+    // eigenstaendigen Suffix -- "Devaughn Vele" wurde zu "deaughn-ele".
+    expect(fantasyProsSlug('Devaughn Vele')).toBe('devaughn-vele')
+    expect(fantasyProsSlug('Las Vegas Raiders')).toBe('las-vegas-raiders')
+    expect(fantasyProsSlug('Calvin Ridley')).toBe('calvin-ridley')
+    expect(fantasyProsSlug('Trevor Lawrence')).toBe('trevor-lawrence')
+  })
+
+  it('behaelt Jr./Sr. im Slug -- anders als Sohn/Vater waeren sonst nicht unterscheidbar', () => {
+    expect(fantasyProsSlug('Marvin Harrison Jr.')).toBe('marvin-harrison-jr')
   })
 })

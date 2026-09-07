@@ -97,7 +97,7 @@ describe('normalizeFantasyProsPlayer', () => {
   const raw = {
     player_id: 17298, player_name: 'Ja\'Marr Chase', player_team_id: 'CIN',
     player_position_id: 'WR', pos_rank: 'WR1', tier: 1, rank_ecr: 3,
-    player_bye_week: '6',
+    player_bye_week: '6', rank_min: '1', rank_max: '6', rank_std: '1.00',
   }
   it('bildet auf die Board-Rang-Form ab (wie FantasyCalc/KTC)', () => {
     const p = normalizeFantasyProsPlayer(raw)
@@ -120,6 +120,18 @@ describe('normalizeFantasyProsPlayer', () => {
   it('setzt nname fuer den Markt-Merge — strippt Suffixe wie die Client-Funktion', () => {
     expect(normalizeFantasyProsPlayer(raw).nname).toBe(normalizePlayerName('Ja\'Marr Chase'))
     expect(normalizeFantasyProsPlayer({ ...raw, player_name: 'Marvin Harrison Jr.' }).nname).toBe('marvin harrison')
+  })
+  it('konvertiert die Experten-Panel-Streuung (rank_min/rank_max/rank_std) aus Strings zu Zahlen', () => {
+    const p = normalizeFantasyProsPlayer(raw)
+    expect(p.rank_min).toBe(1)
+    expect(p.rank_max).toBe(6)
+    expect(p.rank_std).toBe(1)
+  })
+  it('rank_min/rank_max/rank_std bleiben null, wenn die Quelle sie nicht liefert', () => {
+    const p = normalizeFantasyProsPlayer({ ...raw, rank_min: undefined, rank_max: undefined, rank_std: undefined })
+    expect(p.rank_min).toBeNull()
+    expect(p.rank_max).toBeNull()
+    expect(p.rank_std).toBeNull()
   })
 })
 

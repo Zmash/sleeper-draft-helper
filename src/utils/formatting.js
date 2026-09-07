@@ -34,6 +34,11 @@ export const toFiniteOrNull = (v) => {
  * nicht. marvin-harrison-jr ist der Sohn, marvin-harrison der Vater — das
  * Suffix wegzuwerfen liefert also den falschen Spieler. Umgekehrt gibt es
  * kenneth-walker-iii nicht, nur kenneth-walker.
+ *
+ * Der Roman-Ziffern-Regex braucht \b vorn UND die Lookahead-Grenze hinten:
+ * ohne beide traf "(ii|iii|iv|v)" jedes einzelne "v" im Namen, nicht nur
+ * einen eigenstaendigen Suffix -- "Devaughn Vele" wurde zu "deaughn-ele",
+ * "Las Vegas Raiders" zu "las-egas-raiders" (live im Trend-Tab aufgefallen).
  */
 export const fantasyProsSlug = (name) =>
   String(name || '')
@@ -41,7 +46,7 @@ export const fantasyProsSlug = (name) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/[''']/g, '')
     .toLowerCase()
-    .replace(/(ii|iii|iv|v)\.?/g, '')
+    .replace(/\b(ii|iii|iv|v)\.?(?=\s|$)/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 

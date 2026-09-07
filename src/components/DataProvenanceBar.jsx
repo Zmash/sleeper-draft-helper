@@ -6,7 +6,7 @@ import Icon from './Icon'
 const STALE_AFTER_DAYS = 7
 
 const MODE_LABEL = { redraft: 'Redraft', rookie: 'Rookie Draft' }
-const FORMAT_LABEL = { ppr: 'PPR', 'half-ppr': 'Half-PPR', standard: 'Standard', '2qb': '2QB / Superflex' }
+export const FORMAT_LABEL = { ppr: 'PPR', 'half-ppr': 'Half-PPR', standard: 'Standard', '2qb': '2QB / Superflex' }
 // Welche ADP-Quelle das Board speist. Alt-Boards ohne marketMeta.source: Fallback
 // FFC, das war vor der Sleeper-Quelle die einzige ADP-Herkunft. Die Zeile luegt nie.
 const ADP_SOURCE_LABEL = { ffc: 'Fantasy Football Calculator', sleeper: 'Sleeper (RotoWire)' }
