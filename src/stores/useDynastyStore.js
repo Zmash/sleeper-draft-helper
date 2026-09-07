@@ -108,6 +108,7 @@ export const useDynastyStore = create((set) => ({
           team: meta.team || '',
           bye: meta.bye_week != null ? String(meta.bye_week) : '',
           age: meta.age || null,
+          injury_status: meta.injury_status || null,
           slot,
         }
       })

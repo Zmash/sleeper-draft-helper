@@ -57,6 +57,26 @@ beforeEach(() => { localStorage.clear(); vi.resetModules() })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('useDynastyStore.loadDynastyRoster — leagueRosters', () => {
+  it('uebernimmt injury_status aus playersMeta in dynastyRoster', async () => {
+    vi.stubGlobal('fetch', mockFetch({
+      '/league/L1/rosters': [
+        { roster_id: 1, owner_id: 'u1', players: ['100'], starters: ['100'], taxi: [], reserve: [] },
+      ],
+      '/players/nfl': {
+        '100': { player_id: '100', full_name: 'Test Player', fantasy_positions: ['RB'], team: 'SEA', injury_status: 'Questionable' },
+      },
+    }))
+    const { useDynastyStore } = await import('./useDynastyStore')
+
+    await useDynastyStore.getState().loadDynastyRoster({
+      selectedLeagueId: 'L1',
+      sleeperUserId: 'u1',
+      seasonYear: 2026,
+    })
+
+    expect(useDynastyStore.getState().dynastyRoster[0].injury_status).toBe('Questionable')
+  })
+
   it('behaelt alle Liga-Kader zusaetzlich zum eigenen, aufbereiteten Kader', async () => {
     vi.stubGlobal('fetch', mockFetch({
       '/league/L1/rosters': ROSTERS,
