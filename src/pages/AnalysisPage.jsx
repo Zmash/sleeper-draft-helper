@@ -19,7 +19,7 @@ import '../styles/analysis.css'
 
 const TABS = [['draft', 'Draft'], ['roster', 'Kader'], ['market', 'Markt']]
 
-export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft }) {
+export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft, draftMode }) {
   const [tab, setTab] = useState('draft')
   const { sleeperUserId } = useSessionStore()
   const { boardPlayers } = useBoardStore()
@@ -27,6 +27,7 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
   const { leagueRosters, mySleeperRosterId, dynastyRoster, rosterToUserMap } = useDynastyStore()
 
   const teams = Number(teamsCount) || 12
+  const isRookieMode = draftMode === 'rookie'
 
   // Eigenes Team: erst ueber einen eigenen Pick, sonst ueber den Draft-Slot.
   // Findet sich keins, bleiben die Ich-Angaben leer -- lieber keine Zahl als
@@ -124,7 +125,7 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
         {tab === 'roster' && (
           <RosterTab
             split={split} power={power} ages={ages} starterBench={starterBench}
-            myRosterId={mySleeperRosterId}
+            myRosterId={mySleeperRosterId} isRookieMode={isRookieMode}
           />
         )}
         {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}

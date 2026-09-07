@@ -78,7 +78,7 @@ function KaderVsLiga({ split }) {
   )
 }
 
-function PowerRanking({ power, myRosterId }) {
+function PowerRanking({ power, myRosterId, isRookieMode }) {
   if (!power.available) {
     const empty = power.reason === 'low-coverage'
       ? `Nur ${Math.round(power.coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu dünn für einen Liga-Vergleich.`
@@ -89,27 +89,41 @@ function PowerRanking({ power, myRosterId }) {
   }
 
   const isValue = power.mode === 'value'
-  const colLabel = isValue ? 'Wert' : 'Ø Rang'
-  const fmt = (t) => (isValue ? Math.round(t.metric) : t.metric.toFixed(1))
+  const isStandings = power.mode === 'standings'
+  const colLabel = isValue ? 'Wert' : isStandings ? 'Bilanz' : 'Ø Rang'
+  const fmt = (t) => (isValue ? Math.round(t.metric) : isStandings ? t.record : t.metric.toFixed(1))
 
   return (
     <StatCard
       title="Power-Ranking"
       hint={isValue
         ? 'Summe der Starter-Werte je Position (beste Spieler pro Slot) über alle Teams verglichen.'
-        : 'Ohne Dynasty-Werte (Redraft): je Position werden alle Teams nach ihrem besten Spieler geranked, der Schnitt dieser Plätze über alle Positionen ergibt den Gesamt-Rang. Kleiner ist besser.'}
+        : isStandings
+          // Der Board-Rang ist nur eine Vorschau -- sobald die Saison laeuft,
+          // zaehlen die echten Ergebnisse (Sieg-Quote, bei Gleichstand die
+          // Punkte-Bilanz als Tiebreak fuer Schedule-Glueck).
+          ? 'Rang nach Saison-Bilanz: Sieg-Quote, bei Gleichstand die Punkte-Bilanz als Tiebreak (deckt Schedule-Glück auf).'
+          // Dieser Fall betrifft ausdruecklich nicht nur echte Redraft-Ligen --
+          // auch eine Dynasty-Liga landet hier, solange (noch) keine Dynasty-
+          // Rangliste importiert ist oder die Saison noch nicht laeuft.
+          : `Ohne Dynasty-Werte${isRookieMode ? '' : ' (Redraft)'}: je Position werden alle Teams nach ihrem besten Spieler geranked, der Schnitt dieser Plätze über alle Positionen ergibt den Gesamt-Rang. Kleiner ist besser.${isRookieMode ? ' Für echte Dynasty-Werte eine KTC-Rangliste importieren.' : ''}`}
       headline={power.myRank != null ? String(power.myRank) : '—'}
       sub={power.myRank != null
-        ? `von ${power.teams.length} Teams · ${colLabel} ${fmt({ metric: power.myMetric })}`
+        ? `von ${power.teams.length} Teams · ${colLabel} ${fmt(isStandings ? power.teams[power.myRank - 1] : { metric: power.myMetric })}`
         : 'Dein Team nicht erkannt'}
       basis={isValue
         ? `${power.teams.length} Kader verglichen · Summe der Starter-Werte je Position`
-        : `${power.teams.length} Kader verglichen · Rang-Schnitt aus bis zu ${Math.max(...power.teams.map((t) => t.positionsCounted))} Positionen`}
+        : isStandings
+          ? `${power.teams.length} Teams verglichen · Bilanz der laufenden Saison`
+          : `${power.teams.length} Kader verglichen · Rang-Schnitt aus bis zu ${Math.max(...power.teams.map((t) => t.positionsCounted))} Positionen`}
       wide
     >
       <table className="an-table">
         <thead>
-          <tr><th>#</th><th>Team</th><th className="an-num">{colLabel}</th></tr>
+          <tr>
+            <th>#</th><th>Team</th><th className="an-num">{colLabel}</th>
+            {isStandings && <th className="an-num">Punkte</th>}
+          </tr>
         </thead>
         <tbody>
           {power.teams.map((t, i) => (
@@ -117,6 +131,7 @@ function PowerRanking({ power, myRosterId }) {
               <td>{i + 1}</td>
               <td>{t.label}</td>
               <td className="an-num">{fmt(t)}</td>
+              {isStandings && <td className="an-num">{Math.round(t.pointsFor)}</td>}
             </tr>
           ))}
         </tbody>
@@ -264,12 +279,12 @@ function StarterVsBench({ data }) {
   return <StarterVsBenchRank data={data} />
 }
 
-export default function RosterTab({ split, power, ages, starterBench, myRosterId }) {
+export default function RosterTab({ split, power, ages, starterBench, myRosterId, isRookieMode }) {
   return (
     <div className="an-grid">
       <KaderVsLiga split={split} />
       <AgeProfile ages={ages} />
-      <PowerRanking power={power} myRosterId={myRosterId} />
+      <PowerRanking power={power} myRosterId={myRosterId} isRookieMode={isRookieMode} />
       <StarterVsBench data={starterBench} />
     </div>
   )

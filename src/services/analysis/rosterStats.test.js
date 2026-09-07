@@ -321,6 +321,33 @@ describe('teamPowerRanking', () => {
     expect(r.available).toBe(true)
   })
 
+  it('Standings-Modus: sobald Spiele stattfanden, zaehlt die echte Bilanz statt der Board-Raenge', () => {
+    // Ohne dynasty_value, aber die Saison laeuft schon (roster.settings hat
+    // Spiele) -> muss auf 'standings' umschalten statt beim Board-Rang zu bleiben.
+    const ohneWert = board.map(({ dynasty_value, ...rest }) => rest)
+    const mitBilanz = [
+      { ...rosters[0], settings: { wins: 8, losses: 2, ties: 0, fpts: 1024, fpts_decimal: 56, fpts_against: 900, fpts_against_decimal: 0 } },
+      { ...rosters[1], settings: { wins: 5, losses: 5, ties: 0, fpts: 1024, fpts_decimal: 56, fpts_against: 950, fpts_against_decimal: 0 } },
+      { ...rosters[2], settings: { wins: 2, losses: 8, ties: 0, fpts: 800, fpts_decimal: 0, fpts_against: 1100, fpts_against_decimal: 0 } },
+    ]
+    const r = teamPowerRanking({
+      leagueRosters: mitBilanz, boardPlayers: ohneWert, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    expect(r.mode).toBe('standings')
+    expect(r.myRank).toBe(1)
+    expect(r.teams[0].record).toBe('8-2')
+    // Gleiche Sieg-Quote, hoehere Punkte-Bilanz gewinnt den Tiebreak.
+    const gleicheQuote = teamPowerRanking({
+      leagueRosters: [
+        { ...rosters[0], settings: { wins: 5, losses: 5, fpts: 1000, fpts_against: 900 } },
+        { ...rosters[1], settings: { wins: 5, losses: 5, fpts: 1100, fpts_against: 900 } },
+        { ...rosters[2], settings: { wins: 0, losses: 0 } },
+      ],
+      boardPlayers: ohneWert, rosterPositions: ['RB'], myRosterId: 2,
+    })
+    expect(gleicheQuote.teams[0].rosterId).toBe(2) // mehr Punkte bei gleicher Bilanz -> Platz 1
+  })
+
   it('Rangmodus: nur ein Team an einer Position -> Position zaehlt nicht in den Schnitt', () => {
     // Nur ein Team hat einen RB im Fixture "rosters"/"board" -- eine
     // Ein-Team-Rangliste sagt nichts aus und darf den Schnitt nicht verfaelschen.

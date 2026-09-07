@@ -109,6 +109,20 @@ function labelForRoster(rosterId, rosterToUserMap, ownerLabels) {
   return ownerId ? (ownerLabels?.get?.(`user:${ownerId}`) || ownerId) : `Team ${rosterId ?? '?'}`
 }
 
+// Sleeper liefert Bilanz und Punkte direkt auf roster.settings mit -- kein
+// Extra-Request noetig. fpts/fpts_against sind in ganze + Nachkomma-Anteil
+// gesplittet (z.B. fpts: 1024, fpts_decimal: 56 -> 1024.56).
+function standingsOf(roster) {
+  const s = roster?.settings || {}
+  const wins = Number(s.wins) || 0
+  const losses = Number(s.losses) || 0
+  const ties = Number(s.ties) || 0
+  const played = wins + losses + ties
+  const pointsFor = (Number(s.fpts) || 0) + (Number(s.fpts_decimal) || 0) / 100
+  const pointsAgainst = (Number(s.fpts_against) || 0) + (Number(s.fpts_against_decimal) || 0) / 100
+  return { wins, losses, ties, played, pointsFor, pointsAgainst }
+}
+
 /**
  * Gesamt-Power-Ranking, ein Liga-Rang statt vier Einzelvergleiche.
  *
@@ -166,6 +180,14 @@ export function teamPowerRanking({
   if (!teamsRaw.length) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'no-rosters' }
   if (coverage < 0.5) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'low-coverage' }
 
+  // Sobald die Saison laeuft (mind. ein Team mit gespielten Spielen), ist die
+  // echte Bilanz aussagekraeftiger als ein Vorschau-Rang aus dem Board --
+  // genau das Signal, das andere Power-Ranking-Seiten primaer nutzen (Record +
+  // Punkte-Bilanz). Nur im Rangmodus relevant: im Wertmodus (Dynasty) zaehlt
+  // bewusst der langfristige Wert, nicht die aktuelle Wochen-Bilanz.
+  const useStandings = mode === 'rank'
+    && (leagueRosters || []).some((r) => standingsOf(r).played > 0)
+
   let teams
   if (mode === 'value') {
     teams = teamsRaw.map((team) => {
@@ -180,6 +202,22 @@ export function teamPowerRanking({
       return { rosterId: team.rosterId, label: labelForRoster(team.rosterId, rosterToUserMap, ownerLabels), metric: total }
     })
     teams.sort((a, b) => b.metric - a.metric) // hoeherer Wert ist besser
+  } else if (useStandings) {
+    teams = (leagueRosters || []).map((roster) => {
+      const st = standingsOf(roster)
+      const winPct = st.played > 0 ? (st.wins + st.ties * 0.5) / st.played : 0
+      return {
+        rosterId: roster?.roster_id ?? null,
+        label: labelForRoster(roster?.roster_id, rosterToUserMap, ownerLabels),
+        metric: winPct,
+        record: `${st.wins}-${st.losses}${st.ties ? `-${st.ties}` : ''}`,
+        pointsFor: st.pointsFor,
+        pointsAgainst: st.pointsAgainst,
+      }
+    })
+    // Sieg-Quote zuerst, Punkte-Bilanz als Tiebreak (deckt Schedule-Glueck auf:
+    // zwei Teams mit gleicher Bilanz werden nach echter Staerke sortiert).
+    teams.sort((a, b) => b.metric - a.metric || b.pointsFor - a.pointsFor)
   } else {
     const posRanks = {} // pos -> Map(rosterId -> Platz 1..N)
     for (const [pos, slots] of Object.entries(slotsByPos)) {
@@ -218,13 +256,14 @@ export function teamPowerRanking({
     teams.sort((a, b) => a.metric - b.metric) // kleinerer Rang-Schnitt ist besser
   }
 
-  if (!teams.length) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'insufficient-teams' }
+  const effMode = useStandings ? 'standings' : mode
+  if (!teams.length) return { available: false, mode: effMode, teams: [], myRank: null, coverage, reason: 'insufficient-teams' }
 
   const myIndex = myRosterId != null ? teams.findIndex((t) => String(t.rosterId) === String(myRosterId)) : -1
 
   return {
     available: true,
-    mode,
+    mode: effMode,
     teams,
     coverage,
     myRank: myIndex >= 0 ? myIndex + 1 : null,
