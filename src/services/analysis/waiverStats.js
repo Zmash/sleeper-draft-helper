@@ -20,6 +20,12 @@ export function freeAgents({ playersMeta = {}, leagueRosters = [] }) {
   for (const [id, meta] of Object.entries(playersMeta || {})) {
     if (rostered.has(String(id))) continue
     if (meta?.status && meta.status !== 'Active') continue
+    // Sleepers "status" ist fuer laengst zurueckgetretene Spieler oft trotzdem
+    // "Active" (verifiziert 2026-09-07: Tom Brady, Rob Gronkowski, Antonio
+    // Brown -- alle status "Active", team null; ~73% aller "Active"-Spieler
+    // in Skill-Positionen haben kein Team). team ist das verlaessliche Signal:
+    // ohne aktuelles Team ist niemand ein claimbarer Free Agent.
+    if (!meta?.team) continue
     const pos = (meta?.fantasy_positions?.[0] || meta?.position || '').toUpperCase()
     if (!WAIVER_POSITIONS.has(pos)) continue
     const name = meta.full_name || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()

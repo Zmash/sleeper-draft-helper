@@ -3,14 +3,17 @@ import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualS
 
 describe('freeAgents', () => {
   const playersMeta = {
-    '1': { full_name: 'Rostered Guy', fantasy_positions: ['RB'], status: 'Active' },
+    '1': { full_name: 'Rostered Guy', fantasy_positions: ['RB'], status: 'Active', team: 'DAL' },
     '2': { full_name: 'Free Agent Guy', fantasy_positions: ['WR'], status: 'Active', team: 'SEA' },
-    '3': { full_name: 'Retired Guy', fantasy_positions: ['QB'], status: 'Inactive' },
-    '4': { full_name: 'Kicker Guy', fantasy_positions: ['K'], status: 'Active' },
+    '3': { full_name: 'Retired Guy', fantasy_positions: ['QB'], status: 'Inactive', team: null },
+    '4': { full_name: 'Kicker Guy', fantasy_positions: ['K'], status: 'Active', team: 'KC' },
+    // Sleeper markiert langjaehrig zurueckgetretene Spieler oft nie als "Inactive" --
+    // status bleibt "Active", aber team ist null. Ohne Team ist niemand claimbar.
+    '5': { full_name: 'Stale Active Guy', fantasy_positions: ['QB'], status: 'Active', team: null },
   }
   const leagueRosters = [{ roster_id: 1, players: [{ sleeper_id: '1' }] }]
 
-  it('schliesst rostered, inaktive und K aus', () => {
+  it('schliesst rostered, inaktive, teamlose und K aus', () => {
     const out = freeAgents({ playersMeta, leagueRosters })
     expect(out.map((p) => p.player_id)).toEqual(['2'])
   })
