@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
 import DraftGrid from './DraftGrid'
-import { cx, normalizePos, fantasyProsSlug, normalizePlayerName } from '../utils/formatting'
+import { cx, normalizePos, fantasyProsPlayerUrl, normalizePlayerName } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
@@ -16,8 +16,6 @@ import { getOpenAIKey, setOpenAIKey } from '../services/key'
 import { formatEstimate } from '../services/aiCost'
 import { isAdviceButtonDisabled } from '../services/boardGate'
 import { opponentsUntilMyNext } from '../services/draftFlow'
-
-const FP_PLAYER = (name) => `https://www.fantasypros.com/nfl/players/${fantasyProsSlug(name)}.php`
 
 const POS_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE']
 const POS_LABEL = { ALL: 'Alle' }
@@ -491,7 +489,7 @@ function PlayerPanel({ p, pref, onPref }) {
       <div className="ns-insp-head">
         <div className="ns-insp-title">
           <span className="ns-insp-name">{p.name}</span>
-          <a className="ns-extlink" href={FP_PLAYER(p.name)} target="_blank" rel="noreferrer" title="Auf FantasyPros öffnen">
+          <a className="ns-extlink" href={fantasyProsPlayerUrl(p.name)} target="_blank" rel="noreferrer" title="Auf FantasyPros öffnen">
             <span className="ns-brandico ns-brandico--fantasypros" /> FantasyPros
           </a>
         </div>
@@ -630,7 +628,7 @@ function RosterPanel({ livePicks, meUserId, draftSlot, teamsCount, boardPlayers 
           <span className="ns-posbadge" style={{ background: `var(--pos-${String(r.player.pos || '').toLowerCase()})` }}>
             {r.player.pos}
           </span>
-          <a className="ns-rname" href={FP_PLAYER(r.player.name)} target="_blank" rel="noreferrer">{r.player.name}</a>
+          <a className="ns-rname" href={fantasyProsPlayerUrl(r.player.name)} target="_blank" rel="noreferrer">{r.player.name}</a>
           <span className="ns-team">
             {r.player.team}{r.player.bye ? ` (${r.player.bye})` : ''}
           </span>

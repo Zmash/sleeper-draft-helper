@@ -45,6 +45,10 @@ export const fantasyProsSlug = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
+/** FantasyPros-Spielerprofil-URL aus dem Namen. */
+export const fantasyProsPlayerUrl = (name) =>
+  `https://www.fantasypros.com/nfl/players/${fantasyProsSlug(name)}.php`
+
 /** Positionsfarbe als CSS-var mit Rueckfall, fuer inline styles. */
 // normalizePos zuerst: ein roher Wert wie "D/ST" ergaebe var(--pos-d/st, #666),
 // und der Schraegstrich macht den ganzen Ausdruck ungueltig — dann greift nicht

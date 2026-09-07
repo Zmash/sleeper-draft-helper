@@ -1,8 +1,45 @@
 import StatCard from './StatCard'
-import { posColor } from '../../utils/formatting'
+import { posColor, fantasyProsPlayerUrl, cx } from '../../utils/formatting'
+import { useTrendingPlayers } from '../../hooks/useTrendingPlayers'
+
+function TrendList({ title, hint, items, state }) {
+  const empty = state === 'loading'
+    ? 'lädt …'
+    : state === 'error'
+      ? 'Trend-Daten von Sleeper aktuell nicht erreichbar.'
+      : !items.length
+        ? 'Keine Trend-Daten verfügbar.'
+        : ''
+
+  return (
+    <StatCard
+      title={title}
+      hint={hint}
+      basis="Sleeper, ligaübergreifend, letzte 24h"
+      empty={empty}
+    >
+      {items.map((p) => (
+        <div className="an-trendrow" key={p.player_id}>
+          <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
+          <a className="an-trendname" href={fantasyProsPlayerUrl(p.name)} target="_blank" rel="noreferrer">
+            {p.name}
+          </a>
+          {p.injury_status && (
+            <span className={cx('an-inj', p.injury_status !== 'Questionable' && 'is-out')}>
+              {p.injury_status === 'Questionable' ? 'Q' : p.injury_status}
+            </span>
+          )}
+          <span className="an-trendteam">{p.team || '—'}</span>
+          <span className="an-num">{p.count.toLocaleString('de-DE')}</span>
+        </div>
+      ))}
+    </StatCard>
+  )
+}
 
 export default function MarketTab({ market, nextPickNo = null }) {
   const { players, basis, scaleMin, scaleMax } = market
+  const { adds, drops, state: trendState } = useTrendingPlayers()
 
   if (!players.length) {
     return (
@@ -11,6 +48,8 @@ export default function MarketTab({ market, nextPickNo = null }) {
           title="Umstrittenste Spieler"
           empty="Dieses Ranking enthält keine Marktdaten (Streuung, Hoch- und Tiefstwerte)."
         />
+        <TrendList title="Meistgeholt" hint="Wer wird gerade ligaübergreifend am meisten vom Waiver geholt." items={adds} state={trendState} />
+        <TrendList title="Meistgedroppt" hint="Wer wird gerade ligaübergreifend am meisten abgegeben." items={drops} state={trendState} />
       </div>
     )
   }
@@ -55,6 +94,8 @@ export default function MarketTab({ market, nextPickNo = null }) {
           </div>
         ))}
       </StatCard>
+      <TrendList title="Meistgeholt" hint="Wer wird gerade ligaübergreifend am meisten vom Waiver geholt." items={adds} state={trendState} />
+      <TrendList title="Meistgedroppt" hint="Wer wird gerade ligaübergreifend am meisten abgegeben." items={drops} state={trendState} />
     </div>
   )
 }

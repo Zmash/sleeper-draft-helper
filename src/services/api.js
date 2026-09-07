@@ -87,6 +87,12 @@ export async function fetchLeagueRosters(leagueId) {
   return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/rosters`)
 }
 
+// Ligaübergreifend meistgeholte/-gedroppte Spieler auf Sleeper (kein Key
+// nötig, öffentlicher Endpoint). type: 'add' | 'drop'.
+export async function fetchTrendingPlayers(type, { lookbackHours = 24, limit = 25 } = {}) {
+  return fetchJson(`${SLEEPER_API_BASE}/players/nfl/trending/${type}?lookback_hours=${lookbackHours}&limit=${limit}`)
+}
+
 // Ehemals hier: rosterPositionsFromDraft (vierte, ungenutzte Kopie der slots_*-Logik).
 // Ersetzt durch deriveFormat() in services/draftFormat.js — dort ist die einzige Quelle.
 

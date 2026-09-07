@@ -1,5 +1,5 @@
 import Icon from './Icon'
-import { cx, normalizePos, fantasyProsSlug } from '../utils/formatting'
+import { cx, normalizePos, fantasyProsPlayerUrl } from '../utils/formatting'
 import { usePlayerNews } from '../hooks/usePlayerNews'
 import { PlayerPreference } from '../services/preferences'
 
@@ -11,9 +11,7 @@ export default function PlayerDetailSheet({ player, onClose, pref = null, onSetP
   const open = !!player
 
   const pos = player?.pos ? normalizePos(player.pos) : null
-  const fpUrl = player?.name
-    ? `https://www.fantasypros.com/nfl/players/${fantasyProsSlug(player.name)}.php`
-    : null
+  const fpUrl = player?.name ? fantasyProsPlayerUrl(player.name) : null
 
   return (
     <>
