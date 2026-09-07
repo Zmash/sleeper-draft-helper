@@ -9,7 +9,7 @@ function RankList({ title, players = [] }) {
         {players.slice(0, 10).map((p) => (
           <li key={p.player_id}>{p.name} <span className="an-muted">({p.team})</span></li>
         ))}
-        {!players.length && <li className="an-empty">Keine Daten</li>}
+        {!players.length && <li className="an-card-empty">Keine Daten</li>}
       </ol>
     </div>
   )

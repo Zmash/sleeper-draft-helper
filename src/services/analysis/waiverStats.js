@@ -80,7 +80,15 @@ export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new 
   return out
 }
 
-const FLEX_ELIGIBLE = { FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] }
+const FLEX_ELIGIBLE = {
+  FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'],
+  REC_FLEX: ['WR', 'TE'], WRRB_FLEX: ['RB', 'WR'],
+}
+
+// Sleeper-Injury-Status-Werte, die einen Spieler diese Woche nicht startbar
+// machen. 'Out'/'IR' allein reichten nicht -- PUP/Sus/NA/DNR bedeuten ebenso
+// "nicht verfuegbar" (gleiche Fehlerklasse wie der bereits behobene !meta?.team-Fix).
+const UNAVAILABLE_INJURY_STATUSES = new Set(['Out', 'IR', 'PUP', 'Sus', 'NA', 'DNR'])
 
 // Greedy statt echtem bipartiten Matching: pro fixem Positions-Slot den
 // bestplatzierten passenden Spieler zuerst, danach FLEX-Slots aus dem Rest.
@@ -92,14 +100,14 @@ const FLEX_ELIGIBLE = { FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR',
 export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), currentWeekBye = null } = {}) {
   const eligible = myRosterPlayers.filter((p) => {
     if (currentWeekBye != null && String(p.bye) === String(currentWeekBye)) return false
-    if (p.injury_status === 'Out' || p.injury_status === 'IR') return false
+    if (UNAVAILABLE_INJURY_STATUSES.has(p.injury_status)) return false
     return true
   })
   const rankOf = (p) => weeklyRankByKey.get(`ID:${p.sleeper_id}`) ?? Infinity
   const used = new Set()
   const slots = []
 
-  const fixedSlots = rosterPositions.filter((s) => s !== 'BN' && !FLEX_ELIGIBLE[s])
+  const fixedSlots = rosterPositions.filter((s) => s !== 'BN' && s !== 'IR' && !FLEX_ELIGIBLE[s])
   const flexSlots = rosterPositions.filter((s) => FLEX_ELIGIBLE[s])
 
   const slotCounters = {}
@@ -132,13 +140,18 @@ export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyR
 
 export function compareToActualStarters({ recommendedSlots = [], actualStarterIds = [] } = {}) {
   const actual = new Set((actualStarterIds || []).map(String))
-  const recommended = new Set(recommendedSlots.filter((s) => s.player).map((s) => String(s.player.sleeper_id)))
+  const recommendedIds = new Set(recommendedSlots.filter((s) => s.player).map((s) => String(s.player.sleeper_id)))
   const diffs = []
   for (const s of recommendedSlots) {
     if (!s.player) continue
     const id = String(s.player.sleeper_id)
     if (!actual.has(id)) diffs.push({ slot: s.slot, in: id, name: s.player.name })
   }
-  const isOptimal = diffs.length === 0 && actual.size === recommended.size
+  // Aktuelle Starter, die in KEINEM empfohlenen Slot auftauchen, muessen als
+  // "raus" gemeldet werden -- nicht nur Slot-Ersetzungen (Plan-Vorgabe Task 7).
+  for (const actualId of actual) {
+    if (!recommendedIds.has(actualId)) diffs.push({ slot: null, out: actualId })
+  }
+  const isOptimal = diffs.length === 0 && actual.size === recommendedIds.size
   return { isOptimal, diffs }
 }

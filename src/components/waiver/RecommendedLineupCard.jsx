@@ -12,8 +12,10 @@ export default function RecommendedLineupCard({ lineup, comparison }) {
         <div className="an-lineup-diff">
           <strong>Abweichend von deiner aktuellen Aufstellung:</strong>
           <ul>
-            {comparison.diffs.map((d) => (
-              <li key={d.slot + d.in}>{d.slot}: {d.name} sollte rein</li>
+            {comparison.diffs.map((d, i) => (
+              <li key={d.in || d.out || i}>
+                {d.in ? `${d.slot}: ${d.name} sollte rein` : `Spieler ${d.out} sollte raus`}
+              </li>
             ))}
           </ul>
         </div>
@@ -24,7 +26,7 @@ export default function RecommendedLineupCard({ lineup, comparison }) {
           {lineup.slots.map((s) => (
             <tr key={s.slot + s.slotIndex}>
               <td>{s.slot}</td>
-              <td>{s.player ? s.player.name : <span className="an-empty">–</span>}</td>
+              <td>{s.player ? s.player.name : <span className="an-card-empty">–</span>}</td>
             </tr>
           ))}
         </tbody>

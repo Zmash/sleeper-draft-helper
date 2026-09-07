@@ -93,6 +93,32 @@ describe('bestLineup', () => {
     expect(out.bench.map((p) => p.sleeper_id)).toContain('4')
     expect(out.bench.map((p) => p.sleeper_id)).toContain('5')
   })
+
+  it('IR-Slot wird uebersprungen, REC_FLEX zieht WR/TE', () => {
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['QB', 'REC_FLEX', 'IR', 'BN'],
+      weeklyRankByKey,
+    })
+    const bySlot = Object.fromEntries(out.slots.map((s) => [s.slot, s.player?.sleeper_id]))
+    expect(bySlot.IR).toBeUndefined() // IR erzeugt keinen Slot in der Ausgabe
+    expect(bySlot.REC_FLEX).toBe('4') // WR Bye (5 = WR Hurt ist wegen injury_status 'Out' raus)
+  })
+
+  it('schliesst zusaetzliche Verletzungs-Status (PUP/Sus) aus', () => {
+    const rosterWithPup = [
+      ...roster,
+      { sleeper_id: '6', name: 'WR PUP', pos: 'WR', bye: '', injury_status: 'PUP' },
+    ]
+    const out = bestLineup({
+      myRosterPlayers: rosterWithPup,
+      rosterPositions: ['QB', 'FLEX', 'BN', 'BN', 'BN'],
+      weeklyRankByKey: new Map([...weeklyRankByKey, ['ID:6', 0]]), // bester Rang, darf trotzdem nicht starten
+    })
+    const flex = out.slots.find((s) => s.slot === 'FLEX')
+    expect(flex.player?.sleeper_id).not.toBe('6')
+    expect(out.bench.map((p) => p.sleeper_id)).toContain('6')
+  })
 })
 
 describe('compareToActualStarters', () => {
@@ -107,6 +133,8 @@ describe('compareToActualStarters', () => {
     const slots = [{ slot: 'RB', slotIndex: 0, player: { sleeper_id: '2', name: 'RB Best' } }]
     const out = compareToActualStarters({ recommendedSlots: slots, actualStarterIds: ['3'] })
     expect(out.isOptimal).toBe(false)
-    expect(out.diffs[0]).toMatchObject({ slot: 'RB', in: '2' })
+    expect(out.diffs).toContainEqual({ slot: 'RB', in: '2', name: 'RB Best' })
+    // '3' ist aktueller Starter, taucht aber in keinem empfohlenen Slot auf -> "raus".
+    expect(out.diffs).toContainEqual({ slot: null, out: '3' })
   })
 })

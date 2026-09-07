@@ -6,7 +6,7 @@ export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
   return (
     <div className="an-card">
       <h3>Pickup-Empfehlungen</h3>
-      {!players.length && <p className="an-empty">Keine Free-Agent-Daten verfügbar.</p>}
+      {!players.length && <p className="an-card-empty">Keine Free-Agent-Daten verfügbar.</p>}
       {!!players.length && (
         <table className="an-table">
           <thead>
