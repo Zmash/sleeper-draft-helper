@@ -4,14 +4,17 @@ import { normalizePlayerName } from '../utils/formatting'
 
 const TTL_MS = 24 * 60 * 60 * 1000
 
+// v2: sleeper_id-Namensabgleich gegen den Zeilennummer-Bug (siehe unten) --
+// Bump erzwingt einmalig einen Re-Merge ALLER Spieler, auch solcher, die
+// schon (falsch) auf depth_chart_order: null gemerged wurden. Ein reiner
+// "Feld fehlt"-Check haette diese bereits falsch gemergten Eintraege nicht
+// erneut angefasst.
+const ENRICH_VERSION = 2
+
 function isFresh(player) {
+  if (player?.enrich_v !== ENRICH_VERSION) return false
   const ts = Number(player?.enriched_at)
-  if (!Number.isFinite(ts) || (Date.now() - ts) >= TTL_MS) return false
-  // Boards, die vor der Depth-Chart-Erweiterung angereichert wurden, kennen
-  // dieses Feld gar nicht (undefined, nicht null) -- ohne diesen Check
-  // blieben sie bis zum naechsten TTL-Ablauf (24h) ohne die neuen Werte,
-  // obwohl der Meta-Cache sie laengst hat.
-  return player.depth_chart_order !== undefined
+  return Number.isFinite(ts) && (Date.now() - ts) < TTL_MS
 }
 
 function primaryPos(meta) {
@@ -37,6 +40,7 @@ function mergePlayer(csv, meta) {
       ...csv,
       enriched: true,
       enriched_at: Date.now(),
+      enrich_v: ENRICH_VERSION,
       match_status: 'unmatched',
     }
   }
@@ -63,6 +67,7 @@ function mergePlayer(csv, meta) {
 
   next.enriched = true
   next.enriched_at = Date.now()
+  next.enrich_v = ENRICH_VERSION
   next.match_status = 'matched'
   return next
 }
@@ -80,10 +85,17 @@ export async function enrichBoardPlayersWithSleeper(boardPlayers = [], { season 
 
     let meta = null
     const id = bp.sleeper_id || bp.player_id || bp.id
-    if (id && metas[id]) {
+    const nameKey = normalizePlayerName(bp.name || '')
+    // Bekannter Bug bei CSV-Importen: die ersten ~250 Raenge tragen als
+    // sleeper_id teils nur ihre Zeilennummer statt einer echten Sleeper-ID
+    // (siehe rosterStats.js). Kleine Zahlen wie "88" oder "91" sind bei
+    // Sleeper laengst zurueckgetretene Alt-Spieler (Antoine Bethea, Carson
+    // Palmer, ...) -- ohne den Namensabgleich wuerde deren leerer Datensatz
+    // (kein Team, keine Depth-Chart) als "Treffer" durchgehen und die
+    // eigentlich passende Namenssuche nie erreicht.
+    if (id && metas[id] && normalizePlayerName(metas[id].full_name || '') === nameKey) {
       meta = metas[id]
     } else {
-      const nameKey = normalizePlayerName(bp.name || '')
       const candidates = nameKey ? (nameIdx.get(nameKey) || []) : []
       if (candidates.length === 1) {
         meta = candidates[0]
