@@ -6,6 +6,7 @@ const TABS = [
   { path: '/dashboard', label: 'Home', icon: 'home' },
   { path: '/board', label: 'Board', icon: 'board' },
   { path: '/analyse', label: 'Analyse', icon: 'chart' },
+  { path: '/waiver', label: 'Waiver', icon: 'chart' },
   { path: '/trade', label: 'Trade', icon: 'swap' },
 ]
 

@@ -1,9 +1,13 @@
+import Icon from '../Icon'
+
 export default function RecommendedLineupCard({ lineup, comparison }) {
   if (!lineup) return null
   return (
     <div className="an-card">
       <h3>Empfohlene Aufstellung diese Woche</h3>
-      {comparison?.isOptimal && <p className="an-badge-ok">✓ Bereits optimal gesetzt</p>}
+      {comparison?.isOptimal && (
+        <p className="an-badge-ok"><Icon name="check" size={14} /> Bereits optimal gesetzt</p>
+      )}
       {comparison && !comparison.isOptimal && (
         <div className="an-lineup-diff">
           <strong>Abweichend von deiner aktuellen Aufstellung:</strong>

@@ -343,3 +343,14 @@
   .an-trendrow { grid-template-columns: 2.5rem 1fr auto; }
   .an-trendteam { display: none; }
 }
+
+/* Waiver-Seite: Streaming-Checkboxen, Wochen-/ROS-Spalten je Position,
+   Aufstellungs-Abweichung. Erfolgsfarbe wiederverwendet aus --good (siehe
+   .an-pos-good weiter oben in dieser Datei), keine neue Variable dafuer. */
+.an-streaming-checkboxes { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+.an-streaming-cols { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.an-streaming-col { flex: 1; min-width: 180px; }
+.an-streaming-row { margin-top: 1rem; }
+.an-badge-ok { font-weight: 600; color: var(--good, #4ec97b); }
+.an-lineup-diff { margin: 0.5rem 0; }
+.an-muted { opacity: 0.65; font-size: 0.85em; }

@@ -1,3 +1,5 @@
+import Icon from '../Icon'
+
 export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
   const valueLabel = mode === 'dynasty' ? 'Dynasty-Wert' : 'ROS-Rang'
 
@@ -13,7 +15,7 @@ export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
           <tbody>
             {players.slice(0, 25).map((p) => (
               <tr key={p.player_id}>
-                <td>{p.name}{p.trending && <span title="Wird liga-uebergreifend gerade oft geholt"> 🔥</span>}</td>
+                <td>{p.name}{p.trending && <span title="Wird liga-uebergreifend gerade oft geholt"> <Icon name="zap" size={13} /></span>}</td>
                 <td>{p.pos}</td>
                 <td>{p.team}</td>
                 <td>{p.value ?? '–'}</td>
