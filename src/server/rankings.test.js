@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery,
-  extractEcrData, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
-  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
+  extractEcrData, extractEmbeddedJson, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
+  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer, normalizeKtcPlayer,
 } from './rankings'
 import { normalizePlayerName } from '../utils/formatting'
 
@@ -73,6 +73,58 @@ describe('extractEcrData', () => {
 
   it('liefert null, wenn kein ecrData vorhanden ist', () => {
     expect(extractEcrData('<html>nichts</html>')).toBeNull()
+  })
+})
+
+describe('extractEmbeddedJson', () => {
+  it('extrahiert ein eingebettetes Array (nicht nur Objekte)', () => {
+    // KTCs Rankings-Seite rendert serverseitig nur ~50 Zeilen und laedt den
+    // Rest per Infinite-Scroll nach -- das eingebettete playersArray hat alle.
+    const html = `<script>var playersArray = [{"playerName":"A"},{"playerName":"B"},{"playerName":"C"}];</script>`
+    const d = extractEmbeddedJson(html, 'playersArray', '[', ']')
+    expect(d).toHaveLength(3)
+    expect(d[1].playerName).toBe('B')
+  })
+
+  it('liefert null, wenn der Marker nicht vorkommt', () => {
+    expect(extractEmbeddedJson('<html>nichts</html>', 'playersArray', '[', ']')).toBeNull()
+  })
+})
+
+describe('normalizeKtcPlayer', () => {
+  const raw = {
+    playerID: 1415, playerName: 'Jahmyr Gibbs', team: 'DET', position: 'RB',
+    age: 24.5, seasonsExperience: 3, byeWeek: 6,
+    oneQBValues: { value: 9999, rank: 2, positionalRank: 2, overallTier: 1, rookieRank: 1, rookiePositionalRank: 1, rookieTier: 1 },
+    superflexValues: { value: 9998, rank: 1, positionalRank: 1, overallTier: 1, rookieRank: 1, rookiePositionalRank: 1, rookieTier: 1 },
+  }
+
+  it('nutzt oneQBValues per Default', () => {
+    const p = normalizeKtcPlayer(raw)
+    expect(p.dynasty_value).toBe(9999)
+    expect(p.ecr).toBe(2)
+    expect(p.posRank).toBe('RB2')
+    expect(p.tier).toBe('Tier 1')
+  })
+
+  it('nutzt superflexValues, wenn superflex:true', () => {
+    const p = normalizeKtcPlayer(raw, { superflex: true })
+    expect(p.dynasty_value).toBe(9998)
+    expect(p.ecr).toBe(1)
+  })
+
+  it('nutzt rookieRank statt rank, wenn rookie:true -- Rang unter Rookies, nicht unter allen Spielern', () => {
+    const p = normalizeKtcPlayer(
+      { ...raw, oneQBValues: { ...raw.oneQBValues, rank: 42, rookieRank: 3, rookiePositionalRank: 1, rookieTier: 2 } },
+      { rookie: true }
+    )
+    expect(p.ecr).toBe(3)
+    expect(p.posRank).toBe('RB1')
+    expect(p.tier).toBe('Tier 2')
+  })
+
+  it('setzt nname fuer den Markt-Merge', () => {
+    expect(normalizeKtcPlayer(raw).nname).toBe(normalizePlayerName('Jahmyr Gibbs'))
   })
 })
 
