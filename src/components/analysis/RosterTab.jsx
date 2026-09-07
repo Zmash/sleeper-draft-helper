@@ -80,13 +80,12 @@ function KaderVsLiga({ split }) {
 
 function PowerRanking({ power, myRosterId }) {
   if (!power.available) {
-    return (
-      <StatCard
-        title="Power-Ranking"
-        wide
-        empty="Braucht mindestens zwei Kader mit einem Spieler an derselben Position, um zu ranken."
-      />
-    )
+    const empty = power.reason === 'low-coverage'
+      ? `Nur ${Math.round(power.coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu dünn für einen Liga-Vergleich.`
+      : power.reason === 'no-rosters'
+        ? 'Nur für echte Ligen — Mock-Drafts haben keine Kader.'
+        : 'Braucht mindestens zwei Kader mit einem Spieler an derselben Position, um zu ranken.'
+    return <StatCard title="Power-Ranking" wide empty={empty} />
   }
 
   const isValue = power.mode === 'value'
@@ -251,7 +250,10 @@ function StarterVsBenchRank({ data }) {
 
 function StarterVsBench({ data }) {
   if (!data.available) {
-    return <StatCard title="Starter vs. Bank" empty="Kein eigener Kader mit importiertem Ranking gefunden." />
+    const empty = data.reason === 'low-coverage'
+      ? `Nur ${Math.round(data.coverage * 100)} % deines Kaders stehen im importierten Ranking — zu dünn für einen Vergleich.`
+      : 'Kein eigener Kader mit importiertem Ranking gefunden.'
+    return <StatCard title="Starter vs. Bank" empty={empty} />
   }
   if (data.mode === 'value') {
     if (!data.total) {

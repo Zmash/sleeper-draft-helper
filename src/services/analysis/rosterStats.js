@@ -144,15 +144,27 @@ export function teamPowerRanking({
   }
   if (!Object.keys(slotsByPos).length) return { available: false, mode, teams: [], myRank: null }
 
+  // Deckungsgrad wie in rosterValueSplit: ohne ihn wuerde z.B. ein Rookie-
+  // Only-Board (Rookie-Draft-Modus, ~50 Spieler) scheinbar plausible Werte
+  // fuer alle Teams zeigen -- tatsaechlich aber nur, wie viele wertvolle
+  // Rookies ein Team zufaellig besitzt, nicht die echte Kaderstaerke. Bug
+  // gefunden beim Testen mit echten Daten (Zmash / Dynasty League Bochum):
+  // Power-Ranking wirkte vollstaendig befuellt, obwohl nur 14% der Kader
+  // ueberhaupt im Board standen.
+  let totalPlayers = 0
+  let matchedPlayers = 0
   const teamsRaw = (leagueRosters || []).map((roster) => {
     const players = []
     for (const p of roster?.players || []) {
+      totalPlayers += 1
       const bp = byId.get(String(p?.sleeper_id)) ?? (p?.nname ? byName.get(p.nname) : null)
-      if (bp) players.push(bp)
+      if (bp) { matchedPlayers += 1; players.push(bp) }
     }
     return { rosterId: roster?.roster_id ?? null, players }
   })
-  if (!teamsRaw.length) return { available: false, mode, teams: [], myRank: null }
+  const coverage = totalPlayers ? matchedPlayers / totalPlayers : 0
+  if (!teamsRaw.length) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'no-rosters' }
+  if (coverage < 0.5) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'low-coverage' }
 
   let teams
   if (mode === 'value') {
@@ -206,12 +218,15 @@ export function teamPowerRanking({
     teams.sort((a, b) => a.metric - b.metric) // kleinerer Rang-Schnitt ist besser
   }
 
+  if (!teams.length) return { available: false, mode, teams: [], myRank: null, coverage, reason: 'insufficient-teams' }
+
   const myIndex = myRosterId != null ? teams.findIndex((t) => String(t.rosterId) === String(myRosterId)) : -1
 
   return {
-    available: teams.length > 0,
+    available: true,
     mode,
     teams,
+    coverage,
     myRank: myIndex >= 0 ? myIndex + 1 : null,
     myMetric: myIndex >= 0 ? teams[myIndex].metric : null,
   }
@@ -289,7 +304,13 @@ export function starterVsBenchSplit({ dynastyRoster = [], boardPlayers = [] }) {
     const slot = ROSTER_SLOTS.includes(p.slot) ? p.slot : 'bench'
     matched.push({ slot, metric })
   }
-  if (!matched.length) return { available: false, mode }
+  // Deckungsgrad wie in rosterValueSplit/teamPowerRanking: bei einem Rookie-
+  // Only-Board matchen nur die paar Rookies im eigenen Kader -- Starter- und
+  // Bank-Schnitt daraus waeren mit z.B. 2 von 15 Spielern statistisch
+  // bedeutungslos, saehen aber wie ein vollstaendiges Ergebnis aus.
+  const coverage = dynastyRoster?.length ? matched.length / dynastyRoster.length : 0
+  if (!matched.length) return { available: false, mode, coverage, reason: 'no-match' }
+  if (coverage < 0.5) return { available: false, mode, coverage, reason: 'low-coverage' }
 
   const count = { starter: 0, bench: 0, taxi: 0, ir: 0 }
 
@@ -298,7 +319,7 @@ export function starterVsBenchSplit({ dynastyRoster = [], boardPlayers = [] }) {
     for (const p of matched) { value[p.slot] += p.metric; count[p.slot] += 1 }
     const total = value.starter + value.bench + value.taxi + value.ir
     return {
-      available: true, mode, matched: matched.length, total, value, count,
+      available: true, mode, matched: matched.length, coverage, total, value, count,
       starterShare: total > 0 ? value.starter / total : null,
     }
   }
@@ -310,5 +331,5 @@ export function starterVsBenchSplit({ dynastyRoster = [], boardPlayers = [] }) {
   const avgRank = {}
   for (const slot of ROSTER_SLOTS) avgRank[slot] = count[slot] > 0 ? sums[slot] / count[slot] : null
 
-  return { available: true, mode, matched: matched.length, avgRank, count }
+  return { available: true, mode, matched: matched.length, coverage, avgRank, count }
 }

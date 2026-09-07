@@ -332,6 +332,32 @@ describe('teamPowerRanking', () => {
     expect(r.available).toBe(false)
     expect(r.teams).toEqual([])
   })
+
+  it('Befund (echte Daten, Zmash/Dynasty League Bochum): Rookie-Only-Board mit hohem dynasty_value-Vorkommen bleibt trotzdem gesperrt, wenn kaum ein Kaderspieler matcht', () => {
+    // Reproduziert den realen Bug: ein Rookie-Only-Board (z.B. KTC Rookies,
+    // ~50 Spieler) erfuellt hasValue=true locker, matcht aber nur eine
+    // Handvoll Kaderspieler pro Team (die paar eigenen Rookies). Ohne
+    // Deckungs-Check wirkte die Tabelle vollstaendig befuellt, zeigte aber
+    // nur "wie viele wertvolle Rookies besitzt dieses Team" statt echter
+    // Kaderstaerke.
+    const rookieBoard = [
+      { sleeper_id: '1', nname: 'team1 rookie', pos: 'RB', dynasty_value: 5000 },
+      { sleeper_id: '2', nname: 'team2 rookie', pos: 'RB', dynasty_value: 3000 },
+    ]
+    // Jedes Team hat 10 Spieler, aber nur einer davon (der Rookie) steht im Board.
+    const veteranPlayer = (n) => ({ sleeper_id: `v${n}`, nname: `veteran ${n}` })
+    const sparseRosters = [
+      { roster_id: 1, players: [{ sleeper_id: '1', nname: 'team1 rookie' }, ...Array.from({ length: 9 }, (_, i) => veteranPlayer(`1${i}`))] },
+      { roster_id: 2, players: [{ sleeper_id: '2', nname: 'team2 rookie' }, ...Array.from({ length: 9 }, (_, i) => veteranPlayer(`2${i}`))] },
+    ]
+    const r = teamPowerRanking({
+      leagueRosters: sparseRosters, boardPlayers: rookieBoard, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    expect(r.mode).toBe('value')          // hasValue ist erfuellt, das Board HAT dynasty_value
+    expect(r.available).toBe(false)       // aber die Deckung (2 von 20) ist viel zu duenn
+    expect(r.reason).toBe('low-coverage')
+    expect(r.coverage).toBeCloseTo(2 / 20)
+  })
 })
 
 describe('ageProfile', () => {
@@ -429,5 +455,18 @@ describe('starterVsBenchSplit', () => {
   it('ohne gematchte Spieler nicht verfuegbar', () => {
     const r = starterVsBenchSplit({ dynastyRoster: [], boardPlayers: valueBoard })
     expect(r.available).toBe(false)
+    expect(r.reason).toBe('no-match')
+  })
+
+  it('Befund (echte Daten): Rookie-Only-Board matcht nur 1 von 10 eigenen Spielern -> zu duenn statt irrefuehrend befuellt', () => {
+    const rookieBoard = [{ sleeper_id: '1', nname: 'mein rookie', pos: 'RB', dynasty_value: 5000 }]
+    const meinKader = [
+      { sleeper_id: '1', nname: 'mein rookie', slot: 'bench' },
+      ...Array.from({ length: 9 }, (_, i) => ({ sleeper_id: `v${i}`, nname: `veteran ${i}`, slot: 'starter' })),
+    ]
+    const r = starterVsBenchSplit({ dynastyRoster: meinKader, boardPlayers: rookieBoard })
+    expect(r.available).toBe(false)
+    expect(r.reason).toBe('low-coverage')
+    expect(r.coverage).toBeCloseTo(1 / 10)
   })
 })

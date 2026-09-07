@@ -94,9 +94,16 @@ export const useDynastyStore = create((set) => ({
           : starterSet.has(id)
           ? 'starter'
           : 'bench'
+        const name = meta.full_name || `#${id}`
         return {
           sleeper_id: id,
-          name: meta.full_name || `#${id}`,
+          name,
+          // Board-sleeper_id ist bei Auto-Importen (FantasyCalc/KTC) gar nicht
+          // gesetzt, bei den ersten ~250 CSV-Eintraegen eine Zeilennummer statt
+          // der echten ID (siehe rosterStats.js) -- ohne nname faellt der
+          // Namens-Abgleich in starterVsBenchSplit komplett aus (Befund: "Starter
+          // vs. Bank" blieb leer, obwohl das Board 92% des Kaders abdeckte).
+          nname: normalizePlayerName(name),
           pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
           team: meta.team || '',
           bye: meta.bye_week != null ? String(meta.bye_week) : '',
