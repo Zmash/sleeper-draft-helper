@@ -7,7 +7,7 @@ import {
   teamDraftRanking, positionalScarcity, tierUsage, positionalRuns,
 } from '../services/analysis/draftStats'
 import {
-  rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchValue,
+  rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit,
 } from '../services/analysis/rosterStats'
 import { marketDisagreement } from '../services/analysis/marketStats'
 import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '../services/derive'
@@ -85,7 +85,7 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
     [leagueRosters, effRoster, mySleeperRosterId]
   )
   const starterBench = useMemo(
-    () => starterVsBenchValue({ dynastyRoster, boardPlayers }),
+    () => starterVsBenchSplit({ dynastyRoster, boardPlayers }),
     [dynastyRoster, boardPlayers]
   )
   const market = useMemo(

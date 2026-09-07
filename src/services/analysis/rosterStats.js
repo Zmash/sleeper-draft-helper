@@ -104,14 +104,25 @@ export function rosterValueSplit({
   }
 }
 
+function labelForRoster(rosterId, rosterToUserMap, ownerLabels) {
+  const ownerId = rosterToUserMap?.[String(rosterId)]
+  return ownerId ? (ownerLabels?.get?.(`user:${ownerId}`) || ownerId) : `Team ${rosterId ?? '?'}`
+}
+
 /**
- * Gesamt-Power-Ranking: Summe der Starter-Werte (beste `slots` Spieler je
- * Position, wie in rosterValueSplit) ueber alle Positionen -- ein einziger
- * Liga-Rang statt vier Einzelvergleiche.
+ * Gesamt-Power-Ranking, ein Liga-Rang statt vier Einzelvergleiche.
  *
- * Nur im Wertmodus sinnvoll: ohne Dynasty-Werte muesste man Raenge ueber
- * Positionen hinweg summieren, was eine Wertkurve annehmen wuerde, die es
- * nicht gibt (derselbe Grundsatz wie in rosterValueSplit).
+ * Wertmodus (Dynasty): Summe der Starter-Werte (beste `slots` Spieler je
+ * Position) ueber alle Positionen -- ein echter, summierbarer Marktwert.
+ *
+ * Rangmodus (Redraft, kein dynasty_value): keine ECR-Werte aufsummieren --
+ * das waere eine erfundene Wertkurve (derselbe Grundsatz wie in
+ * rosterValueSplit, wo "summierte Raenge waeren bedeutungslos" steht).
+ * Stattdessen: je Position werden alle Teams nach ihrem besten Spieler
+ * geranked (1..teamCount, wie rosterValueSplit es schon pro Position tut),
+ * und der Mittelwert dieser bereits vorhandenen Platzierungen ueber alle
+ * Positionen ergibt den Gesamt-Rang -- eine Aggregation von Ordinalzahlen
+ * auf derselben Skala, keine neue Annahme ueber Werte.
  */
 export function teamPowerRanking({
   leagueRosters = [], boardPlayers = [], rosterPositions = [], myRosterId = null,
@@ -124,44 +135,85 @@ export function teamPowerRanking({
     if (bp?.nname) byName.set(bp.nname, bp)
   }
   const hasValue = (boardPlayers || []).some((bp) => toFiniteOrNull(bp?.dynasty_value) !== null)
-  if (!hasValue) return { available: false, teams: [], myRank: null }
+  const mode = hasValue ? 'value' : 'rank'
 
   const slotsByPos = {}
   for (const pos of SPLIT_POS) {
     const raw = starterSlots(pos, rosterPositions)
     if (raw > 0) slotsByPos[pos] = Math.max(1, Math.round(raw))
   }
+  if (!Object.keys(slotsByPos).length) return { available: false, mode, teams: [], myRank: null }
 
-  const teams = (leagueRosters || []).map((roster) => {
+  const teamsRaw = (leagueRosters || []).map((roster) => {
     const players = []
     for (const p of roster?.players || []) {
       const bp = byId.get(String(p?.sleeper_id)) ?? (p?.nname ? byName.get(p.nname) : null)
       if (bp) players.push(bp)
     }
-    let total = 0
-    for (const [pos, slots] of Object.entries(slotsByPos)) {
-      total += players
-        .filter((bp) => normalizePos(bp.pos) === pos)
-        .sort((a, b) => (toFiniteOrNull(b.dynasty_value) ?? 0) - (toFiniteOrNull(a.dynasty_value) ?? 0))
-        .slice(0, slots)
-        .reduce((s, bp) => s + (toFiniteOrNull(bp.dynasty_value) ?? 0), 0)
-    }
-    const rosterId = roster?.roster_id ?? null
-    const ownerId = rosterToUserMap?.[String(rosterId)]
-    const label = ownerId
-      ? (ownerLabels?.get?.(`user:${ownerId}`) || ownerId)
-      : `Team ${rosterId ?? '?'}`
-    return { rosterId, label, total }
+    return { rosterId: roster?.roster_id ?? null, players }
   })
+  if (!teamsRaw.length) return { available: false, mode, teams: [], myRank: null }
 
-  teams.sort((a, b) => b.total - a.total)
+  let teams
+  if (mode === 'value') {
+    teams = teamsRaw.map((team) => {
+      let total = 0
+      for (const [pos, slots] of Object.entries(slotsByPos)) {
+        total += team.players
+          .filter((bp) => normalizePos(bp.pos) === pos)
+          .sort((a, b) => (toFiniteOrNull(b.dynasty_value) ?? 0) - (toFiniteOrNull(a.dynasty_value) ?? 0))
+          .slice(0, slots)
+          .reduce((s, bp) => s + (toFiniteOrNull(bp.dynasty_value) ?? 0), 0)
+      }
+      return { rosterId: team.rosterId, label: labelForRoster(team.rosterId, rosterToUserMap, ownerLabels), metric: total }
+    })
+    teams.sort((a, b) => b.metric - a.metric) // hoeherer Wert ist besser
+  } else {
+    const posRanks = {} // pos -> Map(rosterId -> Platz 1..N)
+    for (const [pos, slots] of Object.entries(slotsByPos)) {
+      const scoreOf = (team) => {
+        const atPos = team.players
+          .filter((bp) => normalizePos(bp.pos) === pos && toFiniteOrNull(bp.ecr) !== null)
+          .sort((a, b) => toFiniteOrNull(a.ecr) - toFiniteOrNull(b.ecr))
+          .slice(0, slots)
+        return atPos.length ? toFiniteOrNull(atPos[0].ecr) : null
+      }
+      const scored = teamsRaw
+        .map((t) => ({ rosterId: t.rosterId, score: scoreOf(t) }))
+        .filter((x) => Number.isFinite(x.score))
+      if (scored.length < 2) continue // ein einzelnes Team zu "ranken" sagt nichts aus
+      scored.sort((a, b) => a.score - b.score)
+      const m = new Map()
+      scored.forEach((x, i) => m.set(String(x.rosterId), i + 1))
+      posRanks[pos] = m
+    }
+
+    teams = teamsRaw
+      .map((team) => {
+        const ranks = Object.values(posRanks)
+          .map((m) => m.get(String(team.rosterId)))
+          .filter((r) => r != null)
+        if (!ranks.length) return null
+        const avg = ranks.reduce((s, r) => s + r, 0) / ranks.length
+        return {
+          rosterId: team.rosterId,
+          label: labelForRoster(team.rosterId, rosterToUserMap, ownerLabels),
+          metric: avg,
+          positionsCounted: ranks.length,
+        }
+      })
+      .filter(Boolean)
+    teams.sort((a, b) => a.metric - b.metric) // kleinerer Rang-Schnitt ist besser
+  }
+
   const myIndex = myRosterId != null ? teams.findIndex((t) => String(t.rosterId) === String(myRosterId)) : -1
 
   return {
-    available: true,
+    available: teams.length > 0,
+    mode,
     teams,
     myRank: myIndex >= 0 ? myIndex + 1 : null,
-    myTotal: myIndex >= 0 ? teams[myIndex].total : null,
+    myMetric: myIndex >= 0 ? teams[myIndex].metric : null,
   }
 }
 
@@ -205,11 +257,20 @@ export function ageProfile({ leagueRosters = [], rosterPositions = [], myRosterI
 const ROSTER_SLOTS = ['starter', 'bench', 'taxi', 'ir']
 
 /**
- * Wie viel Dynasty-Wert im eigenen Kader in Startern vs. Bank/Taxi/IR
- * steckt -- zeigt versteckte Tiefe (wertvolle Bank) oder eine duenne
- * Startelf ohne Rueckhalt.
+ * Starter vs. Bank/Taxi/IR im eigenen Kader.
+ *
+ * Wertmodus (Dynasty): Summe des Dynasty-Werts je Kategorie -- zeigt
+ * versteckte Tiefe (wertvolle Bank) oder eine duenne Startelf ohne
+ * Rueckhalt.
+ *
+ * Rangmodus (Redraft): kein Wert zum Summieren vorhanden, also kein Anteil
+ * in Prozent (das waere wieder eine erfundene Kurve). Stattdessen der
+ * Mittelwert des Experten-Rangs je Kategorie -- kleiner ist besser. Ein
+ * grosser Abstand zwischen Bank- und Starter-Schnitt heisst duenne Bank,
+ * ein kleiner oder gar negativer Abstand heisst es sitzt noch Qualitaet
+ * auf der Bank (oder schlimmer: ein Startplatz ist falsch besetzt).
  */
-export function starterVsBenchValue({ dynastyRoster = [], boardPlayers = [] }) {
+export function starterVsBenchSplit({ dynastyRoster = [], boardPlayers = [] }) {
   const byId = new Map()
   const byName = new Map()
   for (const bp of boardPlayers || []) {
@@ -217,31 +278,37 @@ export function starterVsBenchValue({ dynastyRoster = [], boardPlayers = [] }) {
     if (bp?.nname) byName.set(bp.nname, bp)
   }
   const hasValue = (boardPlayers || []).some((bp) => toFiniteOrNull(bp?.dynasty_value) !== null)
-  if (!hasValue) return { available: false }
+  const mode = hasValue ? 'value' : 'rank'
 
-  const value = { starter: 0, bench: 0, taxi: 0, ir: 0 }
-  const count = { starter: 0, bench: 0, taxi: 0, ir: 0 }
-  let matched = 0
-
+  const matched = []
   for (const p of dynastyRoster || []) {
     const bp = byId.get(String(p?.sleeper_id)) ?? (p?.nname ? byName.get(p.nname) : null)
     if (!bp) continue
-    const val = toFiniteOrNull(bp.dynasty_value)
-    if (val === null) continue
-    matched += 1
+    const metric = mode === 'value' ? toFiniteOrNull(bp.dynasty_value) : toFiniteOrNull(bp.ecr)
+    if (metric === null) continue
     const slot = ROSTER_SLOTS.includes(p.slot) ? p.slot : 'bench'
-    value[slot] += val
-    count[slot] += 1
+    matched.push({ slot, metric })
+  }
+  if (!matched.length) return { available: false, mode }
+
+  const count = { starter: 0, bench: 0, taxi: 0, ir: 0 }
+
+  if (mode === 'value') {
+    const value = { starter: 0, bench: 0, taxi: 0, ir: 0 }
+    for (const p of matched) { value[p.slot] += p.metric; count[p.slot] += 1 }
+    const total = value.starter + value.bench + value.taxi + value.ir
+    return {
+      available: true, mode, matched: matched.length, total, value, count,
+      starterShare: total > 0 ? value.starter / total : null,
+    }
   }
 
-  const total = value.starter + value.bench + value.taxi + value.ir
+  // Rangmodus: Durchschnitts-ECR je Kategorie, keine Summe (siehe
+  // rosterValueSplit: summierte Raenge waeren bedeutungslos).
+  const sums = { starter: 0, bench: 0, taxi: 0, ir: 0 }
+  for (const p of matched) { sums[p.slot] += p.metric; count[p.slot] += 1 }
+  const avgRank = {}
+  for (const slot of ROSTER_SLOTS) avgRank[slot] = count[slot] > 0 ? sums[slot] / count[slot] : null
 
-  return {
-    available: true,
-    matched,
-    total,
-    value,
-    count,
-    starterShare: total > 0 ? value.starter / total : null,
-  }
+  return { available: true, mode, matched: matched.length, avgRank, count }
 }

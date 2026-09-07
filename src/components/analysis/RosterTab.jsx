@@ -80,33 +80,44 @@ function KaderVsLiga({ split }) {
 
 function PowerRanking({ power, myRosterId }) {
   if (!power.available) {
-    return <StatCard title="Power-Ranking" wide empty="Nur mit importierten Dynasty-Werten verfügbar." />
+    return (
+      <StatCard
+        title="Power-Ranking"
+        wide
+        empty="Braucht mindestens zwei Kader mit einem Spieler an derselben Position, um zu ranken."
+      />
+    )
   }
-  if (!power.teams.length) {
-    return <StatCard title="Power-Ranking" wide empty="Keine Kader gefunden." />
-  }
+
+  const isValue = power.mode === 'value'
+  const colLabel = isValue ? 'Wert' : 'Ø Rang'
+  const fmt = (t) => (isValue ? Math.round(t.metric) : t.metric.toFixed(1))
 
   return (
     <StatCard
       title="Power-Ranking"
-      hint="Summe der Starter-Werte je Position (beste Spieler pro Slot) über alle Teams verglichen."
+      hint={isValue
+        ? 'Summe der Starter-Werte je Position (beste Spieler pro Slot) über alle Teams verglichen.'
+        : 'Ohne Dynasty-Werte (Redraft): je Position werden alle Teams nach ihrem besten Spieler geranked, der Schnitt dieser Plätze über alle Positionen ergibt den Gesamt-Rang. Kleiner ist besser.'}
       headline={power.myRank != null ? String(power.myRank) : '—'}
       sub={power.myRank != null
-        ? `von ${power.teams.length} Teams · Wert ${Math.round(power.myTotal)}`
+        ? `von ${power.teams.length} Teams · ${colLabel} ${fmt({ metric: power.myMetric })}`
         : 'Dein Team nicht erkannt'}
-      basis={`${power.teams.length} Kader verglichen · Summe der Starter-Werte je Position`}
+      basis={isValue
+        ? `${power.teams.length} Kader verglichen · Summe der Starter-Werte je Position`
+        : `${power.teams.length} Kader verglichen · Rang-Schnitt aus bis zu ${Math.max(...power.teams.map((t) => t.positionsCounted))} Positionen`}
       wide
     >
       <table className="an-table">
         <thead>
-          <tr><th>#</th><th>Team</th><th className="an-num">Wert</th></tr>
+          <tr><th>#</th><th>Team</th><th className="an-num">{colLabel}</th></tr>
         </thead>
         <tbody>
           {power.teams.map((t, i) => (
             <tr key={t.rosterId ?? i} className={cx(String(t.rosterId) === String(myRosterId) && 'is-me')}>
               <td>{i + 1}</td>
               <td>{t.label}</td>
-              <td className="an-num">{Math.round(t.total)}</td>
+              <td className="an-num">{fmt(t)}</td>
             </tr>
           ))}
         </tbody>
@@ -166,20 +177,13 @@ function AgeProfile({ ages }) {
 }
 
 const BENCH_SEGMENTS = [
-  { key: 'starter', label: 'Starter', color: 'var(--good, #4ec97b)' },
-  { key: 'bench', label: 'Bank', color: 'var(--accent, #4ea1ff)' },
-  { key: 'taxi', label: 'Taxi', color: 'var(--muted, #888)' },
-  { key: 'ir', label: 'IR', color: 'var(--bad, #e0555a)' },
+  { key: 'starter', code: 'ST', label: 'Starter', color: 'var(--good, #4ec97b)' },
+  { key: 'bench', code: 'BE', label: 'Bank', color: 'var(--accent, #4ea1ff)' },
+  { key: 'taxi', code: 'TX', label: 'Taxi', color: 'var(--muted, #888)' },
+  { key: 'ir', code: 'IR', label: 'IR', color: 'var(--bad, #e0555a)' },
 ]
 
-function StarterVsBench({ data }) {
-  if (!data.available) {
-    return <StatCard title="Starter vs. Bank" empty="Nur mit importierten Dynasty-Werten verfügbar." />
-  }
-  if (!data.total) {
-    return <StatCard title="Starter vs. Bank" empty="Keine gematchten Kaderspieler mit Dynasty-Wert." />
-  }
-
+function StarterVsBenchValue({ data }) {
   const segs = BENCH_SEGMENTS.filter((s) => data.value[s.key] > 0)
 
   return (
@@ -209,6 +213,53 @@ function StarterVsBench({ data }) {
       </div>
     </StatCard>
   )
+}
+
+function StarterVsBenchRank({ data }) {
+  // Kein Summenwert im Rangmodus (siehe rosterStats.js) -- der Kopf zeigt
+  // stattdessen den Rang-Abstand zwischen Bank- und Starter-Schnitt.
+  const gap = (data.avgRank.starter != null && data.avgRank.bench != null)
+    ? data.avgRank.bench - data.avgRank.starter
+    : null
+  const cats = BENCH_SEGMENTS.filter((s) => data.count[s.key] > 0)
+
+  return (
+    <StatCard
+      title="Starter vs. Bank"
+      hint="Durchschnittlicher Experten-Rang deiner Starter gegenüber Bank, Taxi und IR — kleinere Zahl ist besser."
+      headline={gap != null ? Math.round(Math.abs(gap)) : '—'}
+      sub={gap == null
+        ? ''
+        : gap >= 0
+          ? `Ränge Abstand — deine Bank ist im Schnitt schlechter geranked als deine Startelf`
+          : `Ränge — ein Bankspieler ist im Schnitt besser geranked als deine Startelf`}
+      basis={`${data.matched} gematchte Kaderspieler mit Rang`}
+    >
+      {cats.map((s) => (
+        <div className="an-row" key={s.key}>
+          <span className="an-pos" style={{ background: s.color }}>{s.code}</span>
+          <span className="muted">{s.label}</span>
+          <span className="an-num">
+            Ø {data.avgRank[s.key].toFixed(0)}
+            <span className="muted an-composition">{data.count[s.key]} Spieler</span>
+          </span>
+        </div>
+      ))}
+    </StatCard>
+  )
+}
+
+function StarterVsBench({ data }) {
+  if (!data.available) {
+    return <StatCard title="Starter vs. Bank" empty="Kein eigener Kader mit importiertem Ranking gefunden." />
+  }
+  if (data.mode === 'value') {
+    if (!data.total) {
+      return <StatCard title="Starter vs. Bank" empty="Keine gematchten Kaderspieler mit Dynasty-Wert." />
+    }
+    return <StarterVsBenchValue data={data} />
+  }
+  return <StarterVsBenchRank data={data} />
 }
 
 export default function RosterTab({ split, power, ages, starterBench, myRosterId }) {
