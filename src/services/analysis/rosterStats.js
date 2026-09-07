@@ -8,6 +8,34 @@ import { starterSlots } from './draftStats'
 
 const SPLIT_POS = ['QB', 'RB', 'WR', 'TE']
 
+// Kader-Analyse braucht dynasty_value fuer den GESAMTEN Liga-Kader, aber das
+// manuell importierte Board deckt das oft nicht ab (z.B. ein Rookie-Draft-
+// Board mit nur ~50 Rookies -- die Veteranen im Kader fehlen komplett).
+// dynastyValues ist der ligaunabhaengige KTC-Hintergrund-Datensatz aus
+// useDynastyValuesStore.js: fuellt fehlende Werte auf Board-Spielern auf UND
+// haengt Spieler an, die NUR im Hintergrund-Datensatz stehen (sonst blieben
+// sie in rosterValueSplit/teamPowerRanking als "unmatched" verloren). Ein
+// vorhandener Board-Wert gewinnt immer -- der Nutzer hat ihn bewusst importiert.
+export function withDynastyValueFallback(boardPlayers = [], dynastyValues = []) {
+  if (!dynastyValues.length) return boardPlayers || []
+  const byName = new Map()
+  for (const d of dynastyValues) if (d?.nname) byName.set(d.nname, d)
+
+  const seen = new Set()
+  const filled = (boardPlayers || []).map((p) => {
+    if (p?.nname) seen.add(p.nname)
+    if (toFiniteOrNull(p?.dynasty_value) !== null) return p
+    const hit = p?.nname ? byName.get(p.nname) : null
+    return hit ? { ...p, dynasty_value: hit.dynasty_value, age: p.age ?? hit.age } : p
+  })
+
+  const extras = dynastyValues
+    .filter((d) => d?.nname && !seen.has(d.nname))
+    .map((d) => ({ ...d, status: null, pick_no: null, picked_by: null }))
+
+  return [...filled, ...extras]
+}
+
 export function median(numbers = []) {
   const list = numbers.filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
   if (!list.length) return null

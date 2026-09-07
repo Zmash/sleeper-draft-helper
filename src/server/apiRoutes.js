@@ -443,8 +443,18 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   })
 
   // ---------- Rankings: KTC Dynasty (all players) ----------
+  // Cache mit TTL: seit dem Hintergrund-Auto-Import (useDynastyValuesStore.js)
+  // ruft jeder Analyse-Seiten-Besuch potenziell diese Route -- ohne Cache
+  // wuerde das KTC bei jedem Laden neu scrapen. superflex ist der einzige
+  // Formatparameter, daher reicht ein Boolean als Cache-Key.
+  const ktcDynastyCache = new Map() // superflex(bool) -> { at, players }
+  const KTC_DYNASTY_TTL_MS = 12 * 60 * 60 * 1000
   app.get('/api/rankings/ktc-dynasty', async (req, res) => {
     const superflex = req.query.superflex === 'true' || req.query.superflex === '1'
+    const cached = ktcDynastyCache.get(superflex)
+    if (cached && Date.now() - cached.at < KTC_DYNASTY_TTL_MS) {
+      return res.json({ ok: true, cached: true, players: cached.players })
+    }
     const KTC_URL = superflex
       ? 'https://keeptradecut.com/dynasty-rankings?format=1'
       : 'https://keeptradecut.com/dynasty-rankings'
@@ -489,6 +499,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         })
       })
       if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
+      ktcDynastyCache.set(superflex, { at: Date.now(), players })
       res.json({ ok: true, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })

@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { useDynastyStore } from '../stores/useDynastyStore'
+import { useDynastyValuesStore } from '../stores/useDynastyValuesStore'
 import {
   teamDraftRanking, positionalScarcity, tierUsage, positionalRuns,
 } from '../services/analysis/draftStats'
 import {
-  rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit,
+  rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit, withDynastyValueFallback,
 } from '../services/analysis/rosterStats'
 import { marketDisagreement } from '../services/analysis/marketStats'
 import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '../services/derive'
@@ -19,15 +20,32 @@ import '../styles/analysis.css'
 
 const TABS = [['draft', 'Draft'], ['roster', 'Kader'], ['market', 'Markt']]
 
-export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft, draftMode }) {
+export default function AnalysisPage({
+  teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft, draftMode, isSuperflex,
+}) {
   const [tab, setTab] = useState('draft')
   const { sleeperUserId } = useSessionStore()
   const { boardPlayers } = useBoardStore()
   const { livePicks } = useLiveStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster, rosterToUserMap } = useDynastyStore()
+  const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
 
   const teams = Number(teamsCount) || 12
   const isRookieMode = draftMode === 'rookie'
+
+  // Hintergrund-Import, unabhaengig vom Board-Tab -- laedt/aktualisiert sich
+  // von selbst, kein Nutzer-Zutun (siehe useDynastyValuesStore.js).
+  useEffect(() => {
+    loadDynastyValuesIfStale({ superflex: !!isSuperflex })
+  }, [isSuperflex, loadDynastyValuesIfStale])
+
+  // Nur fuer die Kader-Analyse (Wert-Vergleich ueber die ganze Liga) --
+  // Draft-/Markt-Tab bleiben strikt am Board des Nutzers, das misst etwas
+  // anderes (eigene Pick-Entscheidungen gegen die eigene Rangliste).
+  const rosterBoardPlayers = useMemo(
+    () => withDynastyValueFallback(boardPlayers, dynastyValues),
+    [boardPlayers, dynastyValues]
+  )
 
   // Eigenes Team: erst ueber einen eigenen Pick, sonst ueber den Draft-Slot.
   // Findet sich keins, bleiben die Ich-Angaben leer -- lieber keine Zahl als
@@ -70,24 +88,24 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
   )
   const split = useMemo(
     () => rosterValueSplit({
-      leagueRosters, boardPlayers, rosterPositions: effRoster, myRosterId: mySleeperRosterId,
+      leagueRosters, boardPlayers: rosterBoardPlayers, rosterPositions: effRoster, myRosterId: mySleeperRosterId,
     }),
-    [leagueRosters, boardPlayers, effRoster, mySleeperRosterId]
+    [leagueRosters, rosterBoardPlayers, effRoster, mySleeperRosterId]
   )
   const power = useMemo(
     () => teamPowerRanking({
-      leagueRosters, boardPlayers, rosterPositions: effRoster, myRosterId: mySleeperRosterId,
+      leagueRosters, boardPlayers: rosterBoardPlayers, rosterPositions: effRoster, myRosterId: mySleeperRosterId,
       rosterToUserMap, ownerLabels,
     }),
-    [leagueRosters, boardPlayers, effRoster, mySleeperRosterId, rosterToUserMap, ownerLabels]
+    [leagueRosters, rosterBoardPlayers, effRoster, mySleeperRosterId, rosterToUserMap, ownerLabels]
   )
   const ages = useMemo(
     () => ageProfile({ leagueRosters, rosterPositions: effRoster, myRosterId: mySleeperRosterId }),
     [leagueRosters, effRoster, mySleeperRosterId]
   )
   const starterBench = useMemo(
-    () => starterVsBenchSplit({ dynastyRoster, boardPlayers }),
-    [dynastyRoster, boardPlayers]
+    () => starterVsBenchSplit({ dynastyRoster, boardPlayers: rosterBoardPlayers }),
+    [dynastyRoster, rosterBoardPlayers]
   )
   const market = useMemo(
     () => marketDisagreement({ boardPlayers, picks: livePicks }),

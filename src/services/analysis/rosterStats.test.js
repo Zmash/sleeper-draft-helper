@@ -1,5 +1,43 @@
 import { describe, it, expect } from 'vitest'
-import { median, rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit } from './rosterStats'
+import {
+  median, rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit, withDynastyValueFallback,
+} from './rosterStats'
+
+describe('withDynastyValueFallback', () => {
+  it('fuellt fehlenden dynasty_value aus dem Hintergrund-Datensatz, laesst vorhandene Board-Werte unangetastet', () => {
+    const board = [
+      { nname: 'has value', dynasty_value: 100 },
+      { nname: 'no value', dynasty_value: null, age: 24 },
+    ]
+    const dynastyValues = [
+      { nname: 'has value', dynasty_value: 999, age: 30 }, // darf Board-Wert NICHT ueberschreiben
+      { nname: 'no value', dynasty_value: 55, age: 27 },
+    ]
+    const out = withDynastyValueFallback(board, dynastyValues)
+    expect(out.find((p) => p.nname === 'has value').dynasty_value).toBe(100)
+    const filled = out.find((p) => p.nname === 'no value')
+    expect(filled.dynasty_value).toBe(55)
+    expect(filled.age).toBe(24) // vorhandenes Alter bleibt ebenfalls Board-Wert
+  })
+
+  it('haengt Spieler an, die nur im Hintergrund-Datensatz stehen (z.B. Veteranen bei einem Rookie-Only-Board)', () => {
+    const board = [{ nname: 'rookie only', dynasty_value: 80 }]
+    const dynastyValues = [
+      { nname: 'rookie only', dynasty_value: 999 },
+      { nname: 'veteran not on board', dynasty_value: 42, pos: 'RB' },
+    ]
+    const out = withDynastyValueFallback(board, dynastyValues)
+    expect(out).toHaveLength(2)
+    const extra = out.find((p) => p.nname === 'veteran not on board')
+    expect(extra.dynasty_value).toBe(42)
+    expect(extra.status).toBeNull()
+  })
+
+  it('ohne Hintergrund-Datensatz: Board unveraendert zurueckgegeben', () => {
+    const board = [{ nname: 'a', dynasty_value: null }]
+    expect(withDynastyValueFallback(board, [])).toBe(board)
+  })
+})
 
 describe('median', () => {
   it('ungerade Anzahl -> mittlerer Wert', () => {
