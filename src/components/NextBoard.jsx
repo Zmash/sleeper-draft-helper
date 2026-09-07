@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
 import DraftGrid from './DraftGrid'
-import { cx, normalizePos, fantasyProsPlayerUrl, normalizePlayerName } from '../utils/formatting'
+import { cx, normalizePos, posBadgeLabel, fantasyProsPlayerUrl, normalizePlayerName, positionFiltersFromRoster } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
@@ -17,7 +17,6 @@ import { formatEstimate } from '../services/aiCost'
 import { isAdviceButtonDisabled } from '../services/boardGate'
 import { opponentsUntilMyNext } from '../services/draftFlow'
 
-const POS_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE']
 const POS_LABEL = { ALL: 'Alle' }
 
 // Arbeitsflaeche der neuen Shell: Filterzeile + Liste/Board + Inspector.
@@ -58,6 +57,7 @@ export default function NextBoard({
   const [playerPrefs, setPlayerPrefs] = useState(() => loadPreferences())
   const { setSearchQuery } = useBoardStore()
 
+  const posFilters = useMemo(() => positionFiltersFromRoster(effRoster), [effRoster])
   const rows = filteredPlayers
   const selected = useMemo(
     () => rows.find((p) => (p.nname || p.name) === selKey) || rows[0] || null,
@@ -262,7 +262,7 @@ export default function NextBoard({
       <section className="ns-main">
         <div className="ns-filters">
           <div className="ns-seg" role="group" aria-label="Position">
-            {POS_FILTERS.map((p) => (
+            {posFilters.map((p) => (
               <button
                 key={p}
                 className={cx(p === positionFilter && 'is-on')}
@@ -407,7 +407,7 @@ export default function NextBoard({
                       <td className="ns-c-pos">
                         {p.pos && (
                           <span className="ns-posbadge" style={{ background: `var(--pos-${normalizePos(p.pos).toLowerCase()})` }}>
-                            {normalizePos(p.pos)}
+                            {posBadgeLabel(p)}
                           </span>
                         )}
                       </td>
@@ -496,7 +496,7 @@ function PlayerPanel({ p, pref, onPref }) {
         <div className="ns-insp-sub">
           {p.pos && (
             <span className="ns-posbadge" style={{ background: `var(--pos-${normalizePos(p.pos).toLowerCase()})` }}>
-              {normalizePos(p.pos)}
+              {posBadgeLabel(p)}
             </span>
           )}
           <span>{p.team || '—'}</span>

@@ -1,7 +1,10 @@
 // src/services/playersMeta.js
 import { SLEEPER_API_BASE, fetchJson } from './api'
 
-const CACHE_KEY = 'sdh.playersMeta.v3'
+// v4: depth_chart_position/-order (main) + status (waiver-wire) dazu --
+// Versionsbump erzwingt einen Re-Fetch, sonst fehlen die neuen Felder bis
+// zum naechsten TTL-Ablauf.
+const CACHE_KEY = 'sdh.playersMeta.v4'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
 // Sleeper liefert kein ADP und keine bye_week (verifiziert 2026-07-16: 0 von
@@ -18,6 +21,8 @@ const SLIM_KEYS = [
   'injury_status',
   'age',
   'status',
+  'depth_chart_position',
+  'depth_chart_order',
 ]
 
 function slimPlayer(p) {

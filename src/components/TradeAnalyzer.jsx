@@ -5,7 +5,7 @@ import { buildTradeAnalysisRequest, buildTradeSuggestionsRequest } from '../serv
 import { validateTradeSuggestions } from '../services/aiValidate'
 import { formatEstimate, formatUsage } from '../services/aiCost'
 import { getOpenAIKey, setOpenAIKey } from '../services/key'
-import { normalizePlayerName } from '../utils/formatting'
+import { normalizePlayerName, posBadgeLabel } from '../utils/formatting'
 import ApiKeyDialog from './ApiKeyDialog'
 import Icon from './Icon'
 import { CostHint } from './CostHint'
@@ -46,7 +46,7 @@ function TradeChip({ item, onRemove }) {
   return (
     <div className="trade-chip">
       <div className="trade-chip-main">
-        <span className="trade-chip-pos">{item.pos || 'PK'}</span>
+        <span className="trade-chip-pos">{item.pos ? posBadgeLabel(item) : 'PK'}</span>
         <span className="trade-chip-name">{item.name || item.label}</span>
         {item.age && <span className="trade-chip-age muted">{item.age}y</span>}
       </div>
@@ -157,7 +157,7 @@ function PlayerSearch({ allPlayers, onAdd, onCancel, excludeIds }) {
           {!q.trim() && <div className="psr-section-label">Top by value</div>}
           {results.map(p => (
             <button key={p.id} className="player-search-row" onClick={() => { onAdd(p); setQ('') }}>
-              <span className="psr-pos">{p.pos}</span>
+              <span className="psr-pos">{posBadgeLabel(p)}</span>
               <span className="psr-name">{p.name}</span>
               {p.source === 'roster' && <span className="psr-badge psr-badge--roster">Roster</span>}
               {p.source === 'drafted' && <span className="psr-badge psr-badge--drafted">pick {p.draftedAt ?? '?'}</span>}

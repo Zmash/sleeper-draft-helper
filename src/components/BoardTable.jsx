@@ -1,7 +1,7 @@
 // src/components/BoardTable.jsx
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import PlayerDetailSheet from './PlayerDetailSheet'
-import { cx } from '../utils/formatting'
+import { cx, posBadgeLabel } from '../utils/formatting'
 import { PlayerPreference, playerKey, getPreference } from '../services/preferences'
 import Icon from './Icon'
 
@@ -325,7 +325,7 @@ export default function BoardTable({
                         </div>
 
                         <div className="mcol-teampos mobile-only">
-                          {p.team} · {p.pos}
+                          {p.team} · {posBadgeLabel(p) || p.pos}
                           {hasSos && p.sos ? ` · SOS ${p.sos}` : ''}
                           {hasDynastyValue && p.dynasty_value != null ? ` · ${p.dynasty_value}` : ''}
                         </div>
@@ -349,7 +349,7 @@ export default function BoardTable({
 
                   <td className="col-team">{p.team}</td>
                   <td className="col-pos">
-                    {p.pos ? <span className={cx('pos-badge', String(p.pos).toLowerCase())}>{p.pos}</span> : null}
+                    {p.pos ? <span className={cx('pos-badge', String(p.pos).toLowerCase())}>{posBadgeLabel(p)}</span> : null}
                   </td>
                   {hasAdp && <td className="col-adp">{p.adp != null ? Math.round(p.adp * 10) / 10 : '—'}</td>}
                   {hasAdp && (() => {

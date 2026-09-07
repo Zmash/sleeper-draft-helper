@@ -10,7 +10,7 @@ import {
 import {
   rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchSplit, withDynastyValueFallback,
 } from '../services/analysis/rosterStats'
-import { marketDisagreement } from '../services/analysis/marketStats'
+import { marketDisagreement, expertDisagreement } from '../services/analysis/marketStats'
 import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '../services/derive'
 import DraftTab from '../components/analysis/DraftTab'
 import RosterTab from '../components/analysis/RosterTab'
@@ -25,7 +25,7 @@ export default function AnalysisPage({
 }) {
   const [tab, setTab] = useState('draft')
   const { sleeperUserId } = useSessionStore()
-  const { boardPlayers } = useBoardStore()
+  const { boardPlayers, marketMeta } = useBoardStore()
   const { livePicks } = useLiveStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster, rosterToUserMap } = useDynastyStore()
   const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
@@ -111,6 +111,10 @@ export default function AnalysisPage({
     () => marketDisagreement({ boardPlayers, picks: livePicks }),
     [boardPlayers, livePicks]
   )
+  const expert = useMemo(
+    () => expertDisagreement({ boardPlayers, picks: livePicks }),
+    [boardPlayers, livePicks]
+  )
 
   return (
     <section className="an-page">
@@ -146,7 +150,7 @@ export default function AnalysisPage({
             myRosterId={mySleeperRosterId} isRookieMode={isRookieMode}
           />
         )}
-        {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}
+        {tab === 'market' && <MarketTab market={market} expert={expert} marketMeta={marketMeta} nextPickNo={nextPickNo} />}
       </div>
     </section>
   )

@@ -10,7 +10,7 @@ import {
   FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
   SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
-  fantasyProsPositionUrl,
+  fantasyProsPositionUrl, extractEmbeddedJson, normalizeKtcPlayer,
 } from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
@@ -464,41 +464,18 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const upstream = await fetch(KTC_URL, { headers: HEADERS })
       if (!upstream.ok) return res.status(502).json({ ok: false, error: `KTC returned ${upstream.status}` })
       const html = await upstream.text()
-      const $ = cheerioLoad(html)
-      const players = []
-      $('.single-ranking').each((idx, el) => {
-        const rank = parseInt($('.rank-number p', el).text().trim()) || (idx + 1)
-        const nameEl = $('.player-name a', el)
-        const name = nameEl.text().trim()
-        if (!name) return
-        const team = $('.player-name .player-team', el).text().trim() || ''
-        const posRankRaw = $('.position-team .position', el).first().text().trim()
-        const pos = posRankRaw.replace(/\d+/g, '') || ''
-        const ageRaw = $('.position-team .position.hidden-xs', el).text().replace('y.o.', '').trim()
-        const age = parseFloat(ageRaw) || null
-        const tierRaw = $('.player-info .position', el).text().trim()
-        const tier = tierRaw || ''
-        const valueRaw = $('.value p', el).text().trim()
-        const value = parseInt(valueRaw) || null
-        players.push({
-          id: idx + 1,
-          rk: String(rank),
-          ecr: rank,
-          tier,
-          name,
-          team,
-          pos,
-          posRank: posRankRaw,
-          bye: '',
-          sos: '',
-          ecrVsAdp: '',
-          adp: null,
-          dynasty_value: value,
-          redraft_value: null,
-          age,
-          years_exp: null,
-        })
-      })
+      // Frueher: DOM-Scrape von ".single-ranking" -- KTC rendert davon serverseitig
+      // nur die ersten 50, der Rest laedt per Infinite-Scroll nach (JS, sieht ein
+      // reiner fetch() nie). Das eingebettete `playersArray` (analog zu FantasyPros'
+      // ecrData) enthaelt alle ~500 Spieler direkt als JSON. Bug gefunden beim
+      // Testen mit echten Daten (Zmash / Dynasty League Bochum): Power-Ranking
+      // deckte dadurch nur einen Bruchteil jedes Kaders ab.
+      const raw = extractEmbeddedJson(html, 'playersArray', '[', ']')
+      const rawPlayers = Array.isArray(raw) ? raw : []
+      const players = rawPlayers
+        .filter((p) => p?.position !== 'RDP') // Draft-Picks, keine Spieler
+        .map((p, idx) => ({ ...normalizeKtcPlayer(p, { superflex }), id: idx + 1 }))
+        .filter((p) => p.name)
       if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
       ktcDynastyCache.set(superflex, { at: Date.now(), players })
       res.json({ ok: true, players })
@@ -579,41 +556,13 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const upstream = await fetch(KTC_URL, { headers: HEADERS })
       if (!upstream.ok) return res.status(502).json({ ok: false, error: `KTC returned ${upstream.status}` })
       const html = await upstream.text()
-      const $ = cheerioLoad(html)
-      const players = []
-      $('.single-ranking').each((idx, el) => {
-        const rank = parseInt($('.rank-number p', el).text().trim()) || (idx + 1)
-        const nameEl = $('.player-name a', el)
-        const name = nameEl.text().trim()
-        if (!name) return
-        const team = $('.player-name .player-team', el).text().trim() || ''
-        const posRankRaw = $('.position-team .position', el).first().text().trim() // e.g. "RB3"
-        const pos = posRankRaw.replace(/\d+/g, '') || ''
-        const ageRaw = $('.position-team .position.hidden-xs', el).text().replace('y.o.', '').trim()
-        const age = parseFloat(ageRaw) || null
-        const tierRaw = $('.player-info .position', el).text().trim() // e.g. "Tier 1"
-        const tier = tierRaw || ''
-        const valueRaw = $('.value p', el).text().trim()
-        const value = parseInt(valueRaw) || null
-        players.push({
-          id: idx + 1,
-          rk: String(rank),
-          ecr: rank,
-          tier,
-          name,
-          team,
-          pos,
-          posRank: posRankRaw,
-          bye: '',
-          sos: '',
-          ecrVsAdp: '',
-          adp: null,
-          dynasty_value: value,
-          redraft_value: null,
-          age,
-          years_exp: null,
-        })
-      })
+      // Gleicher Fix wie bei ktc-dynasty: DOM-Scrape traf nur die ersten 50
+      // serverseitig gerenderten Zeilen, das eingebettete playersArray hat alle.
+      const raw = extractEmbeddedJson(html, 'playersArray', '[', ']')
+      const rawPlayers = Array.isArray(raw) ? raw : []
+      const players = rawPlayers
+        .map((p, idx) => ({ ...normalizeKtcPlayer(p, { rookie: true }), id: idx + 1 }))
+        .filter((p) => p.name)
       if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
       res.json({ ok: true, players })
     } catch (err) {

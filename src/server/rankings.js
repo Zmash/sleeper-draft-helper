@@ -6,7 +6,7 @@
 // Deshalb wird die Client-Funktion IMPORTIERT und nicht nachgebaut: eine zweite
 // Implementierung wuerde frueher oder spaeter abweichen, und dann matcht nichts
 // mehr. formatting.js ist abhaengigkeitsfrei und laedt unter node.
-import { normalizePlayerName } from '../utils/formatting.js'
+import { normalizePlayerName, toFiniteOrNull } from '../utils/formatting.js'
 
 export const FFC_FORMATS = ['ppr', 'half-ppr', 'standard', '2qb']
 
@@ -117,14 +117,16 @@ export function fantasyProsPositionUrl(pos, scope, scoring = 'ppr') {
   return `https://www.fantasypros.com/nfl/rankings/${scopePrefix}${scoringPrefix}${slug}.php`
 }
 
-// Zieht das `ecrData`-Objekt aus dem HTML. Balanced-Brace-Scan statt Regex:
-// das Objekt enthaelt verschachtelte {} und geschweifte Klammern in Strings,
-// ein `.*?\}` wuerde zu frueh abbrechen. Gibt das geparste Objekt oder null.
-export function extractEcrData(html) {
+// Zieht ein eingebettetes JS-Objekt/-Array aus HTML (`var X = {...}` oder
+// `var X = [...]`), gesucht ueber einen Text-Marker (meist der Variablenname).
+// Balanced-Brace-Scan statt Regex: der Inhalt enthaelt verschachtelte {}/[]
+// und Klammern in Strings, ein `.*?\}` wuerde zu frueh abbrechen. Gibt den
+// geparsten Wert oder null.
+export function extractEmbeddedJson(html, marker, open = '{', close = '}') {
   const text = String(html || '')
-  const marker = text.indexOf('ecrData')
-  if (marker === -1) return null
-  const start = text.indexOf('{', marker)
+  const markerIdx = text.indexOf(marker)
+  if (markerIdx === -1) return null
+  const start = text.indexOf(open, markerIdx)
   if (start === -1) return null
 
   let depth = 0
@@ -139,8 +141,8 @@ export function extractEcrData(html) {
       continue
     }
     if (c === '"') inString = true
-    else if (c === '{') depth++
-    else if (c === '}') {
+    else if (c === open) depth++
+    else if (c === close) {
       depth--
       if (depth === 0) {
         try {
@@ -152,6 +154,10 @@ export function extractEcrData(html) {
     }
   }
   return null
+}
+
+export function extractEcrData(html) {
+  return extractEmbeddedJson(html, 'ecrData', '{', '}')
 }
 
 // FantasyPros-Spieler -> Board-Rang-Form (identisch zu FantasyCalc/KTC).
@@ -181,5 +187,49 @@ export function normalizeFantasyProsPlayer(raw) {
     // Nur auf Weekly-Seiten vorhanden (nicht ROS/Cheatsheet) -- dort bleibt's null.
     fantasy_pts: Number.isFinite(fantasyPts) ? fantasyPts : null,
     opponent: raw?.player_opponent || null,
+    // Experten-Panel-Streuung: wie uneins sich FantasyPros' Analysten beim
+    // Gesamtrang sind -- unabhaengig von der FFC-Mock-Draft-Streuung (die
+    // reale Drafter-ADP misst statt Analysten-Meinung). Kommt als String an.
+    rank_min: toFiniteOrNull(raw?.rank_min),
+    rank_max: toFiniteOrNull(raw?.rank_max),
+    rank_std: toFiniteOrNull(raw?.rank_std),
+  }
+}
+
+// ---------- KTC Dynasty-Werte (gescraped) ----------
+// KTCs Rankings-Seite rendert serverseitig nur die ersten 50 Zeilen
+// (".single-ranking") und laedt den Rest per Infinite-Scroll nach -- ein
+// reiner HTML-Scrape dieser Zeilen liefert also nur 50 von ~500 Spielern.
+// Dieselbe Seite embedded aber ein vollstaendiges `playersArray` im
+// <script>-Tag (analog zu FantasyPros' ecrData), mit getrennten One-QB-
+// und Superflex-Werten pro Spieler -- das ist die verlaessliche Quelle.
+// rookie=true liest die rookie-spezifischen Rang-Felder (rookieRank statt
+// rank etc.) -- auf der Rookie-Seite zaehlt "Rang 1" der beste Rookie, nicht
+// der beste Spieler ueberhaupt (den Unterschied macht KTC selbst als eigene
+// Feldgruppe verfuegbar, kein separater Request noetig).
+export function normalizeKtcPlayer(raw, { superflex = false, rookie = false } = {}) {
+  const vals = superflex ? raw?.superflexValues : raw?.oneQBValues
+  const rank = toFiniteOrNull(rookie ? vals?.rookieRank : vals?.rank)
+  const posRankNum = rookie ? vals?.rookiePositionalRank : vals?.positionalRank
+  const tierNum = rookie ? vals?.rookieTier : vals?.overallTier
+  const name = raw?.playerName || ''
+  return {
+    id: raw?.playerID ?? null,
+    rk: rank != null ? String(rank) : '',
+    ecr: rank,
+    tier: tierNum != null ? `Tier ${tierNum}` : '',
+    name,
+    team: raw?.team || '',
+    pos: raw?.position || '',
+    posRank: posRankNum != null ? `${raw?.position || ''}${posRankNum}` : '',
+    bye: raw?.byeWeek != null ? String(raw.byeWeek) : '',
+    sos: '',
+    ecrVsAdp: '',
+    adp: null,
+    dynasty_value: toFiniteOrNull(vals?.value),
+    redraft_value: null,
+    age: toFiniteOrNull(raw?.age),
+    years_exp: toFiniteOrNull(raw?.seasonsExperience),
+    nname: normalizePlayerName(name),
   }
 }

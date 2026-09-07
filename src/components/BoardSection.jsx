@@ -812,6 +812,7 @@ export default function BoardSection({
               ownerLabels={ownerLabels}
               teamFilter={teamFilter}
               onTeamFilterChange={onTeamFilterChange}
+              rosterPositions={rosterPositions}
             />
           </div>
           <div

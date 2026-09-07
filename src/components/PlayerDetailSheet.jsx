@@ -1,5 +1,5 @@
 import Icon from './Icon'
-import { cx, normalizePos, fantasyProsPlayerUrl } from '../utils/formatting'
+import { cx, normalizePos, posBadgeLabel, fantasyProsPlayerUrl } from '../utils/formatting'
 import { usePlayerNews } from '../hooks/usePlayerNews'
 import { PlayerPreference } from '../services/preferences'
 
@@ -54,7 +54,7 @@ export default function PlayerDetailSheet({ player, onClose, pref = null, onSetP
           <>
             <div className="pds-meta">
               {pos && (
-                <span className="pds-pos" style={{ background: `var(--pos-${pos.toLowerCase()})` }}>{pos}</span>
+                <span className="pds-pos" style={{ background: `var(--pos-${pos.toLowerCase()})` }}>{posBadgeLabel(player)}</span>
               )}
               <span>{player.team || '—'}</span>
               {player.bye ? <span className="pds-dim">Bye {player.bye}</span> : null}
