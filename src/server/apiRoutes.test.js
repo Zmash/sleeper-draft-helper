@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
 import { STRATEGY_TOOL, STRATEGY_SOURCES, buildStrategyPrompt } from './apiRoutes.js'
 import { SYNC_DIR, MAX_ROOMS, isValidRoom, readRoom, writeRoom, pickToolInput } from './apiRoutes.js'
@@ -259,6 +259,68 @@ describe('Sync-Briefkasten', () => {
     const res = { set: (k, v) => calls.push([k, v]), status: () => res, json: () => res, end: () => res }
     handler({ params: { room: 'ungueltig' }, headers: {} }, res)
     expect(calls).toContainEqual(['Cache-Control', 'no-store'])
+  })
+})
+
+// Kein supertest im Projekt (siehe Sync-Briefkasten oben) -- Handler ueber
+// den fakeApp-Capture-Trick greifen und mit einem minimalen res-Stub
+// (status/json chainbar) direkt aufrufen, statt einen echten HTTP-Request
+// zu fahren.
+describe('GET /api/rankings/fantasypros-position', () => {
+  function getHandler() {
+    let handler
+    registerApiRoutes(
+      { get: (p, h) => { if (p === '/api/rankings/fantasypros-position') handler = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handler
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  afterEach(() => {
+    delete global.fetch
+  })
+
+  it('liefert normalisierte Spieler fuer pos/scope/scoring', async () => {
+    const html = `<script>var ecrData = ${JSON.stringify({
+      players: [{ player_name: 'Travis Kelce', rank_ecr: 1, player_team_id: 'KC', player_position_id: 'TE', fantasy_pts: '14.2' }],
+    })}</script>`
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => html })
+
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { pos: 'TE', scope: 'week', scoring: 'ppr' } }, res)
+
+    expect(res.statusCode ?? 200).toBe(200)
+    expect(res.body.ok).toBe(true)
+    expect(res.body.players[0].name).toBe('Travis Kelce')
+    expect(res.body.players[0].fantasy_pts).toBe(14.2)
+    expect(global.fetch).toHaveBeenCalledWith('https://www.fantasypros.com/nfl/rankings/ppr-te.php', expect.anything())
+  })
+
+  it('lehnt unbekannte Position ab', async () => {
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { pos: 'K', scope: 'week' } }, res)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body.ok).toBe(false)
+  })
+
+  it('gibt 502, wenn ecrData fehlt (FantasyPros-Struktur geaendert)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => '<html>keine Daten</html>' })
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { pos: 'QB', scope: 'week' } }, res)
+
+    expect(res.statusCode).toBe(502)
+    expect(res.body.ok).toBe(false)
   })
 })
 

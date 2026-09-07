@@ -10,6 +10,7 @@ import {
   FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
   SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
+  fantasyProsPositionUrl,
 } from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
@@ -652,6 +653,50 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         },
         players,
       })
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message || 'FantasyPros-Scraping fehlgeschlagen' })
+    }
+  })
+
+  // ---------- Rankings: FantasyPros Weekly/ROS je Position (Waiver-Wire) ----------
+  // Cache getrennt nach pos+scope+scoring, da jede Kombination eine eigene
+  // FantasyPros-Seite ist. Weekly aendert sich taeglich (Verletzungen,
+  // Beat-Reports) -> kurze TTL. ROS bewegt sich langsamer -> lange TTL.
+  const fpPositionCache = new Map() // "pos:scope:scoring" -> { at, players }
+  const FP_POSITION_TTL_MS = { week: 6 * 60 * 60 * 1000, ros: 24 * 60 * 60 * 1000 }
+  const FP_POSITION_VALID_POS = ['QB', 'RB', 'WR', 'TE', 'DEF']
+
+  app.get('/api/rankings/fantasypros-position', async (req, res) => {
+    const pos = String(req.query.pos || '').toUpperCase()
+    const scope = req.query.scope === 'ros' ? 'ros' : 'week'
+    const scoring = ['ppr', 'half', 'std'].includes(String(req.query.scoring)) ? String(req.query.scoring) : 'ppr'
+    if (!FP_POSITION_VALID_POS.includes(pos)) {
+      return res.status(400).json({ ok: false, error: `Unbekannte Position: ${pos}` })
+    }
+    const cacheKey = `${pos}:${scope}:${scoring}`
+    const cached = fpPositionCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < FP_POSITION_TTL_MS[scope]) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
+    const url = fantasyProsPositionUrl(pos, scope, scoring)
+    const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    try {
+      const upstream = await fetch(url, { headers: HEADERS })
+      if (!upstream.ok) return res.status(502).json({ ok: false, error: `FantasyPros returned ${upstream.status}` })
+      const html = await upstream.text()
+      const data = extractEcrData(html)
+      const rawPlayers = Array.isArray(data?.players) ? data.players : []
+      if (!rawPlayers.length) {
+        return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – FantasyPros-Struktur möglicherweise geändert' })
+      }
+      const players = rawPlayers.map((p, idx) => ({ id: idx + 1, ...normalizeFantasyProsPlayer(p) }))
+      const meta = {
+        source: 'fantasypros', pos, scope, scoring,
+        week: data?.week ?? null,
+        fetched_at: new Date().toISOString(),
+      }
+      fpPositionCache.set(cacheKey, { at: Date.now(), meta, players })
+      res.json({ ok: true, meta, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'FantasyPros-Scraping fehlgeschlagen' })
     }
