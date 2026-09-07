@@ -1,5 +1,5 @@
 import Icon from './Icon'
-import { cx } from '../utils/formatting'
+import { cx, positionFiltersFromRoster } from '../utils/formatting'
 
 export default function FiltersRow({
     searchQuery,
@@ -14,7 +14,9 @@ export default function FiltersRow({
     ownerLabels,
     teamFilter,
     onTeamFilterChange,
+    rosterPositions,
   }) {
+    const posFilters = positionFiltersFromRoster(rosterPositions)
     return (
       <div className="row wrap filters-toolbar">
         <label className="board-search">
@@ -27,7 +29,7 @@ export default function FiltersRow({
         </label>
 
         <div className="filter-chips" role="group" aria-label="Position filtern">
-          {['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((p) => (
+          {posFilters.map((p) => (
             <button
               key={p}
               type="button"

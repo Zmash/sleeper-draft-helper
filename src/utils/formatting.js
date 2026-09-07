@@ -60,3 +60,22 @@ export const signed = (n) => {
   const v = Math.round(Number(n) || 0)
   return v > 0 ? `+${v}` : String(v)
 }
+
+/**
+ * Reihenfolge, in der echte (draftbare) Positionen als Filter-Chip auftauchen
+ * koennen. FLEX/SUPER_FLEX/IDP_FLEX/BN/WR-RB-TE-Slots sind keine eigenen
+ * Positionen -- sie erweitern die Liste nicht.
+ */
+export const BASE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB']
+
+/**
+ * Positions-Filter-Chips aus den Roster-Slots einer Liga/eines Drafts:
+ * genau die Positionen, die dort tatsaechlich draftbar sind -- nicht mehr,
+ * nicht weniger. Ohne erkennbare Slots (z.B. vor dem ersten Format-Resolve)
+ * greift ein Rueckfall auf die klassischen Kernpositionen.
+ */
+export function positionFiltersFromRoster(rosterPositions) {
+  const present = new Set((rosterPositions || []).map((p) => String(p).toUpperCase()))
+  const found = BASE_POSITIONS.filter((p) => present.has(p))
+  return ['ALL', ...(found.length ? found : BASE_POSITIONS.slice(0, 6))]
+}
