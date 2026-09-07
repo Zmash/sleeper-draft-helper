@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters } from './waiverStats'
 
 describe('freeAgents', () => {
   const playersMeta = {
@@ -62,5 +62,48 @@ describe('streamingBoard', () => {
     expect(out.TE).toBeUndefined()
     expect(out.DEF.week.map((p) => p.player_id)).toEqual(['2', '1'])
     expect(out.DEF.ros.map((p) => p.player_id)).toEqual(['1', '2'])
+  })
+})
+
+describe('bestLineup', () => {
+  const roster = [
+    { sleeper_id: '1', name: 'QB Starter', pos: 'QB', bye: '', injury_status: null },
+    { sleeper_id: '2', name: 'RB Best', pos: 'RB', bye: '', injury_status: null },
+    { sleeper_id: '3', name: 'RB Worse', pos: 'RB', bye: '', injury_status: null },
+    { sleeper_id: '4', name: 'WR Bye', pos: 'WR', bye: '7', injury_status: null },
+    { sleeper_id: '5', name: 'WR Hurt', pos: 'WR', bye: '', injury_status: 'Out' },
+  ]
+  const ranks = new Map([['1', 5], ['2', 3], ['3', 20], ['4', 1], ['5', 2]]) // von rank_ecr, niedriger = besser
+  const weeklyRankByKey = new Map([...ranks].map(([id, r]) => [`ID:${id}`, r]))
+
+  it('nimmt den besseren RB in den Slot, schwaecheren in FLEX, schliesst Bye/Injury aus', () => {
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['QB', 'RB', 'FLEX', 'BN', 'BN'],
+      weeklyRankByKey,
+      currentWeekBye: '7',
+    })
+    const bySlot = Object.fromEntries(out.slots.map((s) => [s.slot + (s.slotIndex ?? ''), s.player?.sleeper_id]))
+    expect(bySlot.QB0).toBe('1')
+    expect(bySlot.RB0).toBe('2')
+    expect(bySlot.FLEX0).toBe('3') // WR Bye (4) und WR Hurt (5) sind raus
+    expect(out.bench.map((p) => p.sleeper_id)).toContain('4')
+    expect(out.bench.map((p) => p.sleeper_id)).toContain('5')
+  })
+})
+
+describe('compareToActualStarters', () => {
+  it('isOptimal=true, wenn identisch', () => {
+    const slots = [{ slot: 'QB', slotIndex: 0, player: { sleeper_id: '1' } }]
+    const out = compareToActualStarters({ recommendedSlots: slots, actualStarterIds: ['1'] })
+    expect(out.isOptimal).toBe(true)
+    expect(out.diffs).toEqual([])
+  })
+
+  it('meldet Abweichung, wenn ein Starter fehlt', () => {
+    const slots = [{ slot: 'RB', slotIndex: 0, player: { sleeper_id: '2', name: 'RB Best' } }]
+    const out = compareToActualStarters({ recommendedSlots: slots, actualStarterIds: ['3'] })
+    expect(out.isOptimal).toBe(false)
+    expect(out.diffs[0]).toMatchObject({ slot: 'RB', in: '2' })
   })
 })

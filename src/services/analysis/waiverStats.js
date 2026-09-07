@@ -73,3 +73,66 @@ export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new 
   }
   return out
 }
+
+const FLEX_ELIGIBLE = { FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] }
+
+// Greedy statt echtem bipartiten Matching: pro fixem Positions-Slot den
+// bestplatzierten passenden Spieler zuerst, danach FLEX-Slots aus dem Rest.
+// Das ist Standard fuer Fantasy-Lineup-Tools und in der Praxis fast immer
+// optimal (Abweichungen nur in seltenen Randfaellen mit mehreren FLEX-Typen
+// gleichzeitig) -- ponytail: greedy statt Optimalloesung, bei Bedarf durch
+// echtes Matching ersetzen, falls FLEX/SUPER_FLEX gemeinsam vorkommen und
+// Fehlzuteilungen auffallen.
+export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), currentWeekBye = null } = {}) {
+  const eligible = myRosterPlayers.filter((p) => {
+    if (currentWeekBye != null && String(p.bye) === String(currentWeekBye)) return false
+    if (p.injury_status === 'Out' || p.injury_status === 'IR') return false
+    return true
+  })
+  const rankOf = (p) => weeklyRankByKey.get(`ID:${p.sleeper_id}`) ?? Infinity
+  const used = new Set()
+  const slots = []
+
+  const fixedSlots = rosterPositions.filter((s) => s !== 'BN' && !FLEX_ELIGIBLE[s])
+  const flexSlots = rosterPositions.filter((s) => FLEX_ELIGIBLE[s])
+
+  const slotCounters = {}
+  function nextSlotIndex(slot) {
+    slotCounters[slot] = (slotCounters[slot] || 0) + 1
+    return slotCounters[slot] - 1
+  }
+
+  for (const slot of fixedSlots) {
+    const candidates = eligible
+      .filter((p) => p.pos === slot && !used.has(p.sleeper_id))
+      .sort((a, b) => rankOf(a) - rankOf(b))
+    const player = candidates[0] || null
+    if (player) used.add(player.sleeper_id)
+    slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })
+  }
+  for (const slot of flexSlots) {
+    const allowedPos = FLEX_ELIGIBLE[slot]
+    const candidates = eligible
+      .filter((p) => allowedPos.includes(p.pos) && !used.has(p.sleeper_id))
+      .sort((a, b) => rankOf(a) - rankOf(b))
+    const player = candidates[0] || null
+    if (player) used.add(player.sleeper_id)
+    slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })
+  }
+
+  const bench = myRosterPlayers.filter((p) => !used.has(p.sleeper_id))
+  return { slots, bench }
+}
+
+export function compareToActualStarters({ recommendedSlots = [], actualStarterIds = [] } = {}) {
+  const actual = new Set((actualStarterIds || []).map(String))
+  const recommended = new Set(recommendedSlots.filter((s) => s.player).map((s) => String(s.player.sleeper_id)))
+  const diffs = []
+  for (const s of recommendedSlots) {
+    if (!s.player) continue
+    const id = String(s.player.sleeper_id)
+    if (!actual.has(id)) diffs.push({ slot: s.slot, in: id, name: s.player.name })
+  }
+  const isOptimal = diffs.length === 0 && actual.size === recommended.size
+  return { isOptimal, diffs }
+}
