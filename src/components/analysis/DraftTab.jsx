@@ -131,6 +131,15 @@ function Scarcity({ rows, picksUntilMyNext }) {
               <span className={cx(risky && 'an-pos-bad')}>{r.available} frei</span>
               {/* Beantwortet "wieso genau 28": (2+⅓) × 12 Teams = Bedarf. */}
               <span className="muted an-composition">{r.need} nötig · {r.compositionShort}</span>
+              {/* "WR ist nicht gleich WR": vor sagt, wie stark die Qualitaet
+                  nach den besten Verfuegbaren abfaellt -- Rang-Abstand
+                  zwischen dem besten Verfuegbaren und dem Ersatz-Spieler
+                  (dem, den du noch bekommst, wenn du bis zum letzten
+                  benoetigten Slot wartest). Kein Wert im erschoepften Fall,
+                  weil es dann keinen Ersatz mehr gibt. */}
+              {r.vor !== null && (
+                <span className="muted an-composition">Bester {Math.round(r.vor)} Ränge vor Ersatz</span>
+              )}
             </span>
           </div>
         )
