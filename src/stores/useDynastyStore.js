@@ -74,6 +74,7 @@ export const useDynastyStore = create((set) => ({
             name,
             nname: normalizePlayerName(name),
             pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
+            age: meta.age || null,
           }
         }),
       }))

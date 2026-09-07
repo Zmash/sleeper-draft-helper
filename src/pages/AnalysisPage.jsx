@@ -6,7 +6,9 @@ import { useDynastyStore } from '../stores/useDynastyStore'
 import {
   teamDraftRanking, positionalScarcity, tierUsage, positionalRuns,
 } from '../services/analysis/draftStats'
-import { rosterValueSplit } from '../services/analysis/rosterStats'
+import {
+  rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchValue,
+} from '../services/analysis/rosterStats'
 import { marketDisagreement } from '../services/analysis/marketStats'
 import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '../services/derive'
 import DraftTab from '../components/analysis/DraftTab'
@@ -22,7 +24,7 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
   const { sleeperUserId } = useSessionStore()
   const { boardPlayers } = useBoardStore()
   const { livePicks } = useLiveStore()
-  const { leagueRosters, mySleeperRosterId } = useDynastyStore()
+  const { leagueRosters, mySleeperRosterId, dynastyRoster, rosterToUserMap } = useDynastyStore()
 
   const teams = Number(teamsCount) || 12
 
@@ -71,6 +73,21 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
     }),
     [leagueRosters, boardPlayers, effRoster, mySleeperRosterId]
   )
+  const power = useMemo(
+    () => teamPowerRanking({
+      leagueRosters, boardPlayers, rosterPositions: effRoster, myRosterId: mySleeperRosterId,
+      rosterToUserMap, ownerLabels,
+    }),
+    [leagueRosters, boardPlayers, effRoster, mySleeperRosterId, rosterToUserMap, ownerLabels]
+  )
+  const ages = useMemo(
+    () => ageProfile({ leagueRosters, rosterPositions: effRoster, myRosterId: mySleeperRosterId }),
+    [leagueRosters, effRoster, mySleeperRosterId]
+  )
+  const starterBench = useMemo(
+    () => starterVsBenchValue({ dynastyRoster, boardPlayers }),
+    [dynastyRoster, boardPlayers]
+  )
   const market = useMemo(
     () => marketDisagreement({ boardPlayers, picks: livePicks }),
     [boardPlayers, livePicks]
@@ -104,7 +121,12 @@ export default function AnalysisPage({ teamsCount, ownerLabels, effRoster, draft
             myTeamKey={myTeamKey} picksUntilMyNext={myPicksUntilNext}
           />
         )}
-        {tab === 'roster' && <RosterTab split={split} />}
+        {tab === 'roster' && (
+          <RosterTab
+            split={split} power={power} ages={ages} starterBench={starterBench}
+            myRosterId={mySleeperRosterId}
+          />
+        )}
         {tab === 'market' && <MarketTab market={market} nextPickNo={nextPickNo} />}
       </div>
     </section>

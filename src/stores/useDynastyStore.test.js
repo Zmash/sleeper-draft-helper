@@ -31,7 +31,7 @@ function enriched(rosters) {
   return rosters.map((r) => ({
     roster_id: r.roster_id,
     owner_id: r.owner_id,
-    players: r.players.map((id) => ({ sleeper_id: id, name: `#${id}`, nname: '', pos: '' })),
+    players: r.players.map((id) => ({ sleeper_id: id, name: `#${id}`, nname: '', pos: '', age: null })),
   }))
 }
 

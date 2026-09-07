@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { median, rosterValueSplit } from './rosterStats'
+import { median, rosterValueSplit, teamPowerRanking, ageProfile, starterVsBenchValue } from './rosterStats'
 
 describe('median', () => {
   it('ungerade Anzahl -> mittlerer Wert', () => {
@@ -216,5 +216,148 @@ describe('rosterValueSplit', () => {
     expect(r.totalPlayers).toBe(0)
     expect(r.coverage).toBe(0)
     expect(r.teamCount).toBe(2)
+  })
+
+  it('rank: Wertmodus zaehlt Teams mit hoeherem Wert, +1', () => {
+    // Werte 100/40/10 -- mein Team (100) hat niemanden ueber sich -> Platz 1
+    const r = rosterValueSplit({
+      leagueRosters: rosters, boardPlayers: board, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.rank).toBe(1)
+    expect(rb.teamCount).toBe(3)
+  })
+
+  it('rank: Rangmodus zaehlt Teams mit kleinerem (besserem) ECR, +1', () => {
+    // ECR 5/50/80 -- mein Team (5) hat niemanden mit kleinerem ECR -> Platz 1
+    const ohneWert = board.map(({ dynasty_value, ...rest }) => rest)
+    const r = rosterValueSplit({
+      leagueRosters: rosters, boardPlayers: ohneWert, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.rank).toBe(1)
+  })
+
+  it('rank: mittleres Team liegt auf Platz 2 von 3', () => {
+    const r = rosterValueSplit({
+      leagueRosters: rosters, boardPlayers: board, rosterPositions: ['RB'], myRosterId: 2,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.rank).toBe(2)
+  })
+
+  it('rank: unbekanntes myRosterId -> null statt falscher Platzierung', () => {
+    const r = rosterValueSplit({
+      leagueRosters: rosters, boardPlayers: board, rosterPositions: ['RB'], myRosterId: 99,
+    })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.rank).toBeNull()
+  })
+})
+
+describe('teamPowerRanking', () => {
+  it('summiert Starter-Werte je Team ueber alle Positionen und rankt absteigend', () => {
+    const mixedBoard = [
+      { sleeper_id: '1', nname: 'my rb', pos: 'RB', dynasty_value: 100 },
+      { sleeper_id: '2', nname: 'my qb', pos: 'QB', dynasty_value: 50 },
+      { sleeper_id: '3', nname: 'their rb', pos: 'RB', dynasty_value: 30 },
+    ]
+    const mixedRosters = [
+      { roster_id: 1, players: [{ sleeper_id: '1', nname: 'my rb' }, { sleeper_id: '2', nname: 'my qb' }] },
+      { roster_id: 2, players: [{ sleeper_id: '3', nname: 'their rb' }] },
+    ]
+    const r = teamPowerRanking({
+      leagueRosters: mixedRosters, boardPlayers: mixedBoard, rosterPositions: ['QB', 'RB'], myRosterId: 1,
+      rosterToUserMap: { 1: 'U1' }, ownerLabels: new Map([['user:U1', 'Mein Team']]),
+    })
+    expect(r.available).toBe(true)
+    expect(r.myRank).toBe(1)
+    expect(r.myTotal).toBe(150)
+    expect(r.teams[0].label).toBe('Mein Team')
+    expect(r.teams[1].total).toBe(30)
+  })
+
+  it('ohne dynasty_value nicht verfuegbar (keine Rangkurve ueber Positionen erfunden)', () => {
+    const ohneWert = board.map(({ dynasty_value, ...rest }) => rest)
+    const r = teamPowerRanking({
+      leagueRosters: rosters, boardPlayers: ohneWert, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    expect(r.available).toBe(false)
+    expect(r.teams).toEqual([])
+  })
+
+  it('ohne rosterToUserMap-Eintrag: Platzhalter-Label statt Absturz', () => {
+    const r = teamPowerRanking({
+      leagueRosters: rosters, boardPlayers: board, rosterPositions: ['RB'], myRosterId: 1,
+    })
+    expect(r.teams.find((t) => t.rosterId === 1).label).toBe('Team 1')
+  })
+})
+
+describe('ageProfile', () => {
+  const rostersWithAge = [
+    { roster_id: 1, players: [{ nname: 'a', pos: 'RB', age: 24 }, { nname: 'b', pos: 'RB', age: 26 }] },
+    { roster_id: 2, players: [{ nname: 'c', pos: 'RB', age: 30 }] },
+    { roster_id: 3, players: [{ nname: 'd', pos: 'RB', age: 32 }] },
+  ]
+
+  it('mittelt das eigene Alter je Position und vergleicht mit dem Liga-Median', () => {
+    const r = ageProfile({ leagueRosters: rostersWithAge, rosterPositions: ['RB', 'RB'], myRosterId: 1 })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.mine).toBe(25)          // (24+26)/2
+    expect(rb.leagueMedian).toBe(30)  // Median aus 25, 30, 32
+    expect(rb.diff).toBe(-5)          // 5 Jahre juenger als die Liga
+  })
+
+  it('Spieler ohne Altersangabe werden nicht mitgezaehlt statt als 0 zu verfaelschen', () => {
+    const mitLuecke = [
+      { roster_id: 1, players: [{ nname: 'a', pos: 'RB', age: 24 }, { nname: 'b', pos: 'RB', age: null }] },
+      { roster_id: 2, players: [{ nname: 'c', pos: 'RB', age: 30 }] },
+    ]
+    const r = ageProfile({ leagueRosters: mitLuecke, rosterPositions: ['RB'], myRosterId: 1 })
+    const rb = r.positions.find((p) => p.pos === 'RB')
+    expect(rb.mine).toBe(24) // nur der Spieler mit Alter zaehlt, nicht (24+0)/2
+  })
+
+  it('Position ohne Starter-Slot taucht nicht auf', () => {
+    const r = ageProfile({ leagueRosters: rostersWithAge, rosterPositions: ['QB'], myRosterId: 1 })
+    expect(r.positions.find((p) => p.pos === 'RB')).toBeUndefined()
+  })
+})
+
+describe('starterVsBenchValue', () => {
+  const valueBoard = [
+    { sleeper_id: '1', nname: 'starter rb', pos: 'RB', dynasty_value: 100 },
+    { sleeper_id: '2', nname: 'bench rb', pos: 'RB', dynasty_value: 20 },
+    { sleeper_id: '3', nname: 'taxi wr', pos: 'WR', dynasty_value: 15 },
+  ]
+  const roster = [
+    { sleeper_id: '1', nname: 'starter rb', slot: 'starter' },
+    { sleeper_id: '2', nname: 'bench rb', slot: 'bench' },
+    { sleeper_id: '3', nname: 'taxi wr', slot: 'taxi' },
+  ]
+
+  it('summiert Dynasty-Wert je Slot-Kategorie', () => {
+    const r = starterVsBenchValue({ dynastyRoster: roster, boardPlayers: valueBoard })
+    expect(r.available).toBe(true)
+    expect(r.value.starter).toBe(100)
+    expect(r.value.bench).toBe(20)
+    expect(r.value.taxi).toBe(15)
+    expect(r.total).toBe(135)
+    expect(r.starterShare).toBeCloseTo(100 / 135)
+  })
+
+  it('ohne dynasty_value nicht verfuegbar', () => {
+    const ohneWert = valueBoard.map(({ dynasty_value, ...rest }) => rest)
+    const r = starterVsBenchValue({ dynastyRoster: roster, boardPlayers: ohneWert })
+    expect(r.available).toBe(false)
+  })
+
+  it('ungematchte Spieler zaehlen nicht mit', () => {
+    const r = starterVsBenchValue({
+      dynastyRoster: [...roster, { sleeper_id: '999', nname: 'unbekannt', slot: 'bench' }],
+      boardPlayers: valueBoard,
+    })
+    expect(r.matched).toBe(3)
   })
 })

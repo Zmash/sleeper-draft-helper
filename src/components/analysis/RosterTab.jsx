@@ -1,51 +1,37 @@
 import StatCard from './StatCard'
 import { cx, posColor, signed } from '../../utils/formatting'
 
-export default function RosterTab({ split }) {
+function KaderVsLiga({ split }) {
   const { mode, positions, coverage, teamCount, totalPlayers } = split
 
   if (!teamCount) {
-    return (
-      <div className="an-grid">
-        <StatCard
-          title="Kader gegen das Liga-Feld"
-          empty="Nur für echte Ligen — Mock-Drafts haben keine Kader."
-        />
-      </div>
-    )
+    return <StatCard title="Kader gegen das Liga-Feld" empty="Nur für echte Ligen — Mock-Drafts haben keine Kader." />
   }
   // Waehrend eines laufenden Drafts liefert Sleeper alle Kader leer (0/0) --
   // erst nach Draft-Ende sind sie befuellt. Das ist kein Deckungsproblem und
   // braucht daher eine eigene Meldung statt der "Ranking zu duenn"-Meldung unten.
   if (!totalPlayers) {
     return (
-      <div className="an-grid">
-        <StatCard
-          title="Kader gegen das Liga-Feld"
-          empty="Die Kader sind noch leer — Sleeper füllt sie erst nach Ende des Drafts. Danach steht der Vergleich hier zur Verfügung."
-        />
-      </div>
+      <StatCard
+        title="Kader gegen das Liga-Feld"
+        empty="Die Kader sind noch leer — Sleeper füllt sie erst nach Ende des Drafts. Danach steht der Vergleich hier zur Verfügung."
+      />
     )
   }
   if (coverage < 0.5) {
     return (
-      <div className="an-grid">
-        <StatCard
-          title="Kader gegen das Liga-Feld"
-          empty={`Nur ${Math.round(coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu dünn für einen Vergleich.`}
-        />
-      </div>
+      <StatCard
+        title="Kader gegen das Liga-Feld"
+        empty={`Nur ${Math.round(coverage * 100)} % der Kaderspieler stehen im importierten Ranking — zu dünn für einen Vergleich.`}
+      />
     )
   }
-
   if (!positions.length) {
     return (
-      <div className="an-grid">
-        <StatCard
-          title="Kader gegen das Liga-Feld"
-          empty="Für keine Position konnte ein Vergleich ermittelt werden — möglicherweise hat keine Position einen Starter-Slot in dieser Liga."
-        />
-      </div>
+      <StatCard
+        title="Kader gegen das Liga-Feld"
+        empty="Für keine Position konnte ein Vergleich ermittelt werden — möglicherweise hat keine Position einen Starter-Slot in dieser Liga."
+      />
     )
   }
 
@@ -55,35 +41,183 @@ export default function RosterTab({ split }) {
   const hasData = positions.some((p) => p.diff != null)
 
   return (
-    <div className="an-grid">
-      <StatCard
-        title="Kader gegen das Liga-Feld"
-        hint={mode === 'value'
-          ? 'Summe der Dynasty-Werte je Position, verglichen mit dem Median der Liga.'
-          : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstände sind nicht wertproportional — die Richtung ist verlässlich, der Betrag grob.'}
-        headline={beste?.diff != null ? signed(beste.diff) : '—'}
-        sub={hasData && beste?.diff != null ? `${beste.pos} ist deine stärkste Position` : ''}
-        basis={`${teamCount} Kader · Deckung ${Math.round(coverage * 100)} % · in ${einheit}`}
-        wide
+    <StatCard
+      title="Kader gegen das Liga-Feld"
+      hint={mode === 'value'
+        ? 'Summe der Dynasty-Werte je Position, verglichen mit dem Median der Liga.'
+        : 'Rang deines besten Spielers je Position, verglichen mit dem Median der Liga. Rangabstände sind nicht wertproportional — die Richtung ist verlässlich, der Betrag grob.'}
+      headline={beste?.diff != null ? signed(beste.diff) : '—'}
+      sub={hasData && beste?.diff != null
+        ? `${beste.pos} ist deine stärkste Position — Platz ${beste.rank} von ${beste.teamCount}`
+        : ''}
+      basis={`${teamCount} Kader · Deckung ${Math.round(coverage * 100)} % · in ${einheit}`}
+    >
+      {positions.map((p) => (
+        <div className="an-row" key={p.pos}>
+          <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
+          <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" width="100%" height="12"
+               role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenüber dem Median` : `${p.pos}: keine Daten`}>
+            <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
+            <rect
+              x={Math.min(0, p.diff ?? 0)} y="0.15"
+              width={Math.abs(p.diff ?? 0)} height="0.7"
+              fill={(p.diff ?? 0) >= 0 ? 'var(--good, #4ec97b)' : 'var(--bad, #e0555a)'}
+            />
+          </svg>
+          <span className={cx('an-num', (p.diff ?? 0) >= 0 ? 'an-pos-good' : 'an-pos-bad')}>
+            {p.diff != null ? signed(p.diff) : '—'}
+            {/* Rang statt nur der Abweichung: "+40" sagt nicht, ob das
+                Platz 2 oder Platz 6 von 12 ist. */}
+            {p.rank != null && (
+              <span className="muted an-composition">Platz {p.rank} von {p.teamCount}</span>
+            )}
+          </span>
+        </div>
+      ))}
+    </StatCard>
+  )
+}
+
+function PowerRanking({ power, myRosterId }) {
+  if (!power.available) {
+    return <StatCard title="Power-Ranking" wide empty="Nur mit importierten Dynasty-Werten verfügbar." />
+  }
+  if (!power.teams.length) {
+    return <StatCard title="Power-Ranking" wide empty="Keine Kader gefunden." />
+  }
+
+  return (
+    <StatCard
+      title="Power-Ranking"
+      hint="Summe der Starter-Werte je Position (beste Spieler pro Slot) über alle Teams verglichen."
+      headline={power.myRank != null ? String(power.myRank) : '—'}
+      sub={power.myRank != null
+        ? `von ${power.teams.length} Teams · Wert ${Math.round(power.myTotal)}`
+        : 'Dein Team nicht erkannt'}
+      basis={`${power.teams.length} Kader verglichen · Summe der Starter-Werte je Position`}
+      wide
+    >
+      <table className="an-table">
+        <thead>
+          <tr><th>#</th><th>Team</th><th className="an-num">Wert</th></tr>
+        </thead>
+        <tbody>
+          {power.teams.map((t, i) => (
+            <tr key={t.rosterId ?? i} className={cx(String(t.rosterId) === String(myRosterId) && 'is-me')}>
+              <td>{i + 1}</td>
+              <td>{t.label}</td>
+              <td className="an-num">{Math.round(t.total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </StatCard>
+  )
+}
+
+function AgeProfile({ ages }) {
+  const { positions, teamCount } = ages
+
+  if (!teamCount) {
+    return <StatCard title="Alters-Profil" empty="Nur für echte Ligen — Mock-Drafts haben keine Kader." />
+  }
+  if (!positions.length) {
+    return <StatCard title="Alters-Profil" empty="Keine Altersdaten für die Kader-Positionen verfügbar." />
+  }
+
+  const featured = positions.find((p) => p.diff != null) || positions[0]
+  const maxAbs = Math.max(...positions.map((p) => Math.abs(p.diff ?? 0)), 1)
+
+  return (
+    <StatCard
+      title="Alters-Profil"
+      hint="Durchschnittsalter deines Kaders je Position gegen den Liga-Median — jünger ist kein Werturteil, nur ein Rebuild- vs. Win-Now-Signal."
+      headline={featured.mine != null ? featured.mine.toFixed(1) : '—'}
+      sub={featured.diff != null
+        ? `${featured.pos}: ${Math.abs(featured.diff).toFixed(1)} Jahre ${featured.diff < 0 ? 'jünger' : 'älter'} als der Liga-Median`
+        : ''}
+      basis={`${teamCount} Kader verglichen`}
+    >
+      {positions.map((p) => (
+        <div className="an-row" key={p.pos}>
+          <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
+          {/* Bewusst keine good/bad-Faerbung wie beim Wert-Vergleich: ein
+              juengerer Kader ist kein besserer, nur ein anderer (Rebuild vs.
+              Win-Now). Ein neutraler Akzent statt Gruen/Rot. */}
+          <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" width="100%" height="12"
+               role="img" aria-label={p.diff != null
+                 ? `${p.pos}: ${p.mine.toFixed(1)} Jahre im Schnitt, Liga-Median ${p.leagueMedian.toFixed(1)}`
+                 : `${p.pos}: keine Daten`}>
+            <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
+            <rect
+              x={Math.min(0, p.diff ?? 0)} y="0.15"
+              width={Math.abs(p.diff ?? 0)} height="0.7"
+              fill="var(--accent, #4ea1ff)"
+            />
+          </svg>
+          <span className="an-num">
+            {p.mine != null ? p.mine.toFixed(1) : '—'}
+            <span className="muted an-composition">Liga {p.leagueMedian.toFixed(1)}</span>
+          </span>
+        </div>
+      ))}
+    </StatCard>
+  )
+}
+
+const BENCH_SEGMENTS = [
+  { key: 'starter', label: 'Starter', color: 'var(--good, #4ec97b)' },
+  { key: 'bench', label: 'Bank', color: 'var(--accent, #4ea1ff)' },
+  { key: 'taxi', label: 'Taxi', color: 'var(--muted, #888)' },
+  { key: 'ir', label: 'IR', color: 'var(--bad, #e0555a)' },
+]
+
+function StarterVsBench({ data }) {
+  if (!data.available) {
+    return <StatCard title="Starter vs. Bank" empty="Nur mit importierten Dynasty-Werten verfügbar." />
+  }
+  if (!data.total) {
+    return <StatCard title="Starter vs. Bank" empty="Keine gematchten Kaderspieler mit Dynasty-Wert." />
+  }
+
+  const segs = BENCH_SEGMENTS.filter((s) => data.value[s.key] > 0)
+
+  return (
+    <StatCard
+      title="Starter vs. Bank"
+      hint="Wie viel Dynasty-Wert in deiner Startelf steckt gegenüber Bank, Taxi und IR."
+      headline={`${Math.round(data.starterShare * 100)}%`}
+      sub="deines Kaderwerts steht in der Startelf"
+      basis={`${data.matched} gematchte Kaderspieler mit Dynasty-Wert`}
+    >
+      <div
+        className="an-stackbar"
+        role="img"
+        aria-label={segs.map((s) => `${s.label}: ${Math.round(data.value[s.key])} (${data.count[s.key]} Spieler)`).join(', ')}
       >
-        {positions.map((p) => (
-          <div className="an-row" key={p.pos}>
-            <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
-            <svg viewBox={`${-maxAbs} 0 ${maxAbs * 2} 1`} preserveAspectRatio="none" width="100%" height="12"
-                 role="img" aria-label={p.diff != null ? `${p.pos}: ${Math.round(p.diff)} gegenüber dem Median` : `${p.pos}: keine Daten`}>
-              <line x1="0" y1="0" x2="0" y2="1" stroke="var(--muted, #888)" strokeWidth={maxAbs / 100} />
-              <rect
-                x={Math.min(0, p.diff ?? 0)} y="0.15"
-                width={Math.abs(p.diff ?? 0)} height="0.7"
-                fill={(p.diff ?? 0) >= 0 ? 'var(--good, #4ec97b)' : 'var(--bad, #e0555a)'}
-              />
-            </svg>
-            <span className={cx('an-num', (p.diff ?? 0) >= 0 ? 'an-pos-good' : 'an-pos-bad')}>
-              {p.diff != null ? signed(p.diff) : '—'}
-            </span>
-          </div>
+        {segs.map((s) => (
+          <span key={s.key} className="an-stackseg" style={{ flexGrow: data.value[s.key], background: s.color }} />
         ))}
-      </StatCard>
+      </div>
+      <div className="an-wlegend">
+        {segs.map((s) => (
+          <span key={s.key}>
+            <i className="an-wkey" style={{ width: 10, height: 10, borderRadius: 2, background: s.color }} />
+            {s.label} {Math.round(data.value[s.key])} ({data.count[s.key]})
+          </span>
+        ))}
+      </div>
+    </StatCard>
+  )
+}
+
+export default function RosterTab({ split, power, ages, starterBench, myRosterId }) {
+  return (
+    <div className="an-grid">
+      <KaderVsLiga split={split} />
+      <AgeProfile ages={ages} />
+      <PowerRanking power={power} myRosterId={myRosterId} />
+      <StarterVsBench data={starterBench} />
     </div>
   )
 }

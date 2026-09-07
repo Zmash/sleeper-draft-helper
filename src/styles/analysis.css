@@ -301,3 +301,10 @@
 .an-card { display: flex; flex-direction: column; }
 .an-card-body { flex: 1 1 auto; }
 .an-card-basis { margin-top: auto; }
+
+/* Starter-vs-Bank-Wert: ein einziger gestapelter Balken aus wenigen breiten
+   Segmenten (Starter/Bank/Taxi/IR) -- anders als .an-timeline (viele duenne
+   Pick-Segmente mit eigenem min-width) braucht das keine eigene
+   overflow-Regel, die Segmentzahl ist immer klein (hoechstens 4). */
+.an-stackbar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--border, #2a2a2a); }
+.an-stackseg { display: block; }
