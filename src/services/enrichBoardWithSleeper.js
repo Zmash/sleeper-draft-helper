@@ -6,7 +6,12 @@ const TTL_MS = 24 * 60 * 60 * 1000
 
 function isFresh(player) {
   const ts = Number(player?.enriched_at)
-  return Number.isFinite(ts) && (Date.now() - ts) < TTL_MS
+  if (!Number.isFinite(ts) || (Date.now() - ts) >= TTL_MS) return false
+  // Boards, die vor der Depth-Chart-Erweiterung angereichert wurden, kennen
+  // dieses Feld gar nicht (undefined, nicht null) -- ohne diesen Check
+  // blieben sie bis zum naechsten TTL-Ablauf (24h) ohne die neuen Werte,
+  // obwohl der Meta-Cache sie laengst hat.
+  return player.depth_chart_order !== undefined
 }
 
 function primaryPos(meta) {
