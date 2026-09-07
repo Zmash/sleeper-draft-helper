@@ -56,6 +56,11 @@ export function isStandaloneDraft(draft) {
   return !!(draft && ('league_id' in draft) && draft.league_id == null)
 }
 
+// effScoringType ('ppr' | 'half_ppr' | 'standard') -> FantasyPros-URL-Scoring-Parameter ('ppr' | 'half' | 'std').
+export function effScoringTypeToFpParam(effScoringType) {
+  return effScoringType === 'half_ppr' ? 'half' : effScoringType === 'standard' ? 'std' : 'ppr'
+}
+
 function hasSuper(roster) {
   return (roster || []).some(r => String(r).toUpperCase().includes('SUPER'))
 }

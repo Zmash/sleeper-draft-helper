@@ -376,7 +376,7 @@ export default function App() {
   const pageProps = {
     selectedLeague, selectedDraft, teamsCount, ownerLabels, effRoster,
     isSuperflex, effScoringType, formatSource: format.source, draftSlot, tips,
-    draftFinished, onOpenDraftReview: () => setAnalysisOpen(true), draftMode,
+    draftFinished, onOpenDraftReview: () => setAnalysisOpen(true), draftMode, seasonYear,
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────

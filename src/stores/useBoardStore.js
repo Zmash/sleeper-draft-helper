@@ -4,6 +4,7 @@ import { normalizePlayerName } from '../utils/formatting'
 import { parseFantasyProsCsv } from '../services/csv'
 import { mergeRankingsWithMarket, overlayMarketData, overlayFfcSpread, enrichWithInjuries, fillMissingBye as fillMissingByeInMarket } from '../services/marketMerge'
 import { loadPlayersMetaCached } from '../services/playersMeta'
+import { effScoringTypeToFpParam } from '../services/draftFormat'
 import { useSessionStore } from './useSessionStore'
 import { useLiveStore } from './useLiveStore'
 
@@ -211,7 +212,7 @@ export const useBoardStore = create(
           return { ok: false, needsConfirm: true }
         }
         const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta, rankingSource } : null
-        const fpScoring = effScoringType === 'half_ppr' ? 'half' : effScoringType === 'standard' ? 'std' : 'ppr'
+        const fpScoring = effScoringTypeToFpParam(effScoringType)
 
         // Rangliste ist Pflicht — ohne sie gibt es kein Board.
         let fp

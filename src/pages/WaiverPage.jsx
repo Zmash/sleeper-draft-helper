@@ -8,13 +8,14 @@ import { useUIStore } from '../stores/useUIStore'
 import { useTrendingPlayers } from '../hooks/useTrendingPlayers'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { fetchNflState, fetchMatchups } from '../services/api'
+import { effScoringTypeToFpParam } from '../services/draftFormat'
 import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey } from '../services/analysis/waiverStats'
 import PickupSuggestions from '../components/waiver/PickupSuggestions'
 import StreamingBoard from '../components/waiver/StreamingBoard'
 import RecommendedLineupCard from '../components/waiver/RecommendedLineupCard'
 import '../styles/analysis.css'
 
-export default function WaiverPage({ selectedLeague, effRoster, draftMode, effScoringType }) {
+export default function WaiverPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
   const { sleeperUserId } = useSessionStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
   const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
@@ -26,9 +27,9 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const [week, setWeek] = useState(null)
   const [actualStarterIds, setActualStarterIds] = useState([])
   const isDynasty = draftMode === 'rookie'
-  const scoring = effScoringType === 'ppr' || effScoringType === 'half' || effScoringType === 'std' ? effScoringType : 'ppr'
+  const scoring = effScoringTypeToFpParam(effScoringType)
 
-  useEffect(() => { loadPlayersMetaCached().then(setPlayersMeta) }, [])
+  useEffect(() => { loadPlayersMetaCached({ season: seasonYear }).then(setPlayersMeta) }, [seasonYear])
 
   useEffect(() => {
     fetchNflState().then((s) => setWeek(Number(s?.week) || null)).catch(() => setWeek(null))
@@ -74,7 +75,10 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
       .catch(() => setActualStarterIds([]))
   }, [selectedLeague?.league_id, week, mySleeperRosterId])
 
-  const agents = useMemo(() => freeAgents({ playersMeta, leagueRosters }), [playersMeta, leagueRosters])
+  const agents = useMemo(() => {
+    if (!leagueRosters?.length) return []
+    return freeAgents({ playersMeta, leagueRosters })
+  }, [playersMeta, leagueRosters])
 
   const rosRankByKey = useMemo(() => {
     const merged = new Map()
@@ -117,8 +121,11 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
 
   const lineup = useMemo(() => {
     if (!dynastyRoster.length || !effRoster?.length) return null
-    return bestLineup({ myRosterPlayers: dynastyRoster, rosterPositions: effRoster, weeklyRankByKey: weeklyRankByIdKey })
-  }, [dynastyRoster, effRoster, weeklyRankByIdKey])
+    return bestLineup({
+      myRosterPlayers: dynastyRoster, rosterPositions: effRoster, weeklyRankByKey: weeklyRankByIdKey,
+      currentWeekBye: week != null ? String(week) : null,
+    })
+  }, [dynastyRoster, effRoster, weeklyRankByIdKey, week])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
