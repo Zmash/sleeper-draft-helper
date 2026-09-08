@@ -66,20 +66,5 @@
   "64": "aiValidate.js",
   "65": "useDynastyStore.js",
   "66": "tradeValue.js",
-  "67": "NextBoard",
-  "68": "NextShell.jsx",
-  "69": "SetupPage.jsx",
-  "70": "useUIStore.js",
-  "71": "AppShell.jsx",
-  "72": "DataProvenanceBar.jsx",
-  "73": "formatEstimate",
-  "74": "SetupPage.test.jsx",
-  "75": "BoardSection.mismatch.test.jsx",
-  "76": "BoardSection.test.jsx",
-  "77": "ImportResultBanner.jsx",
-  "78": "@fontsource/barlow-condensed",
-  "79": "react-dom",
-  "80": "react-router-dom",
-  "81": "zustand",
-  "82": "SetupPage.test.jsx"
+  "67": "NextBoard"
 }

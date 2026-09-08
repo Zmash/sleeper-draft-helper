@@ -1,7 +1,7 @@
 # Graph Report - sleeper-draft-helper  (2026-09-08)
 
 ## Corpus Check
-- 218 files · ~229,056 words
+- 218 files · ~228,782 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -150,7 +150,7 @@ Nodes (29): CLAUDE.md Project Instructions, AI-Mehrwert (Live-Advice as Core), A
 
 ### Community 6 - "Package Dependencies (prod)"
 Cohesion: 0.09
-Nodes (23): @anthropic-ai/sdk, @capacitor/android, cheerio, cors, dotenv, express, @fontsource/jetbrains-mono, lucide-react (+15 more)
+Nodes (23): @anthropic-ai/sdk, @capacitor/android, cheerio, cors, dotenv, express, @fontsource/barlow-condensed, lucide-react (+15 more)
 
 ### Community 7 - "Roster CSV & Market"
 Cohesion: 0.11
