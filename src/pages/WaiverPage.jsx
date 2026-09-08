@@ -220,8 +220,6 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
         <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
       </header>
       <div className="an-grid an-grid--waiver">
-        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
-        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} />
         {mySleeperRosterId != null && (
           <RecommendedLineupCard
             lineup={lineup}
@@ -236,6 +234,8 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
               : `Woche/ROS: FantasyPros-Rankings (${scoring.toUpperCase()})`}
           />
         )}
+        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
+        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} />
       </div>
     </section>
   )
