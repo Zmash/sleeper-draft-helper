@@ -845,12 +845,12 @@ a.ns-rname:hover { color: var(--accent-text); text-decoration: underline; }
 /* ── Tipps-Blase ─────────────────────────────────────────────────────────── */
 .ns-tips {
   position: fixed;
-  left: 60px;
+  right: 20px;
   bottom: 32px;
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 6px;
 }
 .ns-tips-btn {
