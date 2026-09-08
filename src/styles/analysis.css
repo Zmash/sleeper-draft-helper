@@ -401,14 +401,14 @@
 
 /* Streaming: Positionswahl als Segmented Control statt Checkboxen -- gleiche
    Idee wie die Filter-Segmente in der Shell, mit den Analysis-Tokens. */
-.an-stream-seg { display: inline-flex; border: 1px solid var(--border, #2a2a2a); border-radius: 3px; overflow: hidden; margin-bottom: .75rem; }
+.an-stream-seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--border, #2a2a2a); border-radius: 3px; overflow: hidden; margin-bottom: .75rem; }
 .an-stream-seg-btn {
   border: 0; border-right: 1px solid var(--border, #2a2a2a);
   background: transparent; color: var(--muted, #888);
   font: inherit; font-size: .72rem; font-weight: 600;
-  /* Feste Button-Breite: DEF/QB/TE sind unterschiedlich lang, ohne min-width
-     wuerde das Panel beim Umschalten "atmen" und TE/QB wirken gestaucht. */
-  min-width: 3.4rem;
+  /* Ohne min-width passt sich der Container dem Inhalt an und wird nicht
+     breiter als die Buttons zusammen. */
+  min-width: 0;
   padding: .22rem .8rem; cursor: pointer; white-space: nowrap;
   text-align: center;
 }
@@ -448,6 +448,10 @@
    hier ueberschrieben. Team bleibt auch mobil sichtbar (sonst laufen Header
    und Zeilen auseinander). */
 .an-card--lineup .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.2rem; }
+/* Ohne Zweitwertquelle (z.B. KTC nicht geladen) faellt die Zweitspalte weg:
+   KTC/ROS wird nur gerendert, wenn echtes Datenmaterial da ist. */
+.an-card--lineup--noalt .an-listrow,
+.an-card--lineup--noalt .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem; }
 .an-lineup-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .an-lineup-list { margin-top: .5rem; }
 .an-lineup-row {
@@ -459,6 +463,15 @@
   font-size: .8rem;
 }
 .an-lineup-row .an-num { text-align: right; }
+.an-lineup-subhead {
+  margin-top: .75rem;
+  margin-bottom: .1rem;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--muted, #888);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
 
 /* CTA-Button fuer "Lineup in Sleeper setzen" -- prominent, mit externem Link-Icon.
    Der Button erscheint nur wenn leagueId vorhanden ist (also ein echter Nutzer). */
@@ -477,6 +490,13 @@
   text-decoration: none;
 }
 .an-cta:hover { filter: brightness(1.08); }
+
+/* Ab Desktop (NextShell) bleibt der CTA beim Scrollen am unteren Rand haengen,
+   solange die Lineup-Karte sichtbar ist. In der intern scrollenden ns-content
+   verschwindet der Button sonst hinter der langen Bank-Liste in den Fold. */
+@media (min-width: 900px) {
+  .an-cta { position: sticky; bottom: 0; }
+}
 
 /* Alten Sleeper-Link entfernen -- er wird durch den CTA-Button ersetzt. */
 .an-sleeper-link { display: none; }

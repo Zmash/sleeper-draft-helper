@@ -3,12 +3,15 @@ import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel } from '
 
 const ALL_POSITIONS = ['DEF', 'QB', 'TE']
 
-export default function StreamingBoard({ board = {}, positions = [], onTogglePosition }) {
+export default function StreamingBoard({ board = {}, positions = [], availablePositions = null, onTogglePosition }) {
+  // availablePositions kommt aus der Liga (WaiverPage); ohne Prop fallen wir
+  // auf alle Positionen zurueck, damit aeltere Aufrufe nichts verlieren.
+  const visible = Array.isArray(availablePositions) ? availablePositions : ALL_POSITIONS
   return (
     <div className="an-card">
       <h3 className="an-card-title">Streaming-Ranking</h3>
       <div className="an-stream-seg" role="group" aria-label="Positionen für Streaming">
-        {ALL_POSITIONS.map((pos) => (
+        {visible.map((pos) => (
           <button
             key={pos}
             type="button"
@@ -21,6 +24,7 @@ export default function StreamingBoard({ board = {}, positions = [], onTogglePos
         ))}
       </div>
       {positions.map((pos) => {
+        if (!visible.includes(pos)) return null
         const week = board[pos]?.week || []
         const rosByPlayer = new Map((board[pos]?.ros || []).map((p) => [p.player_id, p.rank]))
         return (
@@ -47,6 +51,8 @@ export default function StreamingBoard({ board = {}, positions = [], onTogglePos
           </div>
         )
       })}
+      {!visible.length && <p className="an-card-empty">Keine Streaming-Position in dieser Liga</p>}
+      {!positions.length && !!visible.length && <p className="an-card-empty">Keine Position ausgewählt</p>}
     </div>
   )
 }

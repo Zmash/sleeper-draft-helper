@@ -149,6 +149,10 @@ function LeagueCardInner({ card }) {
 
   function openAnalyse() {
     if (card.leagueId) setSelectedLeagueId(card.leagueId)
+    // Sonst bleibt der zuletzt gewaehlte Draft einer ANDEREN Liga stehen und
+    // bestimmt Format/Teams der Analyse-/Waiver-Seite (Befund: "das ist nicht
+    // meine Bank" -- CFFC-Draft-Format statt der 10 SF-Slots der Dynastie-Liga).
+    if (card.draftId) setSelectedDraftId(card.draftId)
     navigate('/analyse')
   }
 

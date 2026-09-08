@@ -15,6 +15,22 @@ import StreamingBoard from '../components/waiver/StreamingBoard'
 import RecommendedLineupCard from '../components/waiver/RecommendedLineupCard'
 import '../styles/analysis.css'
 
+// Welche Streaming-Position ist in dieser Liga ueberhaupt startbar?
+// DEF nur bei eigenem DEF-Slot; QB bei QB- oder SUPER_FLEX-Slot; TE bei TE-
+// oder einem FLEX-Slot, der TEs aufnehmen kann (FLEX/SUPER_FLEX/REC_FLEX bzw.
+// die Draft-Aliase WR/TE, RB/TE, RB/WR/TE). WRRB_FLEX (RB/WR ohne TE) zaehlt
+// bewusst nicht. Fallback ist effRoster (Mocks ohne Liga), damit dort nichts
+// verschwindet.
+export function availableStreamPositionsFor(rosterPositions = []) {
+  const set = new Set((rosterPositions || []).map((s) => String(s).toUpperCase()))
+  const out = []
+  if (set.has('DEF')) out.push('DEF')
+  if (set.has('QB') || [...set].some((s) => s.includes('SUPER')) || set.has('SFLEX')) out.push('QB')
+  const teSlots = new Set(['TE', 'FLEX', 'SUPER_FLEX', 'SFLEX', 'REC_FLEX', 'RB/WR/TE', 'WR/TE', 'RB/TE'])
+  if ([...set].some((s) => teSlots.has(s) || s.includes('SUPER'))) out.push('TE')
+  return out
+}
+
 export default function WaiverPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
   const { sleeperUserId } = useSessionStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
@@ -28,6 +44,31 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const [actualStarterIds, setActualStarterIds] = useState([])
   const isDynasty = draftMode === 'rookie'
   const scoring = effScoringTypeToFpParam(effScoringType)
+
+  // Die Lineup-Empfehlung lebt an der LIGA, nicht am gewaehlten Draft: ist ein
+  // fremder (stale) Draft aktiv, dessen Format von der Liga abweicht, wuerde
+  // bestLineup die falschen Slots fuellen (z.B. 7 Startplaetze inkl. DEF statt
+  // der echten 10 mit SUPER_FLEX) und die halbe Bank als "nicht benutzt"
+  // abwerfen. Fuer echte Ligen ist roster_positions verbindlich -- effRoster
+  // bleibt nur der Fallback fuer Mocks/Formate ohne Liga-Settings.
+  const lineupRosterPositions = useMemo(
+    () => selectedLeague?.roster_positions || selectedLeague?.settings?.roster_positions || [],
+    [selectedLeague]
+  )
+
+  // Streaming-Positionen ohne Liga-Slot ausblenden (z.B. kein DEF-Slot ->
+  // kein DEF-Streaming). lineupRosterPositions ist die Liga-Wahrheit,
+  // effRoster der Fallback fuer Mocks.
+  const availableStreamPositions = useMemo(
+    () => availableStreamPositionsFor(
+      lineupRosterPositions.length ? lineupRosterPositions : effRoster
+    ),
+    [lineupRosterPositions, effRoster]
+  )
+  const effectiveStreamPositions = useMemo(
+    () => streamPositions.filter((p) => availableStreamPositions.includes(p)),
+    [streamPositions, availableStreamPositions]
+  )
 
   useEffect(() => { loadPlayersMetaCached({ season: seasonYear }).then(setPlayersMeta) }, [seasonYear])
 
@@ -54,11 +95,11 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   }, [rosterPositionsPresent, scoring, loadIfStale])
 
   useEffect(() => {
-    for (const pos of streamPositions) {
+    for (const pos of effectiveStreamPositions) {
       loadIfStale({ pos, scope: 'week', scoring })
       loadIfStale({ pos, scope: 'ros', scoring })
     }
-  }, [streamPositions, scoring, loadIfStale])
+  }, [effectiveStreamPositions, scoring, loadIfStale])
 
   // Pickup-Ranking im Redraft-Modus sortiert ueber ALLE Free-Agent-Positionen
   // nach ROS-Rang -- dafuer muessen alle 5 Positionen geladen sein, nicht nur
@@ -103,12 +144,12 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const board = useMemo(() => {
     const weeklyMerged = new Map()
     const rosMerged = new Map()
-    for (const pos of streamPositions) {
+    for (const pos of effectiveStreamPositions) {
       for (const [k, v] of getRankMap({ pos, scope: 'week' })) weeklyMerged.set(k, v)
       for (const [k, v] of getRankMap({ pos, scope: 'ros' })) rosMerged.set(k, v)
     }
-    return streamingBoard({ freeAgents: agents, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, positions: streamPositions })
-  }, [agents, streamPositions, byKey, getRankMap])
+    return streamingBoard({ freeAgents: agents, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, positions: effectiveStreamPositions })
+  }, [agents, effectiveStreamPositions, byKey, getRankMap])
 
   const weeklyRankByIdKey = useMemo(() => {
     const map = new Map()
@@ -137,22 +178,33 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const lineup = useMemo(() => {
     if (!dynastyRoster.length || !effRoster?.length) return null
     const result = bestLineup({
-      myRosterPlayers: dynastyRoster, rosterPositions: effRoster, weeklyRankByKey: weeklyRankByIdKey,
+      myRosterPlayers: dynastyRoster, rosterPositions: lineupRosterPositions.length ? lineupRosterPositions : effRoster, weeklyRankByKey: weeklyRankByIdKey,
       currentWeekBye: week != null ? String(week) : null,
     })
     const altOf = isDynasty
       ? (p) => ktcValueByNname.get(p.nname) ?? null
       : (p) => rosRankByKey.get(matchKey(p.pos, p)) ?? null
+    const rankOf = (p) => weeklyRankByIdKey.get(`ID:${p.sleeper_id}`) ?? null
     return {
       ...result,
       slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null })),
+      bench: (result.bench || []).map((p) => ({ ...p, rank: rankOf(p), alt: altOf(p) })),
     }
-  }, [dynastyRoster, effRoster, weeklyRankByIdKey, week, isDynasty, rosRankByKey, ktcValueByNname])
+  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, week, isDynasty, rosRankByKey, ktcValueByNname])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
     return compareToActualStarters({ recommendedSlots: lineup.slots, actualStarterIds })
   }, [lineup, actualStarterIds])
+
+  // Zweitspalte nur zeigen, wenn im Lineup auch echte Werte landen: eine zwar
+  // geladene, aber mit den Kader-Namen nicht matchende KTC-Liste wuerde sonst
+  // eine Spalte voller – erzeugen (Befund: "KTC nur fuer dynasty").
+  const hasAltValues = useMemo(() => {
+    if (!lineup) return false
+    const all = (lineup.slots || []).map((s) => s.alt).concat((lineup.bench || []).map((p) => p.alt))
+    return all.some((v) => v != null)
+  }, [lineup])
 
   // "raus"-Diffs tragen nur eine Sleeper-ID; hier wird sie zum Namen aufgeloest.
   const rosterNameById = useMemo(() => {
@@ -169,7 +221,7 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
       </header>
       <div className="an-grid an-grid--waiver">
         <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
-        <StreamingBoard board={board} positions={streamPositions} onTogglePosition={toggleStreamPosition} />
+        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} />
         {mySleeperRosterId != null && (
           <RecommendedLineupCard
             lineup={lineup}
@@ -178,8 +230,9 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
             rosterNameById={rosterNameById}
             altLabel={isDynasty ? 'KTC' : 'ROS'}
             altKind={isDynasty ? 'value' : 'rank'}
+            altLoaded={hasAltValues}
             sourceNote={isDynasty
-              ? 'Woche: FantasyPros-Wochenranking · KTC: KeepTradeCut-Dynastywert (Anlagewert)'
+              ? `Woche: FantasyPros-Wochenranking${hasAltValues ? ' · KTC: KeepTradeCut-Dynastywert (Anlagewert)' : ''}`
               : `Woche/ROS: FantasyPros-Rankings (${scoring.toUpperCase()})`}
           />
         )}

@@ -21,7 +21,7 @@ describe('RecommendedLineupCard', () => {
     render(<RecommendedLineupCard lineup={lineup} comparison={null} altLabel="KTC" altKind="value" />)
     expect(screen.getByText('Jayden Daniels')).toBeInTheDocument()
     expect(screen.getByText('WAS')).toBeInTheDocument()
-    expect(screen.getByText('3.0')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('6800')).toBeInTheDocument()
   })
 
@@ -65,6 +65,15 @@ describe('RecommendedLineupCard', () => {
   it('does not render CTA button when no leagueId', () => {
     render(<RecommendedLineupCard lineup={lineup} altLabel="KTC" altKind="value" />)
     expect(screen.queryByText('Lineup in Sleeper setzen')).not.toBeInTheDocument()
+  })
+
+  it('blendet die Zweitspalte aus, wenn altLoaded false ist (KTC-Daten fehlen)', () => {
+    const { container } = render(
+      <RecommendedLineupCard lineup={lineup} comparison={null} altLabel="KTC" altKind="value" altLoaded={false} />
+    )
+    expect(screen.queryByText('KTC')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('.an-lineup-row')[0].querySelectorAll('.an-num').length).toBe(1)
+    expect(container.querySelector('.an-card--lineup').className).toContain('an-card--lineup--noalt')
   })
 })
 

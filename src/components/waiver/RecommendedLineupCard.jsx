@@ -9,22 +9,25 @@ const SLOT_ORDER = ['QB', 'SUPER_FLEX', 'RB', 'WR', 'TE', 'FLEX', 'REC_FLEX', 'W
 // keine 2.5rem-Spalte. QB/RB/WR/TE/FLEX/DEF/K bleiben unveraendert.
 const SLOT_LABEL = { SUPER_FLEX: 'SF', REC_FLEX: 'W/T', WRRB_FLEX: 'W/R' }
 
-// Zweitwert formatieren: Rang mit einer Nachkommastelle wie die Woche-Spalte,
-// Trade-Wert (KTC) als ganze Zahl. Fehlt die Quelle, bleibt ein – stehen.
+// Zweitwert formatieren: Rang als ganze Zahl, Trade-Wert (KTC) ebenfalls.
+// Fehlt die Quelle, bleibt ein – stehen.
 const altText = (v, kind) =>
-  v == null ? '–' : kind === 'value' ? String(Math.round(v)) : Number.isFinite(v) ? v.toFixed(1) : '–'
+  v == null ? '–' : kind === 'value' ? String(Math.round(v)) : Number.isFinite(v) ? String(Math.round(v)) : '–'
 
 export default function RecommendedLineupCard({
-  lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', sourceNote = null,
+  lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, sourceNote = null,
 }) {
   if (!lineup) return null
   const changes = comparison && !comparison.isOptimal ? comparison.diffs.length : 0
   const orderOf = (slot) => { const i = SLOT_ORDER.indexOf(slot); return i === -1 ? 99 : i }
   const slots = lineup.slots.slice().sort((a, b) => orderOf(a.slot) - orderOf(b.slot) || a.slotIndex - b.slotIndex)
+  // Bank nach Wochenrang vorsortiert (beste zuerst, ohne Rang ans Ende), damit
+  // der Vergleich "was starte ich, was liegt auf der Bank" direkt ablesbar ist.
+  const bench = (lineup.bench || []).slice().sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
   return (
-    <div className="an-card an-card--lineup">
+    <div className={`an-card an-card--lineup${altLoaded ? '' : ' an-card--lineup--noalt'}`}>
       <div className="an-lineup-head">
-        <h3 className="an-card-title">Empfohlene Aufstellung diese Woche</h3>
+        <h3 className="an-card-title">Empfohlene Aufstellung</h3>
         {comparison?.isOptimal && (
           <span className="an-badge-ok"><Icon name="check" size={14} /> optimal gesetzt</span>
         )}
@@ -38,7 +41,7 @@ export default function RecommendedLineupCard({
           <span>Spieler</span>
           <span>Team</span>
           <span className="an-num">Woche</span>
-          <span className="an-num">{altLabel}</span>
+          {altLoaded && <span className="an-num">{altLabel}</span>}
         </div>
       )}
       <div className="an-lineup-list">
@@ -60,11 +63,38 @@ export default function RecommendedLineupCard({
               <span className="an-listname an-muted">–</span>
             )}
             <span className="an-trendteam">{s.player?.team || '—'}</span>
-            <span className="an-num">{Number.isFinite(s.rank) ? s.rank.toFixed(1) : '–'}</span>
-            <span className="an-num an-num-dim">{altText(s.alt, altKind)}</span>
+            <span className="an-num">{Number.isFinite(s.rank) ? Math.round(s.rank) : '–'}</span>
+            {altLoaded && <span className="an-num an-num-dim">{altText(s.alt, altKind)}</span>}
           </div>
         ))}
       </div>
+      {bench.length > 0 && (
+        <>
+          <div className="an-lineup-subhead">Bank</div>
+          <div className="an-lineup-list">
+            {bench.map((p) => (
+              <div className="an-lineup-row" key={`BN-${p.sleeper_id}`}>
+                <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
+                {p.name ? (
+                  <a
+                    className="an-listname"
+                    href={fantasyProsPlayerUrl(p.name, p)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {p.name}
+                  </a>
+                ) : (
+                  <span className="an-listname an-muted">–</span>
+                )}
+                <span className="an-trendteam">{p.team || '—'}</span>
+                <span className="an-num">{Number.isFinite(p.rank) ? Math.round(p.rank) : '–'}</span>
+                {altLoaded && <span className="an-num an-num-dim">{altText(p.alt, altKind)}</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {comparison && !comparison.isOptimal && (
         <ul className="an-lineup-diff">
           {comparison.diffs.map((d) =>
