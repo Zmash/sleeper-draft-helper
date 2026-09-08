@@ -36,8 +36,11 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   }, [])
 
   useEffect(() => {
-    if (isDynasty) loadDynastyValuesIfStale({ superflex: false })
-  }, [isDynasty, loadDynastyValuesIfStale])
+    // Superflex-KTC-Werte unterscheiden sich deutlich von 1QB-Werten (QBs
+    // steigen massiv) -- darum das Flag aus den effektiven Roster-Slots statt
+    // pauschal false.
+    if (isDynasty) loadDynastyValuesIfStale({ superflex: effRoster?.includes('SUPER_FLEX') ?? false })
+  }, [isDynasty, effRoster, loadDynastyValuesIfStale])
 
   // Eigene Kader-Positionen bestimmen die Weekly-Rankings, die fuer die
   // Lineup-Empfehlung gebraucht werden -- nicht nur die 3 Streaming-Positionen.
@@ -119,25 +122,68 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
     return map
   }, [rosterPositionsPresent, dynastyRoster, byKey, getRankMap])
 
+  // KTC-Dynasty-Werte nach normalisiertem Namen -- Zweitspalte der Lineup-Karte
+  // im Dynasty-Modus (Wochenform vs. Anlagewert nebeneinander vergleichbar).
+  const ktcValueByNname = useMemo(
+    () => new Map(dynastyValues.map((d) => [d.nname, d.value])),
+    [dynastyValues]
+  )
+
+  // Zweite Wert-Spalte der Aufstellungs-Karte: Dynasty -> KTC-Anlagewert,
+  // Redraft -> FantasyPros-ROS-Rang. Die Optimierung selbst bleibt auf dem
+  // FantasyPros-Wochenranking (die Frage "wen starte ich DIESE Woche" beantwortet
+  // der Wochenrang, nicht der Saisonwert) -- die Zweitquelle macht nur sichtbar,
+  // wo Wochenform und Dauerwert auseinanderlaufen.
   const lineup = useMemo(() => {
     if (!dynastyRoster.length || !effRoster?.length) return null
-    return bestLineup({
+    const result = bestLineup({
       myRosterPlayers: dynastyRoster, rosterPositions: effRoster, weeklyRankByKey: weeklyRankByIdKey,
       currentWeekBye: week != null ? String(week) : null,
     })
-  }, [dynastyRoster, effRoster, weeklyRankByIdKey, week])
+    const altOf = isDynasty
+      ? (p) => ktcValueByNname.get(p.nname) ?? null
+      : (p) => rosRankByKey.get(matchKey(p.pos, p)) ?? null
+    return {
+      ...result,
+      slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null })),
+    }
+  }, [dynastyRoster, effRoster, weeklyRankByIdKey, week, isDynasty, rosRankByKey, ktcValueByNname])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
     return compareToActualStarters({ recommendedSlots: lineup.slots, actualStarterIds })
   }, [lineup, actualStarterIds])
 
+  // "raus"-Diffs tragen nur eine Sleeper-ID; hier wird sie zum Namen aufgeloest.
+  const rosterNameById = useMemo(() => {
+    const m = {}
+    for (const p of dynastyRoster) m[String(p.sleeper_id)] = p.name
+    return m
+  }, [dynastyRoster])
+
   return (
     <section className="an-page">
-      <h2>Waiver-Wire</h2>
-      <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
-      <StreamingBoard board={board} positions={streamPositions} onTogglePosition={toggleStreamPosition} />
-      {mySleeperRosterId != null && <RecommendedLineupCard lineup={lineup} comparison={comparison} />}
+      <header className="an-head">
+        <h2 className="an-head-title">Waiver-Wire</h2>
+        <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
+      </header>
+      <div className="an-grid an-grid--waiver">
+        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
+        <StreamingBoard board={board} positions={streamPositions} onTogglePosition={toggleStreamPosition} />
+        {mySleeperRosterId != null && (
+          <RecommendedLineupCard
+            lineup={lineup}
+            comparison={comparison}
+            leagueId={selectedLeague?.league_id}
+            rosterNameById={rosterNameById}
+            altLabel={isDynasty ? 'KTC' : 'ROS'}
+            altKind={isDynasty ? 'value' : 'rank'}
+            sourceNote={isDynasty
+              ? 'Woche: FantasyPros-Wochenranking · KTC: KeepTradeCut-Dynastywert (Anlagewert)'
+              : `Woche/ROS: FantasyPros-Rankings (${scoring.toUpperCase()})`}
+          />
+        )}
+      </div>
     </section>
   )
 }

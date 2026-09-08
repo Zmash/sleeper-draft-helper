@@ -2,12 +2,21 @@ import { normalizePlayerName } from '../../utils/formatting'
 
 const WAIVER_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'DEF'])
 
+// Sleeper und FantasyPros schreiben fast alle Team-Kuerzel gleich -- die
+// Ausnahme ist Jacksonville: Sleeper "JAX", FantasyPros "JAC" (verifiziert
+// 2026-09-08 am dst.php-Datenstrom). Ohne Alias wuerde die Jaguars-Defense
+// per TEAM:-Key nie einen Wochen-/ROS-Rang finden und immer last fallen.
+const TEAM_ALIAS = { JAX: 'JAC' }
+
 // Sleeper stellt Team-Defenses als "Spieler" mit Team-Kuerzel als ID dar,
 // FantasyPros identifiziert dieselbe Defense ueber player_team_id -- deshalb
 // braucht DEF einen eigenen Match-Key (Team), waehrend alles andere ueber den
 // normalisierten Namen gematcht wird (gleiche Konvention wie rosterStats.js).
 export function matchKey(pos, { nname, name, team } = {}) {
-  if (pos === 'DEF') return `TEAM:${String(team || '').toUpperCase()}`
+  if (pos === 'DEF') {
+    const t = String(team || '').toUpperCase()
+    return `TEAM:${TEAM_ALIAS[t] || t}`
+  }
   return `NAME:${nname || normalizePlayerName(name || '')}`
 }
 
@@ -34,6 +43,7 @@ export function freeAgents({ playersMeta = {}, leagueRosters = [] }) {
       name,
       nname: normalizePlayerName(name),
       pos,
+      depth_chart_order: meta.depth_chart_order ?? null,
       team: meta.team || '',
       bye: meta.bye_week != null ? String(meta.bye_week) : '',
       injury_status: meta.injury_status || null,

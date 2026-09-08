@@ -68,7 +68,12 @@ export const useDynastyStore = create((set) => ({
         owner_id: r.owner_id ?? null,
         players: (r.players || []).map((id) => {
           const meta = playersMeta[id] || {}
-          const name = meta.full_name || `#${id}`
+          // DEF-Eintraege haben bei Sleeper KEIN full_name (dafuer first/last
+          // = Stadt/Spitzname, z.B. "Jacksonville"/"Jaguars") -- ohne die
+          // first/last-Ebene hiesse die Jaguars-Defense "#JAX".
+          const name = meta.full_name
+            || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()
+            || `#${id}`
           return {
             sleeper_id: id,
             name,
@@ -94,7 +99,9 @@ export const useDynastyStore = create((set) => ({
           : starterSet.has(id)
           ? 'starter'
           : 'bench'
-        const name = meta.full_name || `#${id}`
+        const name = meta.full_name
+          || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()
+          || `#${id}`
         return {
           sleeper_id: id,
           name,

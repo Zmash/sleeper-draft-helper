@@ -50,9 +50,18 @@ export const fantasyProsSlug = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-/** FantasyPros-Spielerprofil-URL aus dem Namen. */
-export const fantasyProsPlayerUrl = (name) =>
-  `https://www.fantasypros.com/nfl/players/${fantasyProsSlug(name)}.php`
+/**
+ * FantasyPros-Spielerprofil-URL aus dem Namen. DEF/DST haben auf FantasyPros
+ * KEINE eigene Spielerseite (verifiziert: die DST-Ranking-Zeilen verlinken
+ * nirgends auf /nfl/players/, alle Slug-Varianten landen auf der Search-
+ * Fallback-Seite) -- dafuer zeigt der zweite Parameter (player mit pos/team)
+ * her, ob es sich um eine Defense handelt, und solche Zeilen verlinken auf
+ * die DST-Rankings statt auf eine kaputte Spielerseite.
+ */
+export const fantasyProsPlayerUrl = (name, player) =>
+  normalizePos(player?.pos || player?.position) === 'DEF'
+    ? 'https://www.fantasypros.com/nfl/rankings/dst.php'
+    : `https://www.fantasypros.com/nfl/players/${fantasyProsSlug(name)}.php`
 
 /** Positionsfarbe als CSS-var mit Rueckfall, fuer inline styles. */
 // normalizePos zuerst: ein roher Wert wie "D/ST" ergaebe var(--pos-d/st, #666),
@@ -83,6 +92,22 @@ export const posBadgeLabel = (player) => {
   const order = toFiniteOrNull(player?.depth_chart_order)
   return DEPTH_CHART_POSITIONS.has(pos) && order ? `${pos}${order}` : pos
 }
+
+/**
+ * Kurzform fuer den Verletzungs-Badge in dichten Listen. Sleeper liefert
+ * "Questionable"/"Doubtful"/"Out" usw. -- fuer einen festen Badge-Slot in der
+ * Waiver-Liste braucht es 1-3 Zeichen, sonst sprengt "Doubtful" die Spalte.
+ */
+export const injuryLabel = (status) => ({
+  Questionable: 'Q',
+  Doubtful: 'D',
+  Out: 'OUT',
+  IR: 'IR',
+  PUP: 'PUP',
+  Suspended: 'SUS',
+  Sus: 'SUS',
+  DNR: 'DNR',
+}[status] ?? (status || ''))
 
 /**
  * Reihenfolge, in der echte (draftbare) Positionen als Filter-Chip auftauchen

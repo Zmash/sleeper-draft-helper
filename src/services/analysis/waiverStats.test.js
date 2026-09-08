@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey } from './waiverStats'
+
+describe('matchKey', () => {
+  it('returns NAME: for non-DEF positions', () => {
+    expect(matchKey('QB', { name: 'Tom Brady' })).toBe('NAME:tom brady')
+    expect(matchKey('WR', { nname: 'davante adams' })).toBe('NAME:davante adams')
+  })
+
+  it('returns TEAM: for DEF positions', () => {
+    expect(matchKey('DEF', { team: 'KC' })).toBe('TEAM:KC')
+  })
+
+  it('normalizes Sleeper JAX to FantasyPros JAC for DEF', () => {
+    expect(matchKey('DEF', { team: 'JAX' })).toBe('TEAM:JAC')
+  })
+})
 
 describe('freeAgents', () => {
   const playersMeta = {

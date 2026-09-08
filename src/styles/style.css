@@ -9,6 +9,11 @@
   --muted:  var(--text-muted);
   --text:   var(--text-primary);
   --accent: var(--accent-fill);
+  /* Analyse-Kacheln (analysis.css) nutzen diese Legacy-Namen ohne Bridge.
+     Ohne sie faellt die Kachel dauerhaft auf #161616/#eee zurueck und passt
+     in hellen Themes nicht zur Shell. */
+  --fg:      var(--text-primary);
+  --card-bg: var(--surface-card);
 
   /* Einheitliche Höhe für Form-Controls & Toolbar */
   --control-h: 36px;

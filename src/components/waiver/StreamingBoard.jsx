@@ -1,45 +1,52 @@
 // src/components/waiver/StreamingBoard.jsx
-const ALL_POSITIONS = ['DEF', 'QB', 'TE']
+import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel } from '../../utils/formatting'
 
-function RankList({ title, players = [] }) {
-  return (
-    <div className="an-streaming-col">
-      <strong>{title}</strong>
-      <ol>
-        {players.slice(0, 10).map((p) => (
-          <li key={p.player_id}>{p.name} <span className="an-muted">({p.team})</span></li>
-        ))}
-        {!players.length && <li className="an-card-empty">Keine Daten</li>}
-      </ol>
-    </div>
-  )
-}
+const ALL_POSITIONS = ['DEF', 'QB', 'TE']
 
 export default function StreamingBoard({ board = {}, positions = [], onTogglePosition }) {
   return (
     <div className="an-card">
-      <h3>Streaming-Ranking</h3>
-      <div className="an-streaming-checkboxes">
+      <h3 className="an-card-title">Streaming-Ranking</h3>
+      <div className="an-stream-seg" role="group" aria-label="Positionen für Streaming">
         {ALL_POSITIONS.map((pos) => (
-          <label key={pos}>
-            <input
-              type="checkbox"
-              checked={positions.includes(pos)}
-              onChange={() => onTogglePosition(pos)}
-            />
+          <button
+            key={pos}
+            type="button"
+            className={cx('an-stream-seg-btn', positions.includes(pos) && 'is-on')}
+            aria-pressed={positions.includes(pos)}
+            onClick={() => onTogglePosition(pos)}
+          >
             {pos}
-          </label>
+          </button>
         ))}
       </div>
-      {positions.map((pos) => (
-        <div key={pos} className="an-streaming-row">
-          <h4>{pos}</h4>
-          <div className="an-streaming-cols">
-            <RankList title="Diese Woche" players={board[pos]?.week} />
-            <RankList title="ROS" players={board[pos]?.ros} />
+      {positions.map((pos) => {
+        const week = board[pos]?.week || []
+        const rosByPlayer = new Map((board[pos]?.ros || []).map((p) => [p.player_id, p.rank]))
+        return (
+          <div key={pos} className="an-batch">
+            <div className="an-listrow an-listrow-head">
+              <span />
+              <span />
+              <span />
+              <span className="an-num">Woche</span>
+              <span className="an-num">ROS</span>
+            </div>
+            {week.slice(0, 10).map((p) => (
+              <div className="an-listrow" key={p.player_id}>
+                <span className="an-pos" style={{ background: posColor(p.pos) }}>{posBadgeLabel(p)}</span>
+                <a className="an-listname" href={fantasyProsPlayerUrl(p.name, p)} target="_blank" rel="noreferrer">{p.name}</a>
+                <span className={cx('an-inj', p.injury_status && p.injury_status !== 'Questionable' && 'is-out')}>
+                  {p.injury_status ? injuryLabel(p.injury_status) : ''}
+                </span>
+                <span className="an-num">{p.rank ?? '–'}</span>
+                <span className="an-num an-num-dim">{rosByPlayer.get(p.player_id) ?? '–'}</span>
+              </div>
+            ))}
+            {!week.length && <p className="an-card-empty">Keine Daten</p>}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
