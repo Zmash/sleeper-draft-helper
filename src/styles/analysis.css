@@ -392,7 +392,11 @@
 
 @media (max-width: 720px) {
   .an-trendrow { grid-template-columns: 2.5rem 1fr auto; }
-  .an-trendteam { display: none; }
+  /* Team-Spalte NUR in Trend-Zeilen (MarketTab, .an-trendrow) ausblenden, wo
+     sie ohnehin in die eigene "auto"-Spur faellt. In .an-listrow (Pickups)
+     und .an-lineup-row (Lineup-Karte) muss Team sichtbar bleiben, sonst
+     klafft zwischen Header ("Team"-Spalte) und Zeilen eine Luecke. */
+  .an-trendrow .an-trendteam { display: none; }
 }
 
 /* Streaming: Positionswahl als Segmented Control statt Checkboxen -- gleiche
@@ -439,10 +443,10 @@
 .an-num-dim { color: var(--muted, #888); }
 
 /* Empfohlene Aufstellung: dasselbe Zeilen-Grid wie Pickups/Streaming, nur ohne
-   Status-Slot -- 4 Spalten: Pille | Spieler | Team | Wert. Der Header nutzt
-   .an-listrow (5-Spalten-Template mit Status-Slot) und bekommt das Zeilen-
-   Template hier ueberschrieben, sonst laufen Team/Wert zwischen Header und
-   Zeilen auseinander. */
+   Status-Slot -- 5 Spalten: Pille | Spieler | Team | Woche | Zweitwert. Der
+   Header nutzt .an-listrow (mit Status-Slot) und bekommt das Zeilen-Template
+   hier ueberschrieben. Team bleibt auch mobil sichtbar (sonst laufen Header
+   und Zeilen auseinander). */
 .an-card--lineup .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.2rem; }
 .an-lineup-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .an-lineup-list { margin-top: .5rem; }
@@ -455,12 +459,6 @@
   font-size: .8rem;
 }
 .an-lineup-row .an-num { text-align: right; }
-
-/* Mobile: Team-Spalte versteckt (display:none in @media 720px), also Grid auf 4 Spalten
-   umstellen, damit Woche und Zweitwert nicht in die leere Team-Spur rutschen. */
-@media (max-width: 720px) {
-  .an-card--lineup .an-listrow, .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem; }
-}
 
 /* CTA-Button fuer "Lineup in Sleeper setzen" -- prominent, mit externem Link-Icon.
    Der Button erscheint nur wenn leagueId vorhanden ist (also ein echter Nutzer). */
