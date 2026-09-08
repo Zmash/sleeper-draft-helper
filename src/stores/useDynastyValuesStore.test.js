@@ -6,6 +6,14 @@ const KTC = {
   players: [{ name: 'Bijan Robinson', pos: 'RB', team: 'ATL', dynasty_value: 9000, age: 24 }],
 }
 
+// Erst ab dieser Groesse gilt ein Datensatz als "frisch" (Self-Healing-Guard).
+const FULL_KTC = {
+  ok: true,
+  players: Array.from({ length: 150 }, (_, i) => ({
+    name: `Player ${i}`, pos: 'RB', team: 'ATL', dynasty_value: 9000 - i, age: 24,
+  })),
+}
+
 function mockFetch(response) {
   return vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(response) }))
 }
@@ -27,11 +35,13 @@ describe('loadDynastyValuesIfStale', () => {
     const { dynastyValues, dynastyValuesFetchedAt } = useDynastyValuesStore.getState()
     expect(dynastyValues).toHaveLength(1)
     expect(dynastyValues[0].nname).toBe('bijan robinson')
+    expect(dynastyValues[0].value).toBe(9000)
+    expect(dynastyValues[0].dynasty_value).toBe(9000)
     expect(dynastyValuesFetchedAt).not.toBeNull()
   })
 
   it('ruft bei frischem Cache (gleiches Format) kein zweites Mal fetch auf', async () => {
-    const fetchSpy = mockFetch(KTC)
+    const fetchSpy = mockFetch(FULL_KTC)
     vi.stubGlobal('fetch', fetchSpy)
     await useDynastyValuesStore.getState().loadDynastyValuesIfStale({ superflex: false })
     await useDynastyValuesStore.getState().loadDynastyValuesIfStale({ superflex: false })
@@ -45,6 +55,14 @@ describe('loadDynastyValuesIfStale', () => {
     await useDynastyValuesStore.getState().loadDynastyValuesIfStale({ superflex: true })
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     expect(fetchSpy).toHaveBeenLastCalledWith('/api/rankings/ktc-dynasty?superflex=true')
+  })
+
+  it('ein unvollstaendiger Datensatz (< 100) ist nie frisch und laedt neu (Selbstheilung)', async () => {
+    const fetchSpy = mockFetch(KTC)
+    vi.stubGlobal('fetch', fetchSpy)
+    await useDynastyValuesStore.getState().loadDynastyValuesIfStale({ superflex: false })
+    await useDynastyValuesStore.getState().loadDynastyValuesIfStale({ superflex: false })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 
   it('Fehler beim Fetch: still bleiben, kein Crash, kein Datenverlust', async () => {

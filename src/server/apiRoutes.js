@@ -466,11 +466,12 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const html = await upstream.text()
       // Frueher: DOM-Scrape von ".single-ranking" -- KTC rendert davon serverseitig
       // nur die ersten 50, der Rest laedt per Infinite-Scroll nach (JS, sieht ein
-      // reiner fetch() nie). Das eingebettete `playersArray` (analog zu FantasyPros'
-      // ecrData) enthaelt alle ~500 Spieler direkt als JSON. Bug gefunden beim
-      // Testen mit echten Daten (Zmash / Dynasty League Bochum): Power-Ranking
-      // deckte dadurch nur einen Bruchteil jedes Kaders ab.
-      const raw = extractEmbeddedJson(html, 'playersArray', '[', ']')
+      // reiner fetch() nie). Auch das `playersArray`-JS-Variable ist unzuverlaessig:
+      // es ist nur eine JSON.parse-Zuweisung und der Balanced-Scan trifft das
+      // falsche (kaputte) Literal -- verifiziert 2026-09-08, lieferte nur 3 Spieler.
+      // Verlaesslich ist das <script id="ktc-players"> Element: ein direkt
+      // eingebettetes JSON mit allen ~500 Spielern inkl. oneQB- UND superflexValues.
+      const raw = extractEmbeddedJson(html, 'id="ktc-players"', '[', ']')
       const rawPlayers = Array.isArray(raw) ? raw : []
       const players = rawPlayers
         .filter((p) => p?.position !== 'RDP') // Draft-Picks, keine Spieler
@@ -556,9 +557,10 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       const upstream = await fetch(KTC_URL, { headers: HEADERS })
       if (!upstream.ok) return res.status(502).json({ ok: false, error: `KTC returned ${upstream.status}` })
       const html = await upstream.text()
-      // Gleicher Fix wie bei ktc-dynasty: DOM-Scrape traf nur die ersten 50
-      // serverseitig gerenderten Zeilen, das eingebettete playersArray hat alle.
-      const raw = extractEmbeddedJson(html, 'playersArray', '[', ']')
+      // Gleicher Fix wie bei ktc-dynasty: weder DOM-Scrape (nur ~50 Zeilen) noch
+      // das playersArray-Variable (JSON.parse-Zuweisung, kaputter Literal-Scan) --
+      // das <script id="ktc-players">-Element enthaelt alle Rookies als JSON.
+      const raw = extractEmbeddedJson(html, 'id="ktc-players"', '[', ']')
       const rawPlayers = Array.isArray(raw) ? raw : []
       const players = rawPlayers
         .map((p, idx) => ({ ...normalizeKtcPlayer(p, { rookie: true }), id: idx + 1 }))
