@@ -54,8 +54,15 @@ export function freeAgents({ playersMeta = {}, leagueRosters = [] }) {
 
 // mode 'dynasty': dynastyValues (KTC, {nname, value}) -> hoechster Wert zuerst.
 // mode 'redraft': rosRankByKey (Map von matchKey -> ECR-Zahl) -> niedrigster (bester) Rang zuerst.
-// Spieler ohne Treffer in der jeweiligen Quelle landen ans Ende, fallen aber nicht raus
-// (sie bleiben in der Liste sichtbar, nur unsortiert am Ende -- lieber zeigen als verstecken).
+// Spieler ohne Treffer in der Quelle sind KEINE sinnvollen Pickups: Retired/nie mehr
+// spielende Spieler haben weder KTC-Wert noch ROS-Rang, Team-Defenses haben in Dynasty
+// keinen KTC-Wert. Sie werden ausgeblendet statt unsortiert ans Ende gesetzt
+// (verifiziert: "Ben Roethlisberger PIT" als Free Agent, DEF-Zeilen mit '–').
+// Ausnahme (Fallback): ist die Wertquelle selbst leer (KTC-/FantasyPros-Fetch
+// fehlgeschlagen), bleibt jeder Kandidat sichtbar -- sonst wuerde ein API-Hickup
+// die Liste komplett leeren.
+const MIN_DYNASTY_VALUES = 100
+
 export function pickupRanking({
   freeAgents: agents = [], mode = 'redraft', dynastyValues = [], rosRankByKey = new Map(), trendingAddIds = new Set(),
 } = {}) {
@@ -68,6 +75,10 @@ export function pickupRanking({
   const hasValue = withValue.filter((a) => a.value != null)
   const noValue = withValue.filter((a) => a.value == null)
   hasValue.sort((x, y) => (mode === 'dynasty' ? y.value - x.value : x.value - y.value))
+  const sourceLoaded = mode === 'dynasty'
+    ? dynastyValues.length >= MIN_DYNASTY_VALUES
+    : rosRankByKey.size > 0
+  if (sourceLoaded) return hasValue
   return [...hasValue, ...noValue]
 }
 
@@ -144,7 +155,12 @@ export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyR
     slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })
   }
 
-  const bench = myRosterPlayers.filter((p) => !used.has(p.sleeper_id))
+  // "Bank" = nur Spieler, die diese Woche ueberhaupt in die Aufstellung koennten
+  // (BN + ggf. noch zu demontierende Starter). Taxi-Rookies und IR-Platzierte
+  // zaehlen nicht zur Bank -- ohne den Filter landeten 30-Mann-Rosters mit 4
+  // Taxi-/IR-Slots als "Bank" in der Lineup-Karte und wirkten groesser als die
+  // echte Bank (Befund: "das ist nicht meine Bank").
+  const bench = myRosterPlayers.filter((p) => !used.has(p.sleeper_id) && p.slot !== 'taxi' && p.slot !== 'ir')
   return { slots, bench }
 }
 

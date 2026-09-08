@@ -61,6 +61,44 @@ describe('pickupRanking', () => {
     const out = pickupRanking({ freeAgents: agents, mode: 'redraft', trendingAddIds: new Set(['2']) })
     expect(out.find((p) => p.player_id === '2').trending).toBe(true)
   })
+
+  it('dynasty: blendet Kandidaten ohne KTC-Wert aus (Retired, Team-Defense), wenn die Quelle geladen ist', () => {
+    const all = [
+      ...agents,
+      { player_id: '9', name: 'Old Guy', nname: 'oldguy', pos: 'QB', team: 'PIT' },
+      { player_id: '10', name: 'Texans', nname: 'houstontexans', pos: 'DEF', team: 'HOU' },
+    ]
+    const dynastyValues = [
+      { nname: 'freeagentguy', value: 1200 },
+      { nname: 'otherguy', value: 900 },
+      ...Array.from({ length: 100 }, (_, i) => ({ nname: `filler${i}`, value: 10 + i })),
+    ]
+    const out = pickupRanking({ freeAgents: all, mode: 'dynasty', dynastyValues })
+    const ids = out.map((p) => p.player_id)
+    expect(ids).not.toContain('9')
+    expect(ids).not.toContain('10')
+    expect(ids).toEqual(['2', '5'])
+  })
+
+  it('redraft: blendet Kandidaten ohne ROS-Rang aus, wenn die Quelle geladen ist', () => {
+    const all = [...agents, { player_id: '9', name: 'Unranked Guy', nname: 'unrankedguy', pos: 'QB', team: 'PIT' }]
+    const out = pickupRanking({
+      freeAgents: all, mode: 'redraft',
+      rosRankByKey: new Map([['NAME:otherguy', 10], ['NAME:freeagentguy', 40]]),
+    })
+    expect(out.map((p) => p.player_id)).toEqual(['5', '2'])
+  })
+
+  it('Fallback: ist die Quelle leer (Fetch-Fehler), bleiben Wertlose sichtbar statt die Liste zu leeren', () => {
+    const out = pickupRanking({
+      freeAgents: [...agents, { player_id: '9', name: 'Old Guy', nname: 'oldguy', pos: 'QB', team: 'PIT' }],
+      mode: 'dynasty',
+      dynastyValues: [],
+    })
+    expect(out.map((p) => p.player_id)).toEqual(['2', '5', '9'])
+    const redraft = pickupRanking({ freeAgents: agents, mode: 'redraft' })
+    expect(redraft.map((p) => p.player_id)).toEqual(['2', '5'])
+  })
 })
 
 describe('streamingBoard', () => {
@@ -133,6 +171,21 @@ describe('bestLineup', () => {
     const flex = out.slots.find((s) => s.slot === 'FLEX')
     expect(flex.player?.sleeper_id).not.toBe('6')
     expect(out.bench.map((p) => p.sleeper_id)).toContain('6')
+  })
+
+  it('Bank enthaelt weder Taxi-Rookies noch IR-Slots', () => {
+    const mitTaxiIr = [
+      ...roster,
+      { sleeper_id: '7', name: 'Rookie Taxi', pos: 'WR', bye: '', injury_status: null, slot: 'taxi' },
+      { sleeper_id: '8', name: 'Verletzt IR', pos: 'WR', bye: '', injury_status: 'IR', slot: 'ir' },
+    ]
+    const out = bestLineup({
+      myRosterPlayers: mitTaxiIr,
+      rosterPositions: ['QB', 'RB', 'FLEX', 'BN', 'BN'],
+      weeklyRankByKey,
+    })
+    expect(out.bench.map((p) => p.sleeper_id)).not.toContain('7')
+    expect(out.bench.map((p) => p.sleeper_id)).not.toContain('8')
   })
 })
 
