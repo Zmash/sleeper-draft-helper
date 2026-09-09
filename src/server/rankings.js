@@ -122,12 +122,16 @@ export const FP_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DST']
 
 // ---------- FantasyPros Weekly + ROS je Position (Waiver-Wire) ----------
 // Sleeper/App-Konvention ist "DEF", FantasyPros nennt dieselbe Position "DST".
-const FP_POS_SLUG = { QB: 'qb', RB: 'rb', WR: 'wr', TE: 'te', DEF: 'dst' }
+// FLEX (RB/WR/TE) und SUPER_FLEX (QB/RB/WR/TE) sind positionsuebergreifende
+// Consensus-Rankings (z.B. ppr-flex.php, superflex.php) -- Rueckgrat der
+// Flex-Besetzung in bestLineup, weil Positions-Raenge skalenfremd sind
+// (TE12 schlaegt WR25 nur auf dem Papier).
+const FP_POS_SLUG = { QB: 'qb', RB: 'rb', WR: 'wr', TE: 'te', DEF: 'dst', FLEX: 'flex', SUPER_FLEX: 'superflex' }
 
-// Nur RB/WR/TE haben eine Scoring-Variante (PPR/Half/Standard aendert ihren
-// Punktwert). QB und DST/DEF sind scoring-unabhaengig -- fuer die gibt es auf
-// FantasyPros keine ppr-/half-point-ppr-Praefix-Seiten.
-const FP_SCORING_HAS_VARIANT = new Set(['RB', 'WR', 'TE'])
+// RB/WR/TE sowie FLEX/SUPER_FLEX haben eine Scoring-Variante (PPR/Half/
+// Standard aendert ihren Punktwert). QB und DST/DEF sind scoring-unabhaengig
+// -- fuer die gibt es auf FantasyPros keine ppr-/half-point-ppr-Praefix-Seiten.
+const FP_SCORING_HAS_VARIANT = new Set(['RB', 'WR', 'TE', 'FLEX', 'SUPER_FLEX'])
 const FP_SCORING_PREFIX = { ppr: 'ppr-', half: 'half-point-ppr-', std: '' }
 
 // scope: 'week' (aktuelle Woche) | 'ros' (Rest of Season). Live gegen

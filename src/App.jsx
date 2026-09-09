@@ -32,7 +32,7 @@ import SetupPage from './pages/SetupPage'
 import BoardPage from './pages/BoardPage'
 import ShareTargetPage from './pages/ShareTargetPage'
 import AnalysisPage from './pages/AnalysisPage'
-import WaiverPage from './pages/WaiverPage'
+import LineupPage from './pages/LineupPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
 import ProfilesPage from './pages/ProfilesPage'
@@ -391,7 +391,10 @@ export default function App() {
       <Route path="/board" element={<BoardPage {...pageProps} />} />
       <Route path="/share-target" element={<ShareTargetPage />} />
       <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
-      <Route path="/waiver" element={<WaiverPage {...pageProps} />} />
+      <Route path="/lineup" element={<LineupPage {...pageProps} />} />
+      {/* Alte Lesezeichen auf /waiver (fruehere Bezeichnung dieser Seite)
+          laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}
+      <Route path="/waiver" element={<Navigate to="/lineup" replace />} />
       {/* Alte Lesezeichen auf /roster (fruehere Bezeichnung dieser Seite)
           laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}
       <Route path="/roster" element={<Navigate to="/analyse" replace />} />

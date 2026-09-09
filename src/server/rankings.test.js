@@ -259,6 +259,14 @@ describe('fantasyProsPositionUrl', () => {
     expect(fantasyProsPositionUrl('TE', 'week', 'std')).toBe('https://www.fantasypros.com/nfl/rankings/te.php')
     expect(fantasyProsPositionUrl('TE', 'ros', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ros-ppr-te.php')
   })
+
+  it('FLEX und SUPER_FLEX haben Scoring-Varianten (Rueckgrat der Flex-Besetzung)', () => {
+    expect(fantasyProsPositionUrl('FLEX', 'week', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ppr-flex.php')
+    expect(fantasyProsPositionUrl('FLEX', 'week', 'std')).toBe('https://www.fantasypros.com/nfl/rankings/flex.php')
+    expect(fantasyProsPositionUrl('FLEX', 'ros', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ros-ppr-flex.php')
+    expect(fantasyProsPositionUrl('SUPER_FLEX', 'week', 'ppr')).toBe('https://www.fantasypros.com/nfl/rankings/ppr-superflex.php')
+    expect(fantasyProsPositionUrl('SUPER_FLEX', 'week', 'std')).toBe('https://www.fantasypros.com/nfl/rankings/superflex.php')
+  })
 })
 
 describe('normalizeFantasyProsPlayer mit Weekly-Feldern', () => {

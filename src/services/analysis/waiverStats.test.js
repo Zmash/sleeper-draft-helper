@@ -186,6 +186,44 @@ describe('bestLineup', () => {
     expect(out.bench.map((p) => p.sleeper_id)).toContain('6')
   })
 
+  it('FLEX nutzt Flex-Rang statt Positions-Rang (TE mit gutem Pos-Rang verdraengt keinen besseren WR)', () => {
+    const roster = [
+      { sleeper_id: '10', name: 'RB One', pos: 'RB', bye: '', injury_status: null },
+      { sleeper_id: '11', name: 'WR One', pos: 'WR', bye: '', injury_status: null },
+      { sleeper_id: '12', name: 'WR Two', pos: 'WR', bye: '', injury_status: null },
+      { sleeper_id: '13', name: 'TE One', pos: 'TE', bye: '', injury_status: null },
+    ]
+    const weeklyRankByKey = new Map([['ID:10', 10], ['ID:11', 8], ['ID:12', 25], ['ID:13', 5]])
+    const flexRankByKey = new Map([['ID:10', 15], ['ID:11', 12], ['ID:12', 40], ['ID:13', 60]])
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['RB', 'WR', 'FLEX', 'BN'],
+      weeklyRankByKey, flexRankByKey,
+    })
+    const bySlot = Object.fromEntries(out.slots.map((s) => [s.slot, s.player?.sleeper_id]))
+    expect(bySlot.RB).toBe('10')
+    expect(bySlot.WR).toBe('11')
+    expect(bySlot.FLEX).toBe('12') // TE One hat zwar Pos-Rang 5, aber Flex-Rang 60
+  })
+
+  it('SUPER_FLEX nutzt Superflex-Rang statt Positions-Rang', () => {
+    const roster = [
+      { sleeper_id: '20', name: 'QB One', pos: 'QB', bye: '', injury_status: null },
+      { sleeper_id: '21', name: 'QB Two', pos: 'QB', bye: '', injury_status: null },
+      { sleeper_id: '22', name: 'WR Three', pos: 'WR', bye: '', injury_status: null },
+    ]
+    const weeklyRankByKey = new Map([['ID:20', 5], ['ID:21', 18], ['ID:22', 40]])
+    const superflexRankByKey = new Map([['ID:20', 30], ['ID:21', 90], ['ID:22', 55]])
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['QB', 'SUPER_FLEX', 'BN'],
+      weeklyRankByKey, superflexRankByKey,
+    })
+    const bySlot = Object.fromEntries(out.slots.map((s) => [s.slot, s.player?.sleeper_id]))
+    expect(bySlot.QB).toBe('20')
+    expect(bySlot.SUPER_FLEX).toBe('22') // QB Two hat zwar QB-Rang 18, aber Superflex-Rang 90
+  })
+
   it('Bank enthaelt weder Taxi-Rookies noch IR-Slots', () => {
     const mitTaxiIr = [
       ...roster,

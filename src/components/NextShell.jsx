@@ -23,7 +23,7 @@ const RAIL = [
   { icon: 'board', tip: 'Board', path: '/board' },
   { icon: 'swap', tip: 'Trade', path: '/trade' },
   { icon: 'chart', tip: 'Analyse', path: '/analyse' },
-  { icon: 'shuffle', tip: 'Waiver', path: '/waiver' },
+  { icon: 'roster', tip: 'Lineup', path: '/lineup' },
 ]
 
 export default function NextShell({ children, pageProps = {} }) {

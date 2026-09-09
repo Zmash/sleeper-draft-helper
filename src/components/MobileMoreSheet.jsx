@@ -9,7 +9,7 @@ const NAV = [
   { icon: 'home', label: 'Dashboard', path: '/dashboard' },
   { icon: 'board', label: 'Board', path: '/board' },
   { icon: 'chart', label: 'Analyse', path: '/analyse' },
-  { icon: 'shuffle', label: 'Waiver', path: '/waiver' },
+  { icon: 'roster', label: 'Lineup', path: '/lineup' },
   { icon: 'swap', label: 'Trade', path: '/trade' },
 ]
 

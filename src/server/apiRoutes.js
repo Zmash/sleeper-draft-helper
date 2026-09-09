@@ -648,7 +648,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   // Beat-Reports) -> kurze TTL. ROS bewegt sich langsamer -> lange TTL.
   const fpPositionCache = new Map() // "pos:scope:scoring" -> { at, players }
   const FP_POSITION_TTL_MS = { week: 6 * 60 * 60 * 1000, ros: 24 * 60 * 60 * 1000 }
-  const FP_POSITION_VALID_POS = ['QB', 'RB', 'WR', 'TE', 'DEF']
+  const FP_POSITION_VALID_POS = ['QB', 'RB', 'WR', 'TE', 'DEF', 'FLEX', 'SUPER_FLEX']
 
   app.get('/api/rankings/fantasypros-position', async (req, res) => {
     const pos = String(req.query.pos || '').toUpperCase()

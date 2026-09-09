@@ -118,13 +118,22 @@ const UNAVAILABLE_INJURY_STATUSES = new Set(['Out', 'IR', 'PUP', 'Sus', 'NA', 'D
 // gleichzeitig) -- ponytail: greedy statt Optimalloesung, bei Bedarf durch
 // echtes Matching ersetzen, falls FLEX/SUPER_FLEX gemeinsam vorkommen und
 // Fehlzuteilungen auffallen.
-export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), currentWeekBye = null } = {}) {
+export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), flexRankByKey = new Map(), superflexRankByKey = new Map(), currentWeekBye = null } = {}) {
   const eligible = myRosterPlayers.filter((p) => {
     if (currentWeekBye != null && String(p.bye) === String(currentWeekBye)) return false
     if (UNAVAILABLE_INJURY_STATUSES.has(p.injury_status)) return false
     return true
   })
   const rankOf = (p) => weeklyRankByKey.get(`ID:${p.sleeper_id}`) ?? Infinity
+  // Flex-Slots duerfen NIEMALS nach Positions-Rang besetzt werden: die Skalen
+  // sind positionsfremd (TE-Pool ~30 vs. WR-Pool ~100 -- TE5 wuerde WR20 immer
+  // verdraengen). Stattdessen zaehlt der positionsuebergreifende Consensus:
+  // FLEX-Rang fuer RB/WR/TE-Slots, Superflex-Rang fuer SUPER_FLEX. Fehlt der
+  // Flex-Wert (Quelle leer/nicht gematcht), gilt der Positions-Rang als
+  // Fallback, damit niemand unstartbar wirkt. Die angezeigte "Woche"-Spalte
+  // bleibt bewusst der Positions-Rang (einheitliche Skala pro Spalte).
+  const flexRankOf = (p) => flexRankByKey.get(`ID:${p.sleeper_id}`) ?? rankOf(p)
+  const superflexRankOf = (p) => superflexRankByKey.get(`ID:${p.sleeper_id}`) ?? rankOf(p)
   const used = new Set()
   const slots = []
 
@@ -147,9 +156,10 @@ export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyR
   }
   for (const slot of flexSlots) {
     const allowedPos = FLEX_ELIGIBLE[slot]
+    const cmpRankOf = slot === 'SUPER_FLEX' ? superflexRankOf : flexRankOf
     const candidates = eligible
       .filter((p) => allowedPos.includes(p.pos) && !used.has(p.sleeper_id))
-      .sort((a, b) => rankOf(a) - rankOf(b))
+      .sort((a, b) => cmpRankOf(a) - cmpRankOf(b))
     const player = candidates[0] || null
     if (player) used.add(player.sleeper_id)
     slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })

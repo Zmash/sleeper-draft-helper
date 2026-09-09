@@ -4,7 +4,7 @@ import { matchKey } from '../services/analysis/waiverStats'
 const TTL_MS = { week: 6 * 60 * 60 * 1000, ros: 24 * 60 * 60 * 1000 }
 
 // Nicht persistiert: Weekly-Rankings sind pro Sitzung ohnehin nur relevant,
-// waehrend /waiver offen ist, und aendern sich zu haeufig fuer localStorage
+// waehrend /lineup offen ist, und aendern sich zu haeufig fuer localStorage
 // (anders als useDynastyValuesStore, das absichtlich langlebiger ist).
 export const useWeeklyRankingsStore = create((set, get) => ({
   byKey: new Map(), // "pos:scope" -> Map<matchKey, ecr>

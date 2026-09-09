@@ -4,7 +4,7 @@ import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatP
 const ALL_POSITIONS = ['DEF', 'QB', 'TE']
 
 export default function StreamingBoard({ board = {}, positions = [], availablePositions = null, onTogglePosition, ptsLoaded = false }) {
-  // availablePositions kommt aus der Liga (WaiverPage); ohne Prop fallen wir
+  // availablePositions kommt aus der Liga (LineupPage); ohne Prop fallen wir
   // auf alle Positionen zurueck, damit aeltere Aufrufe nichts verlieren.
   const visible = Array.isArray(availablePositions) ? availablePositions : ALL_POSITIONS
   return (

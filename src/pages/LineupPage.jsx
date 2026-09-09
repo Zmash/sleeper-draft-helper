@@ -1,4 +1,4 @@
-// src/pages/WaiverPage.jsx
+// src/pages/LineupPage.jsx
 import { useEffect, useMemo, useState } from 'react'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useDynastyStore } from '../stores/useDynastyStore'
@@ -31,7 +31,7 @@ export function availableStreamPositionsFor(rosterPositions = []) {
   return out
 }
 
-export default function WaiverPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
+export default function LineupPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
   const { sleeperUserId } = useSessionStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
   const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
@@ -93,6 +93,23 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   useEffect(() => {
     for (const pos of rosterPositionsPresent) loadIfStale({ pos, scope: 'week', scoring })
   }, [rosterPositionsPresent, scoring, loadIfStale])
+
+  // Flex-Slots werden nach positionsuebergreifendem Consensus besetzt (kein
+  // Positions-Rang-Vergleich, siehe bestLineup): FLEX-ECR fuer FLEX/REC_FLEX/
+  // WRRB_FLEX, Superflex-ECR fuer SUPER_FLEX. Nur laden, wenn die Liga den
+  // Slot-Typ ueberhaupt hat -- sonst kein zusaetzlicher Request.
+  const flexSlotKinds = useMemo(() => {
+    const set = new Set((lineupRosterPositions.length ? lineupRosterPositions : effRoster || []).map((s) => String(s).toUpperCase()))
+    return {
+      flex: ['FLEX', 'REC_FLEX', 'WRRB_FLEX'].some((s) => set.has(s)),
+      superflex: set.has('SUPER_FLEX'),
+    }
+  }, [lineupRosterPositions, effRoster])
+
+  useEffect(() => {
+    if (flexSlotKinds.flex) loadIfStale({ pos: 'FLEX', scope: 'week', scoring })
+    if (flexSlotKinds.superflex) loadIfStale({ pos: 'SUPER_FLEX', scope: 'week', scoring })
+  }, [flexSlotKinds, scoring, loadIfStale])
 
   useEffect(() => {
     for (const pos of effectiveStreamPositions) {
@@ -190,6 +207,30 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
     return map
   }, [rosterPositionsPresent, dynastyRoster, byKey, getRankMap])
 
+  // ID-gemappte Flex-Raenge je Kader-Spieler (NAME-Match wie oben; DEF kommt
+  // in keinem Flex-Ranking vor und bleibt aussen vor).
+  const flexRankByIdKey = useMemo(() => {
+    if (!flexSlotKinds.flex) return new Map()
+    const rankMap = getRankMap({ pos: 'FLEX', scope: 'week' })
+    const map = new Map()
+    for (const p of dynastyRoster.filter((r) => ['RB', 'WR', 'TE'].includes(r.pos))) {
+      const v = rankMap.get(matchKey(p.pos, p))
+      if (v != null) map.set(`ID:${p.sleeper_id}`, v)
+    }
+    return map
+  }, [flexSlotKinds, dynastyRoster, byKey, getRankMap])
+
+  const superflexRankByIdKey = useMemo(() => {
+    if (!flexSlotKinds.superflex) return new Map()
+    const rankMap = getRankMap({ pos: 'SUPER_FLEX', scope: 'week' })
+    const map = new Map()
+    for (const p of dynastyRoster.filter((r) => ['QB', 'RB', 'WR', 'TE'].includes(r.pos))) {
+      const v = rankMap.get(matchKey(p.pos, p))
+      if (v != null) map.set(`ID:${p.sleeper_id}`, v)
+    }
+    return map
+  }, [flexSlotKinds, dynastyRoster, byKey, getRankMap])
+
   // KTC-Dynasty-Werte nach normalisiertem Namen -- Zweitspalte der Lineup-Karte
   // im Dynasty-Modus (Wochenform vs. Anlagewert nebeneinander vergleichbar).
   const ktcValueByNname = useMemo(
@@ -206,6 +247,7 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
     if (!dynastyRoster.length || !effRoster?.length) return null
     const result = bestLineup({
       myRosterPlayers: dynastyRoster, rosterPositions: lineupRosterPositions.length ? lineupRosterPositions : effRoster, weeklyRankByKey: weeklyRankByIdKey,
+      flexRankByKey: flexRankByIdKey, superflexRankByKey: superflexRankByIdKey,
       currentWeekBye: week != null ? String(week) : null,
     })
     const altOf = isDynasty
@@ -218,7 +260,7 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
       slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null, pts: s.player ? ptsOf(s.player) : null })),
       bench: (result.bench || []).map((p) => ({ ...p, rank: rankOf(p), alt: altOf(p), pts: ptsOf(p) })),
     }
-  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname])
+  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, flexRankByIdKey, superflexRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
@@ -252,7 +294,7 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   return (
     <section className="an-page">
       <header className="an-head">
-        <h2 className="an-head-title">Waiver-Wire</h2>
+        <h2 className="an-head-title">Lineup</h2>
         <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
       </header>
       <div className="an-grid an-grid--waiver">
