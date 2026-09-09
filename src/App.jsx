@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useSessionStore } from './stores/useSessionStore'
@@ -7,6 +7,7 @@ import { parseDraftId } from './utils/parse'
 import { useBoardStore } from './stores/useBoardStore'
 import { useLiveStore } from './stores/useLiveStore'
 import { useDynastyStore } from './stores/useDynastyStore'
+import { useDashboardStore } from './stores/useDashboardStore'
 import { useUIStore } from './stores/useUIStore'
 
 import { getTeamsCount, teamKeyFromPick } from './services/derive'
@@ -379,6 +380,37 @@ export default function App() {
     draftFinished, onOpenDraftReview: () => setAnalysisOpen(true), draftMode, seasonYear,
   }
 
+  // ── Mobile Sync: seiten-abhaengiger Callback ──────────────────────────────
+  const { loadDashboard } = useDashboardStore()
+
+  const isSetupOrProfiles = nsPathname.startsWith('/setup') || nsPathname.startsWith('/profiles')
+
+  const handleMobileSync = useCallback(() => {
+    if (nsPathname.startsWith('/dashboard')) {
+      loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs }).catch(() => {})
+    } else if (nsPathname.startsWith('/analyse') || nsPathname.startsWith('/lineup')) {
+      if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
+    } else if (nsPathname.startsWith('/trade')) {
+      if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
+      if (selectedLeagueId && sleeperUserId) {
+        loadDynastyRoster({ selectedLeagueId, sleeperUserId, seasonYear }).catch(() => {})
+      }
+    } else {
+      // Fallback: generischer Pick-Refresh
+      if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
+    }
+  }, [nsPathname, selectedDraftId, selectedLeagueId, sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs, loadDashboard, loadPicks, loadDynastyRoster])
+
+  const mobileSyncLabel = nsPathname.startsWith('/dashboard')
+    ? 'Ligen aktualisieren'
+    : nsPathname.startsWith('/analyse')
+      ? 'Picks aktualisieren'
+      : nsPathname.startsWith('/lineup')
+        ? 'Picks aktualisieren'
+        : nsPathname.startsWith('/trade')
+          ? 'Daten aktualisieren'
+          : 'Daten aktualisieren'
+
   // ── Render ─────────────────────────────────────────────────────────────────
   // Beide Shells umschliessen exakt denselben Routen-Baum. Die neue Shell
   // ersetzt nur die Huelle (Rail/Kontextleiste/Statusleiste) — jede bestehende
@@ -427,7 +459,14 @@ export default function App() {
       {/* Mobil traegt jede Seite dieselbe Bottom-Navigation. Auf /board
           uebernimmt BoardMobileBar dieselbe Leiste mit den Board-Aktionen —
           sonst laegen zwei Bars uebereinander. */}
-      {!isWideViewport && !nsPathname.startsWith('/board') && <MobileNav />}
+      {!isWideViewport && !nsPathname.startsWith('/board') && (
+        <MobileNav
+          onSync={isSetupOrProfiles ? null : handleMobileSync}
+          syncLabel={mobileSyncLabel}
+          showSync={!isSetupOrProfiles}
+          autoRefreshActive={autoRefreshEnabled}
+        />
+      )}
       {useNextShell ? (
         <NextShell pageProps={pageProps}>{shellContent}</NextShell>
       ) : (

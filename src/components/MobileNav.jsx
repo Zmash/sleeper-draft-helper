@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
-import { useSessionStore } from '../stores/useSessionStore'
-import { useLiveStore } from '../stores/useLiveStore'
 import MobileMoreSheet from './MobileMoreSheet'
 
 // Mobile Bottom-Navigation fuer alle Seiten ausser dem Board — dort uebernimmt
@@ -14,11 +12,15 @@ import MobileMoreSheet from './MobileMoreSheet'
 // Die Plaetze sind bewusst fest und nicht je Seite anders belegt: eine
 // Bottom-Bar lebt davon, dass der Daumen die Ziele blind trifft. Trade sitzt
 // im Mehr-Sheet, weil es bisher nur fuer Dynasty umgesetzt ist.
-export default function MobileNav() {
+//
+// Props:
+//   onSync        – Callback fuer den Sync-Button (je nach aktueller Seite)
+//   syncLabel     – Aria-Label / Title fuer den Sync-Button
+//   showSync      – Button anzeigen (false z.B. auf /setup, /profiles)
+//   autoRefreshActive – Auto-Refresh-Indikator-Punkt (Dot)
+export default function MobileNav({ onSync, syncLabel = 'Daten aktualisieren', showSync = true, autoRefreshActive = false }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { selectedDraftId } = useSessionStore()
-  const { loadPicks, autoRefreshEnabled } = useLiveStore()
   const [moreOpen, setMoreOpen] = useState(false)
 
   // Wie board-mobile-active: die Seite braucht unten Platz fuer die Bar.
@@ -43,17 +45,19 @@ export default function MobileNav() {
         {item('board', 'Board', '/board')}
         {item('chart', 'Analyse', '/analyse')}
 
-        <button
-          type="button"
-          className="bmb-fab"
-          onClick={() => selectedDraftId && loadPicks(selectedDraftId).catch(() => {})}
-          disabled={!selectedDraftId}
-          aria-label="Picks synchronisieren"
-          title="Picks synchronisieren"
-        >
-          <Icon name="refresh" size={26} />
-          {autoRefreshEnabled && selectedDraftId && <span className="bmb-fab-auto" aria-hidden />}
-        </button>
+        {showSync && (
+          <button
+            type="button"
+            className="bmb-fab"
+            onClick={() => onSync?.()}
+            disabled={!onSync}
+            aria-label={syncLabel}
+            title={syncLabel}
+          >
+            <Icon name="refresh" size={26} />
+            {autoRefreshActive && <span className="bmb-fab-auto" aria-hidden />}
+          </button>
+        )}
 
         {item('home', 'Start', '/dashboard')}
         <button type="button" className={cx('bmb-item', moreOpen && 'is-active')} onClick={() => setMoreOpen(true)}>
