@@ -166,6 +166,15 @@
     .overcard{padding:26px 26px 24px}
     .cta{padding:15px 0}
   }
+  /* Mobil: kein backdrop-blur (auf Handy-GPUs extrem teuer, weil der
+     Canvas darunter jeden Frame neu weichgezeichnet werden muesste).
+     Deckkraft kommt stattdessen aus dem Hintergrund. */
+  @media (max-width:640px){
+    .card,.team,.btn,.over{backdrop-filter:none;-webkit-backdrop-filter:none}
+    .card,.team{background:rgba(8,14,28,.86)}
+    .btn{background:rgba(8,14,28,.86)}
+    .over{background:rgba(3,6,14,.86)}
+  }
   /* Querformat auf dem Handy: HUD flach halten */
   @media (max-height:460px){
     .title{display:none}
@@ -277,6 +286,23 @@ const bloomC = document.createElement('canvas');
 const bctx   = bloomC.getContext('2d');
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* ---- Performance-Tier: Handys rendern die abgespeckte Variante ----
+   Teuer auf mobilen GPUs: Bloom (ctx.filter=blur), Filmkorn (overlay),
+   shadowBlur, CSS-backdrop-blur (siehe Media-Query oben) und DPR 2.
+   Erkennung: grober Zeiger (Touch) oder kleines Display. Falls ein
+   Desktop-Geraet trotzdem einbricht, schaltet die Auto-Erkennung im
+   Frame-Loop einmalig auf lite um (siehe frame()). */
+const PERF = { lite:false, emaDt:1/60, frames:0 };
+try {
+  PERF.lite = matchMedia('(pointer: coarse)').matches ||
+              Math.min(screen.width, screen.height) < 520;
+} catch (e) {}
+function setLite(){
+  if (PERF.lite) return;
+  PERF.lite = true;
+  resize();   // DPR neu deckeln
+}
+
 const ui = {
   score : document.getElementById('uScore'),
   dist  : document.getElementById('uDist'),
@@ -321,6 +347,7 @@ try { S.best = +(localStorage.getItem('fg.best') || 0) || 0; } catch (e) {}
 let W=0, H=0, DPR=1, G=1800, LIFT=200;
 const F = {};
 let stars=[], skyline=[], crowd=[], lights=[], grain=null;
+let VIG=null, VIGW=0, VIGH=0;   // gecachter Vignetten-Gradient (siehe postFX)
 
 /* ---------------------------  LAYOUT  --------------------------- */
 function layout(){
@@ -396,7 +423,7 @@ function buildScenery(){
 }
 
 function resize(){
-  DPR = Math.min(2, window.devicePixelRatio || 1);
+  DPR = Math.min(window.devicePixelRatio || 1, PERF.lite ? 1 : 2);
   W = window.innerWidth; H = window.innerHeight;
   canvas.width  = Math.max(1, Math.round(W*DPR));
   canvas.height = Math.max(1, Math.round(H*DPR));
@@ -626,7 +653,7 @@ function resolve(good, label){
     }
 
     S.postGlow = 1; S.cheer = 1; S.flash = 1;
-    confetti(F.postX, F.gateTop + F.uprightH*0.4, REDUCED ? 60 : 190);
+    confetti(F.postX, F.gateTop + F.uprightH*0.4, (REDUCED || PERF.lite) ? 70 : 190);
     ring(F.postX, F.gateTop + F.uprightH*0.45);
     shake(REDUCED ? 4 : 16, 480);
     text(F.postX, F.gateTop - 42, '+' + pts, '#ffffff', 1.35);
@@ -832,7 +859,7 @@ function drawSky(){
     ctx.fillStyle = 'rgba(200,220,255,' + (0.35*tw).toFixed(3) + ')';
     ctx.fillRect(s.x, s.y, s.r, s.r);
   }
-  for (let i=0;i<3;i++){
+  if (!PERF.lite) for (let i=0;i<3;i++){
     const p = S.time*0.00007*(i+1);
     const x = W*(0.28 + 0.40*Math.sin(p + i*2.1));
     const y = H*(0.16 + 0.12*Math.cos(p*1.35 + i));
@@ -853,7 +880,9 @@ function drawStadium(){
   for (const s of skyline) ctx.fillRect(s.x, s.y, s.w+1, F.groundY - s.y + 2);
 
   const boost = 1 + S.cheer*2.2;
-  for (const c of crowd){
+  const cStep = PERF.lite ? 2 : 1;
+  for (let ci=0; ci<crowd.length; ci+=cStep){
+    const c = crowd[ci];
     const tw = 0.25 + 0.75*Math.abs(Math.sin(S.time*0.004 + c.p));
     const a  = clamp(0.10*tw*boost, 0, 0.75);
     const jump = S.cheer > 0.05 ? Math.sin(S.time*0.02 + c.p)*2.2*S.cheer : 0;
@@ -869,6 +898,7 @@ function drawStadium(){
     ctx.fillRect(L.x-26, L.y-13, 52, 15);
   }
 
+  if (!PERF.lite){
   ctx.globalCompositeOperation = 'lighter';
   for (const L of lights){
     const flick = 0.86 + 0.14*Math.sin(S.time*0.0013 + L.p);
@@ -891,6 +921,7 @@ function drawStadium(){
     ctx.fillRect(L.x-70, L.y-74, 140, 140);
   }
   ctx.globalCompositeOperation = 'source-over';
+  }
 }
 
 function drawField(){
@@ -980,7 +1011,7 @@ function drawPost(){
   ctx.lineCap = 'round';
   ctx.strokeStyle = metal;
   ctx.shadowColor = rgba(S.colB, 0.55 + 0.4*S.postGlow);
-  ctx.shadowBlur  = 16 + 26*S.postGlow;
+  ctx.shadowBlur  = PERF.lite ? 0 : 16 + 26*S.postGlow;
 
   ctx.lineWidth = 8;
   ctx.beginPath(); ctx.moveTo(postX, groundY); ctx.lineTo(postX, crossY); ctx.stroke();
@@ -1193,7 +1224,7 @@ function drawTexts(){
     ctx.font = '800 ' + size + 'px ui-sans-serif,system-ui,sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,' + (0.35*a).toFixed(3) + ')';
     ctx.fillText(t.str, t.x+2, t.y+3);
-    ctx.shadowColor = t.color; ctx.shadowBlur = 22*a;
+    if (!PERF.lite){ ctx.shadowColor = t.color; ctx.shadowBlur = 22*a; }
     ctx.fillStyle = hexToRgba(t.color, a);
     ctx.fillText(t.str, t.x, t.y);
     ctx.shadowBlur = 0;
@@ -1203,7 +1234,8 @@ function drawTexts(){
 
 function postFX(){
   // Bloom: Bright-Pass via Selbstmultiplikation, dann additiv hochskaliert zurueck
-  if (CONFIG.bloom && !REDUCED){
+  // (nur Full-Tier: ctx.filter=blur ist auf Handy-GPUs der groesste Frame-Fresser)
+  if (CONFIG.bloom && !REDUCED && !PERF.lite){
     try {
       bctx.globalCompositeOperation = 'copy';
       bctx.drawImage(canvas, 0, 0, bloomC.width, bloomC.height);
@@ -1230,13 +1262,17 @@ function postFX(){
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  const v = ctx.createRadialGradient(W*0.5, H*0.48, Math.min(W,H)*0.32,
-                                     W*0.5, H*0.50, Math.max(W,H)*0.78);
-  v.addColorStop(0, 'rgba(0,0,0,0)');
-  v.addColorStop(1, 'rgba(0,0,0,0.62)');
-  ctx.fillStyle = v; ctx.fillRect(0,0,W,H);
+  // Vignette: Gradient nur bei Groessenaenderung neu aufbauen, nicht pro Frame
+  if (!VIG || VIGW !== W || VIGH !== H){
+    VIG = ctx.createRadialGradient(W*0.5, H*0.48, Math.min(W,H)*0.32,
+                                   W*0.5, H*0.50, Math.max(W,H)*0.78);
+    VIG.addColorStop(0, 'rgba(0,0,0,0)');
+    VIG.addColorStop(1, 'rgba(0,0,0,0.62)');
+    VIGW = W; VIGH = H;
+  }
+  ctx.fillStyle = VIG; ctx.fillRect(0,0,W,H);
 
-  if (grain){
+  if (grain && !PERF.lite){
     ctx.globalAlpha = 0.035;
     ctx.globalCompositeOperation = 'overlay';
     ctx.fillStyle = ctx.createPattern(grain, 'repeat');
@@ -1279,7 +1315,7 @@ function render(){
 
 /* ---------------------------  LOOP  --------------------------- */
 const DT = 1/120;
-let acc = 0, last = 0, raf = 0, hudTick = 0;
+let acc = 0, last = 0, raf = 0, hudTick = 0, lastPaint = 0;
 
 function update(dt){
   S.time += dt*1000;
@@ -1328,9 +1364,21 @@ function frame(now){
   let dt = (now - last)/1000; last = now;
   if (!(dt > 0)) dt = DT;
   if (dt > 0.25) dt = 0.25;
+  // Auto-Lite: laeuft das Geraet dauerhaft unter ~40fps, einmalig
+  // auf das sparsame Tier umschalten (deckelt auch DPR via resize)
+  PERF.frames++;
+  PERF.emaDt = lerp(PERF.emaDt, dt, 0.04);
+  if (!PERF.lite && PERF.frames > 120 && PERF.emaDt > 0.024) setLite();
   acc += dt;
   let guard = 0;
   while (acc >= DT && guard++ < 16){ update(DT); acc -= DT; }
+  if (guard >= 16) acc = 0;   // kein Update-Stau auf langsamen Geraeten
+  // Lite-Tier: Render auf ~60fps deckeln (Logik laeuft weiter).
+  // Spart auf 90/120-Hz-Handys fast die Haelfte der GPU-Arbeit.
+  if (PERF.lite){
+    if (now - lastPaint < 15) return;
+    lastPaint = now;
+  }
   render();
 }
 
