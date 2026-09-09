@@ -19,6 +19,7 @@ export default function MobileDraftSwitch() {
   if (!groups.length) return null
 
   const current = (availableDrafts || []).find((d) => String(d.draft_id) === String(selectedDraftId))
+  const currentLabel = current ? draftLabel(current, availableLeagues, cardNicknames) : 'Draft'
 
   function pick(d) {
     // Der Draft bestimmt die Liga mit: ein Mock hat league_id null, sonst
@@ -34,13 +35,16 @@ export default function MobileDraftSwitch() {
         type="button"
         className="btn btn-ghost btn-sm mob-draft-switch"
         onClick={() => setOpen(true)}
-        title="Draft wechseln"
-        aria-label="Draft wechseln"
+        title={currentLabel}
+        aria-label={`Draft wechseln, aktuell: ${currentLabel}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        <Icon name="shuffle" size={16} />
-        <span className="mob-draft-switch-label">
-          {current ? draftLabel(current, availableLeagues, cardNicknames) : 'Draft'}
+        <Icon name="swap" size={15} />
+        <span className="mob-draft-switch-label" title={currentLabel}>
+          {currentLabel}
         </span>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} />
       </button>
 
       <div className={cx('board-sheet-scrim', open && 'is-open')} onClick={() => setOpen(false)} />

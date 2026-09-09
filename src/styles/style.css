@@ -2941,12 +2941,18 @@ th.col-pick, td.col-pick { width: 64px; }
   /* Die neue Oberflaeche ist ein Desktop-Layout — der Umschalter dorthin
      gehoert nicht auf ein Geraet, das sie gar nicht anzeigen kann. */
   .topbar-shell-switch { display: none; }
-  /* Schnellwechsel: auf dem Handy nur das Symbol plus, wenn Platz ist, ein
-     gekuerzter Draft-Name. */
-  /* Nur das Symbol: der Draft-Name passt neben Brand, Theme und
-     Einstellungen nicht mehr in 375px — die Leiste lief sonst ueber. */
-  .mob-draft-switch { display: inline-flex; }
-  .mob-draft-switch-label { display: none; }
+  /* Schnellwechsel: Pille aus Symbol + gekuerztem Liga-Namen (Nickname zuerst,
+     siehe draftLabel) — der ganze Button oeffnet das Bottom-Sheet. */
+  .mob-draft-switch { display: inline-flex; align-items: center; min-width: 0; max-width: 46vw; overflow: hidden; }
+  .mob-draft-switch-label {
+    display: block; min-width: 0; max-width: 30vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 600;
+  }
+  /* Brand gibt nach, damit die Liga-Pille auf 375px nicht umbricht. */
+  .topbar .brand { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+  .topbar .brand b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions { min-width: 0; }
   /* Brand-Zusatz weicht, damit die Aktionen rechts Platz haben. */
   .topbar .brand small { display: none; }
   .topbar { padding: 0 10px; gap: 8px; }
