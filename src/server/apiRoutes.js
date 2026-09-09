@@ -10,7 +10,8 @@ import {
   FFC_FORMATS, normalizeFfcPlayer, isDynastyFromQuery,
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
   SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
-  fantasyProsPositionUrl, extractEmbeddedJson, normalizeKtcPlayer,
+  fantasyProsPositionUrl, extractEmbeddedJson, normalizeKtcPlayer, sleeperWeekProjectionsUrl,
+  normalizeSleeperWeekPlayer,
 } from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
@@ -398,6 +399,38 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         },
         players,
       })
+    } catch (e) {
+      res.status(502).json({ ok: false, error: e?.message || 'Sleeper nicht erreichbar' })
+    }
+  })
+
+  // ---------- Rankings: Sleeper Wochen-Projektionen (Redraft Pkt-Spalte) ----------
+  // Ein Request pro Woche (alle Positionen), 6h Cache wie die FP-Week-Rankings.
+  // Auswahl des Formats (pts_ppr/half/std) trifft der Client anhand seines
+  // Liga-Formats. Schluessel ist die Sleeper-ID (direkter Match auf Kader und
+  // Free Agents, kein Name-Matching).
+  const sleeperWeekCache = new Map() // "season/week" -> { at, meta, players }
+  app.get('/api/rankings/sleeper-projections-week', async (req, res) => {
+    const season = parseInt(req.query.season) || new Date().getFullYear()
+    const week = parseInt(req.query.week) || 1
+    if (week < 1 || week > 18) return res.status(400).json({ ok: false, error: `Ungueltige Woche: ${req.query.week}` })
+    const cacheKey = `${season}/${week}`
+    const cached = sleeperWeekCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
+    const url = sleeperWeekProjectionsUrl(season, week)
+    try {
+      const upstream = await fetch(url)
+      if (!upstream.ok) return res.status(502).json({ ok: false, error: `Sleeper antwortete mit ${upstream.status}` })
+      const json = await upstream.json()
+      if (!Array.isArray(json)) {
+        return res.status(502).json({ ok: false, error: 'Sleeper lieferte keine verwertbaren Daten' })
+      }
+      const players = json.map(normalizeSleeperWeekPlayer).filter((p) => p.sleeper_id)
+      const meta = { source: 'sleeper', provider: 'rotowire', season, week, fetched_at: new Date().toISOString() }
+      sleeperWeekCache.set(cacheKey, { at: Date.now(), meta, players })
+      res.json({ ok: true, meta, players })
     } catch (e) {
       res.status(502).json({ ok: false, error: e?.message || 'Sleeper nicht erreichbar' })
     }

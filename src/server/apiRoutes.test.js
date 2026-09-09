@@ -348,3 +348,53 @@ describe('pickToolInput — mehrere tool_use-Bloecke', () => {
     expect(pickToolInput(null, 'return_draft_advice')).toBeNull()
   })
 })
+
+describe('GET /api/rankings/sleeper-projections-week', () => {
+  function getWeekHandler() {
+    let handler
+    registerApiRoutes(
+      { get: (p, h) => { if (p === '/api/rankings/sleeper-projections-week') handler = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handler
+  }
+
+  function makeWeekRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  afterEach(() => {
+    delete global.fetch
+  })
+
+  it('liefert Wochenpunkte je Sleeper-ID', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ([
+        { player_id: 4881, team: 'BAL', opponent: 'IND', player: { fantasy_positions: ['QB'], team: 'BAL' }, stats: { pts_ppr: 19.5, pts_half_ppr: 19.0, pts_std: 18.5 } },
+        { player_id: 'SEA', team: 'SEA', opponent: 'SF', player: { fantasy_positions: ['DEF'], team: 'SEA' }, stats: { pts_ppr: 7.8, pts_half_ppr: 7.8, pts_std: 7.8 } },
+      ]),
+    })
+
+    const handler = getWeekHandler()
+    const res = makeWeekRes()
+    await handler({ query: { season: '2026', week: '1' } }, res)
+
+    expect(res.body.ok).toBe(true)
+    expect(res.body.players[0]).toMatchObject({ sleeper_id: '4881', pos: 'QB', pts_ppr: 19.5 })
+    expect(res.body.players[1]).toMatchObject({ sleeper_id: 'SEA', pos: 'DEF', pts_std: 7.8 })
+    expect(global.fetch).toHaveBeenCalledWith('https://api.sleeper.com/projections/nfl/2026/1?season_type=regular&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=WR&position%5B%5D=TE&position%5B%5D=DEF')
+  })
+
+  it('lehnt ungueltige Woche ab', async () => {
+    const handler = getWeekHandler()
+    const res = makeWeekRes()
+    await handler({ query: { season: '2026', week: '99' } }, res)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body.ok).toBe(false)
+  })
+})

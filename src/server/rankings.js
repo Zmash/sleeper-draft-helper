@@ -77,6 +77,32 @@ export function normalizeSleeperAdpPlayer(raw, adpField = 'adp_ppr') {
   }
 }
 
+// ---------- Sleeper Wochen-Projektionen (Pkt-Spalte im Redraft) ----------
+// Bulk-Endpoint mit {season}/{week}-Pfad (live verifiziert 2026-09-08): ein
+// Request liefert alle Skill-Positionen + DEF inkl. vorberechneter Punkte
+// (pts_ppr/half/std, RotoWire-Basis). Schluessel ist die native Sleeper-ID
+// (numerisch bzw. Teamkuerzel bei DEF) -- kein Name-Matching noetig.
+const SLEEPER_WEEK_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DEF']
+
+export function sleeperWeekProjectionsUrl(season, week) {
+  const positions = SLEEPER_WEEK_POSITIONS.map((p) => `position%5B%5D=${p}`).join('&')
+  return `https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular&${positions}`
+}
+
+export function normalizeSleeperWeekPlayer(raw) {
+  const p = raw?.player || {}
+  return {
+    sleeper_id: String(raw?.player_id ?? ''),
+    pos: normalizeFfcPos(p?.fantasy_positions?.[0] || p?.position),
+    team: raw?.team || p?.team || '',
+    opponent: raw?.opponent || null,
+    pts_ppr: toFiniteOrNull(raw?.stats?.pts_ppr),
+    pts_half_ppr: toFiniteOrNull(raw?.stats?.pts_half_ppr),
+    pts_std: toFiniteOrNull(raw?.stats?.pts_std),
+  }
+}
+
+
 // ---------- FantasyPros Consensus-Rankings (Redraft, gescraped) ----------
 // Der oeffentliche API-Key ist auf 10 Spieler/Position limitiert. Die
 // Cheatsheet-Seiten betten dagegen die vollstaendige Rangliste als
@@ -165,11 +191,11 @@ export function extractEcrData(html) {
 // Dynasty/Alter gibt es hier nicht.
 export function normalizeFantasyProsPlayer(raw) {
   const name = raw?.player_name || ''
-  const ecr = Number(raw?.rank_ecr)
-  const fantasyPts = Number(raw?.fantasy_pts)
+  const ecr = toFiniteOrNull(raw?.rank_ecr)
+  const fantasyPts = toFiniteOrNull(raw?.fantasy_pts)
   return {
     rk: String(raw?.rank_ecr ?? ''),
-    ecr: Number.isFinite(ecr) ? ecr : null,
+    ecr,
     tier: raw?.tier ?? '',
     name,
     team: raw?.player_team_id || '',
@@ -185,7 +211,7 @@ export function normalizeFantasyProsPlayer(raw) {
     years_exp: null,
     nname: normalizePlayerName(name),
     // Nur auf Weekly-Seiten vorhanden (nicht ROS/Cheatsheet) -- dort bleibt's null.
-    fantasy_pts: Number.isFinite(fantasyPts) ? fantasyPts : null,
+    fantasy_pts: fantasyPts,
     opponent: raw?.player_opponent || null,
     // Experten-Panel-Streuung: wie uneins sich FantasyPros' Analysten beim
     // Gesamtrang sind -- unabhaengig von der FFC-Mock-Draft-Streuung (die

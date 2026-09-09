@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   FFC_FORMATS, normalizeFfcPos, normalizeFfcPlayer, isDynastyFromQuery,
   extractEcrData, extractEmbeddedJson, normalizeFantasyProsPlayer, FP_POSITIONS, FP_SCORING_URLS,
-  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer, normalizeKtcPlayer, fantasyProsPositionUrl,
+  SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer, normalizeKtcPlayer, fantasyProsPositionUrl, sleeperWeekProjectionsUrl,
+  normalizeSleeperWeekPlayer,
 } from './rankings'
 import { normalizePlayerName } from '../utils/formatting'
 
@@ -273,5 +274,30 @@ describe('normalizeFantasyProsPlayer mit Weekly-Feldern', () => {
     const out = normalizeFantasyProsPlayer(raw)
     expect(out.fantasy_pts).toBeNull()
     expect(out.opponent).toBeNull()
+  })
+
+  it('leere Strings werden zu null statt 0 (Number-Str-Falle)', () => {
+    const raw = { player_name: 'Third Stringer', rank_ecr: '', player_team_id: 'NYJ', player_position_id: 'QB', fantasy_pts: '' }
+    const out = normalizeFantasyProsPlayer(raw)
+    expect(out.ecr).toBeNull()
+    expect(out.fantasy_pts).toBeNull()
+  })
+})
+
+describe('Sleeper Wochen-Projektionen', () => {
+  it('URL mit Season/Week-Pfad und allen Waiver-Positionen', () => {
+    expect(sleeperWeekProjectionsUrl(2026, 1)).toBe('https://api.sleeper.com/projections/nfl/2026/1?season_type=regular&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=WR&position%5B%5D=TE&position%5B%5D=DEF')
+  })
+
+  it('normalisiert Skill-Spieler und DEF (Sleeper-ID als Schluessel)', () => {
+    const qb = normalizeSleeperWeekPlayer({ player_id: 4881, team: 'BAL', opponent: 'IND', player: { fantasy_positions: ['QB'], team: 'BAL' }, stats: { pts_ppr: 19.5, pts_half_ppr: 19.0, pts_std: 18.5 } })
+    expect(qb).toEqual({ sleeper_id: '4881', pos: 'QB', team: 'BAL', opponent: 'IND', pts_ppr: 19.5, pts_half_ppr: 19.0, pts_std: 18.5 })
+    const def = normalizeSleeperWeekPlayer({ player_id: 'SEA', team: 'SEA', opponent: 'SF', player: { fantasy_positions: ['DEF'], team: 'SEA' }, stats: { pts_ppr: 7.8, pts_half_ppr: 7.8, pts_std: 7.8 } })
+    expect(def.sleeper_id).toBe('SEA')
+    expect(def.pos).toBe('DEF')
+  })
+
+  it('fehlende stats werden null (keine 0)', () => {
+    expect(normalizeSleeperWeekPlayer({ player_id: 1, player: {}, stats: {} }).pts_ppr).toBeNull()
   })
 })
