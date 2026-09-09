@@ -2924,6 +2924,12 @@ th.col-pick, td.col-pick { width: 64px; }
      Kante. Die Trennung machen Ober-/Unterkante, nicht ein Rahmen mit
      Luft drumherum. */
   .wrap:not(.row) { padding: 0 0 16px; }
+  /* Reiner Text ausserhalb der Karten (Dashboard-/Trade-Kopfzeilen) klebt im
+     randlosen Mobil-Layout sonst an der Kante -- minimaler Seitenabstand wie
+     bei .an-head (analysis.css). Karten bleiben bewusst randlos. */
+  .dashboard-header,
+  .dashboard-refresh-hint,
+  .trade-page-header { padding-inline: 12px; }
   .card {
     padding: 10px 11px;
     border-left: 0;

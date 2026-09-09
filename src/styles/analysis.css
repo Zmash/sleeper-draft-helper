@@ -523,3 +523,14 @@
 
 /* Alten Sleeper-Link entfernen -- er wird durch den CTA-Button ersetzt. */
 .an-sleeper-link { display: none; }
+
+/* Mobil ist die Shell bewusst randlos (.wrap-Padding 0, .an-page ohne Padding
+   unter 900px) -- Karten tragen ihr eigenes Innen-Padding, reiner Text ausser-
+   halb der Karten (z.B. .an-head "Lineup / Redraft · Woche 1") klebt sonst
+   direkt an der Bildschirmkante. Minimaler Seitenabstand nur fuer diese
+   Text-Zeilen; padding statt margin, damit die Trennlinie weiterhin von Kante
+   zu Kante laeuft. */
+@media (max-width: 560px) {
+  .an-head,
+  .an-tabs { padding-inline: 12px; }
+}
