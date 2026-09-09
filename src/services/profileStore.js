@@ -22,10 +22,11 @@ function newId() {
     : `prof_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function newProfile({ name, boundLeagueId = null, fingerprint = null } = {}) {
+export function newProfile({ name, boundLeagueId = null, fingerprint = null, mode = null } = {}) {
   const now = new Date().toISOString()
+  const effMode = mode || fingerprint?.draftMode || 'redraft'
   return {
-    id: newId(), name, boundLeagueId, fingerprint,
+    id: newId(), name, boundLeagueId, fingerprint, mode: effMode,
     overrides: { ...EMPTY_OVERRIDES },
     strategy: { ...EMPTY_STRATEGY },
     createdAt: now, updatedAt: now,
@@ -112,10 +113,18 @@ export function deleteProfile(id) {
   saveProfiles(loadProfiles().filter(p => p.id !== id))
 }
 
-export function createBlankProfile(name) {
-  const created = newProfile({ name: String(name || 'Neues Profil').trim() || 'Neues Profil' })
+export function createBlankProfile(name, mode = 'redraft') {
+  const created = newProfile({ name: String(name || 'Neues Profil').trim() || 'Neues Profil', mode })
   saveProfiles([...loadProfiles(), created])
   return created
+}
+
+// Speichert ein (ggf. synthetisches) Profil unveraendert — rein speichern,
+// keine Overrides anfassen. StrictMode-sicher, weil nur auf expliziten
+// Button-Klick aufgerufen, nie aus useMemo/render heraus.
+export function persistProfile(profile) {
+  if (!profile || !profile.id) throw new Error('Kein Profil zum Speichern')
+  return upsertProfile({ ...profile, updatedAt: new Date().toISOString() })
 }
 
 // leagueId gesetzt -> Liga-Bindung (vorherigem Halter wird die Bindung entzogen,
@@ -125,16 +134,17 @@ export function createBlankProfile(name) {
 // Fingerprints die Bindung entzogen -- sonst haben nach einem Rebind zwei
 // Profile denselben Fingerprint und pickProfile()'s Tie-Break-by-updatedAt
 // kann den Draft spaeter wieder ans alte Profil zurueckreissen.
-export function rebindProfile(id, { leagueId = null, fingerprint = null } = {}) {
+export function rebindProfile(id, { leagueId = null, fingerprint = null, mode = null } = {}) {
   let profiles = loadProfiles()
+  const effMode = mode || fingerprint?.draftMode || 'redraft'
   if (leagueId) {
-    profiles = profiles.map(p => (p.boundLeagueId === leagueId && p.id !== id ? { ...p, boundLeagueId: null } : p))
+    profiles = profiles.map(p => (p.boundLeagueId === leagueId && (p.mode == null || p.mode === effMode) && p.id !== id ? { ...p, boundLeagueId: null } : p))
   } else if (fingerprint) {
     const fpKey = JSON.stringify(fingerprint)
     profiles = profiles.map(p => (p.id !== id && p.fingerprint && JSON.stringify(p.fingerprint) === fpKey ? { ...p, fingerprint: null } : p))
   }
   profiles = profiles.map(p => (p.id === id
-    ? { ...p, boundLeagueId: leagueId || null, fingerprint: leagueId ? null : (fingerprint || null), updatedAt: new Date().toISOString() }
+    ? { ...p, boundLeagueId: leagueId || null, fingerprint: leagueId ? null : (fingerprint || null), mode: leagueId ? effMode : (fingerprint?.draftMode || p.mode || 'redraft'), updatedAt: new Date().toISOString() }
     : p))
   saveProfiles(profiles)
   return profiles.find(p => p.id === id) || null
@@ -166,11 +176,37 @@ export function migrateLegacyProfile() {
   } catch {}
 
   if (!legacyOverrides && !legacyStrategy) return
+  const base = { ...EMPTY_OVERRIDES, ...legacyOverrides }
+  const mk = (mode, name) => {
+    const p = newProfile({ name, mode })
+    p.overrides = { ...base }
+    if (legacyStrategy) p.strategy = legacyStrategy
+    return p
+  }
+  saveProfiles([mk('redraft', 'Migriert (Redraft)'), mk('rookie', 'Migriert (Rookie)')])
+}
 
-  const migrated = newProfile({ name: 'Migriert' })
-  if (legacyOverrides) migrated.overrides = { ...EMPTY_OVERRIDES, ...legacyOverrides }
-  if (legacyStrategy) migrated.strategy = legacyStrategy
-  saveProfiles([migrated])
+// Altbestand ohne mode heilen (idempotent):
+export function migrateProfilesToMode() {
+  const profiles = loadProfiles()
+  if (!profiles.length) return { migrated: 0 }
+  const lone = profiles.length === 1 && profiles[0].name === 'Migriert'
+    && !profiles[0].boundLeagueId && !profiles[0].fingerprint && (profiles[0].mode == null)
+  if (lone) {
+    const src = profiles[0]
+    const now = new Date().toISOString()
+    const mkCopy = (mode, name) => ({ ...src, id: `${src.id}-${mode}`, name, mode, createdAt: src.createdAt, updatedAt: now })
+    saveProfiles([mkCopy('redraft', 'Migriert (Redraft)'), mkCopy('rookie', 'Migriert (Rookie)')])
+    return { migrated: 2 }
+  }
+  let n = 0
+  const next = profiles.map(p => {
+    if (p.mode === 'redraft' || p.mode === 'rookie') return p
+    n += 1
+    return { ...p, mode: p.fingerprint?.draftMode || 'redraft', updatedAt: p.updatedAt }
+  })
+  if (n) saveProfiles(next)
+  return { migrated: n }
 }
 
 function fingerprintLabel(fp) {
@@ -206,9 +242,9 @@ export function resolveProfile({ draft = null, league = null, draftMode = 'redra
   const standalone = isStandaloneDraft(draft)
 
   if (league?.league_id && !standalone) {
-    const existing = profiles.find(p => p.boundLeagueId === league.league_id)
+    const existing = profiles.find(p => p.boundLeagueId === league.league_id && (p.mode == null || p.mode === draftMode))
     if (existing) return { profile: existing, deviations: [], isNew: false }
-    return { profile: newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id }), deviations: [], isNew: true }
+    return { profile: newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id, mode: draftMode }), deviations: [], isNew: true }
   }
 
   const fp = computeDetectedFingerprint({ draft, league, draftMode })

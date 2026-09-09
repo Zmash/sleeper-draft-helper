@@ -40,9 +40,11 @@ export default function RecommendedLineupCard({
           <span>Pos</span>
           <span>Spieler</span>
           <span>Team</span>
-          <span className="an-num">Woche</span>
-          {ptsLoaded && <span className="an-num">Pkt</span>}
-          {altLoaded && <span className="an-num an-num-dim">{altLabel}</span>}
+          <span className="an-num" title="FantasyPros-Wochenrang – kleiner ist besser">Rang<span className="an-col-sub">Woche</span></span>
+          {ptsLoaded && <span className="an-num" title="Sleeper-Wochenprojektion in Punkten – größer ist besser">Pkt</span>}
+          {altLoaded && (altKind === 'rank'
+            ? <span className="an-num an-num-dim" title="FantasyPros-Rest-der-Saison-Rang – kleiner ist besser">Rang<span className="an-col-sub">{altLabel}</span></span>
+            : <span className="an-num an-num-dim" title="KeepTradeCut-Dynastiewert – größer ist besser">{altLabel}</span>)}
         </div>
       )}
       <div className="an-lineup-list">

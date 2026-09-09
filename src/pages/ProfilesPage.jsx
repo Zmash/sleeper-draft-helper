@@ -83,6 +83,7 @@ export default function ProfilesPage() {
             <Icon name={profile.boundLeagueId ? 'anchor' : 'shuffle'} size={16} label={profile.boundLeagueId ? 'Liga-gebunden' : 'Format-gebunden'} />
             <strong>{profile.name}</strong>
             <span className="badge badge--neutral">{formatSummary(profile)}</span>
+            <span className="badge badge--neutral">{profile.mode === 'rookie' ? 'Rookie' : 'Redraft'}</span>
             <span className="muted text-xs">zuletzt geändert: {new Date(profile.updatedAt).toLocaleDateString('de-DE')}</span>
           </div>
           <div className="row profile-badge-actions">
@@ -116,7 +117,7 @@ export default function ProfilesPage() {
                 rosterPositions: profile.overrides.roster_positions ?? FORMAT_DEFAULTS.rosterPositions,
               }}
               season={String(new Date().getFullYear())}
-              draftMode={profile.fingerprint?.draftMode || 'redraft'}
+              draftMode={profile.mode || profile.fingerprint?.draftMode || 'redraft'}
               onProfileChange={refresh}
             />
           )}

@@ -38,7 +38,7 @@ function deviationsBetween(profileFp, fp) {
 export function pickProfile(profiles, fp) {
   if (!Array.isArray(profiles) || !profiles.length || !fp) return null
 
-  const wildcards = profiles.filter(p => !p?.fingerprint)
+  const wildcards = profiles.filter(p => !p?.fingerprint && (p?.mode == null || p.mode === fp.draftMode))
   const matches = profiles.filter(p => {
     const f = p?.fingerprint
     if (!f) return false

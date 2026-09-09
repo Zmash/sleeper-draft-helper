@@ -1,0 +1,330 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme-Vorschläge · Sleeper Draft Helper</title>
+<style>
+  /* ============ Galerie-Shell (neutral, nicht Teil der Vorschläge) ============ */
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: #17181a; color: #d7d9dd; font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 48px 32px 96px; }
+  .intro h1 { font-size: 26px; font-weight: 650; color: #f2f3f5; letter-spacing: -0.01em; }
+  .intro p { color: #9a9ea6; max-width: 72ch; margin-top: 8px; }
+  .proposal { margin-top: 72px; }
+  .proposal > header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid #2a2c30; padding-bottom: 14px; }
+  .proposal > header h2 { font-size: 21px; color: #f2f3f5; font-weight: 650; }
+  .proposal > header .tag { font-size: 12px; color: #17181a; background: #d7d9dd; padding: 2px 8px; border-radius: 2px; font-weight: 600; }
+  .proposal .why { color: #9a9ea6; max-width: 78ch; margin: 12px 0 6px; }
+  .specrow { display: flex; gap: 24px; flex-wrap: wrap; margin: 10px 0 26px; font-size: 13px; color: #85888f; }
+  .specrow b { color: #c4c7cc; font-weight: 600; }
+  .frames { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .frame { border: 1px solid #2e3034; border-radius: 6px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .frame-label { font-size: 12px; color: #85888f; margin-bottom: 8px; text-transform: none; }
+  .desktop { flex: 1 1 700px; min-width: 640px; max-width: 860px; }
+  .mobile  { flex: 0 0 375px; width: 375px; }
+  @media (max-width: 760px){ .desktop{ min-width: 0; } .wrap{ padding: 32px 14px 64px; } }
+
+  /* ============ Gemeinsame Mock-Struktur (per Theme via Variablen + Overrides) ============ */
+  .app { background: var(--bg); color: var(--txt); font-family: var(--font); font-size: 13.5px; }
+  .app .top { display:flex; align-items:center; gap:16px; padding: 0 18px; height: 48px; background: var(--nav); border-bottom: 1px solid var(--bd); }
+  .app .brand { font-weight: 700; letter-spacing: .01em; color: var(--txt); }
+  .app .tabs { display:flex; gap: 2px; margin-left: 8px; height: 100%; }
+  .app .tab { display:flex; align-items:center; padding: 0 13px; color: var(--mut); border-bottom: 2px solid transparent; font-weight: 500; }
+  .app .tab.on { color: var(--txt); border-bottom-color: var(--acc); }
+  .app .top .right { margin-left:auto; display:flex; gap:10px; align-items:center; color: var(--mut); font-size: 12.5px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:#ff3b47; display:inline-block; }
+
+  .clock { display:flex; align-items:center; gap:18px; padding: 12px 18px; background: var(--clockbg); border-bottom: 1px solid var(--bd); }
+  .clock .pick { font-family: var(--font-m); font-size: 12px; color: var(--mut); }
+  .clock .who { font-size: 17px; font-weight: 700; color: var(--clocktxt); letter-spacing: -0.01em; }
+  .clock .until { margin-left:auto; text-align:right; }
+  .clock .until .n { font-family: var(--font-m); font-size: 20px; font-weight: 700; color: var(--acc-t); }
+  .clock .until .l { font-size: 11px; color: var(--mut); }
+
+  .toolbar { display:flex; gap:8px; align-items:center; padding: 10px 18px; border-bottom: 1px solid var(--bd-s); flex-wrap: wrap; }
+  .search { flex: 0 1 240px; display:flex; align-items:center; padding: 7px 11px; background: var(--field); border: 1px solid var(--bd); border-radius: var(--r-ctl); color: var(--dim); }
+  .chip { padding: 6px 11px; border: 1px solid var(--bd); border-radius: var(--r-ctl); color: var(--mut); font-weight: 500; font-size: 12.5px; background: transparent; }
+  .chip.on { background: var(--acc); color: var(--acc-on); border-color: var(--acc); font-weight: 600; }
+  .toolbar .sync { margin-left:auto; display:flex; gap:8px; align-items:center; color: var(--mut); font-size: 12px; }
+
+  .cols { display:flex; }
+  .main { flex: 1 1 auto; min-width: 0; }
+  .rail { flex: 0 0 218px; border-left: 1px solid var(--bd-s); padding: 14px; }
+  .rail h4 { font-size: 12px; color: var(--mut); font-weight: 600; margin-bottom: 10px; }
+  .tip { padding: 9px 10px; background: var(--card); border: 1px solid var(--bd-s); border-radius: var(--r-card); margin-bottom: 8px; font-size: 12.5px; color: var(--txt); }
+  .tip .t { color: var(--mut); font-size: 11px; margin-top: 3px; }
+
+  table.board { width: 100%; border-collapse: collapse; }
+  .board th { text-align:left; font-size: 11px; font-weight: 600; color: var(--dim); padding: 9px 10px 7px; border-bottom: 1px solid var(--bd); letter-spacing: .02em; }
+  .board td { padding: 0 10px; height: var(--rowh); border-bottom: 1px solid var(--bd-s); white-space: nowrap; }
+  .board .rk { font-family: var(--font-m); color: var(--dim); width: 34px; font-size: 12px; }
+  .board .nm { font-weight: 600; color: var(--txt); }
+  .board .tm, .board .bye { color: var(--mut); font-size: 12.5px; }
+  .board .adp { font-family: var(--font-m); font-variant-numeric: tabular-nums; color: var(--mut); font-size: 12.5px; }
+  .pos { display:inline-block; min-width: 30px; text-align:center; font-size: 11px; font-weight: 700; padding: 2.5px 0; border-radius: var(--r-ctl); color:#fff; }
+  .pos.rb{background:#1f9e50}.pos.wr{background:#2b7fc4}.pos.qb{background:#cf3d55}.pos.te{background:#cd7d22}
+  tr.gone td { opacity:.38; } tr.gone .nm { text-decoration: line-through; text-decoration-thickness: 1px; }
+  tr.fav .nm::after { content:"★"; color: var(--acc-t); margin-left: 7px; font-size: 11px; }
+  tr.tier td { height: 26px; background: var(--tierbg); color: var(--mut); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; border-bottom: 1px solid var(--bd); }
+
+  /* Mobile */
+  .m .top { height: 44px; padding: 0 14px; }
+  .m .clock { padding: 10px 14px; }
+  .m .clock .who { font-size: 15px; }
+  .m .list .row { display:flex; align-items:center; gap:10px; padding: 0 14px; height: calc(var(--rowh) + 6px); border-bottom: 1px solid var(--bd-s); }
+  .m .row .rk { font-family: var(--font-m); color: var(--dim); width: 22px; font-size: 12px; }
+  .m .row .who2 { min-width:0; flex:1; }
+  .m .row .nm { font-weight:600; color: var(--txt); overflow:hidden; text-overflow:ellipsis; }
+  .m .row .sub { font-size: 11.5px; color: var(--mut); margin-top: 1px; }
+  .m .row .adp { font-family: var(--font-m); color: var(--mut); font-size: 12px; }
+  .m .bottom { display:flex; border-top: 1px solid var(--bd); background: var(--nav); }
+  .m .bottom a { flex:1; text-align:center; padding: 10px 0 12px; font-size: 11px; color: var(--mut); font-weight: 500; }
+  .m .bottom a.on { color: var(--acc-t); }
+  .m .bottom .ico { display:block; font-size: 15px; margin-bottom: 2px; }
+  .m .toolbar { padding: 8px 14px; }
+
+  /* ================= 1 · LEDGER — Editorial Ink ================= */
+  .p1 { --bg:#141210; --nav:#141210; --card:#1c1916; --field:#1c1916;
+        --bd:#332e28; --bd-s:#262220; --txt:#ece7df; --mut:#a89f92; --dim:#7a7268;
+        --acc:#ff6a3d; --acc-on:#1c0e06; --acc-t:#ff8a5c;
+        --clockbg:#141210; --clocktxt:#ece7df; --tierbg:#191613;
+        --r-ctl:0px; --r-card:0px; --rowh:41px;
+        --font: Georgia, "Times New Roman", serif;
+        --font-m: Consolas, "JetBrains Mono", monospace; }
+  .p1 .app .tab, .p1 .chip, .p1 .board th, .p1 .rail h4, .p1 .toolbar, .p1 .clock .pick,
+  .p1 .m .bottom a, .p1 .m .row .sub, .p1 .tip .t
+      { font-family: "Segoe UI", system-ui, sans-serif; }
+  .p1 .clock { border-bottom: 3px double var(--bd); padding: 16px 18px; }
+  .p1 .clock .who { font-size: 22px; font-weight: 700; font-style: italic; }
+  .p1 .board .nm { font-size: 14.5px; font-weight: 400; }
+  .p1 tr.tier td { background: none; border-top: 1px solid var(--bd); font-family: "Segoe UI", sans-serif; }
+  .p1 .pos { background: none !important; border: 1px solid var(--bd); color: var(--mut); font-family: "Segoe UI", sans-serif; }
+  .p1 .pos.rb{ color:#7fd39e; border-color:#2c4636 } .p1 .pos.wr{ color:#8fbde8; border-color:#2b3d50 }
+  .p1 .pos.qb{ color:#ef8fa0; border-color:#4d2b32 } .p1 .pos.te{ color:#e8b26e; border-color:#4a3a24 }
+  .p1 .tip { border: none; border-top: 1px solid var(--bd-s); background:none; padding: 9px 0; }
+  .p1 .brand { font-style: italic; }
+
+  /* ================= 2 · CONSOLE — Monochrome Ops ================= */
+  .p2 { --bg:#0b0c0d; --nav:#0b0c0d; --card:#121315; --field:#121315;
+        --bd:#26282b; --bd-s:#1a1c1e; --txt:#e8eaec; --mut:#8b9096; --dim:#5c6167;
+        --acc:#e8eaec; --acc-on:#0b0c0d; --acc-t:#e8eaec;
+        --clockbg:#e8eaec; --clocktxt:#0b0c0d; --tierbg:#101113;
+        --r-ctl:0px; --r-card:0px; --rowh:34px;
+        --font: "Segoe UI", system-ui, sans-serif;
+        --font-m: Consolas, "JetBrains Mono", monospace; }
+  .p2 .app { font-size: 13px; }
+  .p2 .clock .pick, .p2 .clock .until .l { color: #55585c; }
+  .p2 .clock .until .n { color: #0b0c0d; }
+  .p2 .clock .who { text-transform: uppercase; letter-spacing: .04em; font-size: 15px; }
+  .p2 .board .nm { font-weight: 500; }
+  .p2 .board th { text-transform: uppercase; font-family: var(--font-m); font-size: 10px; }
+  .p2 .pos { background: none !important; color: var(--txt); font-family: var(--font-m); border: none; min-width: 0; padding: 0; }
+  .p2 .pos::before { content:"·"; margin-right: 5px; }
+  .p2 .pos.rb::before{ color:#3fbf72 } .p2 .pos.wr::before{ color:#4a9be0 }
+  .p2 .pos.qb::before{ color:#ef5c74 } .p2 .pos.te::before{ color:#e09a3f }
+  .p2 tr.hot td { background: var(--txt); }
+  .p2 tr.hot .nm, .p2 tr.hot .tm, .p2 tr.hot .bye, .p2 tr.hot .adp, .p2 tr.hot .rk, .p2 tr.hot .pos { color: var(--bg) !important; }
+  .p2 tr.tier td { text-transform: uppercase; font-family: var(--font-m); }
+  .p2 .chip.on { font-weight: 700; }
+  .p2 .rail .tip { border: 1px solid var(--bd-s); }
+  .p2 .m .bottom a.on { color: var(--txt); }
+
+  /* ================= 3 · TURF — Product Dark ================= */
+  .p3 { --bg:#101216; --nav:#14171c; --card:#181b21; --field:#181b21;
+        --bd:#262a32; --bd-s:#1e2228; --txt:#e6e9ee; --mut:#98a0ad; --dim:#6a7280;
+        --acc:#35c563; --acc-on:#06180c; --acc-t:#4ed67c;
+        --clockbg:#14171c; --clocktxt:#e6e9ee; --tierbg:#14171c;
+        --r-ctl:4px; --r-card:6px; --rowh:40px;
+        --font: "Segoe UI", system-ui, sans-serif;
+        --font-m: Consolas, "JetBrains Mono", monospace; }
+  .p3 .clock { background: linear-gradient(90deg, #14171c, #14171c 60%, #16241b); }
+  .p3 .clock .until .n { color: var(--acc-t); }
+  .p3 .board { border-spacing: 0; }
+  .p3 .board td { border-bottom-color: transparent; }
+  .p3 .board tr:not(.tier):nth-child(even) td { background: #14161b; }
+  .p3 tr.tier td { color: var(--dim); background: none; border-bottom: 1px solid var(--bd-s); }
+  .p3 .pos { border-radius: 4px; font-size: 10.5px; }
+  .p3 .pos.rb{background:#1d7a42}.p3 .pos.wr{background:#245f92}.p3 .pos.qb{background:#a33347}.p3 .pos.te{background:#96601f}
+  .p3 .tip { box-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  .p3 .chip { background: var(--card); border-color: transparent; }
+  .p3 .chip.on { background: var(--acc); }
+  .p3 .m .bottom { padding-bottom: 4px; }
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Drei Theme-Vorschläge — vollständige Systeme, nicht nur Farbwechsel</h1>
+    <p>Jeder Vorschlag ändert Typografie, Dichte, Radien und Flächenlogik. Alle drei würden als eigene Einträge neben den Broadcast-Varianten in der Theme-Registry stehen. Fonts sind hier per System-Stack angenähert — die echten Fonts stehen jeweils in der Spezifikation.</p>
+  </div>
+
+  <!-- ============================================================ 1 · LEDGER -->
+  <section class="proposal">
+    <header><span class="tag">1</span><h2>Ledger — Editorial Ink</h2></header>
+    <p class="why">Sportteil einer Abendzeitung: warmes Tintenschwarz, Serifen für Namen und Schlagzeile, Doppellinien statt Karten, Positionen als dezente Umrandungen statt Farbblöcke. Ruhigstes der drei — für lange Draft-Sessions ohne visuellen Lärm.</p>
+    <div class="specrow">
+      <span><b>Fonts:</b> Source Serif 4 (Text/Namen) + Inter (Labels) + JetBrains Mono (Zahlen)</span>
+      <span><b>Radius:</b> 0 px überall</span>
+      <span><b>Akzent:</b> Burnt Orange #ff6a3d, nur für Aktion/Favorit</span>
+      <span><b>Dichte:</b> mittel (41 px Zeilen)</span>
+    </div>
+    <div class="frames">
+      <div class="desktop"><div class="frame-label">Web · Board-View</div><div class="frame">
+        <div class="app p1">
+          <div class="top"><span class="brand">Draft Helper</span>
+            <div class="tabs"><span class="tab">Dashboard</span><span class="tab on">Board</span><span class="tab">Roster</span><span class="tab">Trade</span></div>
+            <div class="right"><span class="dot"></span> Live · Runde 3</div></div>
+          <div class="clock"><span class="pick">PICK 3.04</span><span class="who">TeamZmash ist on the clock</span>
+            <div class="until"><div class="n">3</div><div class="l">Picks bis zu dir</div></div></div>
+          <div class="toolbar"><div class="search">Spieler suchen…</div>
+            <span class="chip on">Alle</span><span class="chip">RB</span><span class="chip">WR</span><span class="chip">QB</span><span class="chip">TE</span>
+            <div class="sync">Auto-Sync · vor 4 s</div></div>
+          <div class="cols"><div class="main">
+            <table class="board"><tr><th></th><th>Name</th><th>Pos</th><th>Team</th><th>Bye</th><th>ADP</th></tr>
+              <tr class="tier"><td colspan="6">TIER 2</td></tr>
+              <tr class="gone"><td class="rk">7</td><td class="nm">Puka Nacua</td><td><span class="pos wr">WR</span></td><td class="tm">LAR</td><td class="bye">6</td><td class="adp">8.2</td></tr>
+              <tr class="fav"><td class="rk">8</td><td class="nm">Jahmyr Gibbs</td><td><span class="pos rb">RB</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">8.9</td></tr>
+              <tr><td class="rk">9</td><td class="nm">Amon-Ra St. Brown</td><td><span class="pos wr">WR</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">10.4</td></tr>
+              <tr><td class="rk">10</td><td class="nm">Malik Nabers</td><td><span class="pos wr">WR</span></td><td class="tm">NYG</td><td class="bye">11</td><td class="adp">11.1</td></tr>
+              <tr class="tier"><td colspan="6">TIER 3</td></tr>
+              <tr><td class="rk">11</td><td class="nm">Derrick Henry</td><td><span class="pos rb">RB</span></td><td class="tm">BAL</td><td class="bye">14</td><td class="adp">12.7</td></tr>
+              <tr><td class="rk">12</td><td class="nm">Brock Bowers</td><td><span class="pos te">TE</span></td><td class="tm">LV</td><td class="bye">10</td><td class="adp">13.5</td></tr>
+              <tr><td class="rk">13</td><td class="nm">Josh Allen</td><td><span class="pos qb">QB</span></td><td class="tm">BUF</td><td class="bye">12</td><td class="adp">14.0</td></tr>
+            </table></div>
+            <div class="rail"><h4>Live-Tipps</h4>
+              <div class="tip">RB-Run läuft — Gibbs jetzt sichern.<div class="t">3 RBs in den letzten 4 Picks</div></div>
+              <div class="tip">WR-Tier 2 endet nach Nabers.<div class="t">Danach Wertlücke von 9 ADP</div></div></div></div>
+        </div>
+      </div></div>
+      <div class="mobile"><div class="frame-label">Mobile · Board-View</div><div class="frame">
+        <div class="app p1 m">
+          <div class="top"><span class="brand">Draft Helper</span><div class="right"><span class="dot"></span> R3</div></div>
+          <div class="clock"><span class="who">Bis zu dir: 3 Picks</span>
+            <div class="until"><div class="n">3.04</div><div class="l">Pick</div></div></div>
+          <div class="toolbar"><div class="search" style="flex:1">Spieler suchen…</div><span class="chip on">Alle</span></div>
+          <div class="list">
+            <div class="row fav"><span class="rk">8</span><div class="who2"><div class="nm">Jahmyr Gibbs ★</div><div class="sub">RB · DET · Bye 5</div></div><span class="adp">8.9</span></div>
+            <div class="row"><span class="rk">9</span><div class="who2"><div class="nm">Amon-Ra St. Brown</div><div class="sub">WR · DET · Bye 5</div></div><span class="adp">10.4</span></div>
+            <div class="row"><span class="rk">10</span><div class="who2"><div class="nm">Malik Nabers</div><div class="sub">WR · NYG · Bye 11</div></div><span class="adp">11.1</span></div>
+            <div class="row"><span class="rk">11</span><div class="who2"><div class="nm">Derrick Henry</div><div class="sub">RB · BAL · Bye 14</div></div><span class="adp">12.7</span></div>
+            <div class="row"><span class="rk">12</span><div class="who2"><div class="nm">Brock Bowers</div><div class="sub">TE · LV · Bye 10</div></div><span class="adp">13.5</span></div>
+          </div>
+          <div class="bottom"><a><span class="ico">▦</span>Dashboard</a><a class="on"><span class="ico">≣</span>Board</a><a><span class="ico">◫</span>Roster</a><a><span class="ico">⇄</span>Trade</a></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2 · CONSOLE -->
+  <section class="proposal">
+    <header><span class="tag">2</span><h2>Console — Monochrome Ops</h2></header>
+    <p class="why">Trading-Desk-Logik: fast reines Monochrom, Farbe existiert nur als Status (Live-Rot, Positions-Punkte). Der Akzent ist keine Farbe, sondern <b>Inversion</b> — die On-the-clock-Bar und die Auswahl kippen auf Weiß. Maximale Dichte (34 px Zeilen), alles Tabellarische in Mono, Radius 0.</p>
+    <div class="specrow">
+      <span><b>Fonts:</b> Inter (UI) + JetBrains Mono (Header, Zahlen, Badges)</span>
+      <span><b>Radius:</b> 0 px</span>
+      <span><b>Akzent:</b> Inversion (Weiß auf Schwarz ↔ Schwarz auf Weiß)</span>
+      <span><b>Dichte:</b> hoch — ~20 % mehr Zeilen sichtbar</span>
+    </div>
+    <div class="frames">
+      <div class="desktop"><div class="frame-label">Web · Board-View</div><div class="frame">
+        <div class="app p2">
+          <div class="top"><span class="brand">DRAFT HELPER</span>
+            <div class="tabs"><span class="tab">Dashboard</span><span class="tab on">Board</span><span class="tab">Roster</span><span class="tab">Trade</span></div>
+            <div class="right"><span class="dot"></span> LIVE · R3</div></div>
+          <div class="clock"><span class="pick">PICK 3.04</span><span class="who">TeamZmash — on the clock</span>
+            <div class="until"><div class="n">3</div><div class="l">Picks bis zu dir</div></div></div>
+          <div class="toolbar"><div class="search">Spieler suchen…</div>
+            <span class="chip on">Alle</span><span class="chip">RB</span><span class="chip">WR</span><span class="chip">QB</span><span class="chip">TE</span>
+            <div class="sync">Auto-Sync 4s</div></div>
+          <div class="cols"><div class="main">
+            <table class="board"><tr><th></th><th>Name</th><th>Pos</th><th>Team</th><th>Bye</th><th>ADP</th></tr>
+              <tr class="tier"><td colspan="6">Tier 2</td></tr>
+              <tr class="gone"><td class="rk">7</td><td class="nm">Puka Nacua</td><td><span class="pos wr">WR</span></td><td class="tm">LAR</td><td class="bye">6</td><td class="adp">8.2</td></tr>
+              <tr class="hot"><td class="rk">8</td><td class="nm">Jahmyr Gibbs</td><td><span class="pos rb">RB</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">8.9</td></tr>
+              <tr><td class="rk">9</td><td class="nm">Amon-Ra St. Brown</td><td><span class="pos wr">WR</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">10.4</td></tr>
+              <tr><td class="rk">10</td><td class="nm">Malik Nabers</td><td><span class="pos wr">WR</span></td><td class="tm">NYG</td><td class="bye">11</td><td class="adp">11.1</td></tr>
+              <tr class="tier"><td colspan="6">Tier 3</td></tr>
+              <tr><td class="rk">11</td><td class="nm">Derrick Henry</td><td><span class="pos rb">RB</span></td><td class="tm">BAL</td><td class="bye">14</td><td class="adp">12.7</td></tr>
+              <tr><td class="rk">12</td><td class="nm">Brock Bowers</td><td><span class="pos te">TE</span></td><td class="tm">LV</td><td class="bye">10</td><td class="adp">13.5</td></tr>
+              <tr><td class="rk">13</td><td class="nm">Josh Allen</td><td><span class="pos qb">QB</span></td><td class="tm">BUF</td><td class="bye">12</td><td class="adp">14.0</td></tr>
+              <tr><td class="rk">14</td><td class="nm">Drake London</td><td><span class="pos wr">WR</span></td><td class="tm">ATL</td><td class="bye">5</td><td class="adp">15.2</td></tr>
+            </table></div>
+            <div class="rail"><h4>LIVE-TIPPS</h4>
+              <div class="tip">RB-Run läuft — Gibbs jetzt sichern.<div class="t">3 RBs / letzte 4 Picks</div></div>
+              <div class="tip">WR-Tier 2 endet nach Nabers.<div class="t">Lücke: 9 ADP</div></div></div></div>
+        </div>
+      </div></div>
+      <div class="mobile"><div class="frame-label">Mobile · Board-View</div><div class="frame">
+        <div class="app p2 m">
+          <div class="top"><span class="brand">DRAFT HELPER</span><div class="right"><span class="dot"></span> R3</div></div>
+          <div class="clock"><span class="who">Bis zu dir: 3</span>
+            <div class="until"><div class="n">3.04</div><div class="l">Pick</div></div></div>
+          <div class="toolbar"><div class="search" style="flex:1">Spieler suchen…</div><span class="chip on">Alle</span></div>
+          <div class="list">
+            <div class="row"><span class="rk">8</span><div class="who2"><div class="nm">Jahmyr Gibbs</div><div class="sub">RB · DET · Bye 5</div></div><span class="adp">8.9</span></div>
+            <div class="row"><span class="rk">9</span><div class="who2"><div class="nm">Amon-Ra St. Brown</div><div class="sub">WR · DET · Bye 5</div></div><span class="adp">10.4</span></div>
+            <div class="row"><span class="rk">10</span><div class="who2"><div class="nm">Malik Nabers</div><div class="sub">WR · NYG · Bye 11</div></div><span class="adp">11.1</span></div>
+            <div class="row"><span class="rk">11</span><div class="who2"><div class="nm">Derrick Henry</div><div class="sub">RB · BAL · Bye 14</div></div><span class="adp">12.7</span></div>
+            <div class="row"><span class="rk">12</span><div class="who2"><div class="nm">Brock Bowers</div><div class="sub">TE · LV · Bye 10</div></div><span class="adp">13.5</span></div>
+            <div class="row"><span class="rk">13</span><div class="who2"><div class="nm">Josh Allen</div><div class="sub">QB · BUF · Bye 12</div></div><span class="adp">14.0</span></div>
+          </div>
+          <div class="bottom"><a><span class="ico">▦</span>Dashboard</a><a class="on"><span class="ico">≣</span>Board</a><a><span class="ico">◫</span>Roster</a><a><span class="ico">⇄</span>Trade</a></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 3 · TURF -->
+  <section class="proposal">
+    <header><span class="tag">3</span><h2>Turf — Product Dark</h2></header>
+    <p class="why">Modernes Produkt-Dark auf kühlem Graphit (kein Navy, kein OLED-Schwarz): drei klar getrennte Flächenebenen, Zebra-Zeilen statt Trennlinien, dezente 4–6 px Radien, ein einziger Akzent in Rasengrün — die Farbe des Spielfelds als Marken-Idee. Am nächsten an einer „ruhigen App", am weitesten weg vom Broadcast-Look.</p>
+    <div class="specrow">
+      <span><b>Fonts:</b> Inter (alles) + JetBrains Mono (Zahlen)</span>
+      <span><b>Radius:</b> 4 px Controls / 6 px Karten</span>
+      <span><b>Akzent:</b> Turf-Grün #35c563, nur Aktion/Selektion</span>
+      <span><b>Dichte:</b> mittel, Zebra statt Linien</span>
+    </div>
+    <div class="frames">
+      <div class="desktop"><div class="frame-label">Web · Board-View</div><div class="frame">
+        <div class="app p3">
+          <div class="top"><span class="brand">Draft Helper</span>
+            <div class="tabs"><span class="tab">Dashboard</span><span class="tab on">Board</span><span class="tab">Roster</span><span class="tab">Trade</span></div>
+            <div class="right"><span class="dot"></span> Live · Runde 3</div></div>
+          <div class="clock"><span class="pick">PICK 3.04</span><span class="who">TeamZmash ist on the clock</span>
+            <div class="until"><div class="n">3</div><div class="l">Picks bis zu dir</div></div></div>
+          <div class="toolbar"><div class="search">Spieler suchen…</div>
+            <span class="chip on">Alle</span><span class="chip">RB</span><span class="chip">WR</span><span class="chip">QB</span><span class="chip">TE</span>
+            <div class="sync">Auto-Sync · vor 4 s</div></div>
+          <div class="cols"><div class="main">
+            <table class="board"><tr><th></th><th>Name</th><th>Pos</th><th>Team</th><th>Bye</th><th>ADP</th></tr>
+              <tr class="tier"><td colspan="6">TIER 2</td></tr>
+              <tr class="gone"><td class="rk">7</td><td class="nm">Puka Nacua</td><td><span class="pos wr">WR</span></td><td class="tm">LAR</td><td class="bye">6</td><td class="adp">8.2</td></tr>
+              <tr class="fav"><td class="rk">8</td><td class="nm">Jahmyr Gibbs</td><td><span class="pos rb">RB</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">8.9</td></tr>
+              <tr><td class="rk">9</td><td class="nm">Amon-Ra St. Brown</td><td><span class="pos wr">WR</span></td><td class="tm">DET</td><td class="bye">5</td><td class="adp">10.4</td></tr>
+              <tr><td class="rk">10</td><td class="nm">Malik Nabers</td><td><span class="pos wr">WR</span></td><td class="tm">NYG</td><td class="bye">11</td><td class="adp">11.1</td></tr>
+              <tr class="tier"><td colspan="6">TIER 3</td></tr>
+              <tr><td class="rk">11</td><td class="nm">Derrick Henry</td><td><span class="pos rb">RB</span></td><td class="tm">BAL</td><td class="bye">14</td><td class="adp">12.7</td></tr>
+              <tr><td class="rk">12</td><td class="nm">Brock Bowers</td><td><span class="pos te">TE</span></td><td class="tm">LV</td><td class="bye">10</td><td class="adp">13.5</td></tr>
+              <tr><td class="rk">13</td><td class="nm">Josh Allen</td><td><span class="pos qb">QB</span></td><td class="tm">BUF</td><td class="bye">12</td><td class="adp">14.0</td></tr>
+            </table></div>
+            <div class="rail"><h4>Live-Tipps</h4>
+              <div class="tip">RB-Run läuft — Gibbs jetzt sichern.<div class="t">3 RBs in den letzten 4 Picks</div></div>
+              <div class="tip">WR-Tier 2 endet nach Nabers.<div class="t">Danach Wertlücke von 9 ADP</div></div></div></div>
+        </div>
+      </div></div>
+      <div class="mobile"><div class="frame-label">Mobile · Board-View</div><div class="frame">
+        <div class="app p3 m">
+          <div class="top"><span class="brand">Draft Helper</span><div class="right"><span class="dot"></span> R3</div></div>
+          <div class="clock"><span class="who">Bis zu dir: 3 Picks</span>
+            <div class="until"><div class="n">3.04</div><div class="l">Pick</div></div></div>
+          <div class="toolbar"><div class="search" style="flex:1">Spieler suchen…</div><span class="chip on">Alle</span></div>
+          <div class="list">
+            <div class="row fav"><span class="rk">8</span><div class="who2"><div class="nm">Jahmyr Gibbs</div><div class="sub">RB · DET · Bye 5</div></div><span class="adp">8.9</span></div>
+            <div class="row"><span class="rk">9</span><div class="who2"><div class="nm">Amon-Ra St. Brown</div><div class="sub">WR · DET · Bye 5</div></div><span class="adp">10.4</span></div>
+            <div class="row"><span class="rk">10</span><div class="who2"><div class="nm">Malik Nabers</div><div class="sub">WR · NYG · Bye 11</div></div><span class="adp">11.1</span></div>
+            <div class="row"><span class="rk">11</span><div class="who2"><div class="nm">Derrick Henry</div><div class="sub">RB · BAL · Bye 14</div></div><span class="adp">12.7</span></div>
+            <div class="row"><span class="rk">12</span><div class="who2"><div class="nm">Brock Bowers</div><div class="sub">TE · LV · Bye 10</div></div><span class="adp">13.5</span></div>
+          </div>
+          <div class="bottom"><a><span class="ico">▦</span>Dashboard</a><a class="on"><span class="ico">≣</span>Board</a><a><span class="ico">◫</span>Roster</a><a><span class="ico">⇄</span>Trade</a></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+</div>

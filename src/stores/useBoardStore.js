@@ -50,6 +50,25 @@ async function fetchFfcSpread(format, numTeams = 12) {
   }
 }
 
+// Schreibt den aktiven Top-Level-Board-Stand in den boardsByKey-Cache zurueck
+// (aktiver Key = Quelle der Wahrheit fuer switchBoard). No-Op ohne aktiven Key.
+// Heilt Reload-mit-Hit: ohne Durchschrieb wuerde ein stale Cache-Hit nach Reload
+// den persistierten Top-Level-Stand (z. B. Nutzer-Reorder) ueberschreiben.
+function writeThroughActiveBoard(set, get) {
+  const st = get()
+  if (!st.activeBoardKey) return
+  set((s) => ({
+    boardsByKey: {
+      ...(s.boardsByKey || {}),
+      [s.activeBoardKey]: {
+        boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
+        rankingSource: s.rankingSource, marketMeta: s.marketMeta, csvRawText: s.csvRawText,
+        lastImportStats: s.lastImportStats,
+      },
+    },
+  }))
+}
+
 export const useBoardStore = create(
   persist(
     (set, get) => ({
@@ -82,9 +101,60 @@ export const useBoardStore = create(
       // csv|market kennt), damit die Herkunfts-Zeile die echte Quelle nennt statt
       // hart "FantasyCalc". null = Alt-Board ohne Markierung (Fallback in der UI).
       rankingSource: null,
+      // Board-Cache pro Liga/Profil (Task 4): persistiert, Key aus boardKeyFor
+      // (league:<id>:<mode> | draft:<id>:<mode> | fp:<...>:<mode>). Das aktive
+      // Board bleibt in den Top-Level-Feldern (kein UI-Umbau noetig).
+      boardsByKey: {},
+      // Aktiver Cache-Key — bewusst NICHT persistiert (partialize): nach Reload
+      // bestimmt App.jsx den Key neu und ruft switchBoard auf.
+      activeBoardKey: null,
+
+      switchBoard: (key) => set((s) => {
+        const nextKey = String(key || '')
+        // Guard: leerer oder identischer Key — nichts zu tun.
+        if (!nextKey || s.activeBoardKey === nextKey) return {}
+        const cache = { ...(s.boardsByKey || {}) }
+        // Aktiven Stand wegsichern (nur wenn ueberhaupt ein Key aktiv war oder Board Inhalt hat)
+        if (s.activeBoardKey) {
+          cache[s.activeBoardKey] = {
+            boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
+            rankingSource: s.rankingSource, marketMeta: s.marketMeta, csvRawText: s.csvRawText,
+            lastImportStats: s.lastImportStats,
+          }
+        }
+        const hit = cache[nextKey]
+        // Legacy-Schutz: nach dem Update steht das alte Board noch in den
+        // Top-Level-Feldern, aber boardsByKey ist leer und activeBoardKey null.
+        // Ohne diesen Schutz wuerde der erste switchBoard-Aufruf den
+        // vorhandenen Stand mit einem leeren Board ueberschreiben (Datenverlust
+        // beim Upgrade). Der vorhandene Stand gehoert logisch zu genau diesem
+        // ersten Key — also behalten statt leeren.
+        if (!hit && !s.activeBoardKey && (s.boardPlayers || []).length > 0) {
+          return { activeBoardKey: nextKey, boardsByKey: cache, lastBoardSnapshot: null }
+        }
+        return {
+          activeBoardKey: nextKey,
+          boardsByKey: cache,
+          boardPlayers: hit?.boardPlayers || [],
+          boardMode: hit?.boardMode ?? null,
+          boardSource: hit?.boardSource ?? null,
+          rankingSource: hit?.rankingSource ?? null,
+          marketMeta: hit?.marketMeta ?? null,
+          csvRawText: hit?.csvRawText ?? '',
+          lastImportStats: hit?.lastImportStats ?? null,
+          lastBoardSnapshot: null,
+        }
+      }),
 
       setCsvRawText: (v) => set({ csvRawText: v }),
-      setBoardSource: (v) => set({ boardSource: v }),
+      setBoardSource: (v) => {
+        set({ boardSource: v })
+        // handleCsvLoad setzt boardSource bewusst nicht selbst (macht der Aufrufer
+        // via setBoardSource nach Erfolg) — deshalb hier nachfuehren, sobald eine
+        // Herkunft gesetzt wird und Board-Inhalt da ist. Heilt F3 an der Wurzel
+        // fuer alle Aufrufer (SetupPage + BoardSection).
+        if (v && (get().boardPlayers || []).length) writeThroughActiveBoard(set, get)
+      },
       setBoardPlayers: (v) =>
         set((s) => ({ boardPlayers: typeof v === 'function' ? v(s.boardPlayers) : v })),
       setSearchQuery: (v) => set({ searchQuery: v }),
@@ -106,6 +176,8 @@ export const useBoardStore = create(
         // CSV traegt keinen eigenen Typ — der aktuelle Modus ist die beste
         // verfuegbare Zuordnung fuer den Draft-Typ-Guard.
         set({ boardPlayers: fresh, boardMode: get().draftMode, rankingSource: null })
+        // Aktiven Stand in den boardsByKey-Cache durchschreiben.
+        writeThroughActiveBoard(set, get)
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
@@ -135,6 +207,8 @@ export const useBoardStore = create(
         // nach einem Undo.
         const snapshot = boardPlayers.length ? { boardPlayers, boardSource, marketMeta, rankingSource } : null
         set({ csvRawText: '', boardPlayers: fresh, lastBoardSnapshot: snapshot, boardSource: 'market', boardMode: 'rookie', rankingSource: 'KeepTradeCut' })
+        // Aktiven Stand in den boardsByKey-Cache durchschreiben.
+        writeThroughActiveBoard(set, get)
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return true
@@ -196,6 +270,8 @@ export const useBoardStore = create(
           boardMode: isDynasty ? 'rookie' : 'redraft',
           rankingSource: 'FantasyCalc',
         })
+        // Aktiven Stand in den boardsByKey-Cache durchschreiben.
+        writeThroughActiveBoard(set, get)
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return { ok: true, stats, marketMissing: !isDynasty && !market }
@@ -249,6 +325,8 @@ export const useBoardStore = create(
           boardMode: 'redraft',
           rankingSource: 'FantasyPros',
         })
+        // Aktiven Stand in den boardsByKey-Cache durchschreiben.
+        writeThroughActiveBoard(set, get)
         const { selectedDraftId } = useSessionStore.getState()
         if (selectedDraftId) await useLiveStore.getState().loadPicks(selectedDraftId)
         return { ok: true, stats, marketMissing: !market }
@@ -303,6 +381,9 @@ export const useBoardStore = create(
         // des rueckgaengig gemachten Imports (siehe Kommentar bei lastBoardSnapshot).
         const { boardPlayers, boardSource, marketMeta, rankingSource } = lastBoardSnapshot
         set({ boardPlayers, boardSource, marketMeta, rankingSource: rankingSource ?? null, lastBoardSnapshot: null, lastImportStats: null })
+        // Undo in den Cache durchschreiben — sonst reanimiert ein Reload-mit-Hit
+        // den rueckgaengig gemachten Stand.
+        writeThroughActiveBoard(set, get)
         return true
       },
 
@@ -315,6 +396,9 @@ export const useBoardStore = create(
         const [removed] = arr.splice(fromIdx, 1)
         arr.splice(toIdx, 0, removed)
         set({ boardPlayers: arr.map((p, i) => ({ ...p, rk: String(i + 1), ecr: i + 1 })) })
+        // Nutzer-Reorder in den Cache durchschreiben — sonst ueberschreibt nach
+        // Reload ein stale Cache-Hit den persistierten Top-Level-Stand.
+        writeThroughActiveBoard(set, get)
       },
 
       // Called reactively when livePicks change (from BoardPage useEffect)
@@ -356,8 +440,11 @@ export const useBoardStore = create(
         marketMeta: s.marketMeta,
         boardSource: s.boardSource,
         rankingSource: s.rankingSource,
-        // lastBoardSnapshot bleibt in-memory: ein Undo ueber Sessions hinweg
-        // waere ueberraschend, und der Snapshot verdoppelt den Speicherbedarf.
+        boardsByKey: s.boardsByKey || {},
+        // activeBoardKey bleibt in-memory: nach Reload bestimmt App.jsx den Key
+        // neu und ruft switchBoard auf. lastBoardSnapshot bleibt in-memory: ein
+        // Undo ueber Sessions hinweg waere ueberraschend, und der Snapshot
+        // verdoppelt den Speicherbedarf.
       }),
     }
   )

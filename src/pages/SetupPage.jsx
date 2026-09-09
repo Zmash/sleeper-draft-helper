@@ -6,7 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
-import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint } from '../services/profileStore'
+import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint, persistProfile } from '../services/profileStore'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
@@ -82,7 +82,9 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   function handleRebindProfile(targetProfileId) {
     if (resolved.profile.boundLeagueId) {
-      rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId })
+      // Modus-scharf durchreichen: ohne mode faellt rebindProfile auf 'redraft'
+      // zurueck und der Evict trifft im Rookie-Modus das falsche Composite.
+      rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId, mode: draftMode })
     } else {
       // Nicht resolved.profile.fingerprint wiederverwenden -- das ist der
       // (evtl. abweichende) Fingerprint des ALTEN Profils. Stattdessen frisch
@@ -100,6 +102,14 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     if (resolved.isNew) return
     renameProfile(resolved.profile.id, name)
     setProfileTick(t => t + 1)
+  }
+
+  function handlePersistProfile() {
+    try {
+      persistProfile(resolved.profile)
+      window.dispatchEvent(new CustomEvent('sdh:setup-changed'))
+      setProfileTick(t => t + 1)
+    } catch (e) { setImportError(e?.message || String(e)) }
   }
 
   // Add mode: clear the current selection, but NOT availableLeagues — es gibt
@@ -309,6 +319,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         onProfileChange={handleProfileChange}
         onRebindProfile={handleRebindProfile}
         onRenameProfile={handleRenameProfile}
+        onPersistProfile={handlePersistProfile}
       />
     </>
   )

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="de" data-theme="broadcast-volt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Board-Toolbar — Redesign-Mocks</title>
+<style>
+  /* Tokens: Broadcast Volt */
+  :root {
+    --surface-page: #141414;
+    --surface-nav: #171717;
+    --surface-card: #1b1b1b;
+    --surface-raised: #202020;
+    --border: #2e2e2e;
+    --border-soft: #252525;
+    --text-primary: #f2f2ef;
+    --text-muted: #9a9a92;
+    --text-dim: #6c6c64;
+    --accent-fill: #bdfd12;
+    --accent-on: #141a00;
+    --accent-text: #bdfd12;
+    --font-ui: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Barlow Condensed', 'Barlow', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --r-ctl: 2px;
+    --r-card: 3px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--surface-page);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    padding: 32px 24px 64px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+  h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: 0.01em; }
+  .intro { color: var(--text-muted); max-width: 70ch; margin-top: 6px; line-height: 1.5; }
+  .variant-label {
+    font-family: var(--font-display);
+    font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--accent-text);
+    margin-bottom: 4px;
+  }
+  .variant-note { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; max-width: 78ch; line-height: 1.5; }
+
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-card);
+  }
+
+  /* Gemeinsame Control-Basis */
+  button, input, select {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--r-ctl);
+    height: 30px;
+    padding: 0 10px;
+  }
+  button { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  button:hover { border-color: var(--text-dim); }
+  input::placeholder { color: var(--text-dim); }
+  .icon { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* ============ VARIANTE A: Statuszeile + Kommandozeile ============ */
+
+  .vA-status {
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 14px;
+    background: var(--surface-nav);
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    min-height: 44px;
+  }
+  .vA-pick { display: flex; align-items: baseline; gap: 7px; }
+  .vA-pick .num { font-family: var(--font-mono); font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .vA-pick .lbl { font-family: var(--font-display); font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+  .vA-sep { width: 1px; height: 20px; background: var(--border); flex: none; }
+
+  .vA-sync { display: flex; align-items: center; gap: 8px; }
+  .vA-sync-btn { position: relative; padding: 0 12px; }
+  .vA-sync-dot {
+    position: absolute; top: -3px; right: -3px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-fill);
+    border: 2px solid var(--surface-nav);
+  }
+  .vA-sync-meta { font-size: 12px; color: var(--text-muted); }
+  .vA-sync-meta .mono { color: var(--text-primary); }
+
+  .vA-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .btn-primary { background: var(--accent-fill); color: var(--accent-on); border-color: var(--accent-fill); font-weight: 600; }
+  .btn-primary:hover { border-color: var(--accent-fill); filter: brightness(1.06); }
+  .btn-icon { width: 30px; padding: 0; justify-content: center; }
+
+  .vA-cmd {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+  .vA-cmd .search { flex: 1 1 200px; min-width: 160px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--r-ctl); height: 30px; color: var(--text-dim); }
+  .vA-cmd .search input { border: none; background: none; height: 28px; padding: 0; flex: 1; outline: none; }
+
+  .seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
+  .seg button { border: none; border-radius: 0; height: 28px; padding: 0 10px; background: transparent; color: var(--text-muted); font-weight: 500; }
+  .seg button + button { border-left: 1px solid var(--border-soft); }
+  .seg button.active { background: var(--accent-fill); color: var(--accent-on); font-weight: 600; }
+
+  .vA-meta {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px 8px;
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-muted); font-size: 12px;
+  }
+  .vA-meta strong { color: var(--text-primary); font-weight: 600; }
+  .vA-meta .dot { color: var(--text-dim); }
+  .vA-meta .refresh { height: 22px; padding: 0 7px; font-size: 12px; background: transparent; border-color: transparent; color: var(--text-muted); }
+  .vA-meta .refresh:hover { border-color: var(--border); color: var(--text-primary); }
+  .vA-progress { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .vA-bar { width: 120px; height: 4px; background: var(--surface-raised); border-radius: 2px; overflow: hidden; }
+  .vA-bar > div { height: 100%; width: 21%; background: var(--accent-fill); }
+
+  /* ============ VARIANTE B: Eine Kommandozeile ============ */
+
+  .vB-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+  .vB-pick {
+    display: flex; flex-direction: column; justify-content: center;
+    padding-right: 12px; border-right: 1px solid var(--border);
+  }
+  .vB-pick .num { font-family: var(--font-mono); font-size: 17px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .vB-pick .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); }
+
+  .vB-sync-group { display: flex; }
+  .vB-sync-group > button:first-child { border-radius: var(--r-ctl) 0 0 var(--r-ctl); position: relative; }
+  .vB-sync-group > select { border-radius: 0 var(--r-ctl) var(--r-ctl) 0; border-left: none; color: var(--text-muted); width: 84px; }
+
+  .vB-search { flex: 1 1 180px; min-width: 140px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--r-ctl); height: 30px; color: var(--text-dim); }
+  .vB-search input { border: none; background: none; height: 28px; padding: 0; flex: 1; outline: none; }
+
+  .vB-meta {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px 10px;
+    color: var(--text-muted); font-size: 12px;
+  }
+  .vB-meta .thinbar { flex: 1; height: 3px; background: var(--surface-raised); border-radius: 2px; overflow: hidden; }
+  .vB-meta .thinbar > div { height: 100%; width: 21%; background: var(--accent-fill); }
+  .vB-meta strong { color: var(--text-primary); font-weight: 600; }
+  .vB-meta button { height: 22px; padding: 0 7px; font-size: 12px; background: transparent; border-color: transparent; color: var(--text-muted); }
+  .vB-meta button:hover { border-color: var(--border); color: var(--text-primary); }
+
+  .ghost-table { padding: 10px 14px 14px; display: grid; gap: 6px; }
+  .ghost-row { height: 26px; background: var(--surface-raised); border-radius: 2px; opacity: 0.45; }
+  .ghost-row:nth-child(2) { opacity: 0.32; }
+  .ghost-row:nth-child(3) { opacity: 0.2; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Board-Kopf: zwei Richtungen</h1>
+    <p class="intro">
+      Beide Varianten verdichten die heutigen drei Zeilen (Sync-Toolbar, Filter, Quellen-Zeile)
+      und übernehmen die Logik der Mobile-Bar: Sync ist EIN Button mit Status statt
+      Checkbox + Intervall-Feld + Sync + Zeitstempel. Quellen &amp; Fortschritt werden eine leise Meta-Zeile.
+    </p>
+  </header>
+
+  <!-- ================= VARIANTE A ================= -->
+  <section>
+    <div class="variant-label">Variante A — Statuszeile + Kommandozeile</div>
+    <p class="variant-note">
+      Oben eine flache Status-Leiste (dunklerer Nav-Ton): Pick-Nummer als klare Kennzahl, daneben der
+      Sync-Cluster. Der Auto-Punkt am Button ersetzt die Checkbox, das Intervall steht als stiller Text daneben
+      (Klick öffnet Presets wie beim Mobile-Long-Press). Rechts nur noch AI-Advice als Primäraktion + Key als Icon.
+      Darunter die Suchzeile, dann eine einzige Meta-Zeile mit Quellen, Refresh und Fortschritt.
+    </p>
+
+    <div class="card">
+      <div class="vA-status">
+        <span class="vA-pick"><span class="num">168</span><span class="lbl">Picks</span></span>
+        <span class="vA-sep"></span>
+        <span class="vA-sync">
+          <button class="vA-sync-btn" title="Sync — Klick auf 120 s ändert das Intervall">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+            Sync
+            <span class="vA-sync-dot" title="Auto-Refresh aktiv"></span>
+          </button>
+          <span class="vA-sync-meta">auto <span class="mono">120 s</span> · zuletzt <span class="mono">11:18:50</span></span>
+        </span>
+        <span class="vA-right">
+          <button class="btn-primary">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="1"/><path d="M12 8V5M9 13h.01M15 13h.01"/></svg>
+            AI-Advice
+          </button>
+          <button class="btn-icon" title="API-Key verwalten">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l2 2"/></svg>
+          </button>
+        </span>
+      </div>
+
+      <div class="vA-cmd">
+        <label class="search">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="Spieler suchen…" />
+        </label>
+        <div class="seg">
+          <button class="active">ALL</button><button>QB</button><button>RB</button><button>WR</button><button>TE</button><button>K</button><button>DEF</button>
+        </div>
+        <select><option>Alle Teams</option></select>
+        <button title="Avoid-Spieler ausblenden">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path d="m3 3 18 18"/></svg>
+        </button>
+        <button>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
+          Jump
+        </button>
+      </div>
+
+      <div class="vA-meta">
+        <span><strong>FantasyPros</strong> <span class="dot">·</span> Sleeper ADP (Half-PPR) <span class="dot">·</span> Redraft</span>
+        <button class="refresh">
+          <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+          Aktualisieren
+        </button>
+        <span class="vA-progress">
+          <span class="mono">166/783</span>
+          <span class="vA-bar"><div></div></span>
+        </span>
+      </div>
+
+      <div class="ghost-table">
+        <div class="ghost-row"></div><div class="ghost-row"></div><div class="ghost-row"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VARIANTE B ================= -->
+  <section>
+    <div class="variant-label">Variante B — Eine Kommandozeile</div>
+    <p class="variant-note">
+      Maximal verdichtet: alles Bedienbare in EINER Zeile. Links der Pick-Zähler als kleiner Block,
+      Sync + Intervall als zusammengesetzte Gruppe (Select statt Freitextfeld), die Suche nimmt den
+      Restplatz, rechts AI + Key. Fortschritt wird zur durchgehenden dünnen Linie in der Meta-Zeile,
+      Quelle und Stand hängen direkt daran. Kein Kästchen-Zoo, eine Blickachse.
+    </p>
+
+    <div class="card">
+      <div class="vB-bar">
+        <span class="vB-pick"><span class="num">168</span><span class="lbl">Picks</span></span>
+
+        <span class="vB-sync-group">
+          <button title="Jetzt synchronisieren">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+            Sync
+            <span class="vA-sync-dot" title="Auto-Refresh aktiv"></span>
+          </button>
+          <select title="Auto-Refresh-Intervall">
+            <option>auto 120 s</option>
+            <option>auto 60 s</option>
+            <option>auto 30 s</option>
+            <option>aus</option>
+          </select>
+        </span>
+
+        <label class="vB-search">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="Spieler suchen…" />
+        </label>
+
+        <div class="seg">
+          <button class="active">ALL</button><button>QB</button><button>RB</button><button>WR</button><button>TE</button><button>K</button><button>DEF</button>
+        </div>
+        <select><option>Alle Teams</option></select>
+        <button title="Avoid ausblenden">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path d="m3 3 18 18"/></svg>
+        </button>
+        <button>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
+          Jump
+        </button>
+
+        <button class="btn-primary">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="1"/><path d="M12 8V5M9 13h.01M15 13h.01"/></svg>
+          AI
+        </button>
+        <button class="btn-icon" title="API-Key verwalten">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l2 2"/></svg>
+        </button>
+      </div>
+
+      <div class="vB-meta">
+        <span><strong>FantasyPros</strong> · Sleeper ADP · Redraft · Stand <strong>heute</strong></span>
+        <button title="Marktdaten neu laden">
+          <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <span class="thinbar"><div></div></span>
+        <span class="mono">166/783</span>
+      </div>
+
+      <div class="ghost-table">
+        <div class="ghost-row"></div><div class="ghost-row"></div><div class="ghost-row"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

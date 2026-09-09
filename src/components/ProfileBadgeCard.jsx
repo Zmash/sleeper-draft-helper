@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 
-export default function ProfileBadgeCard({ profile, deviations, isNew, allProfiles, onRebind, onRename }) {
+export default function ProfileBadgeCard({ profile, deviations, isNew, allProfiles, onRebind, onRename, onPersist }) {
   const navigate = useNavigate()
   const [renaming, setRenaming] = useState(false)
   const [nameInput, setNameInput] = useState(profile.name)
@@ -37,6 +37,13 @@ export default function ProfileBadgeCard({ profile, deviations, isNew, allProfil
           Achtung: dieser Draft weicht vom gespeicherten Profil ab — {deviations.join('; ')}
         </p>
       )}
+
+      {isNew && (
+        <button type="button" className="btn btn-primary btn-sm" onClick={onPersist}>
+          Profil für diese Liga speichern
+        </button>
+      )}
+      {isNew && <p className="muted text-xs">Noch nicht gespeichert — Übernimmt das erkannte Format, nichts muss von Hand gesetzt werden.</p>}
 
       <div className="row profile-badge-actions">
         {otherProfiles.length > 0 && (

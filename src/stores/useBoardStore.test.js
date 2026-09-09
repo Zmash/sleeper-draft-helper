@@ -375,3 +375,78 @@ describe('fillMissingBye (Store-Action)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+describe('boardsByKey / switchBoard', () => {
+  it('sichert Redraft-Board und lädt Rookie-Board leer, zurückkehren stellt wieder her', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Bijan', nname: 'bijan', rk: '1' }])
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    expect(useBoardStore.getState().activeBoardKey).toBe('league:L1:redraft')
+    useBoardStore.getState().switchBoard('league:L9:rookie')
+    expect(useBoardStore.getState().boardPlayers).toEqual([])
+    useBoardStore.getState().setBoardPlayers([{ name: 'Jeanty', nname: 'jeanty', rk: '1' }])
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    expect(useBoardStore.getState().boardPlayers[0].name).toBe('Bijan')
+    useBoardStore.getState().switchBoard('league:L9:rookie')
+    expect(useBoardStore.getState().boardPlayers[0].name).toBe('Jeanty')
+  })
+
+  it('Undo wirkt nie liga-übergreifend (Snapshot wird beim Switch verworfen)', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().setBoardPlayers([{ name: 'A', nname: 'a', rk: '1' }])
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    useBoardStore.getState().switchBoard('league:L9:rookie')
+    expect(useBoardStore.getState().undoImport()).toBe(false)
+  })
+})
+
+describe('Cache-Durchschrieb F3/F4/F6 (writeThroughActiveBoard)', () => {
+  // F4: Nutzer-Reorder muss den Reload mit Cache-Hit ueberleben — der Cache
+  // (boardsByKey, persistiert) muss den Reorder-Stand enthalten, sonst
+  // ueberschreibt der stale Hit nach Rehydrate den Top-Level-Stand.
+  it('onBoardReorder landet im Cache und ueberlebt simulierten Reload (persist-rehydrate)', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    useBoardStore.getState().setBoardPlayers([
+      { name: 'A-Spieler', nname: 'a-spieler', rk: '1' },
+      { name: 'B-Spieler', nname: 'b-spieler', rk: '2' },
+    ])
+    useBoardStore.getState().onBoardReorder('a-spieler', 'b-spieler')
+    expect(useBoardStore.getState().boardPlayers[0].nname).toBe('b-spieler')
+    const cached = useBoardStore.getState().boardsByKey['league:L1:redraft']
+    expect(cached.boardPlayers[0].nname).toBe('b-spieler')
+    // Simulierter Reload: boardsByKey ist persistiert und traegt den Reorder-Stand.
+    const raw = JSON.parse(localStorage.getItem('sdh-board-v1') || '{}')
+    expect(raw.state.boardsByKey['league:L1:redraft'].boardPlayers[0].nname).toBe('b-spieler')
+  })
+
+  // F6: undoImport muss den Cache mit zurueckdrehen — sonst reanimiert ein
+  // Reload-mit-Hit den rueckgaengig gemachten Import-Stand.
+  it('undoImport aktualisiert den Cache', async () => {
+    vi.stubGlobal('fetch', mockFetch({ 'ffc-adp': FFC, 'fantasycalc': FC }))
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Handsortiert', nname: 'handsortiert', rk: '1' }])
+    useBoardStore.getState().setBoardSource('csv')
+    await useBoardStore.getState().handleAutoImport({
+      isSuperflex: false, effScoringType: 'ppr', numTeams: 12, draftMode: 'redraft', force: true,
+    })
+    expect(useBoardStore.getState().boardsByKey['league:L1:redraft'].boardSource).toBe('market')
+    expect(useBoardStore.getState().undoImport()).toBe(true)
+    const cached = useBoardStore.getState().boardsByKey['league:L1:redraft']
+    expect(cached.boardPlayers[0].name).toBe('Handsortiert')
+    expect(cached.boardSource).toBe('csv')
+  })
+
+  // F3: handleCsvLoad setzt boardSource nicht selbst (macht der Aufrufer via
+  // setBoardSource) — deshalb muss setBoardSource den Cache nachfuehren, sonst
+  // luegt die Herkunfts-Zeile nach Switch+zurueck fuer CSV-Boards.
+  it('setBoardSource(csv) landet im Cache', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    useBoardStore.getState().setBoardPlayers([{ name: 'CSV-Spieler', nname: 'csv-spieler', rk: '1' }])
+    useBoardStore.getState().setBoardSource('csv')
+    expect(useBoardStore.getState().boardSource).toBe('csv')
+    expect(useBoardStore.getState().boardsByKey['league:L1:redraft'].boardSource).toBe('csv')
+  })
+})

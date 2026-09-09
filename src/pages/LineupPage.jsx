@@ -314,12 +314,26 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
             altLoaded={hasAltValues}
             ptsLoaded={hasPtsValues}
             sourceNote={isDynasty
-              ? `Woche: FantasyPros-Wochenranking${hasAltValues ? ' · KTC: KeepTradeCut-Dynastywert (Anlagewert)' : ''}${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
-              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`}
+              ? `Woche: FantasyPros-Wochenranking (Rang: kleiner = besser)${hasAltValues ? ' · KTC: KeepTradeCut-Dynastiewert, Anlagewert (größer = besser)' : ''}${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
+              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}
           />
         )}
-        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} ptsLoaded={pickupPtsLoaded} />
-        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} ptsLoaded={streamPtsLoaded} />
+        <PickupSuggestions
+          players={pickups}
+          mode={isDynasty ? 'dynasty' : 'redraft'}
+          ptsLoaded={pickupPtsLoaded}
+          sourceNote={isDynasty
+            ? `KTC: KeepTradeCut-Dynastiewert (größer = besser)${pickupPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
+            : `ROS: FantasyPros-Rest-der-Saison-Rang (kleiner = besser)${pickupPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`}
+        />
+        <StreamingBoard
+          board={board}
+          positions={effectiveStreamPositions}
+          availablePositions={availableStreamPositions}
+          onTogglePosition={toggleStreamPosition}
+          ptsLoaded={streamPtsLoaded}
+          sourceNote={`Woche/ROS: FantasyPros (${scoring.toUpperCase()})${streamPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}
+        />
       </div>
     </section>
   )

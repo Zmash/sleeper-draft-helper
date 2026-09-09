@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   PROFILES_KEY, PRINCIPLES_KEY, loadProfiles, saveProfiles,
-  loadPrinciples, savePrinciples,
+  loadPrinciples, savePrinciples, persistProfile,
   upsertProfileOverrides, upsertProfileStrategy,
   renameProfile, duplicateProfile, deleteProfile, createBlankProfile, rebindProfile,
-  migrateLegacyProfile, resolveProfile, computeDetectedFingerprint,
+  migrateLegacyProfile, migrateProfilesToMode, resolveProfile, computeDetectedFingerprint,
 } from './profileStore'
 
 beforeEach(() => { localStorage.clear() })
@@ -141,6 +141,26 @@ describe('rebindProfile', () => {
     expect(profiles.find(p => p.id === a.id).fingerprint).toBeNull()
     expect(profiles.find(p => p.id === b.id).fingerprint).toEqual(fp)
   })
+
+  it('F2: Rebind im Rookie-Modus setzt mode rookie und evictet nur das gleiche Composite', () => {
+    // Gleiches Composite (Liga + rookie) wird evictet ...
+    const alt = createBlankProfile('Alt')
+    rebindProfile(alt.id, { leagueId: 'L1', mode: 'rookie' })
+    const ziel = createBlankProfile('Ziel')
+    const updated = rebindProfile(ziel.id, { leagueId: 'L1', mode: 'rookie' })
+    expect(updated.mode).toBe('rookie')
+    expect(updated.boundLeagueId).toBe('L1')
+    const profiles = loadProfiles()
+    expect(profiles.find(p => p.id === alt.id).boundLeagueId).toBeNull()
+    // ... aber eine zweite Liga-Bindung mit anderem Modus bleibt bestehen.
+    const red = createBlankProfile('Red')
+    rebindProfile(red.id, { leagueId: 'L1', mode: 'redraft' })
+    rebindProfile(ziel.id, { leagueId: 'L1', mode: 'rookie' })
+    const nachher = loadProfiles()
+    expect(nachher.find(p => p.id === red.id).boundLeagueId).toBe('L1')
+    expect(nachher.find(p => p.id === red.id).mode).toBe('redraft')
+    expect(nachher.find(p => p.id === ziel.id).mode).toBe('rookie')
+  })
 })
 
 describe('computeDetectedFingerprint', () => {
@@ -170,7 +190,7 @@ describe('loadPrinciples/savePrinciples', () => {
 })
 
 describe('migrateLegacyProfile', () => {
-  it('fuehrt sdh.setup.v2 und sdh.strategies.v1 zu einem ungebundenen Profil zusammen', () => {
+  it('fuehrt sdh.setup.v2 und sdh.strategies.v1 zu je einem ungebundenen Profil pro Modus zusammen', () => {
     localStorage.setItem('sdh.setup.v2', JSON.stringify({ overrides: { scoring_type: 'half_ppr', superflex: true, roster_positions: null, teams: 10, rounds: 15, type: 'snake', strategies: ['zeroRB'] } }))
     localStorage.setItem('sdh.strategies.v1', JSON.stringify({
       principles: 'DEF wird gestreamt.',
@@ -178,12 +198,14 @@ describe('migrateLegacyProfile', () => {
     }))
     migrateLegacyProfile()
     const profiles = loadProfiles()
-    expect(profiles).toHaveLength(1)
-    expect(profiles[0].name).toBe('Migriert')
-    expect(profiles[0].boundLeagueId).toBeNull()
-    expect(profiles[0].fingerprint).toBeNull()
+    expect(profiles).toHaveLength(2)
+    expect(profiles.map(p => p.mode).sort()).toEqual(['redraft', 'rookie'])
+    expect(profiles.map(p => p.name).sort()).toEqual(['Migriert (Redraft)', 'Migriert (Rookie)'])
+    expect(profiles.every(p => p.boundLeagueId === null)).toBe(true)
+    expect(profiles.every(p => p.fingerprint === null)).toBe(true)
+    expect(profiles.every(p => p.overrides.scoring_type === 'half_ppr')).toBe(true)
     expect(profiles[0].overrides).toMatchObject({ scoring_type: 'half_ppr', superflex: true, teams: 10, strategies: ['zeroRB'] })
-    expect(profiles[0].strategy.summary).toBe('Leitlinie.')
+    expect(profiles.every(p => p.strategy.summary === 'Leitlinie.')).toBe(true)
     expect(loadPrinciples()).toBe('DEF wird gestreamt.')
   })
 
@@ -197,7 +219,7 @@ describe('migrateLegacyProfile', () => {
     localStorage.setItem('sdh.setup.v2', JSON.stringify({ overrides: { superflex: true } }))
     migrateLegacyProfile()
     migrateLegacyProfile()
-    expect(loadProfiles()).toHaveLength(1)
+    expect(loadProfiles()).toHaveLength(2)
   })
 
   it('tut nichts ohne alte Keys', () => {
@@ -262,5 +284,68 @@ describe('resolveProfile — Mock/Standalone (Fingerprint)', () => {
   function makeFingerprintFromMock() {
     return { draftMode: 'redraft', scoringType: 'ppr', superflex: false, teams: 12, starters: ['DEF', 'FLEX', 'QB', 'RB', 'RB', 'TE', 'WR', 'WR'] }
   }
+})
+
+describe('persistProfile / modus-scharfe Liga-Bindung (Task 1)', () => {
+  it('persistProfile speichert ein isNew-Liga-Profil ohne Override-Edit', () => {
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Dynasty Liga' },
+      draftMode: 'rookie',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.mode).toBe('rookie')
+    const saved = persistProfile(profile)
+    expect(loadProfiles()).toHaveLength(1)
+    expect(loadProfiles()[0].id).toBe(saved.id)
+    const again = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Dynasty Liga' },
+      draftMode: 'rookie',
+    })
+    expect(again.isNew).toBe(false)
+    expect(again.profile.id).toBe(saved.id)
+  })
+
+  it('gleiche Liga, anderer Modus = anderes Profil (kein Cross-Mode-Match)', () => {
+    const red = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Liga' },
+      draftMode: 'redraft',
+    })
+    persistProfile(red.profile)
+    const rook = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Liga' },
+      draftMode: 'rookie',
+    })
+    expect(rook.isNew).toBe(true)
+    expect(rook.profile.mode).toBe('rookie')
+  })
+})
+
+describe('Migration pro Modus (Task 2)', () => {
+  it('migrateLegacyProfile legt pro Modus ein Profil an', () => {
+    localStorage.setItem('sdh.setup.v2', JSON.stringify({ overrides: { scoring_type: 'half_ppr', superflex: true, roster_positions: null, teams: 10, rounds: 15, type: 'snake', strategies: ['zeroRB'] } }))
+    migrateLegacyProfile()
+    const profiles = loadProfiles()
+    expect(profiles).toHaveLength(2)
+    expect(profiles.map(p => p.mode).sort()).toEqual(['redraft', 'rookie'])
+    expect(profiles.every(p => p.overrides.scoring_type === 'half_ppr')).toBe(true)
+  })
+
+  it('migrateProfilesToMode spaltet einzelnes fingerprint-loses Migriert-Profil auf', () => {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify({ version: 1, profiles: [{
+      id: 'prof_alt', name: 'Migriert', boundLeagueId: null, fingerprint: null, mode: null,
+      overrides: { scoring_type: 'ppr', superflex: false, roster_positions: null, teams: 12, rounds: 16, type: 'snake', strategies: ['balanced'] },
+      strategy: { summary: '', rules: [], sources: [], contested: [], source: 'manual', updatedAt: null },
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }] }))
+    const res = migrateProfilesToMode()
+    expect(res.migrated).toBeGreaterThan(0)
+    const profiles = loadProfiles()
+    expect(profiles).toHaveLength(2)
+    expect(profiles.map(p => p.mode).sort()).toEqual(['redraft', 'rookie'])
+  })
 })
 

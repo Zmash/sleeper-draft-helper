@@ -1,12 +1,13 @@
 // One-time migration from draft-helper-state-v3 (old monolithic key) to per-store keys.
 // Called in main.jsx before React renders. Safe to call multiple times (idempotent).
-import { migrateLegacyProfile } from '../services/profileStore'
+import { migrateLegacyProfile, migrateProfilesToMode } from '../services/profileStore'
 
 export function migrateOldStorage() {
   const SESSION_KEY = 'sdh-session-v1'
   // Vor dem fruehen return: laeuft sonst nie bei Nutzern, die die alte
   // Migration schon hinter sich haben.
   migrateLegacyProfile()
+  try { migrateProfilesToMode() } catch {}
   if (localStorage.getItem(SESSION_KEY)) return // already migrated
 
   let old = {}

@@ -3,7 +3,7 @@ import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatP
 
 const ALL_POSITIONS = ['DEF', 'QB', 'TE']
 
-export default function StreamingBoard({ board = {}, positions = [], availablePositions = null, onTogglePosition, ptsLoaded = false }) {
+export default function StreamingBoard({ board = {}, positions = [], availablePositions = null, onTogglePosition, ptsLoaded = false, sourceNote = null }) {
   // availablePositions kommt aus der Liga (LineupPage); ohne Prop fallen wir
   // auf alle Positionen zurueck, damit aeltere Aufrufe nichts verlieren.
   const visible = Array.isArray(availablePositions) ? availablePositions : ALL_POSITIONS
@@ -33,9 +33,9 @@ export default function StreamingBoard({ board = {}, positions = [], availablePo
               <span />
               <span />
               <span />
-              <span className="an-num">Woche</span>
-              {ptsLoaded && <span className="an-num">Pkt</span>}
-              <span className="an-num an-num-dim">ROS</span>
+              <span className="an-num" title="FantasyPros-Wochenrang – kleiner ist besser">Rang<span className="an-col-sub">Woche</span></span>
+              {ptsLoaded && <span className="an-num" title="Sleeper-Wochenprojektion in Punkten – größer ist besser">Pkt</span>}
+              <span className="an-num an-num-dim" title="FantasyPros-Rest-der-Saison-Rang – kleiner ist besser">Rang<span className="an-col-sub">ROS</span></span>
             </div>
             {week.slice(0, 10).map((p) => (
               <div className="an-listrow" key={p.player_id}>
@@ -55,6 +55,7 @@ export default function StreamingBoard({ board = {}, positions = [], availablePo
       })}
       {!visible.length && <p className="an-card-empty">Keine Streaming-Position in dieser Liga</p>}
       {!positions.length && !!visible.length && <p className="an-card-empty">Keine Position ausgewählt</p>}
+      {sourceNote && <p className="an-card-basis">{sourceNote}</p>}
     </div>
   )
 }

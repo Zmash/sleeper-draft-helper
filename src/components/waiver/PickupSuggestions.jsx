@@ -5,9 +5,9 @@ import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatP
 // Streaming-Board, damit QB/RB/WR/TE/DEF ueberall gleich sortiert auftauchen).
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'DEF']
 
-export default function PickupSuggestions({ players = [], mode = 'redraft', ptsLoaded = false }) {
-  const valueLabel = mode === 'dynasty' ? 'Dynasty-Wert' : 'ROS-Rang'
-  const valueCol = mode === 'dynasty' ? 'Wert' : 'ROS'
+export default function PickupSuggestions({ players = [], mode = 'redraft', ptsLoaded = false, sourceNote = null }) {
+  const isDynasty = mode === 'dynasty'
+  const valueLabel = isDynasty ? 'KTC-Wert' : 'ROS-Rang'
 
   // pickupRanking sortiert bereits global nach Wert; hier nur noch nach
   // Position gruppieren — die Reihenfolge bleibt innerhalb eines Batches
@@ -27,8 +27,10 @@ export default function PickupSuggestions({ players = [], mode = 'redraft', ptsL
           <span>Spieler</span>
           <span title="Verletzungsstatus">St</span>
           <span>Team</span>
-          <span className={`an-num${ptsLoaded ? ' an-num-dim' : ''}`}>{valueCol}</span>
-          {ptsLoaded && <span className="an-num">Pkt</span>}
+          {isDynasty
+            ? <span className={`an-num${ptsLoaded ? ' an-num-dim' : ''}`} title="KeepTradeCut-Dynastiewert – größer ist besser">KTC</span>
+            : <span className={`an-num${ptsLoaded ? ' an-num-dim' : ''}`} title="FantasyPros-Rest-der-Saison-Rang – kleiner ist besser">Rang<span className="an-col-sub">ROS</span></span>}
+          {ptsLoaded && <span className="an-num" title="Sleeper-Wochenprojektion in Punkten – größer ist besser">Pkt</span>}
         </div>
       )}
       {batches.map((batch) => (
@@ -56,6 +58,7 @@ export default function PickupSuggestions({ players = [], mode = 'redraft', ptsL
           ))}
         </div>
       ))}
+      {sourceNote && <p className="an-card-basis">{sourceNote}</p>}
     </div>
   )
 }

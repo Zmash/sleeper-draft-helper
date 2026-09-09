@@ -440,6 +440,11 @@
    vorher doppelt auf (einmal nach Woche, einmal nach ROS sortiert). Jetzt eine
    Zeile pro Spieler mit beiden Raengen, Woche als Leitwert. */
 .an-listrow-head { font-size: .68rem; color: var(--muted, #888); padding: .1rem 0; }
+/* Zweizeilige Spaltenkoepfe: Oberzeile die Einheit (Rang), Unterzeile die
+   Quelle (Woche/ROS) -- volle Woerter statt Kuerzel, ohne Mehrbreite (die
+   laengste Zeile bestimmt). Eigene Klasse statt .an-num-dim, das an der
+   Mobil-Ausblendlogik haengt. */
+.an-col-sub { display: block; font-size: .62rem; font-weight: 400; color: var(--muted, #888); }
 .an-num-dim { color: var(--muted, #888); }
 /* Mit Pkt-Spalte (Redraft): Woche | Pkt | ROS. Pickups haben zusaetzlich die
    Team-Spur, Streaming nicht -- darum eigene Templates je Karte. */

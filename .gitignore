@@ -25,3 +25,7 @@ Thumbs.db
 
 # Remove Android-specific if not used
 android/
+
+# Local agent/tooling (installiert, nicht versioniert)
+.claude/skills/
+.openchamber/
