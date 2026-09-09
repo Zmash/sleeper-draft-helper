@@ -445,8 +445,10 @@
    Team-Spur, Streaming nicht -- darum eigene Templates je Karte. */
 .an-card--stream--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem 2.2rem; }
 .an-card--pickups--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.2rem 2.4rem; }
-@media (max-width: 720px) {
-  /* Mobil faellt die Zweitquelle (ROS) weg, Rang + Punkte bleiben lesbar. */
+@media (max-width: 340px) {
+  /* Erst bei sehr schmalen Screens faellt die Zweitquelle (ROS) weg -- die
+     Namens-Spur (minmax 4rem..11rem) schluckt bis dahin die Breite, Rang +
+     Punkte bleiben lesbar. */
   .an-card--stream--pts .an-num-dim, .an-card--pickups--pts .an-num-dim { display: none; }
   .an-card--stream--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem; }
   .an-card--pickups--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem; }
@@ -468,9 +470,9 @@
 .an-card--lineup--pts .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem 2.2rem; }
 .an-card--lineup--pts.an-card--lineup--noalt .an-listrow,
 .an-card--lineup--pts.an-card--lineup--noalt .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem; }
-@media (max-width: 720px) {
-  /* Mobil passt die Zweitquelle (ROS/KTC) nicht mehr neben Rang + Punkte:
-     sie wird ausgeblendet, Team bleibt sichtbar (Header/Zeilen-Luecken-Fix). */
+@media (max-width: 340px) {
+  /* Wie bei Streaming/Pickups: die Zweitquelle (ROS/KTC) weicht erst, wenn es
+     wirklich eng wird -- Team bleibt immer sichtbar (Header/Zeilen-Luecke). */
   .an-card--lineup--pts .an-num-dim { display: none; }
   .an-card--lineup--pts .an-listrow,
   .an-card--lineup--pts .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem; }
