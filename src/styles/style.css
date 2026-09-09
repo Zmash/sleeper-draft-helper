@@ -54,8 +54,9 @@ body {
   margin-bottom: 16px;
 }
 /* Logo ist ein Link zur Startseite — Text-Optik bleibt unveraendert */
-.brand { display: flex; align-items: baseline; gap: 8px; text-decoration: none; color: inherit; }
+.brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; }
 .brand:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.brand-logo { width: 15px; height: 15px; border-radius: 3px; object-fit: cover; }
 .brand b {
   font-family: var(--font-display);
   font-weight: 700;
