@@ -19,7 +19,7 @@ export const IS_APPLE =
 export const MOD_K = IS_APPLE ? '⌘K' : 'Strg+K'
 
 const RAIL = [
-  { icon: 'home', tip: 'Dashboard', path: '/dashboard' },
+  { logo: true, tip: 'Dashboard', path: '/dashboard' },
   { icon: 'board', tip: 'Board', path: '/board' },
   { icon: 'swap', tip: 'Trade', path: '/trade' },
   { icon: 'chart', tip: 'Analyse', path: '/analyse' },
@@ -134,7 +134,7 @@ export default function NextShell({ children, pageProps = {} }) {
             aria-label={r.tip}
             onClick={() => navigate(r.path)}
           >
-            <Icon name={r.icon} size={17} />
+            {r.logo ? <img src="/logo.png" alt="" className="ns-rail-logo" /> : <Icon name={r.icon} size={17} />}
           </button>
         ))}
         <div className="ns-rail-spacer" />
