@@ -1,5 +1,5 @@
 import Icon from '../Icon'
-import { posColor, fantasyProsPlayerUrl } from '../../utils/formatting'
+import { posColor, fantasyProsPlayerUrl, formatProjectedPts } from '../../utils/formatting'
 
 // Reihenfolge wie in Sleeper: QB vorne, K/DEF hinten. Unbekannte Slots landen
 // ans Ende; innerhalb desselben Slots bleibt die Index-Reihenfolge erhalten.
@@ -15,7 +15,7 @@ const altText = (v, kind) =>
   v == null ? '–' : kind === 'value' ? String(Math.round(v)) : Number.isFinite(v) ? String(Math.round(v)) : '–'
 
 export default function RecommendedLineupCard({
-  lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, sourceNote = null,
+  lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, ptsLoaded = false, sourceNote = null,
 }) {
   if (!lineup) return null
   const changes = comparison && !comparison.isOptimal ? comparison.diffs.length : 0
@@ -25,7 +25,7 @@ export default function RecommendedLineupCard({
   // der Vergleich "was starte ich, was liegt auf der Bank" direkt ablesbar ist.
   const bench = (lineup.bench || []).slice().sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
   return (
-    <div className={`an-card an-card--lineup${altLoaded ? '' : ' an-card--lineup--noalt'}`}>
+    <div className={`an-card an-card--lineup${altLoaded ? '' : ' an-card--lineup--noalt'}${ptsLoaded ? ' an-card--lineup--pts' : ''}`}>
       <div className="an-lineup-head">
         <h3 className="an-card-title">Empfohlene Aufstellung</h3>
         {comparison?.isOptimal && (
@@ -41,7 +41,8 @@ export default function RecommendedLineupCard({
           <span>Spieler</span>
           <span>Team</span>
           <span className="an-num">Woche</span>
-          {altLoaded && <span className="an-num">{altLabel}</span>}
+          {ptsLoaded && <span className="an-num">Pkt</span>}
+          {altLoaded && <span className="an-num an-num-dim">{altLabel}</span>}
         </div>
       )}
       <div className="an-lineup-list">
@@ -64,6 +65,7 @@ export default function RecommendedLineupCard({
             )}
             <span className="an-trendteam">{s.player?.team || '—'}</span>
             <span className="an-num">{Number.isFinite(s.rank) ? Math.round(s.rank) : '–'}</span>
+            {ptsLoaded && <span className="an-num">{formatProjectedPts(s.pts)}</span>}
             {altLoaded && <span className="an-num an-num-dim">{altText(s.alt, altKind)}</span>}
           </div>
         ))}
@@ -89,6 +91,7 @@ export default function RecommendedLineupCard({
                 )}
                 <span className="an-trendteam">{p.team || '—'}</span>
                 <span className="an-num">{Number.isFinite(p.rank) ? Math.round(p.rank) : '–'}</span>
+                {ptsLoaded && <span className="an-num">{formatProjectedPts(p.pts)}</span>}
                 {altLoaded && <span className="an-num an-num-dim">{altText(p.alt, altKind)}</span>}
               </div>
             ))}

@@ -82,19 +82,19 @@ export function pickupRanking({
   return [...hasValue, ...noValue]
 }
 
-function sortByRank(agents, rankByKey) {
+function sortByRank(agents, rankByKey, ptsByPlayerId) {
   return agents
-    .map((a) => ({ ...a, rank: rankByKey.get(matchKey(a.pos, a)) ?? null }))
+    .map((a) => ({ ...a, rank: rankByKey.get(matchKey(a.pos, a)) ?? null, pts: ptsByPlayerId?.get(String(a.player_id)) ?? null }))
     .filter((a) => a.rank != null)
     .sort((x, y) => x.rank - y.rank)
 }
 
-export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new Map(), rosRankByKey = new Map(), positions = [] } = {}) {
+export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new Map(), rosRankByKey = new Map(), ptsByPlayerId = new Map(), positions = [] } = {}) {
   const out = {}
   for (const pos of positions) {
     const posAgents = agents.filter((a) => a.pos === pos)
     out[pos] = {
-      week: sortByRank(posAgents, weeklyRankByKey),
+      week: sortByRank(posAgents, weeklyRankByKey, ptsByPlayerId),
       ros: sortByRank(posAgents, rosRankByKey),
     }
   }

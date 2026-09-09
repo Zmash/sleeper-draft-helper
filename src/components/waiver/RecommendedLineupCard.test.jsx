@@ -75,5 +75,23 @@ describe('RecommendedLineupCard', () => {
     expect(container.querySelectorAll('.an-lineup-row')[0].querySelectorAll('.an-num').length).toBe(1)
     expect(container.querySelector('.an-card--lineup').className).toContain('an-card--lineup--noalt')
   })
+
+  it('zeigt die Pkt-Spalte mit einer Nachkommastelle, wenn ptsLoaded true ist', () => {
+    const withPts = {
+      slots: [{ slot: 'QB', slotIndex: 0, player: { name: 'Jayden Daniels', team: 'WAS' }, rank: 3, pts: 21.4, alt: 5 }],
+      bench: [],
+    }
+    const { container } = render(
+      <RecommendedLineupCard lineup={withPts} comparison={null} altLabel="ROS" altKind="rank" ptsLoaded />
+    )
+    expect(screen.getByText('Pkt')).toBeInTheDocument()
+    expect(screen.getByText('21.4')).toBeInTheDocument()
+    expect(container.querySelector('.an-card--lineup').className).toContain('an-card--lineup--pts')
+  })
+
+  it('zeigt keine Pkt-Spalte ohne ptsLoaded (Standard)', () => {
+    render(<RecommendedLineupCard lineup={lineup} comparison={null} altLabel="ROS" altKind="rank" />)
+    expect(screen.queryByText('Pkt')).not.toBeInTheDocument()
+  })
 })
 

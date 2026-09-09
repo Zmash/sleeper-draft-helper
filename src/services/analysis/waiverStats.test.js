@@ -119,6 +119,19 @@ describe('streamingBoard', () => {
     expect(out.DEF.week.map((p) => p.player_id)).toEqual(['2', '1'])
     expect(out.DEF.ros.map((p) => p.player_id)).toEqual(['1', '2'])
   })
+
+  it('haengt projizierte Punkte an Week-Eintraege (optionale ptsByPlayerId-Map)', () => {
+    const out = streamingBoard({
+      freeAgents: agents,
+      weeklyRankByKey: new Map([['TEAM:SEA', 3], ['TEAM:NYJ', 1]]),
+      rosRankByKey: new Map([['TEAM:SEA', 1], ['TEAM:NYJ', 5]]),
+      ptsByPlayerId: new Map([['1', 7.5]]),
+      positions: ['DEF'],
+    })
+    expect(out.DEF.week.find((p) => p.player_id === '1').pts).toBe(7.5)
+    expect(out.DEF.week.find((p) => p.player_id === '2').pts).toBeNull()
+    expect(out.DEF.ros.find((p) => p.player_id === '1').pts).toBeNull()
+  })
 })
 
 describe('bestLineup', () => {

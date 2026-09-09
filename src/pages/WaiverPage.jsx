@@ -35,7 +35,7 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const { sleeperUserId } = useSessionStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
   const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
-  const { byKey, loadIfStale, getRankMap } = useWeeklyRankingsStore()
+  const { byKey, sleeperWeekById, loadIfStale, loadSleeperWeekIfStale, getRankMap } = useWeeklyRankingsStore()
   const { streamPositions, toggleStreamPosition } = useUIStore()
   const { adds } = useTrendingPlayers()
 
@@ -103,11 +103,13 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
 
   // Pickup-Ranking im Redraft-Modus sortiert ueber ALLE Free-Agent-Positionen
   // nach ROS-Rang -- dafuer muessen alle 5 Positionen geladen sein, nicht nur
-  // Streaming-Positionen und eigener Kader.
+  // Streaming-Positionen und eigener Kader. Die Pkt-Werte kommen aus der
+  // Sleeper-Wochenprojektion (ein Request, native Sleeper-IDs).
   useEffect(() => {
     if (isDynasty) return
     for (const pos of ['QB', 'RB', 'WR', 'TE', 'DEF']) loadIfStale({ pos, scope: 'ros', scoring })
-  }, [isDynasty, scoring, loadIfStale])
+    if (week != null) loadSleeperWeekIfStale({ season: seasonYear, week })
+  }, [isDynasty, scoring, loadIfStale, week, seasonYear, loadSleeperWeekIfStale])
 
   useEffect(() => {
     if (!selectedLeague?.league_id || !week) return
@@ -134,11 +136,31 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
 
   const trendingAddIds = useMemo(() => new Set(adds.map((a) => a.player_id)), [adds])
 
+  // Projizierte Wochenpunkte je Sleeper-ID im Liga-Scoringformat (Pkt-Spalten
+  // in Aufstellung, Pickup-Liste und Streaming-Board). Quelle ist die
+  // Sleeper-Wochenprojektion -- native IDs, kein Name-Matching.
+  const sleeperPtsByPlayerId = useMemo(() => {
+    const field = effScoringType === 'half_ppr' ? 'pts_half_ppr' : effScoringType === 'standard' ? 'pts_std' : 'pts_ppr'
+    const map = new Map()
+    for (const [id, e] of sleeperWeekById) {
+      const v = e?.[field]
+      if (v != null) map.set(String(id), v)
+    }
+    return map
+  }, [sleeperWeekById, effScoringType])
+
   const pickups = useMemo(
     () => pickupRanking({
       freeAgents: agents, mode: isDynasty ? 'dynasty' : 'redraft', dynastyValues, rosRankByKey, trendingAddIds,
-    }),
-    [agents, isDynasty, dynastyValues, rosRankByKey, trendingAddIds]
+    }).map((p) => ({ ...p, pts: sleeperPtsByPlayerId.get(String(p.player_id)) ?? null })),
+    [agents, isDynasty, dynastyValues, rosRankByKey, trendingAddIds, sleeperPtsByPlayerId]
+  )
+
+  // Pkt-Spalten nur im Redraft-Modus (Dynasty hat mit KTC bereits Werte) und
+  // nur bei echten Daten -- gleiche Guards wie in der Lineup-Karte.
+  const pickupPtsLoaded = useMemo(
+    () => !isDynasty && pickups.some((p) => p.pts != null),
+    [isDynasty, pickups]
   )
 
   const board = useMemo(() => {
@@ -148,8 +170,13 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
       for (const [k, v] of getRankMap({ pos, scope: 'week' })) weeklyMerged.set(k, v)
       for (const [k, v] of getRankMap({ pos, scope: 'ros' })) rosMerged.set(k, v)
     }
-    return streamingBoard({ freeAgents: agents, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, positions: effectiveStreamPositions })
-  }, [agents, effectiveStreamPositions, byKey, getRankMap])
+    return streamingBoard({ freeAgents: agents, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, ptsByPlayerId: sleeperPtsByPlayerId, positions: effectiveStreamPositions })
+  }, [agents, effectiveStreamPositions, byKey, getRankMap, sleeperPtsByPlayerId])
+
+  const streamPtsLoaded = useMemo(
+    () => !isDynasty && Object.values(board).some((b) => (b.week || []).some((p) => p.pts != null)),
+    [isDynasty, board]
+  )
 
   const weeklyRankByIdKey = useMemo(() => {
     const map = new Map()
@@ -185,12 +212,13 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
       ? (p) => ktcValueByNname.get(p.nname) ?? null
       : (p) => rosRankByKey.get(matchKey(p.pos, p)) ?? null
     const rankOf = (p) => weeklyRankByIdKey.get(`ID:${p.sleeper_id}`) ?? null
+    const ptsOf = (p) => sleeperPtsByPlayerId.get(String(p.sleeper_id)) ?? null
     return {
       ...result,
-      slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null })),
-      bench: (result.bench || []).map((p) => ({ ...p, rank: rankOf(p), alt: altOf(p) })),
+      slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null, pts: s.player ? ptsOf(s.player) : null })),
+      bench: (result.bench || []).map((p) => ({ ...p, rank: rankOf(p), alt: altOf(p), pts: ptsOf(p) })),
     }
-  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, week, isDynasty, rosRankByKey, ktcValueByNname])
+  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
@@ -203,6 +231,14 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
   const hasAltValues = useMemo(() => {
     if (!lineup) return false
     const all = (lineup.slots || []).map((s) => s.alt).concat((lineup.bench || []).map((p) => p.alt))
+    return all.some((v) => v != null)
+  }, [lineup])
+
+  // Pkt-Spalte nur zeigen, wenn mindestens ein Lineup-Spieler eine echte
+  // Projektion hat (gleiche Logik wie hasAltValues).
+  const hasPtsValues = useMemo(() => {
+    if (!lineup) return false
+    const all = (lineup.slots || []).map((s) => s.pts).concat((lineup.bench || []).map((p) => p.pts))
     return all.some((v) => v != null)
   }, [lineup])
 
@@ -229,13 +265,14 @@ export default function WaiverPage({ selectedLeague, effRoster, draftMode, effSc
             altLabel={isDynasty ? 'KTC' : 'ROS'}
             altKind={isDynasty ? 'value' : 'rank'}
             altLoaded={hasAltValues}
+            ptsLoaded={!isDynasty && hasPtsValues}
             sourceNote={isDynasty
               ? `Woche: FantasyPros-Wochenranking${hasAltValues ? ' · KTC: KeepTradeCut-Dynastywert (Anlagewert)' : ''}`
-              : `Woche/ROS: FantasyPros-Rankings (${scoring.toUpperCase()})`}
+              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${!isDynasty && hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`}
           />
         )}
-        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} />
-        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} />
+        <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} ptsLoaded={pickupPtsLoaded} />
+        <StreamingBoard board={board} positions={effectiveStreamPositions} availablePositions={availableStreamPositions} onTogglePosition={toggleStreamPosition} ptsLoaded={streamPtsLoaded} />
       </div>
     </section>
   )

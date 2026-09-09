@@ -8,6 +8,8 @@ const TTL_MS = { week: 6 * 60 * 60 * 1000, ros: 24 * 60 * 60 * 1000 }
 // (anders als useDynastyValuesStore, das absichtlich langlebiger ist).
 export const useWeeklyRankingsStore = create((set, get) => ({
   byKey: new Map(), // "pos:scope" -> Map<matchKey, ecr>
+  sleeperWeekKey: null, // "season/week" der geladenen Sleeper-Projektionen
+  sleeperWeekById: new Map(), // sleeper_id -> { pts_ppr, pts_half_ppr, pts_std }
   loadedAt: new Map(), // "pos:scope" -> timestamp
   loading: new Set(),
 
@@ -40,4 +42,34 @@ export const useWeeklyRankingsStore = create((set, get) => ({
   },
 
   getRankMap: ({ pos, scope }) => get().byKey.get(`${pos}:${scope}`) || new Map(),
+
+  // Sleeper Wochen-Projektionen (ein Request pro Woche, alle Positionen).
+  // Schluessel ist die native Sleeper-ID -- direkter Match auf Kader und
+  // Free Agents, kein Name-Matching wie bei den FP-Rankings.
+  loadSleeperWeekIfStale: async ({ season, week } = {}) => {
+    if (season == null || week == null) return
+    const cacheKey = `sleeper-week:${season}/${week}`
+    const { loadedAt, loading } = get()
+    const fresh = loadedAt.has(cacheKey) && Date.now() - loadedAt.get(cacheKey) < TTL_MS.week
+    if (fresh || loading.has(cacheKey)) return
+    loading.add(cacheKey)
+    try {
+      const res = await fetch(`/api/rankings/sleeper-projections-week?season=${season}&week=${week}`)
+      const data = await res.json()
+      if (!data.ok) return
+      const byId = new Map()
+      for (const p of data.players || []) {
+        byId.set(String(p.sleeper_id), { pts_ppr: p.pts_ppr ?? null, pts_half_ppr: p.pts_half_ppr ?? null, pts_std: p.pts_std ?? null })
+      }
+      set((s) => {
+        const nextLoadedAt = new Map(s.loadedAt)
+        nextLoadedAt.set(cacheKey, Date.now())
+        return { sleeperWeekKey: cacheKey, sleeperWeekById: byId, loadedAt: nextLoadedAt }
+      })
+    } catch {
+      // Bleibt leer -- Pkt-Spalten rendern dann nicht.
+    } finally {
+      loading.delete(cacheKey)
+    }
+  },
 }))

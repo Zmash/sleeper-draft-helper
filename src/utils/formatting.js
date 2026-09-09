@@ -16,6 +16,9 @@ export const normalizePos = (p = '') =>
     .replace('DST', 'DEF')
     .trim()
 
+// Projizierte Wochenpunkte (FantasyPros fantasy_pts) mit einer Nachkommastelle.
+export const formatProjectedPts = (v) => (Number.isFinite(v) ? v.toFixed(1) : '–')
+
 /**
  * Zahl oder null. Bewusst NICHT Number() allein: Number(null) und Number('')
  * sind 0 und damit endlich -- ein fehlender Wert wuerde als gueltige Null

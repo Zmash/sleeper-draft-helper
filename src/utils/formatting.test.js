@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toFiniteOrNull, normalizePlayerName, normalizePos, signed, posColor, fantasyProsSlug } from './formatting'
+import { toFiniteOrNull, normalizePlayerName, normalizePos, signed, posColor, fantasyProsSlug, formatProjectedPts } from './formatting'
 
 describe('toFiniteOrNull', () => {
   it('echte Zahl kommt durch', () => {
@@ -109,5 +109,15 @@ describe('fantasyProsSlug', () => {
 
   it('behaelt Jr./Sr. im Slug -- anders als Sohn/Vater waeren sonst nicht unterscheidbar', () => {
     expect(fantasyProsSlug('Marvin Harrison Jr.')).toBe('marvin-harrison-jr')
+  })
+})
+
+describe('formatProjectedPts', () => {
+  it('eine Nachkommastelle, fehlende Werte als Strich', () => {
+    expect(formatProjectedPts(21.44)).toBe('21.4')
+    expect(formatProjectedPts(7)).toBe('7.0')
+    expect(formatProjectedPts(null)).toBe('–')
+    expect(formatProjectedPts(undefined)).toBe('–')
+    expect(formatProjectedPts(NaN)).toBe('–')
   })
 })

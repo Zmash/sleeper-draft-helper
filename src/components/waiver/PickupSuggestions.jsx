@@ -1,11 +1,11 @@
 import Icon from '../Icon'
-import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel } from '../../utils/formatting'
+import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatProjectedPts } from '../../utils/formatting'
 
 // Feste Positions-Reihenfolge der Batches (gleiche Reihenfolge wie das
 // Streaming-Board, damit QB/RB/WR/TE/DEF ueberall gleich sortiert auftauchen).
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'DEF']
 
-export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
+export default function PickupSuggestions({ players = [], mode = 'redraft', ptsLoaded = false }) {
   const valueLabel = mode === 'dynasty' ? 'Dynasty-Wert' : 'ROS-Rang'
   const valueCol = mode === 'dynasty' ? 'Wert' : 'ROS'
 
@@ -17,7 +17,7 @@ export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
     .filter((b) => b.players.length)
 
   return (
-    <div className="an-card">
+    <div className={`an-card an-card--pickups${ptsLoaded ? ' an-card--pickups--pts' : ''}`}>
       <h3 className="an-card-title">Pickup-Empfehlungen</h3>
       <p className="an-card-hint">Sortiert nach {valueLabel}</p>
       {!players.length && <p className="an-card-empty">Keine Free-Agent-Daten verfügbar.</p>}
@@ -27,7 +27,8 @@ export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
           <span>Spieler</span>
           <span title="Verletzungsstatus">St</span>
           <span>Team</span>
-          <span className="an-num">{valueCol}</span>
+          <span className={`an-num${ptsLoaded ? ' an-num-dim' : ''}`}>{valueCol}</span>
+          {ptsLoaded && <span className="an-num">Pkt</span>}
         </div>
       )}
       {batches.map((batch) => (
@@ -49,7 +50,8 @@ export default function PickupSuggestions({ players = [], mode = 'redraft' }) {
                 {p.injury_status ? injuryLabel(p.injury_status) : ''}
               </span>
               <span className="an-trendteam">{p.team || '—'}</span>
-              <span className="an-num">{p.value ?? '–'}</span>
+              <span className={`an-num${ptsLoaded ? ' an-num-dim' : ''}`}>{p.value ?? '–'}</span>
+              {ptsLoaded && <span className="an-num">{formatProjectedPts(p.pts)}</span>}
             </div>
           ))}
         </div>

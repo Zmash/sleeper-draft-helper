@@ -441,6 +441,16 @@
    Zeile pro Spieler mit beiden Raengen, Woche als Leitwert. */
 .an-listrow-head { font-size: .68rem; color: var(--muted, #888); padding: .1rem 0; }
 .an-num-dim { color: var(--muted, #888); }
+/* Mit Pkt-Spalte (Redraft): Woche | Pkt | ROS. Pickups haben zusaetzlich die
+   Team-Spur, Streaming nicht -- darum eigene Templates je Karte. */
+.an-card--stream--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem 2.2rem; }
+.an-card--pickups--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.2rem 2.4rem; }
+@media (max-width: 720px) {
+  /* Mobil faellt die Zweitquelle (ROS) weg, Rang + Punkte bleiben lesbar. */
+  .an-card--stream--pts .an-num-dim, .an-card--pickups--pts .an-num-dim { display: none; }
+  .an-card--stream--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem; }
+  .an-card--pickups--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem; }
+}
 
 /* Empfohlene Aufstellung: dasselbe Zeilen-Grid wie Pickups/Streaming, nur ohne
    Status-Slot -- 5 Spalten: Pille | Spieler | Team | Woche | Zweitwert. Der
@@ -452,6 +462,19 @@
    KTC/ROS wird nur gerendert, wenn echtes Datenmaterial da ist. */
 .an-card--lineup--noalt .an-listrow,
 .an-card--lineup--noalt .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem; }
+/* Mit projizierten Punkten kommt die Pkt-Spalte dazu (Woche | Pkt | Zweitwert).
+   Ohne Zweitquelle entfaellt die letzte Spur. */
+.an-card--lineup--pts .an-listrow,
+.an-card--lineup--pts .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem 2.2rem; }
+.an-card--lineup--pts.an-card--lineup--noalt .an-listrow,
+.an-card--lineup--pts.an-card--lineup--noalt .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem; }
+@media (max-width: 720px) {
+  /* Mobil passt die Zweitquelle (ROS/KTC) nicht mehr neben Rang + Punkte:
+     sie wird ausgeblendet, Team bleibt sichtbar (Header/Zeilen-Luecken-Fix). */
+  .an-card--lineup--pts .an-num-dim { display: none; }
+  .an-card--lineup--pts .an-listrow,
+  .an-card--lineup--pts .an-lineup-row { grid-template-columns: 2.5rem minmax(4rem, 11rem) 2.2rem 2.2rem 2.4rem; }
+}
 .an-lineup-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .an-lineup-list { margin-top: .5rem; }
 .an-lineup-row {
