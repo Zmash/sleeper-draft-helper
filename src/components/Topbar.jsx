@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ThemeSelect from './ThemeSelect'
 import Modal from './Modal'
 import Icon from './Icon'
 import MobileDraftSwitch from './MobileDraftSwitch'
+import { createTapCounter, EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, openFootballEgg } from '../utils/easterEgg.js'
 
 export default function Topbar({ themeId, setTheme }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Easter Egg (mobil): Brand-Logo 5x schnell antippen oeffnet das
+  // Field-Goal-Spiel. Das Logo ist in jeder Shell sichtbar, auch mobil.
+  const handleBrandTap = useMemo(
+    () => createTapCounter(EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, openFootballEgg),
+    [],
+  )
 
   function go(path) {
     setMenuOpen(false)
@@ -16,7 +23,7 @@ export default function Topbar({ themeId, setTheme }) {
 
   return (
     <header className="topbar">
-      <Link to="/dashboard" className="brand" aria-label="Zur Startseite">
+      <Link to="/dashboard" className="brand" aria-label="Zur Startseite" onClick={handleBrandTap}>
         <b>Draft<span className="brand-accent">Helper</span></b>
         <small>Sleeper</small>
       </Link>

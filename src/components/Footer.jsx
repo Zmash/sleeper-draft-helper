@@ -1,10 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { createTapCounter, EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, openFootballEgg } from '../utils/easterEgg.js';
 
+// Easter Egg: Das Field-Goal-Spiel unter /football.html.
+// Desktop: "football" tippen. Mobil (keine Tastatur): Footer 5x antippen
+// (bzw. das Brand-Logo in der Topbar — siehe Topbar.jsx).
 export default function Footer() {
+  const handleTap = useMemo(
+    () => createTapCounter(EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, openFootballEgg),
+    [],
+  );
+
   useEffect(() => {
     let buffer = '';
 
     const handleKeyPress = (e) => {
+      if (e.key.length !== 1) return;
       buffer += e.key.toLowerCase();
 
       // Wenn buffer länger als "football" ist, vorne abschneiden
@@ -13,7 +23,8 @@ export default function Footer() {
       }
 
       if (buffer === 'football') {
-        window.location.href = '/football.html';
+        buffer = '';
+        openFootballEgg();
       }
     };
 
@@ -22,7 +33,7 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="muted text-xs mt-6">
+    <footer className="muted text-xs mt-6" onClick={handleTap} style={{ cursor: 'pointer' }}>
       SleeperDraftHelper by Zmash
     </footer>
   );
