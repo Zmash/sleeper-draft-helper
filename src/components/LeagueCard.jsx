@@ -216,7 +216,7 @@ function LeagueCardInner({ card }) {
             Analyse
           </button>
         )}
-        {card.leagueId && (
+        {card.leagueId && card.format === 'dynasty' && (
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => {
@@ -247,6 +247,11 @@ function DraftCardInner({ card }) {
   function openDraftBoard() {
     if (card.draftId) setSelectedDraftId(card.draftId)
     navigate('/board')
+  }
+
+  function openAnalyse() {
+    if (card.draftId) setSelectedDraftId(card.draftId)
+    navigate('/analyse')
   }
 
   function openEdit() {
@@ -294,6 +299,9 @@ function DraftCardInner({ card }) {
           onClick={openDraftBoard}
         >
           {isLive ? <><Icon name="radio" size={13} /> Open Draft</> : 'Open Board'}
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={openAnalyse}>
+          Analyse
         </button>
         <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit setup">
           Edit
