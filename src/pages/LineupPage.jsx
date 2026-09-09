@@ -120,13 +120,18 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
 
   // Pickup-Ranking im Redraft-Modus sortiert ueber ALLE Free-Agent-Positionen
   // nach ROS-Rang -- dafuer muessen alle 5 Positionen geladen sein, nicht nur
-  // Streaming-Positionen und eigener Kader. Die Pkt-Werte kommen aus der
-  // Sleeper-Wochenprojektion (ein Request, native Sleeper-IDs).
+  // Streaming-Positionen und eigener Kader.
   useEffect(() => {
     if (isDynasty) return
     for (const pos of ['QB', 'RB', 'WR', 'TE', 'DEF']) loadIfStale({ pos, scope: 'ros', scoring })
+  }, [isDynasty, scoring, loadIfStale])
+
+  // Pkt-Werte aus der Sleeper-Wochenprojektion (ein Request, native
+  // Sleeper-IDs) -- in beiden Modi: im Dynasty-Modus stehen sie als
+  // Wochenform neben dem KTC-Anlagewert.
+  useEffect(() => {
     if (week != null) loadSleeperWeekIfStale({ season: seasonYear, week })
-  }, [isDynasty, scoring, loadIfStale, week, seasonYear, loadSleeperWeekIfStale])
+  }, [week, seasonYear, loadSleeperWeekIfStale])
 
   useEffect(() => {
     if (!selectedLeague?.league_id || !week) return
@@ -173,11 +178,11 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
     [agents, isDynasty, dynastyValues, rosRankByKey, trendingAddIds, sleeperPtsByPlayerId]
   )
 
-  // Pkt-Spalten nur im Redraft-Modus (Dynasty hat mit KTC bereits Werte) und
-  // nur bei echten Daten -- gleiche Guards wie in der Lineup-Karte.
+  // Pkt-Spalten in beiden Modi (Dynasty: Wochenform neben KTC), aber nur bei
+  // echten Daten -- gleiche Guards wie in der Lineup-Karte.
   const pickupPtsLoaded = useMemo(
-    () => !isDynasty && pickups.some((p) => p.pts != null),
-    [isDynasty, pickups]
+    () => pickups.some((p) => p.pts != null),
+    [pickups]
   )
 
   const board = useMemo(() => {
@@ -191,8 +196,8 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
   }, [agents, effectiveStreamPositions, byKey, getRankMap, sleeperPtsByPlayerId])
 
   const streamPtsLoaded = useMemo(
-    () => !isDynasty && Object.values(board).some((b) => (b.week || []).some((p) => p.pts != null)),
-    [isDynasty, board]
+    () => Object.values(board).some((b) => (b.week || []).some((p) => p.pts != null)),
+    [board]
   )
 
   const weeklyRankByIdKey = useMemo(() => {
@@ -307,10 +312,10 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
             altLabel={isDynasty ? 'KTC' : 'ROS'}
             altKind={isDynasty ? 'value' : 'rank'}
             altLoaded={hasAltValues}
-            ptsLoaded={!isDynasty && hasPtsValues}
+            ptsLoaded={hasPtsValues}
             sourceNote={isDynasty
-              ? `Woche: FantasyPros-Wochenranking${hasAltValues ? ' · KTC: KeepTradeCut-Dynastywert (Anlagewert)' : ''}`
-              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${!isDynasty && hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`}
+              ? `Woche: FantasyPros-Wochenranking${hasAltValues ? ' · KTC: KeepTradeCut-Dynastywert (Anlagewert)' : ''}${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
+              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`}
           />
         )}
         <PickupSuggestions players={pickups} mode={isDynasty ? 'dynasty' : 'redraft'} ptsLoaded={pickupPtsLoaded} />
