@@ -113,16 +113,39 @@ function writeThroughActiveBoard(set, get) {
 // Reine Seed-Funktion fuer die einmalige Board-Migration (migrate.js): nimmt das
 // rohe `sdh-board-v1`-JSON, gibt ggf. neues JSON zurueck, null wenn nichts zu tun.
 // Pro Modus m in [redraft, rookie] wird das Ziel `mode:<m>` nur geseedet, wenn es
-// fehlt oder keine boardPlayers hat UND mindestens ein `league:*:<m>`-/`fp:*:<m>`-
-// Eintrag mit boardPlayers.length > 0 existiert → Kopie des inhaltsreichsten
-// (laengste boardPlayers, Gleichstand: erste). Nur kopieren, nie loeschen.
-// Idempotent: zweiter Lauf findet das Ziel vorhanden und liefert null.
+// fehlt oder keine boardPlayers hat. Seed-Kandidaten sind alle `league:*:<m>`-/
+// `fp:*:<m>`-Eintraege mit boardPlayers.length > 0 PLUS das Top-Level-Board
+// (state.boardPlayers/state.boardMode) — Direkt-Upgrader von der alten
+// Single-Board-Version haben nur dieses eine Board, ohne Cache-Eintraege.
+// Das Top-Level zaehlt fuer m, wenn es Inhalt hat UND (state.boardMode === m
+// ODER boardMode == null und m === 'redraft' — Alt-Boards ohne Markierung waren
+// praktisch immer Redraft; ein Rookie-Altbestand ohne Markierung landet damit
+// nicht im Rookie-Seed, das ist akzeptierte Unschaerfe). Gewinner ist der
+// inhaltsreichste Kandidat (laengste boardPlayers); bei Gleichstand gewinnt das
+// Top-Level-Board, weil es der zuletzt aktive — also frischeste — Stand ist
+// (deshalb steht es zuerst und Cache-Eintraege ersetzen es nur bei strikt
+// groesserer Laenge). Nur kopieren, nie loeschen: Ziel, Top-Level und alle
+// Quellen bleiben unangetastet. Idempotent: zweiter Lauf findet das Ziel
+// vorhanden und liefert null.
 export function migrateBoardsToModeKeys(rawJsonString) {
   if (!rawJsonString) return null
   let parsed
   try { parsed = JSON.parse(rawJsonString) } catch { return null }
   const boardsByKey = parsed?.state?.boardsByKey
   if (!boardsByKey || typeof boardsByKey !== 'object') return null
+  const state = parsed.state
+  // Top-Level als Kandidat-Vorlage (gleiche Felder wie writeThroughActiveBoard,
+  // ohne csvRawText — der Rohtext lebt nur im aktiven Top-Level-Feld).
+  const topPlayers = Array.isArray(state.boardPlayers) ? state.boardPlayers : []
+  const topMode = state.boardMode
+  const topEntry = topPlayers.length > 0 ? {
+    boardPlayers: topPlayers,
+    boardMode: topMode,
+    boardSource: state.boardSource ?? null,
+    rankingSource: state.rankingSource ?? null,
+    marketMeta: state.marketMeta ?? null,
+    lastImportStats: state.lastImportStats ?? null,
+  } : null
   const next = { ...boardsByKey }
   let changed = false
   for (const m of ['redraft', 'rookie']) {
@@ -130,7 +153,9 @@ export function migrateBoardsToModeKeys(rawJsonString) {
     const cur = next[target]
     // Ziel bereits geseedet → Skip (Idempotenz).
     if (Array.isArray(cur?.boardPlayers) && cur.boardPlayers.length > 0) continue
+    // Top-Level zuerst (Tie-Bonus: Cache ersetzt es nur bei strikt groesser).
     let richest = null
+    if (topEntry && (topMode === m || (topMode == null && m === 'redraft'))) richest = topEntry
     for (const k of Object.keys(next)) {
       if (!(k.startsWith('league:') || k.startsWith('fp:'))) continue
       if (!k.endsWith(`:${m}`)) continue

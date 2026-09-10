@@ -532,6 +532,79 @@ describe('migrateBoardsToModeKeys (reine Seed-Funktion)', () => {
     expect(migrateBoardsToModeKeys(null)).toBeNull()
     expect(migrateBoardsToModeKeys('kein-json')).toBeNull()
   })
+
+  // Top-Level-Board (Alt-Upgrader ohne Cache): das einzige Board liegt noch in
+  // state.boardPlayers/state.boardMode und muss als Seed-Kandidat zaehlen.
+  it('(a) nur Top-Level mit boardMode redraft seedet mode:redraft, mode:rookie bleibt leer', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const top = entry(['T1', 'T2']).boardPlayers
+    const raw = JSON.stringify({
+      state: { boardPlayers: top, boardMode: 'redraft', boardsByKey: {} },
+      version: 0,
+    })
+    const next = migrateBoardsToModeKeys(raw)
+    expect(next).not.toBeNull()
+    const parsed = JSON.parse(next)
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers).toHaveLength(2)
+    expect(parsed.state.boardsByKey['mode:rookie']).toBeUndefined()
+    // Quelle unangetastet (nur kopiert).
+    expect(parsed.state.boardPlayers).toHaveLength(2)
+    expect(parsed.state.boardMode).toBe('redraft')
+  })
+
+  it('(b) Top-Level mit boardMode rookie seedet mode:rookie', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const top = entry(['R1']).boardPlayers
+    const raw = JSON.stringify({
+      state: { boardPlayers: top, boardMode: 'rookie', boardsByKey: {} },
+      version: 0,
+    })
+    const parsed = JSON.parse(migrateBoardsToModeKeys(raw))
+    expect(parsed.state.boardsByKey['mode:rookie'].boardPlayers).toHaveLength(1)
+    expect(parsed.state.boardsByKey['mode:redraft']).toBeUndefined()
+  })
+
+  it('(c) Top-Level ohne Markierung (boardMode null) seedet nur mode:redraft', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const top = entry(['A', 'B']).boardPlayers
+    const raw = JSON.stringify({
+      state: { boardPlayers: top, boardMode: null, boardsByKey: {} },
+      version: 0,
+    })
+    const parsed = JSON.parse(migrateBoardsToModeKeys(raw))
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers).toHaveLength(2)
+    expect(parsed.state.boardsByKey['mode:rookie']).toBeUndefined()
+  })
+
+  it('(d) Gleichstand Cache vs Top-Level: Top-Level gewinnt (frischester Stand)', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const top = [{ name: 'Top1', nname: 'top1', rk: '1' }, { name: 'Top2', nname: 'top2', rk: '2' }]
+    const raw = JSON.stringify({
+      state: {
+        boardPlayers: top,
+        boardMode: 'redraft',
+        boardsByKey: { 'league:L1:redraft': entry(['Alt1', 'Alt2']) },
+      },
+      version: 0,
+    })
+    const parsed = JSON.parse(migrateBoardsToModeKeys(raw))
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers.map((p) => p.name)).toEqual(['Top1', 'Top2'])
+  })
+
+  it('(e) laengerer Cache-Eintrag schlaegt kuerzeres Top-Level', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const top = entry(['T1']).boardPlayers
+    const raw = JSON.stringify({
+      state: {
+        boardPlayers: top,
+        boardMode: 'redraft',
+        boardsByKey: { 'league:L2:redraft': entry(['A', 'B', 'C']) },
+      },
+      version: 0,
+    })
+    const parsed = JSON.parse(migrateBoardsToModeKeys(raw))
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers).toHaveLength(3)
+  })
 })
 describe('moveBoard / deleteBoard', () => {
   // Persist-Pfad: das Fallback-Board (inkl. Inhalt und Herkunft) zieht auf
