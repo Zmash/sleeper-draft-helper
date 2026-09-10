@@ -32,6 +32,7 @@ describe('apiRoutes — Modul-Vertrag', () => {
       'GET /api/rankings/fantasypros',
       'GET /api/health', 'POST /api/validate-key',
       'GET /api/scores', 'POST /api/score',
+      'GET /api/push/vapid-key', 'POST /api/push/subscribe', 'POST /api/push/unsubscribe',
       'POST /api/ai-advice', 'POST /api/ai-draft-review', 'POST /api/ai-trade',
     ]) expect(registered).toContain(r)
   })

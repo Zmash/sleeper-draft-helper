@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
 import { Profanity } from '@2toad/profanity'
 import { fantasyProsSlug } from '../utils/formatting.js'
+import { readSubs as readPushSubs, addSub as addPushSub, removeSub as removePushSub, getVapidConfig } from './push.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -908,6 +909,26 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     const result = addScore({ name, score, goals })
     if (!result.ok) return res.status(result.status).json({ ok: false, error: result.error })
     res.json({ ok: true, rank: result.rank })
+  })
+
+  app.get('/api/push/vapid-key', (req, res) => {
+    const vapid = getVapidConfig()
+    if (!vapid) return res.status(503).json({ error: 'Push nicht konfiguriert' })
+    res.json({ publicKey: vapid.publicKey })
+  })
+
+  app.post('/api/push/subscribe', (req, res) => {
+    try {
+      addPushSub({ subscription: req.body?.subscription, sleeperUsername: req.body?.sleeperUsername })
+      res.json({ ok: true })
+    } catch (e) {
+      res.status(400).json({ error: e.message })
+    }
+  })
+
+  app.post('/api/push/unsubscribe', (req, res) => {
+    removePushSub(req.body?.endpoint)
+    res.json({ ok: true })
   })
 
   // ---------- Key-Validierung ----------
