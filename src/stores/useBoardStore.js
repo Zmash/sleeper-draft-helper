@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { normalizePlayerName } from '../utils/formatting'
 import { parseFantasyProsCsv } from '../services/csv'
 import { mergeRankingsWithMarket, overlayMarketData, overlayFfcSpread, enrichWithInjuries, fillMissingBye as fillMissingByeInMarket } from '../services/marketMerge'
@@ -50,10 +50,51 @@ async function fetchFfcSpread(format, numTeams = 12) {
   }
 }
 
+// Quota-Erkennung fuer safeStorage: Chrome/Firefox melden QuotaExceededError
+// per Name, aeltere WebKit-Varianten per code 22, der Rest per Meldungstext.
+export function isQuota(e) {
+  return e?.name === 'QuotaExceededError' || e?.code === 22
+    || String(e?.message || '').toLowerCase().includes('quota')
+}
+
+// Verkleinert ein persist-JSON so weit, dass es wieder in localStorage passt:
+// der boardsByKey-Cache ist verzichtbar (rekonstruiert sich per writeThrough),
+// das aktive Top-Level-Board (boardPlayers etc.) bleibt immer erhalten.
+// Wirft bei unlesbarem Input das Original, damit der Fehler sichtbar bleibt.
+export function dropBoards(v) {
+  try {
+    const parsed = JSON.parse(v)
+    if (parsed && parsed.state) parsed.state.boardsByKey = {}
+    return JSON.stringify(parsed)
+  } catch {
+    throw v
+  }
+}
+
+// Quota-sicheres Storage fuer die persist-Config: passt der volle Stand nicht
+// mehr in localStorage (~5 MB), wird einmalig der Cache abgeworfen und nur das
+// aktive Board persistiert, statt dass jeder Store-Write bricht.
+export const safeStorage = {
+  getItem: (k) => localStorage.getItem(k),
+  setItem: (k, v) => {
+    try {
+      localStorage.setItem(k, v)
+    } catch (e) {
+      if (!isQuota(e)) throw e
+      const slim = dropBoards(v)
+      localStorage.setItem(k, slim)
+    }
+  },
+  removeItem: (k) => localStorage.removeItem(k),
+}
+
 // Schreibt den aktiven Top-Level-Board-Stand in den boardsByKey-Cache zurueck
 // (aktiver Key = Quelle der Wahrheit fuer switchBoard). No-Op ohne aktiven Key.
 // Heilt Reload-mit-Hit: ohne Durchschrieb wuerde ein stale Cache-Hit nach Reload
 // den persistierten Top-Level-Stand (z. B. Nutzer-Reorder) ueberschreiben.
+// Der Cache haelt bewusst KEIN csvRawText: der Rohtext ist gross und nur das
+// aktive Top-Level-Feld braucht ihn (Import-Dialog) — pro Cache-Eintrag wuerde
+// er localStorage Richtung Quota treiben.
 function writeThroughActiveBoard(set, get) {
   const st = get()
   if (!st.activeBoardKey) return
@@ -62,11 +103,47 @@ function writeThroughActiveBoard(set, get) {
       ...(s.boardsByKey || {}),
       [s.activeBoardKey]: {
         boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
-        rankingSource: s.rankingSource, marketMeta: s.marketMeta, csvRawText: s.csvRawText,
+        rankingSource: s.rankingSource, marketMeta: s.marketMeta,
         lastImportStats: s.lastImportStats,
       },
     },
   }))
+}
+
+// Reine Seed-Funktion fuer die einmalige Board-Migration (migrate.js): nimmt das
+// rohe `sdh-board-v1`-JSON, gibt ggf. neues JSON zurueck, null wenn nichts zu tun.
+// Pro Modus m in [redraft, rookie] wird das Ziel `mode:<m>` nur geseedet, wenn es
+// fehlt oder keine boardPlayers hat UND mindestens ein `league:*:<m>`-/`fp:*:<m>`-
+// Eintrag mit boardPlayers.length > 0 existiert → Kopie des inhaltsreichsten
+// (laengste boardPlayers, Gleichstand: erste). Nur kopieren, nie loeschen.
+// Idempotent: zweiter Lauf findet das Ziel vorhanden und liefert null.
+export function migrateBoardsToModeKeys(rawJsonString) {
+  if (!rawJsonString) return null
+  let parsed
+  try { parsed = JSON.parse(rawJsonString) } catch { return null }
+  const boardsByKey = parsed?.state?.boardsByKey
+  if (!boardsByKey || typeof boardsByKey !== 'object') return null
+  const next = { ...boardsByKey }
+  let changed = false
+  for (const m of ['redraft', 'rookie']) {
+    const target = `mode:${m}`
+    const cur = next[target]
+    // Ziel bereits geseedet → Skip (Idempotenz).
+    if (Array.isArray(cur?.boardPlayers) && cur.boardPlayers.length > 0) continue
+    let richest = null
+    for (const k of Object.keys(next)) {
+      if (!(k.startsWith('league:') || k.startsWith('fp:'))) continue
+      if (!k.endsWith(`:${m}`)) continue
+      const entry = next[k]
+      if (!Array.isArray(entry?.boardPlayers) || entry.boardPlayers.length === 0) continue
+      if (!richest || entry.boardPlayers.length > richest.boardPlayers.length) richest = entry
+    }
+    if (!richest) continue
+    next[target] = { ...richest, boardPlayers: [...richest.boardPlayers] }
+    changed = true
+  }
+  if (!changed) return null
+  return JSON.stringify({ ...parsed, state: { ...parsed.state, boardsByKey: next } })
 }
 
 export const useBoardStore = create(
@@ -114,11 +191,13 @@ export const useBoardStore = create(
         // Guard: leerer oder identischer Key — nichts zu tun.
         if (!nextKey || s.activeBoardKey === nextKey) return {}
         const cache = { ...(s.boardsByKey || {}) }
-        // Aktiven Stand wegsichern (nur wenn ueberhaupt ein Key aktiv war oder Board Inhalt hat)
+        // Aktiven Stand wegsichern (nur wenn ueberhaupt ein Key aktiv war oder Board Inhalt hat).
+        // Ohne csvRawText: der Rohtext lebt nur im aktiven Top-Level-Feld, im
+        // Cache wuerde er pro Eintrag localStorage Richtung Quota treiben.
         if (s.activeBoardKey) {
           cache[s.activeBoardKey] = {
             boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
-            rankingSource: s.rankingSource, marketMeta: s.marketMeta, csvRawText: s.csvRawText,
+            rankingSource: s.rankingSource, marketMeta: s.marketMeta,
             lastImportStats: s.lastImportStats,
           }
         }
@@ -132,6 +211,11 @@ export const useBoardStore = create(
         if (!hit && !s.activeBoardKey && (s.boardPlayers || []).length > 0) {
           return { activeBoardKey: nextKey, boardsByKey: cache, lastBoardSnapshot: null }
         }
+        // Single-Source-Active: das geladene Board lebt ab hier nur noch in den
+        // Top-Level-Feldern — der Cache-Eintrag wird geloescht, damit kein Board
+        // doppelt (Top-Level + Cache) localStorage fuellt. Beim Weg-Wechseln
+        // sichert die Sicherung oben den Stand wieder weg (Roundtrip bleibt).
+        delete cache[nextKey]
         return {
           activeBoardKey: nextKey,
           boardsByKey: cache,
@@ -144,6 +228,66 @@ export const useBoardStore = create(
           lastImportStats: hit?.lastImportStats ?? null,
           lastBoardSnapshot: null,
         }
+      }),
+
+      // Board-Eintrag von einem Key auf einen anderen umziehen (Persist-Pfad:
+      // Fallback-Key -> profile:<id>). Ueberschreibt das Ziel, loescht die Quelle
+      // und verwirft den Undo-Snapshot (Undo wirkt nie profil-uebergreifend).
+      // Ohne Cache-Eintrag unter fromKey faellt das aktive Top-Level-Board als
+      // Quelle zurueck, wenn es gerade unter fromKey aktiv ist.
+      moveBoard: (fromKey, toKey) => set((s) => {
+        const from = String(fromKey || '')
+        const to = String(toKey || '')
+        if (!from || !to || from === to) return {}
+        const cache = { ...(s.boardsByKey || {}) }
+        // Ohne Cache-Eintrag unter fromKey faellt das aktive Top-Level-Board als
+        // Quelle zurueck, wenn es gerade unter fromKey aktiv ist (ohne
+        // csvRawText — der Rohtext lebt nur im aktiven Top-Level-Feld).
+        const src = cache[from] || (s.activeBoardKey === from ? {
+          boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
+          rankingSource: s.rankingSource, marketMeta: s.marketMeta,
+          lastImportStats: s.lastImportStats,
+        } : null)
+        if (!src) return {}
+        cache[to] = { ...src }
+        delete cache[from]
+        const patch = { boardsByKey: cache, lastBoardSnapshot: null }
+        if (s.activeBoardKey === from) patch.activeBoardKey = to
+        return patch
+      }),
+
+      // Board-Eintrag vom geteilten Modus-Key auf ein exklusives Profil-Board
+      // KOPIEREN (Persist-Pfad, wenn die Quelle `mode:<…>` ist). Der Modus-Key ist
+      // geteilt — alle unzugeordneten Drafts eines Modus lesen von dort, deshalb
+      // muss die Quelle BLEIBEN (kein delete, sonst verliert der Rest das Board).
+      // Das Ziel wird ueberschrieben, der Undo-Snapshot verworfen (Undo wirkt nie
+      // profil-uebergreifend). activeBoardKey bleibt unveraendert — der Aufrufer
+      // aktiviert das Ziel danach per switchBoard. Gegensatz: moveBoard fuer
+      // exklusive Fallback-Quellen (league:/fp:), die nach dem Umzug weg muessen.
+      copyBoard: (fromKey, toKey) => set((s) => {
+        const from = String(fromKey || '')
+        const to = String(toKey || '')
+        if (!from || !to || from === to) return {}
+        const cache = { ...(s.boardsByKey || {}) }
+        // Fallback wie moveBoard (ohne csvRawText, siehe dort).
+        const src = cache[from] || (s.activeBoardKey === from ? {
+          boardPlayers: s.boardPlayers, boardMode: s.boardMode, boardSource: s.boardSource,
+          rankingSource: s.rankingSource, marketMeta: s.marketMeta,
+          lastImportStats: s.lastImportStats,
+        } : null)
+        if (!src) return {}
+        cache[to] = { ...src }
+        return { boardsByKey: cache, lastBoardSnapshot: null }
+      }),
+
+      // Cache-Eintrag eines Profils loeschen (deleteProfile-Pfad: keine Orphans).
+      // Das aktive Top-Level-Board bleibt unangetastet — BoardSection liest nur das.
+      deleteBoard: (key) => set((s) => {
+        const k = String(key || '')
+        if (!k || !(s.boardsByKey || {})[k]) return {}
+        const cache = { ...(s.boardsByKey || {}) }
+        delete cache[k]
+        return { boardsByKey: cache }
       }),
 
       setCsvRawText: (v) => set({ csvRawText: v }),
@@ -429,6 +573,9 @@ export const useBoardStore = create(
     }),
     {
       name: 'sdh-board-v1',
+      // Quota-sicheres Storage: bei vollem localStorage wird der verzichtbare
+      // Cache abgeworfen, das aktive Top-Level-Board persistiert immer.
+      storage: createJSONStorage(() => safeStorage),
       partialize: (s) => ({
         csvRawText: s.csvRawText,
         boardPlayers: s.boardPlayers,

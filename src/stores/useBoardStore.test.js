@@ -450,3 +450,205 @@ describe('Cache-Durchschrieb F3/F4/F6 (writeThroughActiveBoard)', () => {
     expect(useBoardStore.getState().boardsByKey['league:L1:redraft'].boardSource).toBe('csv')
   })
 })
+
+describe('copyBoard (geteilter Modus-Key -> Profil-Board)', () => {
+  // Persist-Pfad mit geteilter Quelle: der mode:-Key bleibt fuer den Rest
+  // bestehen, das Ziel ist danach identisch, Undo ist isoliert.
+  it('Quelle bleibt, Ziel identisch, Undo verworfen', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('mode:redraft')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Bijan', nname: 'bijan', rk: '1' }])
+    useBoardStore.getState().setBoardSource('market')
+    useBoardStore.getState().copyBoard('mode:redraft', 'profile:p1')
+    const st = useBoardStore.getState()
+    expect(st.boardsByKey['mode:redraft'].boardPlayers[0].name).toBe('Bijan')
+    expect(st.boardsByKey['profile:p1'].boardPlayers).toEqual(st.boardsByKey['mode:redraft'].boardPlayers)
+    expect(st.boardsByKey['profile:p1'].boardSource).toBe('market')
+    expect(st.activeBoardKey).toBe('mode:redraft')
+    expect(st.lastBoardSnapshot).toBeNull()
+    expect(st.undoImport()).toBe(false)
+  })
+
+  it('ohne Quelle ein No-Op', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().copyBoard('mode:redraft', 'profile:p9')
+    expect(useBoardStore.getState().boardsByKey['profile:p9']).toBeUndefined()
+  })
+})
+
+describe('migrateBoardsToModeKeys (reine Seed-Funktion)', () => {
+  const entry = (names) => ({
+    boardPlayers: names.map((name, i) => ({ name, nname: name.toLowerCase(), rk: String(i + 1) })),
+    boardMode: 'redraft', boardSource: 'market', rankingSource: 'FantasyCalc',
+    marketMeta: null, csvRawText: '', lastImportStats: null,
+  })
+
+  it('der inhaltsreichste Eintrag gewinnt pro Modus', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const raw = JSON.stringify({
+      state: { boardsByKey: {
+        'league:L1:redraft': entry(['A']),
+        'league:L2:redraft': entry(['A', 'B', 'C']),
+        'fp:12:ppr:0:nostarters:rookie': { ...entry(['R1', 'R2']), boardMode: 'rookie' },
+      } },
+      version: 0,
+    })
+    const next = migrateBoardsToModeKeys(raw)
+    expect(next).not.toBeNull()
+    const parsed = JSON.parse(next)
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers).toHaveLength(3)
+    expect(parsed.state.boardsByKey['mode:rookie'].boardPlayers).toHaveLength(2)
+  })
+
+  it('ist idempotent (zweiter Lauf: Ziel vorhanden -> null)', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const raw = JSON.stringify({
+      state: { boardsByKey: { 'league:L1:redraft': entry(['A']) } },
+      version: 0,
+    })
+    const once = migrateBoardsToModeKeys(raw)
+    expect(once).not.toBeNull()
+    expect(migrateBoardsToModeKeys(once)).toBeNull()
+  })
+
+  it('loescht nichts (Quellen bleiben)', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const raw = JSON.stringify({
+      state: { boardsByKey: { 'league:L1:redraft': entry(['A', 'B']) } },
+      version: 0,
+    })
+    const parsed = JSON.parse(migrateBoardsToModeKeys(raw))
+    expect(parsed.state.boardsByKey['league:L1:redraft'].boardPlayers).toHaveLength(2)
+    expect(parsed.state.boardsByKey['mode:redraft'].boardPlayers).toHaveLength(2)
+  })
+
+  it('leere Boards zaehlen nicht (kein Seed, null)', async () => {
+    const { migrateBoardsToModeKeys } = await import('./useBoardStore')
+    const raw = JSON.stringify({
+      state: { boardsByKey: { 'league:L1:redraft': entry([]), 'fp:12:ppr:0:nostarters:redraft': entry([]) } },
+      version: 0,
+    })
+    expect(migrateBoardsToModeKeys(raw)).toBeNull()
+    expect(migrateBoardsToModeKeys(null)).toBeNull()
+    expect(migrateBoardsToModeKeys('kein-json')).toBeNull()
+  })
+})
+describe('moveBoard / deleteBoard', () => {
+  // Persist-Pfad: das Fallback-Board (inkl. Inhalt und Herkunft) zieht auf
+  // profile:<id> um, die Quelle verschwindet, Undo wirkt nicht profil-uebergreifend.
+  it('moveBoard zieht den Eintrag inkl. Inhalt um', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('league:L1:redraft')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Bijan', nname: 'bijan', rk: '1' }])
+    useBoardStore.getState().setBoardSource('market')
+    useBoardStore.getState().moveBoard('league:L1:redraft', 'profile:p1')
+    const st = useBoardStore.getState()
+    expect(st.boardsByKey['profile:p1'].boardPlayers[0].name).toBe('Bijan')
+    expect(st.boardsByKey['profile:p1'].boardSource).toBe('market')
+    expect(st.boardsByKey['league:L1:redraft']).toBeUndefined()
+    expect(st.activeBoardKey).toBe('profile:p1')
+    expect(st.lastBoardSnapshot).toBeNull()
+  })
+
+  // Delete-Pfad: der Profil-Cache geht weg, das aktive Top-Level-Board fasst
+  // deleteBoard nicht an (BoardSection liest nur das aktive Board).
+  it('deleteBoard loescht nur den Cache-Eintrag', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    useBoardStore.getState().switchBoard('profile:p1')
+    useBoardStore.getState().setBoardPlayers([{ name: 'Jeanty', nname: 'jeanty', rk: '1' }])
+    useBoardStore.getState().setBoardSource('market')
+    expect(useBoardStore.getState().boardsByKey['profile:p1']).toBeTruthy()
+    useBoardStore.getState().deleteBoard('profile:p1')
+    expect(useBoardStore.getState().boardsByKey['profile:p1']).toBeUndefined()
+    expect(useBoardStore.getState().boardPlayers[0].name).toBe('Jeanty')
+  })
+})
+
+describe('Quota-Fix: Single-Source-Active, kein csvRawText im Cache, safeStorage', () => {
+  // (a) Das geladene Board lebt nur Top-Level (kein Doppel-Speichern), beim
+  // Weg-Wechseln sichert switchBoard es wieder weg — der Roundtrip bleibt.
+  it('switchBoard loescht den geladenen Key aus dem Cache, Roundtrip sichert zurueck', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    const st = () => useBoardStore.getState()
+    st().switchBoard('k:A')
+    st().setBoardPlayers([{ name: 'A-Spieler', nname: 'a-spieler', rk: '1' }])
+    st().setBoardSource('market')
+    st().switchBoard('k:B')
+    expect(st().boardPlayers).toEqual([])
+    expect(st().boardsByKey['k:B']).toBeUndefined()
+    st().setBoardPlayers([{ name: 'B-Spieler', nname: 'b-spieler', rk: '1' }])
+    st().setBoardSource('market')
+    st().switchBoard('k:A')
+    expect(st().boardPlayers[0].name).toBe('A-Spieler')
+    expect(st().boardsByKey['k:A']).toBeUndefined()
+    expect(st().boardsByKey['k:B'].boardPlayers[0].name).toBe('B-Spieler')
+    st().switchBoard('k:B')
+    expect(st().boardPlayers[0].name).toBe('B-Spieler')
+    expect(st().boardsByKey['k:B']).toBeUndefined()
+    expect(st().boardsByKey['k:A'].boardPlayers[0].name).toBe('A-Spieler')
+  })
+
+  // (b) Der CSV-Rohtext ist gross und gehoert nur ins aktive Top-Level-Feld
+  // (Import-Dialog) — pro Cache-Eintrag triebe er localStorage Richtung Quota.
+  it('Cache-Eintraege enthalten kein csvRawText, Top-Level schon', async () => {
+    const { useBoardStore } = await import('./useBoardStore')
+    const st = () => useBoardStore.getState()
+    st().switchBoard('league:L1:redraft')
+    st().setCsvRawText('RK,PLAYER NAME\n1,Testspieler')
+    st().setBoardPlayers([{ name: 'Bijan', nname: 'bijan', rk: '1' }])
+    st().setBoardSource('csv')
+    expect('csvRawText' in st().boardsByKey['league:L1:redraft']).toBe(false)
+    expect(st().csvRawText).toContain('Testspieler')
+    st().moveBoard('league:L1:redraft', 'profile:p1')
+    expect('csvRawText' in st().boardsByKey['profile:p1']).toBe(false)
+    st().copyBoard('profile:p1', 'profile:p2')
+    expect('csvRawText' in st().boardsByKey['profile:p2']).toBe(false)
+  })
+
+  // (c) Bei vollem localStorage wirft safeStorage den verzichtbaren Cache ab —
+  // das aktive Top-Level-Board persistiert trotzdem. Das Storage wird per
+  // stubGlobal ersetzt (spyOn greift auf der jsdom-Storage-Instanz nicht).
+  it('safeStorage: Quota beim ersten setItem -> zweiter Call mit boardsByKey:{} und intaktem Board', async () => {
+    const { safeStorage } = await import('./useBoardStore')
+    const payload = JSON.stringify({
+      state: {
+        boardPlayers: [{ name: 'Bijan', nname: 'bijan', rk: '1' }],
+        boardsByKey: { 'league:L1:redraft': { boardPlayers: [{ name: 'Alt' }] } },
+      },
+      version: 0,
+    })
+    const realLS = globalThis.localStorage
+    const calls = []
+    const quotaErr = () => {
+      const e = new Error('The quota has been exceeded')
+      e.name = 'QuotaExceededError'
+      return e
+    }
+    let throwsLeft = 1
+    vi.stubGlobal('localStorage', {
+      getItem: (k) => realLS.getItem(k),
+      setItem: (k, v) => {
+        if (throwsLeft > 0) { throwsLeft -= 1; throw quotaErr() }
+        calls.push([k, v])
+      },
+      removeItem: (k) => realLS.removeItem(k),
+    })
+    safeStorage.setItem('sdh-board-v1-test', payload)
+    expect(calls).toHaveLength(1)
+    const slim = JSON.parse(calls[0][1])
+    expect(slim.state.boardsByKey).toEqual({})
+    expect(slim.state.boardPlayers[0].name).toBe('Bijan')
+  })
+
+  // (d) Echte Fehler (kein Quota) duerfen nicht geschluckt werden.
+  it('safeStorage: Nicht-Quota-Fehler werden weitergeworfen', async () => {
+    const { safeStorage } = await import('./useBoardStore')
+    const realLS = globalThis.localStorage
+    vi.stubGlobal('localStorage', {
+      getItem: (k) => realLS.getItem(k),
+      setItem: () => { throw new Error('Platte kaputt') },
+      removeItem: (k) => realLS.removeItem(k),
+    })
+    expect(() => safeStorage.setItem('sdh-board-v1-test', '{}')).toThrow('Platte kaputt')
+  })
+})
