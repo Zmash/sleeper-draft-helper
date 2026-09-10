@@ -10,6 +10,14 @@ export function openFootballEgg() {
   window.location.href = new URL('football.html', window.location.href).toString();
 }
 
+// Versteckter Such-Code fuers Easter Egg (Command-Palette): "doink" eintippen
+// oeffnet das Spiel direkt — es gibt dafuer keinen sichtbaren Menuepunkt.
+export const EGG_SEARCH_CODE = 'doink';
+
+export function isEggSearchQuery(q) {
+  return String(q || '').trim().toLowerCase() === EGG_SEARCH_CODE;
+}
+
 // Zaehlt schnelle Taps; ruft onTrigger, sobald `count` Taps innerhalb
 // von `windowMs` liegen. Danach wird der Zaeher zurueckgesetzt.
 export function createTapCounter(count, windowMs, onTrigger) {

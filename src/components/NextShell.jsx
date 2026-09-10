@@ -9,6 +9,8 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { THEMES } from '../theme/themes'
 import { groupDrafts, draftLabel, draftSubtitle } from '../services/draftGroups'
 import { useMarketRefresh } from '../hooks/useMarketRefresh'
+import { useFootballEgg } from '../hooks/useFootballEgg'
+import { createTapCounter, EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, isEggSearchQuery, openFootballEgg } from '../utils/easterEgg'
 import '../styles/newshell.css'
 
 // Cmd auf Apple, Strg ueberall sonst. Das Zeichen ⌘ ist auf Windows/Linux
@@ -48,6 +50,15 @@ export default function NextShell({ children, pageProps = {} }) {
 
   const [cmdOpen, setCmdOpen] = useState(false)
   const [tipsOpen, setTipsOpen] = useState(false)
+
+  // Easter Egg: "football" tippen (Hook) oder Rail-Logo 5x antippen.
+  // NextShell rendert weder Footer noch Topbar, daher braucht es hier
+  // eigene Trigger — sonst ist das Spiel auf dem Desktop unerreichbar.
+  useFootballEgg()
+  const handleLogoTap = useMemo(
+    () => createTapCounter(EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, openFootballEgg),
+    [],
+  )
 
   const { selectedLeague, selectedDraft, teamsCount, draftSlot, tips } = pageProps
   const tipList = Array.isArray(tips) ? tips : []
@@ -132,7 +143,7 @@ export default function NextShell({ children, pageProps = {} }) {
             className={cx('ns-rail-btn', pathname === r.path && 'is-active')}
             data-tip={r.tip}
             aria-label={r.tip}
-            onClick={() => navigate(r.path)}
+            onClick={() => { if (r.logo) handleLogoTap(); navigate(r.path) }}
           >
             {r.logo ? <img src="/logo.png" alt="" className="ns-rail-logo" /> : <Icon name={r.icon} size={17} />}
           </button>
@@ -446,6 +457,15 @@ function CommandPalette({ commands, onClose }) {
   }, [q, commands, boardPlayers]) // eslint-disable-line
 
   useEffect(() => { setCursor(0) }, [q])
+
+  // Versteckter Easter-Egg-Code: "doink" in die Suche tippen oeffnet das
+  // Field-Goal-Spiel direkt — ganz ohne sichtbaren Menuepunkt.
+  useEffect(() => {
+    if (isEggSearchQuery(q)) {
+      onClose()
+      openFootballEgg()
+    }
+  }, [q, onClose])
 
   useEffect(() => {
     const onKey = (e) => {

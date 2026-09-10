@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTapCounter, EGG_TAP_COUNT, EGG_TAP_WINDOW_MS } from './easterEgg.js';
+import { createTapCounter, EGG_TAP_COUNT, EGG_TAP_WINDOW_MS, isEggSearchQuery } from './easterEgg.js';
 
 describe('createTapCounter (Football Easter Egg)', () => {
   it(`loest nach ${EGG_TAP_COUNT} schnellen Taps aus`, () => {
@@ -43,5 +43,21 @@ describe('createTapCounter (Football Easter Egg)', () => {
     tap();
     expect(onTrigger).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe('isEggSearchQuery (versteckter doink-Code)', () => {
+  it('erkennt "doink" (tolerant gegen Gross/Klein und Leerzeichen)', () => {
+    expect(isEggSearchQuery('doink')).toBe(true);
+    expect(isEggSearchQuery('Doink')).toBe(true);
+    expect(isEggSearchQuery('  DOINK  ')).toBe(true);
+  });
+
+  it('lehnt alles andere ab', () => {
+    expect(isEggSearchQuery('')).toBe(false);
+    expect(isEggSearchQuery('doinks')).toBe(false);
+    expect(isEggSearchQuery('do ink')).toBe(false);
+    expect(isEggSearchQuery(null)).toBe(false);
+    expect(isEggSearchQuery(undefined)).toBe(false);
   });
 });
