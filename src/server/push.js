@@ -25,7 +25,7 @@ export function readSubs(file = PUSH_FILE) {
 function writeSubs(all, file) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = `${file}.${process.pid}.tmp`
-  fs.writeFileSync(tmp, JSON.stringify(all.slice(0, MAX_SUBS)))
+  fs.writeFileSync(tmp, JSON.stringify(all.slice(-MAX_SUBS)))
   fs.renameSync(tmp, file)
 }
 

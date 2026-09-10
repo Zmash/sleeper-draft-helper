@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
 import { Profanity } from '@2toad/profanity'
 import { fantasyProsSlug } from '../utils/formatting.js'
-import { readSubs as readPushSubs, addSub as addPushSub, removeSub as removePushSub, getVapidConfig } from './push.js'
+import { addSub as addPushSub, removeSub as removePushSub, getVapidConfig } from './push.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -917,7 +917,13 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     res.json({ publicKey: vapid.publicKey })
   })
 
+  // Eigener Limiter pro IP fuers Push-Abo (gleiche Bauart wie der Score-Limiter
+  // oben): verhindert, dass ein Client die Abo-Datei mit Spam vollschreibt.
+  const pushRateStore = new Map()
   app.post('/api/push/subscribe', (req, res) => {
+    if (checkScoreRateLimit(pushRateStore, req.ip)) {
+      return res.status(429).json({ ok: false, error: 'Zu viele Versuche, bitte kurz warten.' })
+    }
     try {
       addPushSub({ subscription: req.body?.subscription, sleeperUsername: req.body?.sleeperUsername })
       res.json({ ok: true })

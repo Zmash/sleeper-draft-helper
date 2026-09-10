@@ -38,6 +38,22 @@ describe('push storage', () => {
     expect(readSubs(file)).toEqual([])
   })
 
+  it('behält bei voller Liste das neueste Abo (nicht das älteste)', () => {
+    // Datei direkt mit 500 Einträgen vorbefüllen (500x addSub wäre zu langsam).
+    const seed = Array.from({ length: 500 }, (_, i) => ({
+      endpoint: `https://push.example/old-${i}`,
+      keys: { p256dh: 'p', auth: 'a' },
+      sleeperUsername: `User${i}`,
+      createdAt: new Date().toISOString(),
+    }))
+    fs.writeFileSync(file, JSON.stringify(seed))
+    addSub({ subscription: { endpoint: 'https://push.example/neu', keys: { p256dh: 'p', auth: 'a' } }, sleeperUsername: 'Neu' }, file)
+    const all = readSubs(file)
+    expect(all).toHaveLength(500)
+    expect(all.some((s) => s.endpoint === 'https://push.example/neu')).toBe(true)
+    expect(all.some((s) => s.endpoint === 'https://push.example/old-0')).toBe(false)
+  })
+
   it('wirft bei ungültigem Abo (ohne endpoint)', () => {
     expect(() => addSub({ subscription: { keys: {} }, sleeperUsername: 'x' }, file)).toThrow()
   })
