@@ -217,19 +217,25 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
     } catch {
       ranks = { weeklyById: new Map(), flexById: new Map(), sflexById: new Map() }
     }
-    let recommended = []
-    try {
-      const res = bestLineup({
-        myRosterPlayers: roster,
-        rosterPositions: league.roster_positions?.length ? league.roster_positions : [],
-        weeklyRankByKey: ranks?.weeklyById || new Map(),
-        flexRankByKey: ranks?.flexById || new Map(),
-        superflexRankByKey: ranks?.sflexById || new Map(),
-        currentWeekBye: week,
-      })
-      recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
-    } catch {
-      recommended = []
+    const positions = league.roster_positions?.length ? league.roster_positions : null
+    // Ruling: ohne Positionen ist keine Empfehlung berechenbar -> actual gilt
+    // als empfohlen (kein suboptimal-/better-on-bench-Gelb aus Nichts).
+    // Bye/Out-Rot greift weiterhin (haengt nicht an der Empfehlung).
+    let recommended = [...starterSet]
+    if (positions) {
+      try {
+        const res = bestLineup({
+          myRosterPlayers: roster,
+          rosterPositions: positions,
+          weeklyRankByKey: ranks?.weeklyById || new Map(),
+          flexRankByKey: ranks?.flexById || new Map(),
+          superflexRankByKey: ranks?.sflexById || new Map(),
+          currentWeekBye: week,
+        })
+        recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
+      } catch {
+        recommended = [...starterSet]
+      }
     }
     teams.push({
       leagueId,

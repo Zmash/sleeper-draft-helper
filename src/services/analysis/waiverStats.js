@@ -1,4 +1,4 @@
-import { normalizePlayerName } from '../../utils/formatting'
+import { normalizePlayerName } from '../../utils/formatting.js'
 
 const WAIVER_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'DEF'])
 

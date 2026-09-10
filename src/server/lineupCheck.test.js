@@ -78,4 +78,21 @@ describe('checkUserLeagues', () => {
     d.fetchLeagues = async () => []
     expect(await checkUserLeagues({ username: 'x', season: '2026', deps: d })).toEqual({ warnings: [], pickups: [] })
   })
+
+  it('leere Positionen geben keine suboptimal-Warnung', async () => {
+    const d = deps()
+    d.fetchLeagues = async () => [{ league_id: 'l1', name: 'Dynasty' }]
+    d.fetchRosters = async () => [{ owner_id: 'u1', players: ['1', '2'], starters: ['2'] }]
+    const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
+    expect(warnings.filter((w) => w.reason === 'suboptimal' || w.reason === 'better-on-bench')).toEqual([])
+  })
+
+  it('leere Positionen: Out-Starter bleibt rot', async () => {
+    const d = deps()
+    d.fetchLeagues = async () => [{ league_id: 'l1', name: 'Dynasty' }]
+    const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
+    const out = warnings.find((w) => w.playerName === 'Out Spieler')
+    expect(out?.severity).toBe('red')
+    expect(out?.reason).toBe('out')
+  })
 })
