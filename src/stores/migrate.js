@@ -1,6 +1,7 @@
 // One-time migration from draft-helper-state-v3 (old monolithic key) to per-store keys.
 // Called in main.jsx before React renders. Safe to call multiple times (idempotent).
 import { migrateLegacyProfile, migrateProfilesToMode } from '../services/profileStore'
+import { migrateBoardsToModeKeys } from './useBoardStore'
 
 export function migrateOldStorage() {
   const SESSION_KEY = 'sdh-session-v1'
@@ -8,6 +9,13 @@ export function migrateOldStorage() {
   // Migration schon hinter sich haben.
   migrateLegacyProfile()
   try { migrateProfilesToMode() } catch {}
+  // Einmaliges Board-Seeding: pro Modus `mode:<m>` aus dem inhaltsreichsten
+  // league:/fp:-Eintrag kopieren (nur kopieren, nie loeschen). Idempotent —
+  // ein vorhandenes Ziel wird uebersprungen, sonstiges Verhalten unveraendert.
+  try {
+    const next = migrateBoardsToModeKeys(localStorage.getItem('sdh-board-v1'))
+    if (next) localStorage.setItem('sdh-board-v1', next)
+  } catch {}
   if (localStorage.getItem(SESSION_KEY)) return // already migrated
 
   let old = {}

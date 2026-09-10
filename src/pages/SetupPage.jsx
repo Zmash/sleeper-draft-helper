@@ -7,6 +7,7 @@ import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
 import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint, persistProfile } from '../services/profileStore'
+import { boardKeyFor } from '../services/boardKey'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
@@ -93,6 +94,9 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
       const fp = computeDetectedFingerprint({ draft: selectedDraft, league: selectedLeague, draftMode })
       rebindProfile(targetProfileId, { fingerprint: fp })
     }
+    // Rebind-Ziel ist immer persistiert — sein Profil-Board (ggf. leer/geteilt,
+    // das ist bei einer expliziten Zuweisung bewusst) sofort aktivieren.
+    useBoardStore.getState().switchBoard(`profile:${targetProfileId}`)
     setProfileTick(t => t + 1)
   }
 
@@ -106,7 +110,20 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
 
   function handlePersistProfile() {
     try {
-      persistProfile(resolved.profile)
+      // AKTIVER Key ist die Quelle: das aktive Board liegt bereits dort, wo
+      // switchBoard es hingelegt hat (mode:<…> geteilt oder exklusiver Fallback).
+      // boardKeyFor dient nur als Rueckfall, falls noch kein Key aktiv ist.
+      const fromKey = useBoardStore.getState().activeBoardKey || boardKeyFor({ league: selectedLeague, draft: selectedDraft, draftMode })
+      const saved = persistProfile(resolved.profile)
+      const toKey = `profile:${saved.id}`
+      // Geteilte Modus-Quelle kopieren (Rest behaelt sein Board), exklusive
+      // Fallback-Quelle umziehen.
+      if (fromKey.startsWith('mode:')) {
+        useBoardStore.getState().copyBoard(fromKey, toKey)
+      } else {
+        useBoardStore.getState().moveBoard(fromKey, toKey)
+      }
+      useBoardStore.getState().switchBoard(toKey)
       window.dispatchEvent(new CustomEvent('sdh:setup-changed'))
       setProfileTick(t => t + 1)
     } catch (e) { setImportError(e?.message || String(e)) }

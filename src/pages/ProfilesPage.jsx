@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FORMAT_DEFAULTS } from '../services/draftFormat'
 import { loadProfiles, renameProfile, duplicateProfile, deleteProfile, createBlankProfile } from '../services/profileStore'
+import { useBoardStore } from '../stores/useBoardStore'
 import Icon from '../components/Icon'
 import ProfileEditor from '../components/ProfileEditor'
 
@@ -44,6 +45,8 @@ export default function ProfilesPage() {
   function handleDelete(id, name) {
     if (!window.confirm(`Profil "${name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return
     deleteProfile(id)
+    // Zugehoerigen Profil-Board-Cache mitloeschen, sonst bleiben Orphans liegen.
+    useBoardStore.getState().deleteBoard(`profile:${id}`)
     if (expandedId === id) setExpandedId(null)
     refresh()
   }

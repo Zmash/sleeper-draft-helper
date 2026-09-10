@@ -25,6 +25,13 @@ export default function ProfileEditor({ profile, detected, strategyFormat, seaso
     rounds: Number(overrides.rounds ?? detected.rounds) || FORMAT_DEFAULTS.rounds,
     type: String(overrides.type ?? detected.type).toLowerCase(),
   }
+  const isDetectedTeams = overrides.teams == null
+  const isDetectedType = overrides.type == null
+  const isDetectedScoring = overrides.scoring_type == null
+  const isDetectedSuperflex = overrides.superflex == null
+  const hasOverride = overrides.scoring_type != null || overrides.superflex != null
+    || overrides.teams != null || overrides.rounds != null || overrides.type != null
+    || overrides.roster_positions != null
 
   function patchOverrides(patch) {
     const updated = upsertProfileOverrides(profile, patch)
@@ -52,9 +59,12 @@ export default function ProfileEditor({ profile, detected, strategyFormat, seaso
           className={`collapse-toggle ${showAdvancedFormat ? 'is-open' : ''}`}
           onClick={() => setShowAdvancedFormat(s => !s)}
         >
-          Erkannt: {eff.teams} Teams · {eff.type} · {String(eff.scoring_type).toUpperCase()}
-          {eff.superflex ? ' · Superflex' : ' · kein Superflex'} · Anpassen
+          Erkannt: {eff.teams} Teams{isDetectedTeams ? ' (erkannt)' : ''} · {eff.type}{isDetectedType ? ' (erkannt)' : ''} · {String(eff.scoring_type).toUpperCase()}{isDetectedScoring ? ' (erkannt)' : ''}
+          {eff.superflex ? ' · Superflex' : ' · kein Superflex'}{isDetectedSuperflex ? ' (erkannt)' : ''} · Anpassen
         </button>
+        {hasOverride && (
+          <div className="muted text-xs">Hinweis: Profil-Override aktiv — Erkennung wäre: {detected.teams ?? '—'} Teams · {detected.type || '—'} · {detected.scoringType ? String(detected.scoringType).toUpperCase() : '—'} · {detected.isSuperflex ? 'Superflex' : 'kein Superflex'} (Quelle: {detected.source})</div>
+        )}
         {showAdvancedFormat && (
           <div className="collapse-body">
             <div className="form-row">

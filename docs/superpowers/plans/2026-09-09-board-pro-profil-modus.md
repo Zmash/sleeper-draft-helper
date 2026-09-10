@@ -687,3 +687,27 @@ git commit -m "feat: Modus-Badge in Profilverwaltung"
 - Spec-Abdeckung: Board pro Liga/Profil (Tasks 3–5) ✓; strikt ein Modus pro Profil inkl. Migration pro Modus (Tasks 1–2) ✓; Ein-Klick-Profil ohne Handarbeit (Task 6) ✓; Sichtbarkeit des Modus (Task 7) ✓.
 - Keine Platzhalter: alle Steps enthalten ausführbaren Code, exakte Run-Befehle und Commit-Zeilen.
 - Typ-Konsistenz: `mode` immer `'redraft' | 'rookie'`; Board-Key immer `league:<id>:<mode> | draft:<id>:<mode> | fp:<teams>:<scoring>:<0|1>:<starters>:<mode>`; `persistProfile`/`switchBoard`/`boardKeyFor`/`migrateProfilesToMode` heißen überall gleich.
+
+---
+
+## Addendum 2026-09-10: Board ans Profil gebunden (User-Feedback nach Live-Test)
+
+**Problem:** Board-pro-Liga erzeugt leere Boards bei jeder neuen Liga (Re-Import nötig) und Verwirrung („Neu erkannt"-Badges). Superflex-Erkennung in einer Dynasty-Liga schlug fehl — Verdacht: gespeicherte Overrides (u. a. migrierte Wildcards) überschatten die Erkennung, ohne dass die UI das zeigt.
+
+**Zielmodell (User-Vorgabe):** Alles automatisch, keine Handgriffe. Bei Mock/neuer Liga wird das passende Profil gesucht und ALLE Einstellungen (Format, Strategie, Rankings) von dort genommen. Einziges Opt-in: einer einzelnen Liga ein eigenes Profil geben; eigene Profile anlegen und im Setup zuweisen bleibt möglich.
+
+**Beschlossene Änderung (ersetzt die Board-Key-Regel oben):**
+- Board-Key folgt der Profilauflösung: `boardKeyForContext({ draft, league, draftMode, resolved })` in `boardKey.js`. Aufgelöstes Profil persistiert (`isNew === false`) → Key `profile:<profilId>`. Noch-ungespeichert (`isNew === true`) → geteilter Modus-Key `mode:<redraft|rookie>` (alle unzugeordneten Drafts eines Modus teilen sich ein Board — neue Liga hat sofort Rankings).
+- `persistProfile`-Pfad (SetupPage): Quelle `mode:<…>` ist geteilt → per neuem `copyBoard(fromKey, toKey)` KOPIEREN (nicht moven, sonst verliert der Rest das Board), dann `switchBoard`. Quelle ein exklusiver Fallback → `moveBoard` wie bisher.
+- `resolveProfile` Liga-Zweig ohne Bound-Treffer: Vorschauprofil übernimmt die STRATEGIE (nur `strategy`, keine Overrides — Format bleibt immer Erkennung) der neuesten modus-passenden Wildcard (`!boundLeagueId`, `mode == null || mode === draftMode`, neueste `updatedAt`). Overrides bleiben null.
+- Einmalige Board-Migration in `migrate.js` (rohes `sdh-board-v1`-JSON): pro Modus `mode:<m>` aus dem inhaltsreichsten `league:*:<m>`-/`fp:*:<m>`-Eintrag seeden (nur kopieren, nie löschen/löschen-nichts).
+- Tests: Kontext-Key (`profile:<id>` vs `mode:<m>`), Strategie-Prefill, copyBoard-Semantik (Quelle bleibt), Migration (reichster Eintrag gewinnt, Idempotenz).
+- **Superflex-Sichtbarkeit:** `ProfileEditor` markiert jedes Feld, das der Erkennung folgt, mit „(erkannt)" und zeigt bei Override den erkannten Wert daneben — Override-Schatten wird sichtbar statt still. Keine Erkennungslogik-Änderung in `deriveFormat` ohne Evidenz (Erkannt-Zeile + Quelle auslesen).
+- Effekt: Ligen/Mocks mit gleichem Profil teilen sich Format, Strategie UND Rankings. Neue Liga mit passendem Profil hat sofort alles. Rankings-Import schreibt ins aktive Profil-Board („Rankings beim Profil" — ohne Datenmodell-Änderung, der Key macht die Bindung).
+- `persistProfile`-Pfad (SetupPage): nach dem Speichern Board-Eintrag per neuem `moveBoard(fromKey, toKey)` vom Fallback-Key auf `profile:<id>` umziehen, dann `switchBoard`. Kein Re-Import, kein Verlust.
+- Rebind-Pfad (Liga bekommt anderes Profil): `switchBoard` auf dessen Profil-Board (ggf. leer/geteilt — bewusst, Zuweisung ist explizite Aktion).
+- `deleteProfile`: zugehörigen `profile:<id>`-Cache-Eintrag per neuem `deleteBoard(key)` mitlöschen (keine Orphans).
+- `App.jsx`-Effekt nutzt statt `boardKeyFor` den neuen `boardKeyForContext` mit dem dort bereits vorhandenen `resolvedProfile`.
+- Tests: Key-Ableitung (persistiert vs isNew, Sharing bei gleichem Profil), moveBoard-Umzug, deleteBoard-Cleanup.
+- **Superflex-Sichtbarkeit:** `ProfileEditor` markiert jedes Feld, das der Erkennung folgt, mit „(erkannt)" und zeigt bei Override den erkannten Wert daneben — Override-Schatten wird sichtbar statt still. Keine Erkennungslogik-Änderung in `deriveFormat` ohne Evidenz (Erkannt-Zeile + Quelle auslesen).
+- Unverändert: `mode`-Pflicht, Composite-Bindung, Migration pro Modus, Ein-Klick-Button, Modus-Badge, `mergeLivePicks`/Enrichment ohne Durchschrieb.

@@ -244,7 +244,24 @@ export function resolveProfile({ draft = null, league = null, draftMode = 'redra
   if (league?.league_id && !standalone) {
     const existing = profiles.find(p => p.boundLeagueId === league.league_id && (p.mode == null || p.mode === draftMode))
     if (existing) return { profile: existing, deviations: [], isNew: false }
-    return { profile: newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id, mode: draftMode }), deviations: [], isNew: true }
+    // Kein Bound-Treffer: Vorschauprofil mit Strategie-Prefill aus der neuesten
+    // modus-passenden Wildcard (ungebunden, mode passt). Nur `strategy` wird
+    // uebernommen (Deep-Copy) — Overrides bleiben NULL, damit die Erkennung
+    // massgeblich bleibt (kein Superflex-Schatten). Rein: kein Storage-Write.
+    const preview = newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id, mode: draftMode })
+    const donor = profiles
+      .filter(p => !p.boundLeagueId && (p.mode == null || p.mode === draftMode))
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0]
+    if (donor?.strategy) {
+      try {
+        const s = JSON.parse(JSON.stringify(donor.strategy))
+        preview.strategy = {
+          summary: s.summary ?? '', rules: s.rules ?? [], sources: s.sources ?? [],
+          contested: s.contested ?? [], source: s.source ?? 'manual', updatedAt: s.updatedAt ?? null,
+        }
+      } catch {}
+    }
+    return { profile: preview, deviations: [], isNew: true }
   }
 
   const fp = computeDetectedFingerprint({ draft, league, draftMode })

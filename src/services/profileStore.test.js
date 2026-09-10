@@ -324,6 +324,58 @@ describe('persistProfile / modus-scharfe Liga-Bindung (Task 1)', () => {
   })
 })
 
+describe('Strategie-Prefill aus Wildcard (Addendum v2)', () => {
+  it('Vorschauprofil einer ungebundenen Liga uebernimmt die Strategie der neuesten modus-passenden Wildcard, Overrides bleiben null', () => {
+    // Zwei ungebundene Redraft-Wildcards mit eindeutigen updatedAt-Staenden
+    // (deterministisch — upsertProfileStrategy-Zeiten koennten kollidieren).
+    const alt = createBlankProfile('Alt')
+    const neu = createBlankProfile('Neu')
+    saveProfiles(loadProfiles().map(p => (p.id === alt.id
+      ? { ...p, strategy: { summary: 'Alt-Strategie', rules: [], sources: [], contested: [], source: 'manual', updatedAt: '2026-01-01T00:00:00.000Z' }, updatedAt: '2026-01-01T00:00:00.000Z' }
+      : { ...p, strategy: { summary: 'Neu-Strategie', rules: ['R1'], sources: [], contested: [], source: 'manual', updatedAt: '2026-02-01T00:00:00.000Z' }, updatedAt: '2026-02-01T00:00:00.000Z' })))
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Neue Liga' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.strategy.summary).toBe('Neu-Strategie')
+    expect(profile.strategy.rules).toEqual(['R1'])
+    expect(profile.overrides.scoring_type).toBeNull()
+    expect(profile.overrides.superflex).toBeNull()
+    expect(loadProfiles()).toHaveLength(2) // kein Write als Seiteneffekt
+    // Deep-Copy: Edit am Vorschauprofil darf den Spender nicht anfassen.
+    profile.strategy.rules.push('R2')
+    expect(loadProfiles().find(p => p.id === neu.id).strategy.rules).toEqual(['R1'])
+  })
+
+  it('Wildcard mit fremdem Modus wird nicht als Spender genommen', () => {
+    const fremd = createBlankProfile('Fremd', 'rookie')
+    saveProfiles(loadProfiles().map(p => (p.id === fremd.id
+      ? { ...p, strategy: { summary: 'Rookie-Strategie', rules: [], sources: [], contested: [], source: 'manual', updatedAt: '2026-02-01T00:00:00.000Z' }, updatedAt: '2026-02-01T00:00:00.000Z' }
+      : p)))
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Neue Liga' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.strategy.summary).toBe('')
+  })
+
+  it('ohne Wildcard bleibt die Strategie des Vorschauprofils leer', () => {
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L9', settings: {} },
+      league: { league_id: 'L9', name: 'Neue Liga' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.strategy.summary).toBe('')
+    expect(profile.strategy.rules).toEqual([])
+    expect(profile.overrides.scoring_type).toBeNull()
+  })
+})
+
 describe('Migration pro Modus (Task 2)', () => {
   it('migrateLegacyProfile legt pro Modus ein Profil an', () => {
     localStorage.setItem('sdh.setup.v2', JSON.stringify({ overrides: { scoring_type: 'half_ppr', superflex: true, roster_positions: null, teams: 10, rounds: 15, type: 'snake', strategies: ['zeroRB'] } }))

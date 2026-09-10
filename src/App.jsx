@@ -15,7 +15,7 @@ import { prioritizeTips } from './services/tipsPrioritizer'
 import { useDraftTips } from './hooks/useDraftTips'
 import { useRookieDraftTips } from './hooks/useRookieDraftTips'
 import { resolveProfile } from './services/profileStore'
-import { boardKeyFor } from './services/boardKey'
+import { boardKeyForContext } from './services/boardKey'
 import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/draftFormat'
 import { isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
@@ -302,15 +302,15 @@ export default function App() {
     // draftMode bewusst NICHT in den Deps -- die if-Guard oben verhindert die Endlosschleife.
   }, [selectedLeague?.league_id, selectedLeague?.settings?.type, selectedDraft?.draft_id]) // eslint-disable-line
 
-  // Board pro Liga/Profil: bei Liga-/Draft-/Modus-Wechsel das passende Board
+  // Board pro Profil: bei Liga-/Draft-/Modus-/Profil-Wechsel das passende Board
   // laden (useBoardStore.switchBoard sichert das alte automatisch weg).
   // Kein Board-Reset hier — switchBoard ist die einzige Stelle, die tauscht.
   useEffect(() => {
     try {
-      const key = boardKeyFor({ league: selectedLeague, draft: selectedDraft, draftMode })
+      const key = boardKeyForContext({ league: selectedLeague, draft: selectedDraft, draftMode, resolved: resolvedProfile })
       useBoardStore.getState().switchBoard(key)
     } catch {}
-  }, [selectedLeague?.league_id, selectedDraft?.draft_id, draftMode]) // eslint-disable-line
+  }, [selectedLeague?.league_id, selectedDraft?.draft_id, draftMode, resolvedProfile.profile.id, resolvedProfile.isNew]) // eslint-disable-line
 
   // Liga-Kader werden fuer JEDE echte Liga geladen, nicht nur im Rookie-Modus: die
   // Analyse-Seite vergleicht den eigenen Kader gegen das Liga-Feld, und in einer
