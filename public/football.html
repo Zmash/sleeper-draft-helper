@@ -1192,18 +1192,7 @@ function drawAim(){
   ctx.lineCap = 'round';
   ctx.beginPath(); ctx.arc(ball.x, ball.y, R, -Math.PI/2, -Math.PI/2 + 6.2832*power); ctx.stroke();
   ctx.lineCap = 'butt';
-
-  const ang = Math.atan2(dy, dx);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.setLineDash([6,7]); ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(a.x, a.y); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(a.x - 13*Math.cos(ang-0.38), a.y - 13*Math.sin(ang-0.38));
-  ctx.lineTo(a.x - 13*Math.cos(ang+0.38), a.y - 13*Math.sin(ang+0.38));
-  ctx.closePath(); ctx.fill();
+  // Bewusst kein Zugpfeil: Zielen bleibt Gefuehlssache (schwerer).
 }
 
 function hexToRgba(h, a){
