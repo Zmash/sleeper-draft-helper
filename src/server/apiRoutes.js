@@ -335,10 +335,20 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   const MODEL = model
 
   // ---------- Rankings: Fantasy Football Calculator (ADP) ----------
+  // Map-Cache pro Format+Teams: FFC-ADP aendert sich nur, wenn neue Mock-Drafts
+  // einlaufen — 4h TTL haelt den Board-Import zwischen Drafts flott, ohne
+  // veraltete ADPs ueber Nacht zu zementieren.
+  const ffcAdpCache = new Map() // "format:teams" -> { at, meta, players }
+  const FFC_ADP_TTL_MS = 4 * 60 * 60 * 1000
   app.get('/api/rankings/ffc-adp', async (req, res) => {
     const format = FFC_FORMATS.includes(String(req.query.format)) ? String(req.query.format) : 'ppr'
     const teams = parseInt(req.query.teams) || 12
     const year = parseInt(req.query.year) || new Date().getFullYear()
+    const cacheKey = `${format}:${teams}`
+    const cached = ffcAdpCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < FFC_ADP_TTL_MS) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
     const url = `https://fantasyfootballcalculator.com/api/v1/adp/${format}?teams=${teams}&year=${year}`
     try {
       const upstream = await fetch(url)
@@ -347,17 +357,20 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       if (json?.status !== 'Success' || !Array.isArray(json?.players)) {
         return res.status(502).json({ ok: false, error: 'FFC lieferte keine verwertbaren Daten' })
       }
+      const meta = {
+        source: 'ffc',
+        format,
+        total_drafts: json?.meta?.total_drafts ?? null,
+        start_date: json?.meta?.start_date ?? null,
+        end_date: json?.meta?.end_date ?? null,
+        fetched_at: new Date().toISOString(),
+      }
+      const players = json.players.map(normalizeFfcPlayer)
+      ffcAdpCache.set(cacheKey, { at: Date.now(), meta, players })
       res.json({
         ok: true,
-        meta: {
-          source: 'ffc',
-          format,
-          total_drafts: json?.meta?.total_drafts ?? null,
-          start_date: json?.meta?.start_date ?? null,
-          end_date: json?.meta?.end_date ?? null,
-          fetched_at: new Date().toISOString(),
-        },
-        players: json.players.map(normalizeFfcPlayer),
+        meta,
+        players,
       })
     } catch (e) {
       res.status(502).json({ ok: false, error: e?.message || 'FFC nicht erreichbar' })
@@ -370,8 +383,16 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   // (RotoWire)" aus. Serverseitig auf adp != null gefiltert: von ~3100 Spielern
   // tragen die meisten den 999-Sentinel; ungefiltert wuerde der Union-Tail im
   // Merge das Board mit tausenden rang- und ADP-losen Spielern fluten.
+  // Map-Cache pro Format: die RotoWire-ADP bewegt sich nur mit deren Updates —
+  // 4h TTL wie bei FFC, damit Formatwechsel sofort treffen, Wiederholungen nicht.
+  const sleeperAdpCache = new Map() // format -> { at, meta, players }
+  const SLEEPER_ADP_TTL_MS = 4 * 60 * 60 * 1000
   app.get('/api/rankings/sleeper-adp', async (req, res) => {
     const format = FFC_FORMATS.includes(String(req.query.format)) ? String(req.query.format) : 'ppr'
+    const cached = sleeperAdpCache.get(format)
+    if (cached && Date.now() - cached.at < SLEEPER_ADP_TTL_MS) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
     const adpField = SLEEPER_ADP_FIELD[format] || 'adp_ppr'
     const year = parseInt(req.query.year) || new Date().getFullYear()
     const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((p) => `position%5B%5D=${p}`).join('&')
@@ -387,16 +408,18 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         .map((p) => normalizeSleeperAdpPlayer(p, adpField))
         .filter((p) => p.adp != null)
         .sort((a, b) => a.adp - b.adp)
+      const meta = {
+        source: 'sleeper',
+        provider: 'rotowire',
+        format,
+        total_drafts: null,
+        end_date: null,
+        fetched_at: new Date().toISOString(),
+      }
+      sleeperAdpCache.set(format, { at: Date.now(), meta, players })
       res.json({
         ok: true,
-        meta: {
-          source: 'sleeper',
-          provider: 'rotowire',
-          format,
-          total_drafts: null,
-          end_date: null,
-          fetched_at: new Date().toISOString(),
-        },
+        meta,
         players,
       })
     } catch (e) {
@@ -437,11 +460,22 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   })
 
   // ---------- Rankings: FantasyCalc ----------
+  // Map-Cache ueber die sortierten Query-Params (isDynasty/numQbs/numTeams/ppr):
+  // jede Format-Kombination ist ein eigener Eintrag, damit 1QB- und
+  // Superflex-Werte nie vermischt werden. 6h TTL — Dynasty-Werte bewegen sich
+  // langsam, aber Mock-Draft-Nutzer wechseln oft das Format.
+  const fantasycalcCache = new Map() // "isDynasty:numQbs:numTeams:ppr" -> { at, meta, players }
+  const FANTASYCALC_TTL_MS = 6 * 60 * 60 * 1000
   app.get('/api/rankings/fantasycalc', async (req, res) => {
     const numQbs = parseInt(req.query.numQbs) === 2 ? 2 : 1
     const numTeams = parseInt(req.query.numTeams) || 12
     const ppr = req.query.ppr !== undefined ? Number(req.query.ppr) : 1
     const isDynasty = isDynastyFromQuery(req.query.isDynasty)
+    const cacheKey = `${isDynasty}:${numQbs}:${numTeams}:${ppr}`
+    const cached = fantasycalcCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < FANTASYCALC_TTL_MS) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
     const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}&includeAdp=false`
     try {
       const upstream = await fetch(url)
@@ -466,9 +500,11 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         sleeperId: fc?.player?.sleeperId ?? null,
         tier: fc?.maybeTier ?? null,
       }))
+      const meta = { source: 'fantasycalc', isDynasty, numQbs, numTeams, ppr, fetched_at: new Date().toISOString() }
+      fantasycalcCache.set(cacheKey, { at: Date.now(), meta, players })
       res.json({
         ok: true,
-        meta: { source: 'fantasycalc', isDynasty, numQbs, numTeams, ppr, fetched_at: new Date().toISOString() },
+        meta,
         players,
       })
     } catch (err) {
@@ -583,7 +619,16 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   })
 
   // ---------- Rankings: KTC Rookies ----------
+  // Single-Key-Cache (keine Params): die Rookie-Seite ist genau eine URL.
+  // 12h TTL wie ktc-dynasty — Rookie-Werte bewegen sich nur mit NFL-News
+  // (Draft, Camp), nicht im Minuten-Takt.
+  const ktcRookiesCache = new Map() // "rookies" -> { at, players }
+  const KTC_ROOKIES_TTL_MS = 12 * 60 * 60 * 1000
   app.get('/api/rankings/ktc-rookies', async (_req, res) => {
+    const cached = ktcRookiesCache.get('rookies')
+    if (cached && Date.now() - cached.at < KTC_ROOKIES_TTL_MS) {
+      return res.json({ ok: true, cached: true, players: cached.players })
+    }
     const KTC_URL = 'https://keeptradecut.com/dynasty-rankings/rookie-rankings'
     const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     try {
@@ -599,6 +644,7 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
         .map((p, idx) => ({ ...normalizeKtcPlayer(p, { rookie: true }), id: idx + 1 }))
         .filter((p) => p.name)
       if (!players.length) return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – KTC-Struktur möglicherweise geändert' })
+      ktcRookiesCache.set('rookies', { at: Date.now(), players })
       res.json({ ok: true, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'KTC-Scraping fehlgeschlagen' })
@@ -609,8 +655,16 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
   // scoring: ppr | half | std -> passende Cheatsheet-Seite. Wir ziehen den
   // eingebetteten ecrData-Blob (volle Rangliste) statt der auf 10 Spieler/Position
   // limitierten oeffentlichen API. Antwortform wie die KTC-Routen.
+  // Map-Cache pro Scoring: jede Cheatsheet-Seite ist ein eigener Fetch.
+  // 6h TTL — Consensus bewegt sich mit Experten-Updates, nicht sekündlich.
+  const fantasyprosCache = new Map() // scoring -> { at, meta, players }
+  const FANTASYPROS_TTL_MS = 6 * 60 * 60 * 1000
   app.get('/api/rankings/fantasypros', async (req, res) => {
     const scoring = ['ppr', 'half', 'std'].includes(String(req.query.scoring)) ? String(req.query.scoring) : 'ppr'
+    const cached = fantasyprosCache.get(scoring)
+    if (cached && Date.now() - cached.at < FANTASYPROS_TTL_MS) {
+      return res.json({ ok: true, cached: true, meta: cached.meta, players: cached.players })
+    }
     const url = FP_SCORING_URLS[scoring]
     const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     try {
@@ -625,16 +679,18 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       if (!players.length) {
         return res.status(502).json({ ok: false, error: 'Keine Spieler gefunden – FantasyPros-Struktur möglicherweise geändert' })
       }
+      const meta = {
+        source: 'fantasypros',
+        scoring,
+        type: data?.type ?? null,
+        total_experts: data?.total_experts ?? null,
+        last_updated: data?.last_updated ?? null,
+        fetched_at: new Date().toISOString(),
+      }
+      fantasyprosCache.set(scoring, { at: Date.now(), meta, players })
       res.json({
         ok: true,
-        meta: {
-          source: 'fantasypros',
-          scoring,
-          type: data?.type ?? null,
-          total_experts: data?.total_experts ?? null,
-          last_updated: data?.last_updated ?? null,
-          fetched_at: new Date().toISOString(),
-        },
+        meta,
         players,
       })
     } catch (err) {

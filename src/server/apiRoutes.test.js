@@ -398,3 +398,354 @@ describe('GET /api/rankings/sleeper-projections-week', () => {
     expect(res.body.ok).toBe(false)
   })
 })
+
+describe('GET /api/rankings/ffc-adp — Cache', () => {
+  function capture() {
+    const handlers = {}
+    registerApiRoutes(
+      { get: (p, h) => { handlers[p] = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handlers['/api/rankings/ffc-adp']
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  function mockFfc() {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'Success',
+        meta: { total_drafts: 100, start_date: '2026-01-01', end_date: '2026-09-01' },
+        players: [{ name: 'Bijan Robinson', position: 'RB', team: 'ATL', adp: 5 }],
+      }),
+    })
+  }
+
+  afterEach(() => {
+    delete global.fetch
+    vi.useRealTimers()
+  })
+
+  it('zweiter identischer Call kommt aus dem Cache ohne neuen fetch', async () => {
+    mockFfc()
+    const handler = capture()
+    const r1 = makeRes()
+    await handler({ query: { format: 'ppr', teams: '12' } }, r1)
+    expect(r1.body.ok).toBe(true)
+    expect(r1.body.cached ?? false).toBe(false)
+    const r2 = makeRes()
+    await handler({ query: { format: 'ppr', teams: '12' } }, r2)
+    expect(r2.body.ok).toBe(true)
+    expect(r2.body.cached).toBe(true)
+    expect(r2.body.players).toEqual(r1.body.players)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('unterschiedliche Params sind getrennte Eintraege', async () => {
+    mockFfc()
+    const handler = capture()
+    await handler({ query: { format: 'ppr', teams: '12' } }, makeRes())
+    const r2 = makeRes()
+    await handler({ query: { format: 'standard', teams: '12' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    const r3 = makeRes()
+    await handler({ query: { format: 'ppr', teams: '10' } }, r3)
+    expect(r3.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('nach TTL-Ablauf (4h) wird neu gefetcht', async () => {
+    vi.useFakeTimers()
+    mockFfc()
+    const handler = capture()
+    await handler({ query: { format: 'ppr', teams: '12' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000 + 1000)
+    const r2 = makeRes()
+    await handler({ query: { format: 'ppr', teams: '12' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('GET /api/rankings/sleeper-adp — Cache', () => {
+  function capture() {
+    const handlers = {}
+    registerApiRoutes(
+      { get: (p, h) => { handlers[p] = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handlers['/api/rankings/sleeper-adp']
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  function mockSleeper() {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ([
+        { player: { first_name: 'Bijan', last_name: 'Robinson', position: 'RB', team: 'ATL' }, stats: { adp_ppr: 5, adp_std: 6 } },
+      ]),
+    })
+  }
+
+  afterEach(() => {
+    delete global.fetch
+    vi.useRealTimers()
+  })
+
+  it('zweiter identischer Call kommt aus dem Cache ohne neuen fetch', async () => {
+    mockSleeper()
+    const handler = capture()
+    const r1 = makeRes()
+    await handler({ query: { format: 'ppr' } }, r1)
+    expect(r1.body.ok).toBe(true)
+    expect(r1.body.cached ?? false).toBe(false)
+    const r2 = makeRes()
+    await handler({ query: { format: 'ppr' } }, r2)
+    expect(r2.body.ok).toBe(true)
+    expect(r2.body.cached).toBe(true)
+    expect(r2.body.players).toEqual(r1.body.players)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('unterschiedliche Params sind getrennte Eintraege', async () => {
+    mockSleeper()
+    const handler = capture()
+    await handler({ query: { format: 'ppr' } }, makeRes())
+    const r2 = makeRes()
+    await handler({ query: { format: 'standard' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('nach TTL-Ablauf (4h) wird neu gefetcht', async () => {
+    vi.useFakeTimers()
+    mockSleeper()
+    const handler = capture()
+    await handler({ query: { format: 'ppr' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000 + 1000)
+    const r2 = makeRes()
+    await handler({ query: { format: 'ppr' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('GET /api/rankings/fantasycalc — Cache', () => {
+  function capture() {
+    const handlers = {}
+    registerApiRoutes(
+      { get: (p, h) => { handlers[p] = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handlers['/api/rankings/fantasycalc']
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  function mockFc() {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ([
+        { overallRank: 1, value: 9000, redraftValue: 8000, positionRank: 1, maybeTier: 1, player: { name: 'Bijan Robinson', team: 'ATL', position: 'RB', age: 24, sleeperId: '123' } },
+      ]),
+    })
+  }
+
+  afterEach(() => {
+    delete global.fetch
+    vi.useRealTimers()
+  })
+
+  it('zweiter identischer Call kommt aus dem Cache ohne neuen fetch', async () => {
+    mockFc()
+    const handler = capture()
+    const r1 = makeRes()
+    await handler({ query: { isDynasty: 'true', numQbs: '1', numTeams: '12', ppr: '1' } }, r1)
+    expect(r1.body.ok).toBe(true)
+    expect(r1.body.cached ?? false).toBe(false)
+    expect(r1.body.meta).toMatchObject({ isDynasty: true, numQbs: 1, numTeams: 12 })
+    const r2 = makeRes()
+    await handler({ query: { isDynasty: 'true', numQbs: '1', numTeams: '12', ppr: '1' } }, r2)
+    expect(r2.body.ok).toBe(true)
+    expect(r2.body.cached).toBe(true)
+    expect(r2.body.players).toEqual(r1.body.players)
+    expect(r2.body.meta).toEqual(r1.body.meta)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('unterschiedliche Params sind getrennte Eintraege', async () => {
+    mockFc()
+    const handler = capture()
+    await handler({ query: { isDynasty: 'true', numQbs: '1', numTeams: '12', ppr: '1' } }, makeRes())
+    const r2 = makeRes()
+    await handler({ query: { isDynasty: 'false', numQbs: '1', numTeams: '12', ppr: '1' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    const r3 = makeRes()
+    await handler({ query: { isDynasty: 'true', numQbs: '2', numTeams: '12', ppr: '1' } }, r3)
+    expect(r3.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('nach TTL-Ablauf (6h) wird neu gefetcht', async () => {
+    vi.useFakeTimers()
+    mockFc()
+    const handler = capture()
+    await handler({ query: { isDynasty: 'true', numQbs: '1', numTeams: '12', ppr: '1' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000 + 1000)
+    const r2 = makeRes()
+    await handler({ query: { isDynasty: 'true', numQbs: '1', numTeams: '12', ppr: '1' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('GET /api/rankings/ktc-rookies — Cache', () => {
+  function capture() {
+    const handlers = {}
+    registerApiRoutes(
+      { get: (p, h) => { handlers[p] = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handlers['/api/rankings/ktc-rookies']
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  function mockKtc() {
+    const html = '<script id="ktc-players">'
+      + JSON.stringify([{ playerName: 'Ashton Jeanty', position: 'RB', team: 'LV', age: 21, seasonsExperience: 0, byeWeek: 8, oneQBValues: { rookieRank: 1, rookiePositionalRank: 1, rookieTier: 1, value: 9000 }, superflexValues: { rookieRank: 1, rookiePositionalRank: 1, rookieTier: 1, value: 9000 } }])
+      + '</script>'
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => html })
+  }
+
+  afterEach(() => {
+    delete global.fetch
+    vi.useRealTimers()
+  })
+
+  it('zweiter identischer Call kommt aus dem Cache ohne neuen fetch', async () => {
+    mockKtc()
+    const handler = capture()
+    const r1 = makeRes()
+    await handler({ query: {} }, r1)
+    expect(r1.body.ok).toBe(true)
+    expect(r1.body.cached ?? false).toBe(false)
+    const r2 = makeRes()
+    await handler({ query: {} }, r2)
+    expect(r2.body.ok).toBe(true)
+    expect(r2.body.cached).toBe(true)
+    expect(r2.body.players).toEqual(r1.body.players)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('nach TTL-Ablauf (12h) wird neu gefetcht', async () => {
+    vi.useFakeTimers()
+    mockKtc()
+    const handler = capture()
+    await handler({ query: {} }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(12 * 60 * 60 * 1000 + 1000)
+    const r2 = makeRes()
+    await handler({ query: {} }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('GET /api/rankings/fantasypros — Cache', () => {
+  function capture() {
+    const handlers = {}
+    registerApiRoutes(
+      { get: (p, h) => { handlers[p] = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handlers['/api/rankings/fantasypros']
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  function mockFp() {
+    const html = `<script>var ecrData = ${JSON.stringify({
+      type: 'cheatsheet', total_experts: 100, last_updated: '2026-09-01',
+      players: [{ player_name: "Ja'Marr Chase", rank_ecr: 1, player_team_id: 'CIN', player_position_id: 'WR' }],
+    })}</script>`
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => html })
+  }
+
+  afterEach(() => {
+    delete global.fetch
+    vi.useRealTimers()
+  })
+
+  it('zweiter identischer Call kommt aus dem Cache ohne neuen fetch', async () => {
+    mockFp()
+    const handler = capture()
+    const r1 = makeRes()
+    await handler({ query: { scoring: 'ppr' } }, r1)
+    expect(r1.body.ok).toBe(true)
+    expect(r1.body.cached ?? false).toBe(false)
+    expect(r1.body.meta.scoring).toBe('ppr')
+    const r2 = makeRes()
+    await handler({ query: { scoring: 'ppr' } }, r2)
+    expect(r2.body.ok).toBe(true)
+    expect(r2.body.cached).toBe(true)
+    expect(r2.body.players).toEqual(r1.body.players)
+    expect(r2.body.meta).toEqual(r1.body.meta)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('unterschiedliche Params sind getrennte Eintraege', async () => {
+    mockFp()
+    const handler = capture()
+    await handler({ query: { scoring: 'ppr' } }, makeRes())
+    const r2 = makeRes()
+    await handler({ query: { scoring: 'half' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('nach TTL-Ablauf (6h) wird neu gefetcht', async () => {
+    vi.useFakeTimers()
+    mockFp()
+    const handler = capture()
+    await handler({ query: { scoring: 'ppr' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000 + 1000)
+    const r2 = makeRes()
+    await handler({ query: { scoring: 'ppr' } }, r2)
+    expect(r2.body.cached ?? false).toBe(false)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
