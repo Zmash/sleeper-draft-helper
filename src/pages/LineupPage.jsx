@@ -17,6 +17,7 @@ import StreamingBoard from '../components/waiver/StreamingBoard'
 import RecommendedLineupCard from '../components/waiver/RecommendedLineupCard'
 import AllTeamsOverview from '../components/waiver/AllTeamsOverview'
 import PlayerDetailSheet from '../components/PlayerDetailSheet'
+import PushOptIn from '../components/PushOptIn'
 import '../styles/analysis.css'
 
 // Welche Streaming-Position ist in dieser Liga ueberhaupt startbar?
@@ -390,6 +391,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       <header className="an-head">
         <h2 className="an-head-title">Lineup</h2>
         <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
+        <PushOptIn />
       </header>
       <div className="an-tabs" role="tablist" aria-label="Lineup-Ansicht">
         <button type="button" role="tab" aria-selected={!allTab} className={`an-tab${!allTab ? ' is-on' : ''}`} onClick={() => setAllTab(false)}>
