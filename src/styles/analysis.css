@@ -541,3 +541,64 @@
   .an-head,
   .an-tabs { padding-inline: 12px; }
 }
+
+/* Alle-Teams-Übersicht: volle Breite, dasselbe kompakte Zeilen-Grid wie die
+   Lineup-Karte (Pille | Spieler | Team | Liga | Status | Hinweis). Nur
+   Problem-Zeilen bekommen einen Warnbalken links -- OK-Zeilen bleiben ruhig,
+   damit Probleme auf einen Blick erkennbar sind. */
+.an-card--allteams { grid-column: 1 / -1; }
+.an-card--allteams .an-listrow,
+.an-card--allteams .an-lineup-row {
+  grid-template-columns: 2.5rem minmax(5rem, 1fr) 2.4rem minmax(4rem, 8rem) 3rem minmax(3rem, 7rem);
+}
+.an-card--allteams .an-lineup-row {
+  width: 100%;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  padding: .06rem 0 .06rem .4rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.an-card--allteams .an-lineup-row:hover { background: var(--hover, rgba(255, 255, 255, .04)); }
+.an-card--allteams .an-row--red { border-left-color: var(--bad, #e0555a); }
+.an-card--allteams .an-row--yellow { border-left-color: #f5a524; }
+.an-allteams-league {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  color: var(--muted, #888); font-size: .75rem;
+}
+.an-st-ok { color: var(--good, #4ec97b); font-weight: 600; font-size: .75rem; }
+.an-allteams-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-note--red { color: var(--bad, #e0555a); font-weight: 600; }
+.an-note--yellow { color: #f5a524; }
+/* Zweite Zeile nur für Mobil: Liga · Status als Subline unter dem Namen. */
+.an-card--allteams .an-allteams-sub { display: none; }
+@media (max-width: 720px) {
+  /* Mobil kein Tabellen-Header: die zweizeiligen Zeilen (Name + Liga · Status
+     darunter) sind selbsterklärend, sechs Spaltenköpfe auf 360px nicht. */
+  .an-card--allteams .an-listrow-head { display: none; }
+  .an-card--allteams .an-listrow,
+  .an-card--allteams .an-lineup-row {
+    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      'pos name note'
+      'pos sub note';
+    column-gap: .4rem;
+    row-gap: 0;
+  }
+  .an-card--allteams .an-lineup-row { padding: .3rem 0 .3rem .4rem; }
+  .an-card--allteams .an-pos { grid-area: pos; align-self: center; }
+  .an-card--allteams .an-listname { grid-area: name; }
+  .an-card--allteams .an-allteams-note { grid-area: note; align-self: center; }
+  .an-card--allteams .an-allteams-sub {
+    display: block; grid-area: sub;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    font-size: .72rem; color: var(--muted, #888);
+  }
+  /* Desktop-Spalten weichen der Subline: Team, Liga, Status. */
+  .an-card--allteams .an-trendteam,
+  .an-card--allteams .an-lineup-row > .an-allteams-league,
+  .an-card--allteams .an-allteams-status { display: none; }
+}

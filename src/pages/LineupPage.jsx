@@ -7,12 +7,16 @@ import { useWeeklyRankingsStore } from '../stores/useWeeklyRankingsStore'
 import { useUIStore } from '../stores/useUIStore'
 import { useTrendingPlayers } from '../hooks/useTrendingPlayers'
 import { loadPlayersMetaCached } from '../services/playersMeta'
-import { fetchNflState, fetchMatchups } from '../services/api'
+import { fetchNflState, fetchMatchups, fetchLeagueRosters } from '../services/api'
 import { effScoringTypeToFpParam } from '../services/draftFormat'
 import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey } from '../services/analysis/waiverStats'
+import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup'
+import { normalizePlayerName } from '../utils/formatting'
 import PickupSuggestions from '../components/waiver/PickupSuggestions'
 import StreamingBoard from '../components/waiver/StreamingBoard'
 import RecommendedLineupCard from '../components/waiver/RecommendedLineupCard'
+import AllTeamsOverview from '../components/waiver/AllTeamsOverview'
+import PlayerDetailSheet from '../components/PlayerDetailSheet'
 import '../styles/analysis.css'
 
 // Welche Streaming-Position ist in dieser Liga ueberhaupt startbar?
@@ -32,8 +36,12 @@ export function availableStreamPositionsFor(rosterPositions = []) {
 }
 
 export default function LineupPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
-  const { sleeperUserId } = useSessionStore()
+  const { sleeperUserId, availableLeagues } = useSessionStore()
   const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
+  const [allTab, setAllTab] = useState(false)
+  const [allTeams, setAllTeams] = useState([])
+  const [allLoading, setAllLoading] = useState(false)
+  const [selectedRow, setSelectedRow] = useState(null)
   const { dynastyValues, loadDynastyValuesIfStale } = useDynastyValuesStore()
   const { byKey, sleeperWeekById, loadIfStale, loadSleeperWeekIfStale, getRankMap } = useWeeklyRankingsStore()
   const { streamPositions, toggleStreamPosition } = useUIStore()
@@ -142,6 +150,87 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       })
       .catch(() => setActualStarterIds([]))
   }, [selectedLeague?.league_id, week, mySleeperRosterId])
+
+  // "Alle Teams": Kader aller Ligen laden (einmal pro Tab-Wechsel), daraus je
+  // Liga Starter + Empfehlung bestimmen. Starters kommen aus dem
+  // Roster-Objekt (starters-Array) -- kein Matchups-Request je Liga nötig.
+  useEffect(() => {
+    if (!allTab || !sleeperUserId) return
+    let cancelled = false
+    setAllLoading(true)
+    const leagues = availableLeagues || []
+    Promise.all(leagues.map(async (lg) => {
+      try {
+        const rosters = await fetchLeagueRosters(lg.league_id)
+        const mine = (rosters || []).find((r) => String(r.owner_id) === String(sleeperUserId))
+        if (!mine) return null
+        const starterSet = new Set((mine.starters || []).map(String))
+        const roster = (mine.players || []).map((id) => {
+          const meta = playersMeta[id] || {}
+          const name = meta.full_name
+            || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()
+            || `#${id}`
+          return {
+            sleeper_id: String(id),
+            name,
+            nname: normalizePlayerName(name),
+            pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
+            team: meta.team || '',
+            bye: meta.bye_week != null ? String(meta.bye_week) : '',
+            injury_status: meta.injury_status || null,
+            slot: starterSet.has(String(id)) ? 'starter' : 'bench',
+          }
+        })
+        const positions = lg.roster_positions || []
+        // Empfehlung je Liga mit derselben Engine wie die Einzelansicht:
+        // ID-gemappte Wochenränge aus den bereits geladenen FantasyPros-Maps.
+        const wk = new Map()
+        const fx = new Map()
+        const sfx = new Map()
+        for (const pos of ['QB', 'RB', 'WR', 'TE', 'DEF']) {
+          const rm = getRankMap({ pos, scope: 'week' })
+          for (const p of roster.filter((r) => r.pos === pos)) {
+            const v = rm.get(matchKey(pos, p))
+            if (v != null) wk.set(`ID:${p.sleeper_id}`, v)
+          }
+        }
+        const flexMap = getRankMap({ pos: 'FLEX', scope: 'week' })
+        const sflexMap = getRankMap({ pos: 'SUPER_FLEX', scope: 'week' })
+        for (const p of roster) {
+          const fv = flexMap.get(matchKey(p.pos, p))
+          if (fv != null) fx.set(`ID:${p.sleeper_id}`, fv)
+          const sv = sflexMap.get(matchKey(p.pos, p))
+          if (sv != null) sfx.set(`ID:${p.sleeper_id}`, sv)
+        }
+        let recommended = []
+        try {
+          const res = bestLineup({
+            myRosterPlayers: roster,
+            rosterPositions: positions.length ? positions : effRoster,
+            weeklyRankByKey: wk, flexRankByKey: fx, superflexRankByKey: sfx,
+            currentWeekBye: week != null ? String(week) : null,
+          })
+          recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
+        } catch { recommended = [] }
+        return {
+          leagueId: lg.league_id,
+          leagueName: lg.name || lg.league_id,
+          week: week != null ? String(week) : null,
+          roster,
+          actualStarterIds: [...starterSet],
+          recommendedStarterIds: recommended,
+        }
+      } catch { return null }
+    })).then((teams) => {
+      if (!cancelled) {
+        setAllTeams(teams.filter(Boolean))
+        setAllLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [allTab, sleeperUserId, availableLeagues, playersMeta, week, effRoster, byKey, getRankMap])
+
+  const allRows = useMemo(() => buildAllTeamsRows({ teams: allTeams }), [allTeams])
 
   const agents = useMemo(() => {
     if (!leagueRosters?.length) return []
@@ -302,6 +391,44 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
         <h2 className="an-head-title">Lineup</h2>
         <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
       </header>
+      <div className="an-tabs" role="tablist" aria-label="Lineup-Ansicht">
+        <button type="button" role="tab" aria-selected={!allTab} className={`an-tab${!allTab ? ' is-on' : ''}`} onClick={() => setAllTab(false)}>
+          Einzelnes Team
+        </button>
+        <button type="button" role="tab" aria-selected={allTab} className={`an-tab${allTab ? ' is-on' : ''}`} onClick={() => setAllTab(true)}>
+          Alle Teams
+        </button>
+      </div>
+      {allTab ? (
+        <div className="an-grid an-grid--waiver">
+          <AllTeamsOverview rows={allRows} loading={allLoading} onSelectPlayer={setSelectedRow} />
+          {selectedRow && (
+            <div className="an-card">
+              <div className="an-lineup-head">
+                <h3 className="an-card-title">{selectedRow.player.name}</h3>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedRow(null)}>Schließen</button>
+              </div>
+              <p className="muted">
+                {selectedRow.leagueName} · {selectedRow.isStarter ? 'aufgestellt' : 'Bank'}
+                {selectedRow.player.team ? ` · ${selectedRow.player.team}` : ''}
+                {selectedRow.player.bye ? ` · Bye ${selectedRow.player.bye}` : ''}
+                {selectedRow.player.injury_status ? ` · ${selectedRow.player.injury_status}` : ''}
+              </p>
+              <a
+                className="an-cta"
+                href={`https://sleeper.com/leagues/${selectedRow.leagueId}/team`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                In Sleeper öffnen
+              </a>
+            </div>
+          )}
+          {selectedRow && (
+            <PlayerDetailSheet player={selectedRow.player} onClose={() => setSelectedRow(null)} />
+          )}
+        </div>
+      ) : (
       <div className="an-grid an-grid--waiver">
         {mySleeperRosterId != null && (
           <RecommendedLineupCard
@@ -335,6 +462,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           sourceNote={`Woche/ROS: FantasyPros (${scoring.toUpperCase()})${streamPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}
         />
       </div>
+      )}
     </section>
   )
 }
