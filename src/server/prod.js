@@ -4,6 +4,7 @@ import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerApiRoutes, DEFAULT_MODEL } from './apiRoutes.js'
+import { startScheduler } from './scheduler.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -16,6 +17,7 @@ app.disable('x-powered-by')
 app.use(express.json({ limit: '3mb' }))
 
 registerApiRoutes(app, { model: MODEL })
+startScheduler()
 
 // ---------- Static Frontend ----------
 const distDir = path.resolve(__dirname, '../dist')

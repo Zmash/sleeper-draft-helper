@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import express from 'express'
 import cors from 'cors'
 import { registerApiRoutes, DEFAULT_MODEL } from './apiRoutes.js'
+import { startScheduler } from './scheduler.js'
 
 // Laedt src/.env (relativ zu dieser Datei, nicht zum cwd), damit
 // FANTASY_PROS_API_KEY verfuegbar ist. RESERVIERT fuer spaetere FantasyPros-
@@ -20,6 +21,7 @@ app.use(cors({ origin: ALLOW_ORIGIN }))
 
 const MODEL = process.env.SDH_MODEL || DEFAULT_MODEL
 registerApiRoutes(app, { model: MODEL })
+startScheduler()
 
 const PORT = Number(process.env.PORT) || 5175
 app.listen(PORT, '0.0.0.0', () => {
