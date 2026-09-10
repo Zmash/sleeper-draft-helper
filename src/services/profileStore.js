@@ -22,11 +22,22 @@ function newId() {
     : `prof_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function newProfile({ name, boundLeagueId = null, fingerprint = null, mode = null } = {}) {
+// Liga-Bindung ist N:1 — mehrere Ligen dürfen dasselbe Profil teilen. Die
+// Liste `boundLeagueIds` ist die Quelle; `boundLeagueId` (String) existiert
+// nur noch als Altbestand und wird über leagueIdsOf() mitgelesen.
+export function leagueIdsOf(p) {
+  if (!p) return []
+  if (Array.isArray(p.boundLeagueIds)) return p.boundLeagueIds
+  if (p.boundLeagueId) return [p.boundLeagueId]
+  return []
+}
+
+export function newProfile({ name, boundLeagueIds = null, fingerprint = null, mode = null } = {}) {
   const now = new Date().toISOString()
   const effMode = mode || fingerprint?.draftMode || 'redraft'
   return {
-    id: newId(), name, boundLeagueId, fingerprint, mode: effMode,
+    // boundLeagueId wird bewusst NICHT mehr geschrieben — nur die Liste.
+    id: newId(), name, boundLeagueIds: Array.isArray(boundLeagueIds) ? [...boundLeagueIds] : [], fingerprint, mode: effMode,
     overrides: { ...EMPTY_OVERRIDES },
     strategy: { ...EMPTY_STRATEGY },
     createdAt: now, updatedAt: now,
@@ -102,7 +113,8 @@ export function duplicateProfile(id) {
   const now = new Date().toISOString()
   const copy = {
     ...src, id: newId(), name: `${src.name} (Kopie)`,
-    boundLeagueId: null, fingerprint: null,
+    // Beide Bindungsfelder leeren — die Kopie startet ungebunden.
+    boundLeagueIds: [], boundLeagueId: null, fingerprint: null,
     createdAt: now, updatedAt: now,
   }
   saveProfiles([...profiles, copy])
@@ -127,8 +139,10 @@ export function persistProfile(profile) {
   return upsertProfile({ ...profile, updatedAt: new Date().toISOString() })
 }
 
-// leagueId gesetzt -> Liga-Bindung (vorherigem Halter wird die Bindung entzogen,
-// damit resolveProfile().find(...) nie zwei Treffer fuer dieselbe Liga hat).
+// leagueId gesetzt -> Liga-Bindung im N:1-Sinn: die Liga wird aus ALLEN
+// anderen Listen mit passendem Modus entfernt (eine Liga hat pro Modus genau
+// ein Profil), aber zur Ziel-Liste nur HINZUGEFÜGT (kein Duplikat) — das Ziel
+// behält seine bisherigen Ligen (Teilen statt Stehlen).
 // fingerprint gesetzt -> Format-Bindung (Mock). Beide schliessen sich aus.
 // Symmetrisch zur Liga-Bindung wird auch hier dem vorherigen Halter desselben
 // Fingerprints die Bindung entzogen -- sonst haben nach einem Rebind zwei
@@ -138,16 +152,56 @@ export function rebindProfile(id, { leagueId = null, fingerprint = null, mode = 
   let profiles = loadProfiles()
   const effMode = mode || fingerprint?.draftMode || 'redraft'
   if (leagueId) {
-    profiles = profiles.map(p => (p.boundLeagueId === leagueId && (p.mode == null || p.mode === effMode) && p.id !== id ? { ...p, boundLeagueId: null } : p))
+    profiles = profiles.map(p => {
+      if (p.id === id) return p
+      // Evict nur im gleichen Composite (Liga + Modus), wie bisher.
+      if (p.mode == null || p.mode === effMode) {
+        const ids = leagueIdsOf(p)
+        if (ids.includes(leagueId)) {
+          const patch = { ...p, boundLeagueIds: ids.filter(x => x !== leagueId) }
+          // Altbestand bereinigen, damit kein toter String zurückbleibt.
+          if (!Array.isArray(p.boundLeagueIds) && p.boundLeagueId) patch.boundLeagueId = null
+          return patch
+        }
+      }
+      return p
+    })
   } else if (fingerprint) {
     const fpKey = JSON.stringify(fingerprint)
     profiles = profiles.map(p => (p.id !== id && p.fingerprint && JSON.stringify(p.fingerprint) === fpKey ? { ...p, fingerprint: null } : p))
   }
   profiles = profiles.map(p => (p.id === id
-    ? { ...p, boundLeagueId: leagueId || null, fingerprint: leagueId ? null : (fingerprint || null), mode: leagueId ? effMode : (fingerprint?.draftMode || p.mode || 'redraft'), updatedAt: new Date().toISOString() }
+    ? {
+      ...p,
+      boundLeagueIds: leagueId ? [...new Set([...leagueIdsOf(p), leagueId])] : [],
+      boundLeagueId: null,
+      fingerprint: leagueId ? null : (fingerprint || null), mode: leagueId ? effMode : (fingerprint?.draftMode || p.mode || 'redraft'), updatedAt: new Date().toISOString(),
+    }
     : p))
   saveProfiles(profiles)
   return profiles.find(p => p.id === id) || null
+}
+
+// Entfernt eine Liga aus allen Listen mit passendem Modus — die Liga fällt
+// danach auf die Automatik (Vorschauprofil + Strategie-Prefill) zurück.
+export function unbindLeague(leagueId, mode = null) {
+  if (!leagueId) return loadProfiles()
+  const profiles = loadProfiles()
+  let changed = false
+  const next = profiles.map(p => {
+    if (p.mode == null || p.mode === mode) {
+      const ids = leagueIdsOf(p)
+      if (ids.includes(leagueId)) {
+        changed = true
+        const patch = { ...p, boundLeagueIds: ids.filter(x => x !== leagueId) }
+        if (!Array.isArray(p.boundLeagueIds) && p.boundLeagueId) patch.boundLeagueId = null
+        return patch
+      }
+    }
+    return p
+  })
+  if (changed) saveProfiles(next)
+  return next
 }
 
 // Einmalig aus main.jsx (ueber stores/migrate.js) aufgerufen, bevor irgendetwas
@@ -191,7 +245,7 @@ export function migrateProfilesToMode() {
   const profiles = loadProfiles()
   if (!profiles.length) return { migrated: 0 }
   const lone = profiles.length === 1 && profiles[0].name === 'Migriert'
-    && !profiles[0].boundLeagueId && !profiles[0].fingerprint && (profiles[0].mode == null)
+    && leagueIdsOf(profiles[0]).length === 0 && !profiles[0].fingerprint && (profiles[0].mode == null)
   if (lone) {
     const src = profiles[0]
     const now = new Date().toISOString()
@@ -201,9 +255,20 @@ export function migrateProfilesToMode() {
   }
   let n = 0
   const next = profiles.map(p => {
-    if (p.mode === 'redraft' || p.mode === 'rookie') return p
+    let out = p
+    // Altbestand einmalig heilen: exklusiver boundLeagueId-String -> Liste.
+    if (typeof out.boundLeagueId === 'string' && out.boundLeagueId) {
+      const ids = Array.isArray(out.boundLeagueIds) ? [...out.boundLeagueIds] : []
+      if (!ids.includes(out.boundLeagueId)) ids.push(out.boundLeagueId)
+      out = { ...out, boundLeagueIds: ids, boundLeagueId: null }
+      n += 1
+    } else if (!Array.isArray(out.boundLeagueIds)) {
+      out = { ...out, boundLeagueIds: [] }
+      n += 1
+    }
+    if (out.mode === 'redraft' || out.mode === 'rookie') return out
     n += 1
-    return { ...p, mode: p.fingerprint?.draftMode || 'redraft', updatedAt: p.updatedAt }
+    return { ...out, mode: out.fingerprint?.draftMode || 'redraft', updatedAt: out.updatedAt }
   })
   if (n) saveProfiles(next)
   return { migrated: n }
@@ -242,15 +307,20 @@ export function resolveProfile({ draft = null, league = null, draftMode = 'redra
   const standalone = isStandaloneDraft(draft)
 
   if (league?.league_id && !standalone) {
-    const existing = profiles.find(p => p.boundLeagueId === league.league_id && (p.mode == null || p.mode === draftMode))
+    const existing = profiles.find(p => leagueIdsOf(p).includes(league.league_id) && (p.mode == null || p.mode === draftMode))
     if (existing) return { profile: existing, deviations: [], isNew: false }
     // Kein Bound-Treffer: Vorschauprofil mit Strategie-Prefill aus der neuesten
     // modus-passenden Wildcard (ungebunden, mode passt). Nur `strategy` wird
     // uebernommen (Deep-Copy) — Overrides bleiben NULL, damit die Erkennung
     // massgeblich bleibt (kein Superflex-Schatten). Rein: kein Storage-Write.
-    const preview = newProfile({ name: league.name || 'Liga', boundLeagueId: league.league_id, mode: draftMode })
+    // Die Vorschau trägt die Liga in boundLeagueIds (N:1-Liste), damit Rebind
+    // ("Anderes Profil verwenden") und Persist ("Profil für diese Liga
+    // speichern") wissen, um welche Liga es geht — persistiert wird sie erst
+    // dort. Das Alt-Feld bleibt null (leagueIdsOf liest die Liste zuerst).
+    const preview = newProfile({ name: league.name || 'Liga', boundLeagueIds: [league.league_id], mode: draftMode })
+    preview.boundLeagueId = null
     const donor = profiles
-      .filter(p => !p.boundLeagueId && (p.mode == null || p.mode === draftMode))
+      .filter(p => leagueIdsOf(p).length === 0 && (p.mode == null || p.mode === draftMode))
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0]
     if (donor?.strategy) {
       try {
@@ -266,7 +336,7 @@ export function resolveProfile({ draft = null, league = null, draftMode = 'redra
 
   const fp = computeDetectedFingerprint({ draft, league, draftMode })
 
-  const candidates = profiles.filter(p => !p.boundLeagueId)
+  const candidates = profiles.filter(p => leagueIdsOf(p).length === 0)
   const hit = pickProfile(candidates, fp)
   if (hit) return { profile: hit.profile, deviations: hit.deviations, isNew: false }
 

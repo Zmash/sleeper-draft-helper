@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FORMAT_DEFAULTS } from '../services/draftFormat'
-import { loadProfiles, renameProfile, duplicateProfile, deleteProfile, createBlankProfile } from '../services/profileStore'
+import { loadProfiles, renameProfile, duplicateProfile, deleteProfile, createBlankProfile, leagueIdsOf } from '../services/profileStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import Icon from '../components/Icon'
 import ProfileEditor from '../components/ProfileEditor'
@@ -83,7 +83,7 @@ export default function ProfilesPage() {
       {profiles.map(profile => (
         <div key={profile.id} className="card profile-hub-card">
           <div className="profile-badge-row">
-            <Icon name={profile.boundLeagueId ? 'anchor' : 'shuffle'} size={16} label={profile.boundLeagueId ? 'Liga-gebunden' : 'Format-gebunden'} />
+            <Icon name={leagueIdsOf(profile).length > 0 ? 'anchor' : 'shuffle'} size={16} label={leagueIdsOf(profile).length > 0 ? 'Liga-gebunden' : 'Format-gebunden'} />
             <strong>{profile.name}</strong>
             <span className="badge badge--neutral">{formatSummary(profile)}</span>
             <span className="badge badge--neutral">{profile.mode === 'rookie' ? 'Rookie' : 'Redraft'}</span>

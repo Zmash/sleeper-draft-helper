@@ -29,7 +29,7 @@ export default function SetupForm(props) {
     attachDraftByIdOrUrl, handleCsvLoad, handleAutoImport, handleFantasyProsImport, handleKtcRookieImport, formatDraftLabel,
     draftMode, setDraftMode, selectedLeague: selectedLeagueProp,
     profile, profileDeviations, isNewProfile, allProfiles,
-    onProfileChange, onRebindProfile, onRenameProfile, onPersistProfile,
+    onProfileChange, onRebindProfile, onUnbindProfile, onRenameProfile, onPersistProfile,
   } = props
 
   const navigate = useNavigate()
@@ -257,6 +257,7 @@ export default function SetupForm(props) {
         isNew={isNewProfile}
         allProfiles={allProfiles}
         onRebind={onRebindProfile}
+        onUnbind={onUnbindProfile}
         onRename={onRenameProfile}
         onPersist={onPersistProfile}
       />

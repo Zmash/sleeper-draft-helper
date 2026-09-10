@@ -4,6 +4,7 @@ import {
   loadPrinciples, savePrinciples, persistProfile,
   upsertProfileOverrides, upsertProfileStrategy,
   renameProfile, duplicateProfile, deleteProfile, createBlankProfile, rebindProfile,
+  unbindLeague, leagueIdsOf,
   migrateLegacyProfile, migrateProfilesToMode, resolveProfile, computeDetectedFingerprint,
 } from './profileStore'
 
@@ -30,7 +31,8 @@ describe('createBlankProfile', () => {
   it('legt ein ungebundenes Profil mit leeren Overrides an', () => {
     const p = createBlankProfile('Mein Profil')
     expect(p.name).toBe('Mein Profil')
-    expect(p.boundLeagueId).toBeNull()
+    expect(p.boundLeagueIds).toEqual([])
+    expect('boundLeagueId' in p).toBe(false)
     expect(p.fingerprint).toBeNull()
     expect(p.overrides.scoring_type).toBeNull()
     expect(p.strategy.summary).toBe('')
@@ -46,7 +48,7 @@ describe('createBlankProfile', () => {
 // sondern sind einfache Objekte gemaess der Profile-Shape:
 function fakeProfile(over = {}) {
   return {
-    id: 'prof_x', name: 'X', boundLeagueId: null, fingerprint: null,
+    id: 'prof_x', name: 'X', boundLeagueIds: [], fingerprint: null,
     overrides: { scoring_type: null, superflex: null, roster_positions: null, teams: null, rounds: null, type: null, strategies: ['balanced'] },
     strategy: { summary: '', rules: [], sources: [], contested: [], source: 'manual', updatedAt: null },
     createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
@@ -99,7 +101,8 @@ describe('renameProfile/duplicateProfile/deleteProfile', () => {
     rebindProfile(p.id, { leagueId: 'L1' })
     const copy = duplicateProfile(p.id)
     expect(copy.name).toBe('Original (Kopie)')
-    expect(copy.boundLeagueId).toBeNull()
+    expect(leagueIdsOf(copy)).toEqual([])
+    expect(copy.fingerprint).toBeNull()
     expect(copy.id).not.toBe(p.id)
     expect(loadProfiles()).toHaveLength(2)
   })
@@ -112,14 +115,33 @@ describe('renameProfile/duplicateProfile/deleteProfile', () => {
 })
 
 describe('rebindProfile', () => {
-  it('bindet an eine Liga und entfernt die Bindung beim vorherigen Halter', () => {
+  it('entfernt die Liga beim vorherigen Halter desselben Modus (eine Liga = ein Profil pro Modus)', () => {
     const a = createBlankProfile('A')
     const b = createBlankProfile('B')
     rebindProfile(a.id, { leagueId: 'L1' })
     rebindProfile(b.id, { leagueId: 'L1' })
     const profiles = loadProfiles()
-    expect(profiles.find(p => p.id === a.id).boundLeagueId).toBeNull()
-    expect(profiles.find(p => p.id === b.id).boundLeagueId).toBe('L1')
+    expect(leagueIdsOf(profiles.find(p => p.id === a.id))).toEqual([])
+    expect(leagueIdsOf(profiles.find(p => p.id === b.id))).toEqual(['L1'])
+  })
+
+  it('N:1 — dasselbe Profil kann mehrere Ligen teilen (Ziel-Liste wächst, kein Überschreiben)', () => {
+    const p = createBlankProfile('Shared')
+    rebindProfile(p.id, { leagueId: 'LA' })
+    rebindProfile(p.id, { leagueId: 'LB' })
+    expect(leagueIdsOf(loadProfiles().find(x => x.id === p.id)).sort()).toEqual(['LA', 'LB'])
+    for (const lid of ['LA', 'LB']) {
+      const { profile, isNew } = resolveProfile({
+        draft: { league_id: lid, settings: {} },
+        league: { league_id: lid, name: lid },
+        draftMode: 'redraft',
+      })
+      expect(profile.id).toBe(p.id)
+      expect(isNew).toBe(false)
+    }
+    // Erneutes Binden derselben Liga erzeugt kein Duplikat.
+    rebindProfile(p.id, { leagueId: 'LA' })
+    expect(leagueIdsOf(loadProfiles().find(x => x.id === p.id)).sort()).toEqual(['LA', 'LB'])
   })
 
   it('bindet an einen Fingerprint und loescht die Liga-Bindung', () => {
@@ -127,7 +149,7 @@ describe('rebindProfile', () => {
     rebindProfile(a.id, { leagueId: 'L1' })
     rebindProfile(a.id, { fingerprint: { draftMode: 'redraft', scoringType: 'ppr', superflex: false, teams: 12, starters: [] } })
     const updated = loadProfiles()[0]
-    expect(updated.boundLeagueId).toBeNull()
+    expect(leagueIdsOf(updated)).toEqual([])
     expect(updated.fingerprint.teams).toBe(12)
   })
 
@@ -149,17 +171,60 @@ describe('rebindProfile', () => {
     const ziel = createBlankProfile('Ziel')
     const updated = rebindProfile(ziel.id, { leagueId: 'L1', mode: 'rookie' })
     expect(updated.mode).toBe('rookie')
-    expect(updated.boundLeagueId).toBe('L1')
+    expect(leagueIdsOf(updated)).toEqual(['L1'])
     const profiles = loadProfiles()
-    expect(profiles.find(p => p.id === alt.id).boundLeagueId).toBeNull()
+    expect(leagueIdsOf(profiles.find(p => p.id === alt.id))).toEqual([])
     // ... aber eine zweite Liga-Bindung mit anderem Modus bleibt bestehen.
     const red = createBlankProfile('Red')
     rebindProfile(red.id, { leagueId: 'L1', mode: 'redraft' })
     rebindProfile(ziel.id, { leagueId: 'L1', mode: 'rookie' })
     const nachher = loadProfiles()
-    expect(nachher.find(p => p.id === red.id).boundLeagueId).toBe('L1')
+    expect(leagueIdsOf(nachher.find(p => p.id === red.id))).toEqual(['L1'])
     expect(nachher.find(p => p.id === red.id).mode).toBe('redraft')
     expect(nachher.find(p => p.id === ziel.id).mode).toBe('rookie')
+  })
+})
+
+describe('leagueIdsOf (Altbestand-Kompat)', () => {
+  it('liest Alt-String, neue Liste und leere Profile', () => {
+    expect(leagueIdsOf({ boundLeagueId: 'L1' })).toEqual(['L1'])
+    expect(leagueIdsOf({ boundLeagueIds: ['L1', 'L2'], boundLeagueId: 'L1' })).toEqual(['L1', 'L2'])
+    expect(leagueIdsOf({ boundLeagueIds: [] })).toEqual([])
+    expect(leagueIdsOf({})).toEqual([])
+    expect(leagueIdsOf(null)).toEqual([])
+  })
+})
+
+describe('unbindLeague', () => {
+  it('Liga fällt danach auf Automatik zurück (isNew) + Strategie-Prefill greift', () => {
+    const p = createBlankProfile('Liga-Profil')
+    rebindProfile(p.id, { leagueId: 'LX', mode: 'redraft' })
+    const donor = createBlankProfile('Wildcard')
+    saveProfiles(loadProfiles().map(x => {
+      if (x.id === donor.id) return { ...x, strategy: { summary: 'Wildcard-Strategie', rules: [], sources: [], contested: [], source: 'manual', updatedAt: '2026-03-01T00:00:00.000Z' }, updatedAt: '2026-03-01T00:00:00.000Z' }
+      if (x.id === p.id) return { ...x, updatedAt: '2026-01-01T00:00:00.000Z' }
+      return x
+    }))
+    unbindLeague('LX', 'redraft')
+    expect(leagueIdsOf(loadProfiles().find(x => x.id === p.id))).toEqual([])
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'LX', settings: {} },
+      league: { league_id: 'LX', name: 'LX' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(true)
+    expect(profile.strategy.summary).toBe('Wildcard-Strategie')
+  })
+
+  it('berührt andere Modi nicht (Composite-Trennung)', () => {
+    const red = createBlankProfile('Red')
+    rebindProfile(red.id, { leagueId: 'LZ', mode: 'redraft' })
+    const rook = createBlankProfile('Rook')
+    rebindProfile(rook.id, { leagueId: 'LZ', mode: 'rookie' })
+    unbindLeague('LZ', 'rookie')
+    const nachher = loadProfiles()
+    expect(leagueIdsOf(nachher.find(p => p.id === red.id))).toEqual(['LZ'])
+    expect(leagueIdsOf(nachher.find(p => p.id === rook.id))).toEqual([])
   })
 })
 
@@ -201,7 +266,7 @@ describe('migrateLegacyProfile', () => {
     expect(profiles).toHaveLength(2)
     expect(profiles.map(p => p.mode).sort()).toEqual(['redraft', 'rookie'])
     expect(profiles.map(p => p.name).sort()).toEqual(['Migriert (Redraft)', 'Migriert (Rookie)'])
-    expect(profiles.every(p => p.boundLeagueId === null)).toBe(true)
+    expect(profiles.every(p => leagueIdsOf(p).length === 0)).toBe(true)
     expect(profiles.every(p => p.fingerprint === null)).toBe(true)
     expect(profiles.every(p => p.overrides.scoring_type === 'half_ppr')).toBe(true)
     expect(profiles[0].overrides).toMatchObject({ scoring_type: 'half_ppr', superflex: true, teams: 10, strategies: ['zeroRB'] })
@@ -248,7 +313,7 @@ describe('resolveProfile — Liga-Bindung', () => {
       draftMode: 'redraft',
     })
     expect(isNew).toBe(true)
-    expect(profile.boundLeagueId).toBe('L2')
+    expect(leagueIdsOf(profile)).toEqual(['L2'])
     expect(profile.name).toBe('Neue Liga')
     expect(loadProfiles()).toHaveLength(0) // kein Write als Seiteneffekt
   })
@@ -277,7 +342,7 @@ describe('resolveProfile — Mock/Standalone (Fingerprint)', () => {
   it('eine noch ausgewaehlte Liga darf einen Standalone-Mock nicht beeinflussen', () => {
     const league = { league_id: 'L3', total_rosters: 8 }
     const { profile } = resolveProfile({ draft: mockDraft, league, draftMode: 'redraft' })
-    expect(profile.boundLeagueId).toBeNull()
+    expect(leagueIdsOf(profile)).toEqual([])
     expect(profile.fingerprint.teams).toBe(12) // aus dem Mock, nicht aus der 8er-Liga
   })
 
@@ -398,6 +463,27 @@ describe('Migration pro Modus (Task 2)', () => {
     const profiles = loadProfiles()
     expect(profiles).toHaveLength(2)
     expect(profiles.map(p => p.mode).sort()).toEqual(['redraft', 'rookie'])
+  })
+
+  it('migrateProfilesToMode konvertiert Alt-boundLeagueId-String in boundLeagueIds-Liste', () => {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify({ version: 1, profiles: [{
+      id: 'prof_legacy', name: 'Legacy', boundLeagueId: 'L5', fingerprint: null, mode: 'redraft',
+      overrides: { scoring_type: 'ppr', superflex: false, roster_positions: null, teams: 12, rounds: 16, type: 'snake', strategies: ['balanced'] },
+      strategy: { summary: '', rules: [], sources: [], contested: [], source: 'manual', updatedAt: null },
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }] }))
+    const res = migrateProfilesToMode()
+    expect(res.migrated).toBeGreaterThan(0)
+    const profiles = loadProfiles()
+    expect(leagueIdsOf(profiles[0])).toEqual(['L5'])
+    expect(profiles[0].boundLeagueId).toBeNull()
+    const { profile, isNew } = resolveProfile({
+      draft: { league_id: 'L5', settings: {} },
+      league: { league_id: 'L5', name: 'L5' },
+      draftMode: 'redraft',
+    })
+    expect(isNew).toBe(false)
+    expect(profile.id).toBe('prof_legacy')
   })
 })
 

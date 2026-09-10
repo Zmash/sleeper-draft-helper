@@ -1,13 +1,15 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { leagueIdsOf } from '../services/profileStore'
 import Icon from './Icon'
 
-export default function ProfileBadgeCard({ profile, deviations, isNew, allProfiles, onRebind, onRename, onPersist }) {
+export default function ProfileBadgeCard({ profile, deviations, isNew, allProfiles, onRebind, onUnbind, onRename, onPersist }) {
   const navigate = useNavigate()
   const [renaming, setRenaming] = useState(false)
   const [nameInput, setNameInput] = useState(profile.name)
 
-  const isLeagueBound = !!profile.boundLeagueId
+  const boundIds = leagueIdsOf(profile)
+  const isLeagueBound = boundIds.length > 0
   const otherProfiles = (allProfiles || []).filter(p => p.id !== profile.id)
 
   return (
@@ -28,7 +30,7 @@ export default function ProfileBadgeCard({ profile, deviations, isNew, allProfil
             {profile.name}
           </button>
         )}
-        <span className="badge badge--neutral">{isLeagueBound ? 'Liga-gebunden' : 'Format-gebunden'}</span>
+        <span className="badge badge--neutral">{isLeagueBound ? `Liga-gebunden${boundIds.length > 1 ? ` · ${boundIds.length} Ligen` : ''}` : 'Format-gebunden'}</span>
         {isNew && <span className="badge badge--info">Neu erkannt</span>}
       </div>
 
@@ -50,9 +52,13 @@ export default function ProfileBadgeCard({ profile, deviations, isNew, allProfil
           <select
             className="control control--sm"
             value=""
-            onChange={e => { if (e.target.value) onRebind(e.target.value) }}
+            onChange={e => {
+              if (e.target.value === '__auto__') { if (onUnbind) onUnbind() }
+              else if (e.target.value) onRebind(e.target.value)
+            }}
           >
             <option value="">Anderes Profil verwenden…</option>
+            {isLeagueBound && onUnbind && <option value="__auto__">Automatisch (passendes Profil suchen)</option>}
             {otherProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}

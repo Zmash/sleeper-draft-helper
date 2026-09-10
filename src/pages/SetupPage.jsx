@@ -6,7 +6,7 @@ import { useLiveStore } from '../stores/useLiveStore'
 import { formatDraftLabel } from '../services/api'
 import { parseDraftId } from '../utils/parse'
 import { deriveFormat } from '../services/draftFormat'
-import { resolveProfile, loadProfiles, rebindProfile, renameProfile, computeDetectedFingerprint, persistProfile } from '../services/profileStore'
+import { resolveProfile, loadProfiles, rebindProfile, unbindLeague, leagueIdsOf, renameProfile, computeDetectedFingerprint, persistProfile } from '../services/profileStore'
 import { boardKeyFor } from '../services/boardKey'
 import SetupForm from '../components/SetupForm'
 import Icon from '../components/Icon'
@@ -82,10 +82,13 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
   }, [])
 
   function handleRebindProfile(targetProfileId) {
-    if (resolved.profile.boundLeagueId) {
+    // N:1-Liste lesen (leagueIdsOf deckt auch Altbestand ab): Die Teilen-
+    // Semantik kommt aus rebindProfile — die Signatur bleibt unverändert.
+    const leagueId = leagueIdsOf(resolved.profile)[0] || null
+    if (leagueId) {
       // Modus-scharf durchreichen: ohne mode faellt rebindProfile auf 'redraft'
       // zurueck und der Evict trifft im Rookie-Modus das falsche Composite.
-      rebindProfile(targetProfileId, { leagueId: resolved.profile.boundLeagueId, mode: draftMode })
+      rebindProfile(targetProfileId, { leagueId, mode: draftMode })
     } else {
       // Nicht resolved.profile.fingerprint wiederverwenden -- das ist der
       // (evtl. abweichende) Fingerprint des ALTEN Profils. Stattdessen frisch
@@ -97,6 +100,16 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
     // Rebind-Ziel ist immer persistiert — sein Profil-Board (ggf. leer/geteilt,
     // das ist bei einer expliziten Zuweisung bewusst) sofort aktivieren.
     useBoardStore.getState().switchBoard(`profile:${targetProfileId}`)
+    setProfileTick(t => t + 1)
+  }
+
+  function handleUnbindProfile() {
+    // Liga auf Automatik zurücksetzen: kein Board-Switch nötig — der
+    // App-Effekt schaltet automatisch aufs Modus-Board; nur Tick/Event feuern.
+    const leagueId = selectedLeague?.league_id || leagueIdsOf(resolved.profile)[0] || null
+    if (!leagueId) return
+    unbindLeague(leagueId, draftMode)
+    window.dispatchEvent(new CustomEvent('sdh:setup-changed'))
     setProfileTick(t => t + 1)
   }
 
@@ -335,6 +348,7 @@ export default function SetupPage({ selectedLeague, selectedDraft, isAndroid }) 
         allProfiles={allProfiles}
         onProfileChange={handleProfileChange}
         onRebindProfile={handleRebindProfile}
+        onUnbindProfile={handleUnbindProfile}
         onRenameProfile={handleRenameProfile}
         onPersistProfile={handlePersistProfile}
       />
