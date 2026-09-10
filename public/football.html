@@ -66,6 +66,26 @@
   .bigscore{font:800 clamp(46px,11vw,76px)/1 ui-monospace,monospace;
             font-variant-numeric:tabular-nums;color:#fff;margin:6px 0 2px}
   .oversub{font-size:12px;color:rgba(255,255,255,.55);letter-spacing:.06em;margin:0 0 20px}
+  .board{margin:0 0 18px;text-align:left}
+  .boardlist{list-style:none;margin:10px 0 0;padding:0;font-size:12px}
+  .boardlist li{display:flex;align-items:baseline;gap:8px;padding:5px 2px;
+    border-bottom:1px solid rgba(255,255,255,.07);font-variant-numeric:tabular-nums}
+  .boardlist li:last-child{border-bottom:0}
+  .b-rank{color:rgba(255,255,255,.45);min-width:2ch}
+  .b-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .b-score{font-weight:700;color:var(--b)}
+  .namerow{display:flex;gap:8px;margin-top:12px}
+  .namerow[hidden]{display:none}
+  .namerow input{
+    flex:1;min-width:0;padding:12px;border-radius:12px;color:#fff;font-size:16px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);outline:none;
+  }
+  .namerow input:focus{border-color:var(--b)}
+  .namerow input::placeholder{color:rgba(255,255,255,.35)}
+  .cta.small{width:auto;flex:0 0 auto;padding:12px 18px}
+  .cta[disabled]{opacity:.45;cursor:default;transform:none}
+  .boardmsg{margin:8px 0 0;font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.6);min-height:1.2em}
+  .boardmsg.err{color:#ff5f56}
   .cta{
     all:unset;cursor:pointer;display:block;width:100%;padding:12px 0;border-radius:12px;
     text-align:center;font-weight:700;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
@@ -249,6 +269,16 @@
       <div class="lbl">Game Over</div>
       <div class="bigscore" id="uOverScore">0</div>
       <p class="oversub" id="uOverSub">Best 0</p>
+      <div class="board" id="uBoardWrap" hidden>
+        <div class="lbl">Bestenliste</div>
+        <ol class="boardlist" id="uBoard"></ol>
+        <div class="namerow" id="uNameRow" hidden>
+          <input id="uName" maxlength="16" placeholder="Dein Name" autocomplete="off"
+                 autocapitalize="words" enterkeyhint="send" aria-label="Name für die Bestenliste">
+          <button class="cta small" id="uSend">Eintragen</button>
+        </div>
+        <p class="boardmsg" id="uBoardMsg"></p>
+      </div>
       <button class="cta" id="uAgain">Nochmal kicken</button>
     </div>
   </div>
@@ -320,6 +350,12 @@ const ui = {
   oScore: document.getElementById('uOverScore'),
   oSub  : document.getElementById('uOverSub'),
   again : document.getElementById('uAgain'),
+  boardWrap: document.getElementById('uBoardWrap'),
+  board : document.getElementById('uBoard'),
+  nameRow: document.getElementById('uNameRow'),
+  nameInput: document.getElementById('uName'),
+  sendBtn: document.getElementById('uSend'),
+  boardMsg: document.getElementById('uBoardMsg'),
 };
 
 const rand  = (a,b) => a + Math.random()*(b-a);
@@ -368,14 +404,16 @@ function refreshGate(){
   F.teeX = clamp(W*0.26 - lv*W*0.021, W*0.05, W*0.26);
 
   const dist = Math.max(60, F.postX - F.teeX);
-  const f    = Math.max(0.11, 0.40 * Math.pow(0.87, lv));   // Fensterhoehe je Distanz
-  F.uprightH = clamp(dist*f, H*0.035, H*0.28);
+  const f    = Math.max(0.09, 0.30 * Math.pow(0.87, lv));   // Fensterhoehe je Distanz
+  // Absolut gedeckelt: Auf breiten Screens wuerde das Fenster sonst
+  // mit der Distanz riesig (Exploit: volle Pulle oben durch) ...
+  F.uprightH = Math.min(clamp(dist*f, H*0.035, H*0.28), 175);
 
   const bar  = clamp(dist*0.34, H*0.13, H*0.32) * (1 + Math.min(lv,10)*0.022);
   F.crossY   = F.groundY - Math.min(bar, H*0.40);
   F.gateTop  = F.crossY - F.uprightH;
 
-  F.windScale = 1 + Math.min(lv, 14)*0.17;
+  F.windScale = 1 + Math.min(lv, 14)*0.25;
 }
 
 // Kickdistanz in Yards, rein kosmetisch aber gibt dem HUD Bedeutung
@@ -547,9 +585,18 @@ const ball = {
   kick(dx, dy){
     if (this.state !== 'ready' || S.phase !== 'play') return;
     const cap = Math.hypot(W,H) * 1.25;
-    let vx = dx * CONFIG.power, vy = dy * CONFIG.power;
+    const load = clamp(Math.hypot(dx,dy)*CONFIG.power/cap, 0, 1);
+    // Ueberladung: wer staendig voll durchzieht, streut wild — volle
+    // Pulle geradeaus ist kein Freifahrtschein mehr. Bis ~72% Last
+    // bleibt der Kick exakt, danach waechst die Streuung quadratisch.
+    // Cap-relativ (große Screens, große Speeds) und NACH der
+    // Max-Speed-Normierung, damit sie nicht weggerechnet wird.
+    const over = Math.max(0, (load - 0.72)/0.28);
+    const spray = over*over*cap*0.25;
+    let vx = dx*CONFIG.power, vy = dy*CONFIG.power;
     const sp = Math.hypot(vx,vy);
     if (sp > cap){ vx *= cap/sp; vy *= cap/sp; }
+    vx += rand(-spray,spray)*0.6; vy += rand(-spray,spray)*0.6;
     this.vx = Math.max(vx, 40);
     this.vy = vy - LIFT;   // Grundauftrieb, damit auch flache Zuege abheben
     this.spin = 14 + Math.hypot(vx,vy)/H*8;
@@ -609,8 +656,14 @@ const ball = {
     // Torebene
     if (px < F.postX && this.x >= F.postX && !this.crossed){
       this.crossed = true;
-      const good = this.y > F.gateTop && this.y < F.crossY - this.r*0.3;
-      resolve(good, this.y <= F.gateTop ? 'ZU HOCH' : 'NO GOOD');
+      // Sweet-Spot: Kante (Latte/Pfosten-naehe) zaehlt nicht — wer nur
+      // "irgendwie durch" schießt, bekommt ein KNAPP statt Punkten.
+      // Mindest-Fenster (Ballgroesse) bleibt immer fair.
+      let low = F.gateTop + F.uprightH*0.12;
+      let high = F.crossY - this.r*0.3 - F.uprightH*0.08;
+      if (high - low < this.r*1.2){ low = F.gateTop; high = F.crossY - this.r*0.3; }
+      const good = this.y > low && this.y < high;
+      resolve(good, this.y <= F.gateTop ? 'ZU HOCH' : (this.y >= F.crossY - this.r*0.3 ? 'NO GOOD' : 'KNAPP!'));
     }
 
     // Boden
@@ -684,6 +737,10 @@ function gameOver(){
                         (S.level === 1 ? ' Field Goal' : ' Field Goals');
   ui.over.hidden = false;
   ui.again.focus();
+  board.submitted = false;
+  ui.sendBtn.disabled = false;
+  try { ui.nameInput.value = localStorage.getItem('fg.name') || ''; } catch (e) {}
+  loadBoard();
 }
 
 function newGame(){
@@ -695,6 +752,90 @@ function newGame(){
   ui.over.hidden = true;
   refreshGate();
   ball.reset();
+}
+
+/* ---------------------------  BESTENLISTE (Server)  --------------------------- */
+// Highscore auf dem Server (just for fun, kein Login). Laeuft gegen dieselbe
+// Origin wie die App (dev: Vite-Proxy, prod: derselbe Server). Ist der Server
+// nicht erreichbar (offline, statisches Hosting, file://), bleibt die Liste
+// einfach versteckt und der lokale Bestwert (fg.best) gilt weiter.
+const board = { submitted:false };
+
+function apiUrl(p){
+  try { return new URL(p, window.location.href).toString(); }
+  catch (e){ return null; }
+}
+
+function renderBoard(list){
+  ui.board.innerHTML = '';
+  if (!list.length){
+    setBoardMsg('Noch keine Einträge — sei der Erste!');
+    return;
+  }
+  list.forEach((s, i) => {
+    const li = document.createElement('li');
+    const rank = document.createElement('span');
+    rank.className = 'b-rank';
+    rank.textContent = (i + 1) + '.';
+    const nm = document.createElement('span');
+    nm.className = 'b-name';
+    nm.textContent = String(s.name || '—');
+    nm.title = nm.textContent;
+    const sc = document.createElement('span');
+    sc.className = 'b-score';
+    sc.textContent = s.score;
+    li.appendChild(rank); li.appendChild(nm); li.appendChild(sc);
+    ui.board.appendChild(li);
+  });
+}
+
+function setBoardMsg(msg, isErr){
+  ui.boardMsg.textContent = msg || '';
+  ui.boardMsg.classList.toggle('err', !!isErr);
+}
+
+async function loadBoard(){
+  ui.boardWrap.hidden = true;
+  setBoardMsg('');
+  const url = apiUrl('api/scores?limit=10');
+  if (!url || !window.fetch) return;
+  try {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return;
+    const j = await r.json();
+    renderBoard(Array.isArray(j.scores) ? j.scores : []);
+    ui.boardWrap.hidden = false;
+    // Eintragen nur bei punktetraechtigem, noch nicht gemeldetem Spiel
+    ui.nameRow.hidden = !(S.score > 0 && !board.submitted);
+  } catch (e){ /* still weiterspielen, nur lokal */ }
+}
+
+async function submitScore(){
+  const name = ui.nameInput.value.trim();
+  if (!name || board.submitted || ui.sendBtn.disabled) return;
+  ui.sendBtn.disabled = true;
+  setBoardMsg('Wird eingetragen …');
+  try {
+    try { localStorage.setItem('fg.name', name); } catch (e) {}
+    const r = await fetch(apiUrl('api/score'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score: S.score, goals: S.level }),
+    });
+    const j = await r.json().catch(() => null);
+    if (r.ok && j && j.ok){
+      board.submitted = true;
+      ui.nameRow.hidden = true;
+      setBoardMsg('Platz #' + j.rank + ' — eingetragen!');
+      loadBoard();
+    } else {
+      setBoardMsg((j && j.error) || 'Eintragen fehlgeschlagen.', true);
+      ui.sendBtn.disabled = false;
+    }
+  } catch (e){
+    setBoardMsg('Server nicht erreichbar.', true);
+    ui.sendBtn.disabled = false;
+  }
 }
 
 /* ---------------------------  PARTIKEL  --------------------------- */
@@ -805,6 +946,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) cance
 
 addEventListener('keydown', e => {
   if (!S.running) return;
+  // Tastaturkuerzel duerfen nicht feuern, waehrend man in der
+  // Namens-Eingabe tippt (sonst wuerde z. B. "r" das Spiel neustarten).
+  // Escape bleibt global (schliesst das Spiel).
+  const tag = (e.target && e.target.tagName) || '';
+  if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && e.code !== 'Escape') return;
   if (e.code === 'Space'){
     e.preventDefault();
     if (S.phase === 'over') newGame(); else cycleTeam();
@@ -824,6 +970,11 @@ function cycleTeam(){
 document.getElementById('uTeamBtn').onclick = () => cycleTeam();
 ui.reset.onclick = () => newGame();
 ui.again.onclick = () => newGame();
+ui.sendBtn.onclick = () => submitScore();
+ui.nameInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter'){ e.preventDefault(); submitScore(); }
+  e.stopPropagation();
+});
 ui.sound.onclick = () => { audioBoot(); setMuted(!S.muted); };
 ui.close.onclick = () => closeGame();
 
@@ -1316,8 +1467,8 @@ function update(dt){
 
   S.windTimer -= dt;
   if (S.windTimer <= 0){
-    S.windTimer  = rand(4,9);
-    S.windTarget = rand(-1,1)*W*0.0016;
+    S.windTimer  = rand(2,5);
+    S.windTarget = rand(-1,1)*W*0.003;
   }
   S.wind = lerp(S.wind, S.windTarget, clamp(dt*0.6, 0, 1));
 

@@ -2,6 +2,7 @@
 // die alte Regel "index.js und prod.js synchron halten" ist damit Geschichte.
 import Anthropic from '@anthropic-ai/sdk'
 import { load as cheerioLoad } from 'cheerio'
+import { Profanity } from '@2toad/profanity'
 import { fantasyProsSlug } from '../utils/formatting.js'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -329,6 +330,109 @@ export function writeRoom(room, rec, dir = SYNC_DIR) {
   fs.writeFileSync(file, JSON.stringify({ stamp, iv: rec.iv, ciphertext: rec.ciphertext }))
   prune(dir)
   return stamp
+}
+
+// ---------- Field-Goal-Highscores (Easter Egg) ----------
+// Just for fun: kein Login, keine Anti-Cheat-Garantie. Dateiablage wie
+// SYNC_DIR (Deploy-Symlinks!) — SDH_SCORES_FILE ueberschreibt den Pfad,
+// z. B. auf ein persistentes Volume. Reboot-Verlust ist verkraftbar.
+export const SCORES_FILE = process.env.SDH_SCORES_FILE || path.join(os.tmpdir(), 'sdh-scores.json')
+export const MAX_SCORES = 100
+export const MAX_SCORE = 9999
+export const MAX_GOALS = 999
+export const MAX_NAME_LEN = 16
+export const SCORE_RATE_LIMIT = 10
+export const SCORE_RATE_WINDOW_MS = 10 * 60 * 1000
+
+// EN-Liste aus der Lib; DE-Liste ist dort leer, daher kuratierte Ergaenzung.
+// wholeWord:true (Default) gleicht ganze Woerter ab — faengt Schimpfwoerter
+// als Name, blockt aber keine harmlosen Woerter mit solchen Buchstabenfolgen.
+const scoreNameFilter = new Profanity({ languages: ['en'] })
+scoreNameFilter.addWords([
+  'arsch', 'arschloch', 'scheisse', 'scheiße', 'fick', 'ficken', 'fickt', 'gefickt',
+  'fotze', 'fotzen', 'hure', 'huren', 'hurensohn', 'nutte', 'nutten',
+  'schlampe', 'schlampen', 'wichs', 'wichsen', 'wichser', 'missgeburt',
+  'spast', 'spasti', 'behindert', 'pimmel', 'schwanz', 'titten', 'muschi',
+  'hitler', 'nazi', 'nazis', 'hakenkreuz',
+])
+
+export function isValidScoreName(name) {
+  const n = String(name || '').trim()
+  return n.length >= 1 && n.length <= MAX_NAME_LEN &&
+    /^[A-Za-zÄÖÜäöüß0-9 _.\-]+$/.test(n)
+}
+
+export function isProfaneName(name) {
+  try {
+    return scoreNameFilter.exists(String(name || ''))
+  } catch {
+    return false
+  }
+}
+
+function isValidScoreEntry(e) {
+  return e && typeof e.name === 'string' &&
+    Number.isFinite(e.score) && Number.isFinite(e.goals) && Number.isFinite(e.at)
+}
+
+function sortScores(arr) {
+  return arr.sort((a, b) => b.score - a.score || a.at - b.at)
+}
+
+export function readScores(file = SCORES_FILE) {
+  try {
+    const arr = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!Array.isArray(arr)) return []
+    return sortScores(arr.filter(isValidScoreEntry))
+  } catch {
+    return []
+  }
+}
+
+// Prueft + speichert einen Eintrag. Gibt { ok:true, rank, entry } zurueck
+// (rank = Platz 1-basiert) oder { ok:false, status, error } mit deutscher
+// Fehlermeldung zur direkten Anzeige im Spiel.
+export function addScore({ name, score, goals }, file = SCORES_FILE) {
+  if (!isValidScoreName(name)) {
+    return { ok: false, status: 400, error: `Name: 1–${MAX_NAME_LEN} Zeichen, Buchstaben/Zahlen/Leerzeichen/._-` }
+  }
+  const cleanName = String(name).trim()
+  if (isProfaneName(cleanName)) {
+    return { ok: false, status: 400, error: 'Dieser Name ist nicht erlaubt.' }
+  }
+  if (!Number.isInteger(score) || score < 0 || score > MAX_SCORE ||
+      !Number.isInteger(goals) || goals < 0 || goals > MAX_GOALS) {
+    return { ok: false, status: 400, error: 'Ungueltiger Score.' }
+  }
+  const entry = { name: cleanName, score, goals, at: Date.now() }
+  const all = sortScores([...readScores(file), entry])
+  const rank = all.indexOf(entry) + 1
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    // Atomar schreiben (tmp + rename), damit kein halb geschriebenes JSON
+    // zurueckbleibt, wenn der Prozess mittendrin stirbt.
+    const tmp = `${file}.${process.pid}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(all.slice(0, MAX_SCORES)))
+    fs.renameSync(tmp, file)
+  } catch (e) {
+    return { ok: false, status: 500, error: String(e?.message || e) }
+  }
+  return { ok: true, rank, entry }
+}
+
+// Simples In-Memory-Rate-Limit pro IP (just for fun reicht das).
+// Gibt true zurueck, wenn der Request gedrosselt wird (und erfasst ihn
+// sonst als verbraucht). Exportiert fuers Testen.
+export function checkScoreRateLimit(store, ip, now = Date.now()) {
+  const key = String(ip || 'unknown')
+  const hits = (store.get(key) || []).filter((t) => now - t < SCORE_RATE_WINDOW_MS)
+  if (hits.length >= SCORE_RATE_LIMIT) {
+    store.set(key, hits)
+    return true
+  }
+  hits.push(now)
+  store.set(key, hits)
+  return false
 }
 
 export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
@@ -786,6 +890,24 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     } catch (e) {
       res.status(500).json({ error: String(e?.message || e) })
     }
+  })
+
+  // ---------- Field-Goal-Highscores (Easter Egg, kein Key noetig) ----------
+  const scoreRateStore = new Map()
+  app.get('/api/scores', (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), MAX_SCORES)
+    res.json({ ok: true, scores: readScores().slice(0, limit) })
+  })
+
+  app.post('/api/score', (req, res) => {
+    if (checkScoreRateLimit(scoreRateStore, req.ip)) {
+      return res.status(429).json({ ok: false, error: 'Zu viele Versuche, bitte kurz warten.' })
+    }
+    const { name, score, goals } = req.body || {}
+    const result = addScore({ name, score, goals })
+    if (!result.ok) return res.status(result.status).json({ ok: false, error: result.error })
+    res.json({ ok: true, rank: result.rank })
   })
 
   // ---------- Key-Validierung ----------

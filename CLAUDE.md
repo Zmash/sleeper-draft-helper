@@ -42,6 +42,7 @@ noch in `apiRoutes.js`.** AI-Modell-Default: `claude-sonnet-5` (`SDH_MODEL` übe
 - `GET /api/rankings/{fantasycalc,ktc-dynasty,ktc-rookies}` — fetch/scrape third-party rankings (uses `cheerio`).
 - `POST /api/validate-key` — validates the Anthropic key (uses `claude-haiku-4-5-20251001`).
 - `POST /api/ai-advice`, `POST /api/ai-draft-review`, `POST /api/ai-trade` — all return **SSE streams** with `event: text | result | error`.
+- `GET /api/scores`, `POST /api/score` — Field-Goal-Highscores (Easter Egg, no key needed; JSON file via `SDH_SCORES_FILE`, profanity filter `@2toad/profanity` + DE supplement, IP rate limit).
 
 The user's key travels in the `X-Anthropic-Key` header and is stored only in browser localStorage under `sdh_api_key` (`src/services/key.js`). Payloads are Anthropic-native (top-level `system`, tools as `{name, description, input_schema}`, forced `tool_choice`).
 

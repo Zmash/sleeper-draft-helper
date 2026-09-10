@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { registerApiRoutes, REVIEW_TOOL, DEFAULT_MODEL, applyPromptCaching } from './apiRoutes.js'
 import { STRATEGY_TOOL, STRATEGY_SOURCES, buildStrategyPrompt } from './apiRoutes.js'
 import { SYNC_DIR, MAX_ROOMS, isValidRoom, readRoom, writeRoom, pickToolInput } from './apiRoutes.js'
+import {
+  MAX_SCORES, MAX_SCORE, MAX_GOALS, MAX_NAME_LEN, SCORE_RATE_LIMIT,
+  isValidScoreName, isProfaneName, readScores, addScore, checkScoreRateLimit,
+} from './apiRoutes.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -27,6 +31,7 @@ describe('apiRoutes — Modul-Vertrag', () => {
       'GET /api/rankings/ktc-dynasty', 'GET /api/rankings/ktc-rookies',
       'GET /api/rankings/fantasypros',
       'GET /api/health', 'POST /api/validate-key',
+      'GET /api/scores', 'POST /api/score',
       'POST /api/ai-advice', 'POST /api/ai-draft-review', 'POST /api/ai-trade',
     ]) expect(registered).toContain(r)
   })
@@ -747,5 +752,88 @@ describe('GET /api/rankings/fantasypros — Cache', () => {
     await handler({ query: { scoring: 'ppr' } }, r2)
     expect(r2.body.cached ?? false).toBe(false)
     expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('Field-Goal-Highscores', () => {
+  let dir
+  let file
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdh-scores-test-'))
+    file = path.join(dir, 'scores.json')
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('kennt die Limits', () => {
+    expect(MAX_SCORES).toBe(100)
+    expect(MAX_SCORE).toBe(9999)
+    expect(MAX_GOALS).toBe(999)
+    expect(MAX_NAME_LEN).toBe(16)
+  })
+
+  it('akzeptiert normale Namen, lehnt leere/zu lange/fremde Zeichen ab', () => {
+    expect(isValidScoreName('DoinkMaster')).toBe(true)
+    expect(isValidScoreName('Vikings Fan 12')).toBe(true)
+    expect(isValidScoreName('a')).toBe(true)
+    expect(isValidScoreName('')).toBe(false)
+    expect(isValidScoreName('   ')).toBe(false)
+    expect(isValidScoreName('x'.repeat(17))).toBe(false)
+    expect(isValidScoreName('a/b')).toBe(false)
+    expect(isValidScoreName('a<b')).toBe(false)
+    expect(isValidScoreName(null)).toBe(false)
+  })
+
+  it('Filter faengt EN- und DE-Schimpfwoerter, laesst normale Namen durch', () => {
+    for (const bad of ['fuck', 'shit', 'Arsch', 'Scheisse', 'scheiße', 'Hitler']) {
+      expect(isProfaneName(bad)).toBe(true)
+    }
+    for (const good of ['DoinkMaster', 'VikingsFan', 'Kicker123']) {
+      expect(isProfaneName(good)).toBe(false)
+    }
+  })
+
+  it('liefert [] bei fehlender oder kaputter Datei', () => {
+    expect(readScores(file)).toEqual([])
+    fs.writeFileSync(file, 'kein json{')
+    expect(readScores(file)).toEqual([])
+    fs.writeFileSync(file, '{"kein":"array"}')
+    expect(readScores(file)).toEqual([])
+  })
+
+  it('speichert, sortiert absteigend und meldet den Rang', () => {
+    expect(addScore({ name: 'A', score: 10, goals: 3 }, file)).toMatchObject({ ok: true, rank: 1 })
+    expect(addScore({ name: 'B', score: 30, goals: 5 }, file)).toMatchObject({ ok: true, rank: 1 })
+    expect(addScore({ name: 'C', score: 20, goals: 4 }, file)).toMatchObject({ ok: true, rank: 2 })
+    expect(readScores(file).map((s) => s.name)).toEqual(['B', 'C', 'A'])
+  })
+
+  it('deckelt auf MAX_SCORES Eintraege', () => {
+    for (let i = 0; i < MAX_SCORES + 5; i++) {
+      addScore({ name: `P${i}`, score: i, goals: 1 }, file)
+    }
+    expect(readScores(file)).toHaveLength(MAX_SCORES)
+  })
+
+  it('weist ungueltige und boese Einsendungen mit Status ab', () => {
+    expect(addScore({ name: '', score: 10, goals: 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(addScore({ name: 'fuck', score: 10, goals: 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(addScore({ name: 'Ok', score: -1, goals: 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(addScore({ name: 'Ok', score: MAX_SCORE + 1, goals: 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(addScore({ name: 'Ok', score: 10.5, goals: 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(addScore({ name: 'Ok', score: 10, goals: MAX_GOALS + 1 }, file)).toMatchObject({ ok: false, status: 400 })
+    expect(readScores(file)).toEqual([])
+  })
+
+  it('Rate-Limit: blockt nach SCORE_RATE_LIMIT Treffern pro IP', () => {
+    const store = new Map()
+    for (let i = 0; i < SCORE_RATE_LIMIT; i++) {
+      expect(checkScoreRateLimit(store, '1.2.3.4')).toBe(false)
+    }
+    expect(checkScoreRateLimit(store, '1.2.3.4')).toBe(true)
+    // Andere IP ist nicht betroffen
+    expect(checkScoreRateLimit(store, '5.6.7.8')).toBe(false)
   })
 })

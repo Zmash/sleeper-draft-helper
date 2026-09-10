@@ -17,6 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@2toad/profanity": "^3.3.0",
     "@anthropic-ai/sdk": "^0.53.0",
     "@capacitor/android": "^6.2.1",
     "@fontsource/barlow": "^5.2.8",
