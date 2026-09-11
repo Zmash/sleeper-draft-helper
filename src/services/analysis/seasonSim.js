@@ -48,9 +48,11 @@ export function pointsFieldFor(scoringType) {
 }
 
 // Genau EINE Saison: Regular Season aus schedule, danach Seeding nach Siegen
-// (Tiebreak Rest-Staerke) und vereinfachter K.-o.-Baum (kein Einzelmatchup-Sim
-// im Baum -- V1-Vereinfachung, im Spec dokumentiert). Bye: ab 8 Playoff-Teams
-// bekommen die Top-2-Seeds ein Freilos (haeufigstes Sleeper-Format).
+// (Tiebreak Rest-Staerke) und K.-o.-Baum, in dem jede Paarung probabilistisch
+// mit der Last-Week-Staerke simuliert wird (keine wochen-spezifischen
+// Projektionen im Baum -- V1-Vereinfachung, im Spec dokumentiert).
+// Bye: ab 8 Playoff-Teams bekommen die Top-2-Seeds ein Freilos
+// (haeufigstes Sleeper-Format).
 export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null }) {
   const rng = mulberry32(seed)
   const teams = Math.max(2, Number(playoffTeams) || 2)

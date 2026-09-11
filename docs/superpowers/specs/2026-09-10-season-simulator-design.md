@@ -107,8 +107,7 @@ Inputs: leagueRosters (useDynastyStore), effRoster/effScoringType (Props),
    Skala aus V1-Konstante `ELO_SCALE`) oder dieselbe Formel mit
    delta = (gegnerischer ADP-Rang-Mittel − eigener) im ADP-Modus. 10k Läufe gechunkt, Aggregation zu
    W-L-Median, Playoff-% (>= playoff_teams nach Seeding), Bye-% (Top-Seeds),
-   Title-% (K.-o.-Baum nach Sleeper-Playoff-Format, vereinfacht: höhere
-   Stärke = höhere Siegchance pro Runde, kein Einzelmatchup-Sim im Baum).
+   Title-% (K.-o.-Baum nach Sleeper-Playoff-Format: jede Paarung wird probabilistisch mit Last-Week-Stärke simuliert, ohne wochen-spezifische Projektionen).
 5. Dynasty-Modus (`draftMode === 'rookie'`): identischer Pfad, nur
    `dynastyValues` als Tie-Break bei Stärke-Gleichstand (±1 %).
 
