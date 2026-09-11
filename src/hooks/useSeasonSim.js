@@ -12,7 +12,7 @@ import { useDynastyValuesStore } from '../stores/useDynastyValuesStore'
 import { normalizePlayerName } from '../utils/formatting'
 import { pointsFieldFor, DEFAULT_SIMS } from '../services/analysis/seasonSim'
 import { buildRemainingSchedule, playoffCutoff } from '../services/analysis/seasonSchedule'
-import { buildIdRankMaps, selectAndScore } from '../services/analysis/seasonStrengths'
+import { buildIdRankMaps, selectAndScore, adpTeamValue, normalizeToScale } from '../services/analysis/seasonStrengths'
 import SimWorker from '../workers/simWorker.js?worker'
 
 const WEEK_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DEF']
@@ -48,7 +48,7 @@ async function runInline({ strengthsPayload, schedule, playoffTeams, dynastyTota
   return [...aggregateOdds(results, { rosterIds, sims }).entries()].map(([rosterId, o]) => ({ rosterId, ...o }))
 }
 
-export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions, ownerLabels, draftMode }) {
+export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions, ownerLabels, draftMode, model = 'projections' }) {
   const [state, setState] = useState(league?.league_id ? 'idle' : 'unavailable')
   const [progress, setProgress] = useState(null)
   const [odds, setOdds] = useState(null)
@@ -102,10 +102,17 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
     setOdds(null)
     try {
       const { playoffWeekStart, playoffTeams } = playoffCutoff({ league })
-      const [nfl, rawRosters, playersMeta] = await Promise.all([
+      const isAdp = model === 'adp'
+      const ffcFormat = scoringType === 'half_ppr' ? 'half-ppr' : scoringType === 'standard' ? 'standard' : 'ppr'
+      const [nfl, rawRosters, playersMeta, adpJson] = await Promise.all([
         fetchNflState().catch(() => null),
         fetchLeagueRosters(league.league_id).catch(() => []),
         loadPlayersMetaCached({ season: Number(seasonYear) || new Date().getFullYear() }).catch(() => ({})),
+        // ADP-Linse: Sleeper-ADP (RotoWire, voller Kader-Coverage) nur laden,
+        // wenn das Modell aktiv ist — sonst kein zusaetzlicher Request.
+        isAdp
+          ? fetch(`/api/rankings/sleeper-adp?format=${ffcFormat}`).then((r) => r.json()).catch(() => null)
+          : Promise.resolve(null),
       ])
       if (!alive()) return
       if (!rawRosters?.length || rawRosters.length < 4) {
@@ -254,8 +261,44 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           ratingAcc.set(id, cur)
         }
       }
+      // ADP-Linse: Draftwert statt Wochenpunkten. Rohwerte je Team, normiert
+      // auf Mittelwert+Streuung der Projektions-Woche-1 (gleiche ELO-Skala und
+      // gleiche Entschiedenheit — nur die Team-Reihenfolge kommt aus ADP).
+      // ADP ist wochen-unabhaengig: alle Wochen + Playoff-Baum nutzen dieselbe
+      // normierte Staerke (keine Bye-Schwankungen in einer Wert-Linse).
+      let effStrengthsPayload = strengthsPayload
+      let effPlayoff = playoffStrengthsPayload
+      let effMissingByTeam = missingByTeam
+      let effRatingAcc = ratingAcc
+      let hasStrengthData = hasProjections
+      if (isAdp) {
+        const adpByName = new Map()
+        for (const p of adpJson?.players || []) {
+          const key = p?.nname || normalizePlayerName(p?.name || '')
+          const adp = Number(p?.adp)
+          if (key && Number.isFinite(adp)) adpByName.set(key, adp)
+        }
+        if (!adpByName.size) {
+          setState('unavailable')
+          setUnavailableReason('ADP-Daten konnten nicht geladen werden.')
+          return
+        }
+        const raw = teams.map((t) => {
+          const v = adpTeamValue({ rosterPlayers: t.rosterPlayers, adpByName })
+          return [t.rosterId, v.value, v.missingCount]
+        })
+        const refPts = (strengthsByWeek[0]?.[1] || []).map(([, pts]) => Number(pts)).filter(Number.isFinite)
+        const refMean = refPts.length ? refPts.reduce((a, b) => a + b, 0) / refPts.length : 100
+        const refVar = refPts.length ? refPts.reduce((a, b) => a + (b - refMean) ** 2, 0) / refPts.length : 0
+        const norm = normalizeToScale(raw.map(([id, value]) => [id, value]), { mean: refMean, sd: Math.sqrt(refVar) })
+        effMissingByTeam = new Map(raw.map(([id, , missing]) => [id, missing]))
+        effStrengthsPayload = weeks.map((w) => [w, [...norm].map(([id, pts]) => [id, pts])])
+        effPlayoff = [...norm].map(([id, pts]) => [id, pts])
+        effRatingAcc = new Map([...norm].map(([id, pts]) => [id, { sum: pts, n: 1 }]))
+        hasStrengthData = true
+      }
       const ratingOf = (id) => {
-        const c = ratingAcc.get(String(id))
+        const c = effRatingAcc.get(String(id))
         return c?.n ? c.sum / c.n : null
       }
       const applyResults = (results) => {
@@ -271,7 +314,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           playoffPct: r.playoffPct,
           byePct: r.byePct,
           titlePct: r.titlePct,
-          reducedAccuracy: !hasProjections || (missingByTeam.get(String(r.rosterId)) || 0) > 2,
+          reducedAccuracy: !hasStrengthData || (effMissingByTeam.get(String(r.rosterId)) || 0) > 2,
         })).sort((a, b) => b.titlePct - a.titlePct))
         setState('done')
         setProgress(null)
@@ -284,8 +327,8 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       if (!worker) {
         // R3 Sync-Fallback (alte WebViews ohne Worker).
         const inline = await runInline({
-          strengthsPayload, schedule, playoffTeams, dynastyTotals: dynastyTotalsPayload,
-          playoffStrengths: playoffStrengthsPayload,
+          strengthsPayload: effStrengthsPayload, schedule, playoffTeams, dynastyTotals: dynastyTotalsPayload,
+          playoffStrengths: effPlayoff,
           sims: DEFAULT_SIMS, seed: Date.now() % 100000,
           onProgress: (p) => { if (alive()) setProgress(p) },
           isAlive: alive,
@@ -318,7 +361,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         type: 'run',
         // Worker-Protokoll: strengthsByWeek (Array-Paare) — der Worker liest
         // p.strengthsByWeek; falscher Key = leere Map = alle W-L bei 7.
-        payload: { strengthsByWeek: strengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload, playoffStrengths: playoffStrengthsPayload },
+        payload: { strengthsByWeek: effStrengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload, playoffStrengths: effPlayoff },
       })
     } catch (e) {
       console.warn('[useSeasonSim] failed', e)
@@ -326,7 +369,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       setState('unavailable')
       setUnavailableReason('Daten konnten nicht geladen werden.')
     }
-  }, [league, seasonYear, scoringType, rosterPositions, ownerLabels, draftMode])
+  }, [league, seasonYear, scoringType, rosterPositions, ownerLabels, draftMode, model])
 
   return { state, progress, odds, unavailableReason, start, cancel }
 }

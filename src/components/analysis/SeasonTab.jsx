@@ -18,10 +18,31 @@ const heat = (pct) => {
 }
 
 export function SimControls({ sim }) {
+  const model = sim.model === 'adp' ? 'adp' : 'projections'
+  const idleText = model === 'adp'
+    ? `${DEFAULT_SIMS.toLocaleString('de-DE')} Simulationen aus ADP-Marktwerten (Sleeper-ADP) — gleiche Skala wie Projektionen, nur die Team-Reihenfolge kommt aus ADP. Lokal auf deinem Gerät, ohne KI.`
+    : `${DEFAULT_SIMS.toLocaleString('de-DE')} Simulationen aus Rest-Spielplan und projizierten Punkten — lokal auf deinem Gerät, ohne KI.`
+  const toggle = (
+    <div className="an-model-toggle" role="group" aria-label="Stärke-Modell">
+      <button
+        type="button"
+        className={model === 'projections' ? 'an-chip is-on' : 'an-chip'}
+        aria-pressed={model === 'projections'}
+        onClick={() => sim.onModelChange?.('projections')}
+      >Projektionen</button>
+      <button
+        type="button"
+        className={model === 'adp' ? 'an-chip is-on' : 'an-chip'}
+        aria-pressed={model === 'adp'}
+        onClick={() => sim.onModelChange?.('adp')}
+      >ADP</button>
+    </div>
+  )
   if (sim.state === 'idle') {
     return (
       <div className="an-sim-controls">
-        <p className="an-muted">{DEFAULT_SIMS.toLocaleString('de-DE')} Simulationen aus Rest-Spielplan und projizierten Punkten — lokal auf deinem Gerät, ohne KI.</p>
+        {toggle}
+        <p className="an-muted">{idleText}</p>
         <button type="button" className="an-btn" onClick={sim.onStart}>Simulation starten</button>
       </div>
     )
@@ -31,6 +52,7 @@ export function SimControls({ sim }) {
     const pct = total > 0 ? Math.round((done / total) * 100) : 0
     return (
       <div className="an-sim-controls">
+        {toggle}
         <div className="an-progress" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
           <div className="an-progress-fill" style={{ width: `${pct}%` }} />
         </div>
@@ -41,17 +63,21 @@ export function SimControls({ sim }) {
   }
   return (
     <div className="an-sim-controls">
+      {toggle}
       <button type="button" className="an-btn an-btn-ghost" onClick={sim.onStart}>Neu simulieren</button>
     </div>
   )
 }
 
-export function OddsTable({ odds }) {
+export function OddsTable({ odds, model }) {
+  const ratingTitle = model === 'adp'
+    ? 'Normierte ADP-Stärke (gleiche Skala wie Projektionen)'
+    : 'Mittlere projizierte Starter-Punkte je Restwoche'
   return (
     <table className="an-odds-table">
       <thead>
         <tr>
-          <th scope="col" title="Mittlere projizierte Starter-Punkte je Restwoche">Rating</th>
+          <th scope="col" title={ratingTitle}>Rating</th>
           <th scope="col">Team</th>
           <th scope="col" title="Projizierter Endstand (gerundet)">Record</th>
           <th scope="col" title="Anteil der Sims mit Playoff-Qualifikation">Playoffs</th>
@@ -89,7 +115,7 @@ export default function SeasonTab({ sim }) {
   return (
     <div className="an-season">
       <SimControls sim={sim} />
-      {sim.state === 'done' && sim.odds && <OddsTable odds={sim.odds} />}
+      {sim.state === 'done' && sim.odds && <OddsTable odds={sim.odds} model={sim.model} />}
     </div>
   )
 }

@@ -8,6 +8,8 @@ const doneSim = {
   unavailableReason: null,
   onStart: vi.fn(),
   onCancel: vi.fn(),
+  model: 'projections',
+  onModelChange: vi.fn(),
   odds: [
     { rosterId: '1', name: 'Team A', isMine: true, winsAvg: 9.4, games: 14, rating: 108.6, playoffPct: 82.4, byePct: 20, titlePct: 15.2, reducedAccuracy: false },
     { rosterId: '2', name: 'Team B', isMine: false, winsAvg: 4.1, games: 14, rating: 96.2, playoffPct: 5, byePct: 0, titlePct: 0.5, reducedAccuracy: true },
@@ -43,5 +45,15 @@ describe('SeasonTab', () => {
     render(<SeasonTab sim={{ ...doneSim, state: 'unavailable', odds: null, unavailableReason: 'Kein Rest-Spielplan verfügbar (Saison ggf. beendet).' }} />)
     expect(screen.getByText(/Kein Rest-Spielplan/i)).toBeTruthy()
     expect(screen.queryByText('Team A')).toBeNull()
+  })
+  it('Modell-Toggle ruft onModelChange mit adp', () => {
+    render(<SeasonTab sim={doneSim} />)
+    const adpBtn = screen.getByRole('button', { name: 'ADP' })
+    expect(adpBtn.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(adpBtn)
+    expect(doneSim.onModelChange).toHaveBeenCalledWith('adp')
+    render(<SeasonTab sim={{ ...doneSim, model: 'adp' }} />)
+    const adpBtns = screen.getAllByRole('button', { name: 'ADP' })
+    expect(adpBtns[adpBtns.length - 1].getAttribute('aria-pressed')).toBe('true')
   })
 })

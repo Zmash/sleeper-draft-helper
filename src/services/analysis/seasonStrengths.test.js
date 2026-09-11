@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildIdRankMaps, selectAndScore } from './seasonStrengths'
+import { buildIdRankMaps, selectAndScore, adpTeamValue, normalizeToScale, ADP_REF, ADP_STARTERS } from './seasonStrengths'
 
 const players = [
   { sleeper_id: '1', name: 'Q Back', nname: 'q back', pos: 'QB', team: 'CHI', bye: '5' },
@@ -100,5 +100,46 @@ describe('selectAndScore', () => {
     })
     expect(r.dynastyTotal).toBe(600)
     expect(r.points).toBeCloseTo(18.3 + 12.3 + 16.3, 5)
+  })
+})
+
+describe('adpTeamValue', () => {
+  const adpPlayers = [
+    { sleeper_id: '1', nname: 'a back' },
+    { sleeper_id: '2', nname: 'b back' },
+    { sleeper_id: '3', nname: 'c back' },
+  ]
+  it('summiert (REF - adp) der besten 9, niedrigeres ADP = hoeherer Wert', () => {
+    const adpByName = new Map([['a back', 10], ['b back', 50], ['c back', 200]])
+    const r = adpTeamValue({ rosterPlayers: adpPlayers, adpByName })
+    expect(r.value).toBe((ADP_REF - 10) + (ADP_REF - 50) + (ADP_REF - 200))
+    expect(r.matched).toBe(3)
+    expect(r.missingCount).toBe(ADP_STARTERS - 3)
+  })
+  it('ignoriert Spieler ueber REF und ungematchte', () => {
+    const adpByName = new Map([['a back', 10]])
+    const r = adpTeamValue({ rosterPlayers: adpPlayers, adpByName })
+    expect(r.value).toBe(ADP_REF - 10)
+    expect(r.missingCount).toBe(ADP_STARTERS - 1)
+  })
+  it('leerer Kader ergibt Wert 0 und volles Missing', () => {
+    const r = adpTeamValue({ rosterPlayers: [], adpByName: new Map() })
+    expect(r.value).toBe(0)
+    expect(r.missingCount).toBe(ADP_STARTERS)
+  })
+})
+
+describe('normalizeToScale', () => {
+  it('mappt Mittelwert/Steuung auf Referenz (Ordnung bleibt)', () => {
+    const out = normalizeToScale([['a', 10], ['b', 20], ['c', 30]], { mean: 100, sd: 5 })
+    expect(out.get('a')).toBeCloseTo(100 - 5 * Math.sqrt(1.5), 5)
+    expect(out.get('b')).toBeCloseTo(100, 5)
+    expect(out.get('c')).toBeCloseTo(100 + 5 * Math.sqrt(1.5), 5)
+  })
+  it('leere und konstante Eingabe fallen auf den Mittelwert', () => {
+    expect([...normalizeToScale([], { mean: 100, sd: 5 }).values()]).toEqual([])
+    const flat = normalizeToScale([['a', 7], ['b', 7]], { mean: 100, sd: 5 })
+    expect(flat.get('a')).toBe(100)
+    expect(flat.get('b')).toBe(100)
   })
 })

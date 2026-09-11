@@ -27,7 +27,7 @@ const league = {
   settings: { playoff_week_start: 15, playoff_teams_count: 4 },
 }
 
-function stubFetch() {
+function stubFetch(adpPlayers = null) {
   vi.stubGlobal('fetch', vi.fn(async (url) => {
     const json = async () => {
       if (String(url).includes('/state/nfl')) return { week: 5, season_type: 'regular', season: '2026' }
@@ -41,7 +41,14 @@ function stubFetch() {
         { matchup_id: 1, roster_id: 1 },
         { matchup_id: 1, roster_id: 2 },
       ]
-      if (String(url).includes('players/nfl')) return {}
+      if (String(url).includes('players/nfl')) return {
+        p1: { player_id: 'p1', full_name: 'A Back', fantasy_positions: ['RB'], team: 'KC' },
+        p2: { player_id: 'p2', full_name: 'B Back', fantasy_positions: ['WR'], team: 'SEA' },
+      }
+      if (String(url).includes('/api/rankings/sleeper-adp')) {
+        if (!adpPlayers) return { ok: false }
+        return { ok: true, players: adpPlayers }
+      }
       return {}
     }
     return { ok: true, json }
@@ -66,8 +73,8 @@ describe('useSeasonSim', () => {
     expect(result.current.odds?.length).toBeGreaterThan(0)
     expect(result.current.odds[0].reducedAccuracy).toBe(true)
   })
-
-  it('Inline-Fallback liefert done wenn kein Worker existiert', async () => {    stubFetch()
+  it('Inline-Fallback liefert done wenn kein Worker existiert', async () => {
+    stubFetch()
     globalThis.__SDH_FORCE_NO_WORKER = true
     try {
       const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft' }))
@@ -77,6 +84,27 @@ describe('useSeasonSim', () => {
     } finally {
       delete globalThis.__SDH_FORCE_NO_WORKER
     }
+  })
+
+  it('ADP-Modell meldet unavailable wenn ADP-Daten fehlen', async () => {
+    stubFetch(null)
+    const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft', model: 'adp' }))
+    await act(async () => { await result.current.start() })
+    expect(result.current.state).toBe('unavailable')
+    expect(result.current.unavailableReason).toContain('ADP')
+  })
+
+  it('ADP-Modell liefert done mit normiertem Rating wenn ADP-Daten da sind', async () => {
+    stubFetch([
+      { nname: 'a back', adp: 10 },
+      { nname: 'b back', adp: 60 },
+    ])
+    const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft', model: 'adp' }))
+    await act(async () => { await result.current.start() })
+    expect(result.current.state).toBe('done')
+    expect(result.current.odds?.length).toBeGreaterThan(0)
+    // Rating ist normiert (Zahl), nicht der Roh-ADP-Wert.
+    expect(Number.isFinite(Number(result.current.odds[0].rating))).toBe(true)
   })
 
   it('postet strengthsByWeek (Worker-Protokoll) an den Worker', async () => {

@@ -616,6 +616,10 @@
 .an-badge { font-size: .72rem; color: var(--muted, #888); border: 1px solid var(--border, #2a2a2a); border-radius: 999px; padding: .05rem .45rem; white-space: nowrap; }
 .an-progress { height: .5rem; width: min(22rem, 100%); background: var(--border, #2a2a2a); border-radius: 999px; overflow: hidden; }
 .an-progress-fill { height: 100%; background: var(--accent, #4ea1ff); transition: width .2s; }
+/* Saison-Tab Modell-Umschalter (Projektionen/ADP) im Tab-Ton. */
+.an-model-toggle { display: flex; gap: .4rem; }
+.an-chip { font: inherit; font-size: .82rem; cursor: pointer; background: none; border: 1px solid var(--border, #2a2a2a); color: var(--muted, #888); border-radius: 999px; padding: .3rem .8rem; }
+.an-chip.is-on { color: var(--fg, #eee); border-color: var(--accent, #4ea1ff); }
 /* Saison-Tab Buttons (Fallback-Stil im Shell-Ton, bis es globale Buttons gibt). */
 .an-btn { font: inherit; cursor: pointer; border: 1px solid var(--border, #2a2a2a); background: var(--accent, #4ea1ff); color: #071026; border-radius: .5rem; padding: .55rem 1.1rem; font-weight: 700; }
 .an-btn-ghost { background: none; color: var(--fg, #eee); font-weight: 400; }

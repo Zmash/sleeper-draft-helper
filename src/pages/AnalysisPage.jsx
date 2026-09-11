@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import { useLiveStore } from '../stores/useLiveStore'
@@ -27,6 +27,10 @@ export default function AnalysisPage({
   selectedLeague, seasonYear, effScoringType,
 }) {
   const [tab, setTab] = useState('draft')
+  // Staerke-Modell des Saison-Tabs (Dynasty-Daddy-Paritaet: Projektionen vs.
+  // ADP-Marktwert). Lebt hier (nicht im SeasonTab), weil der Hook es braucht.
+  const [seasonModel, setSeasonModel] = useState('projections')
+  const seasonModelPrev = useRef(seasonModel)
   const { sleeperUserId } = useSessionStore()
   const { boardPlayers, marketMeta } = useBoardStore()
   const { livePicks } = useLiveStore()
@@ -41,6 +45,20 @@ export default function AnalysisPage({
   useEffect(() => {
     loadDynastyValuesIfStale({ superflex: !!isSuperflex })
   }, [isSuperflex, loadDynastyValuesIfStale])
+
+  const seasonSim = useSeasonSim({
+    league: selectedLeague, seasonYear, scoringType: effScoringType,
+    rosterPositions: effRoster, ownerLabels, draftMode, model: seasonModel,
+  })
+
+  // Modellwechsel bei vorliegenden Odds: sofort neu simulieren (explizite
+  // Nutzer-Aktion). Vor dem ersten Lauf passiert nichts (bleibt idle).
+  useEffect(() => {
+    if (seasonModelPrev.current !== seasonModel) {
+      seasonModelPrev.current = seasonModel
+      if (seasonSim.state === 'done') seasonSim.start().catch(() => {})
+    }
+  })
 
   // Nur fuer die Kader-Analyse (Wert-Vergleich ueber die ganze Liga) --
   // Draft-/Markt-Tab bleiben strikt am Board des Nutzers, das misst etwas
@@ -119,11 +137,6 @@ export default function AnalysisPage({
     [boardPlayers, livePicks]
   )
 
-  const seasonSim = useSeasonSim({
-    league: selectedLeague, seasonYear, scoringType: effScoringType,
-    rosterPositions: effRoster, ownerLabels, draftMode,
-  })
-
   return (
     <section className="an-page">
       <nav className="an-tabs" role="tablist" aria-label="Analyse-Bereiche">
@@ -164,6 +177,7 @@ export default function AnalysisPage({
             state: seasonSim.state, progress: seasonSim.progress, odds: seasonSim.odds,
             unavailableReason: seasonSim.unavailableReason,
             onStart: seasonSim.start, onCancel: seasonSim.cancel,
+            model: seasonModel, onModelChange: setSeasonModel,
           }} />
         )}
       </div>
