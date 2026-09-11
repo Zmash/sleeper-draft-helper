@@ -77,6 +77,7 @@ export function OddsTable({ odds, model }) {
     ? 'Normierte ADP-Stärke (gleiche Skala wie Projektionen)'
     : 'Mittlere projizierte Starter-Punkte je Restwoche'
   return (
+    <div className="an-table-scroll">
     <table className="an-odds-table">
       <thead>
         <tr>
@@ -104,6 +105,7 @@ export function OddsTable({ odds, model }) {
         ))}
       </tbody>
     </table>
+    </div>
   )
 }
 

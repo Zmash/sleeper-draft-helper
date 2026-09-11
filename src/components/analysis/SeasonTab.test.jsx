@@ -31,6 +31,12 @@ describe('SeasonTab', () => {
     expect(style).toContain('accent-fill')
     expect(style).not.toContain('78, 161, 255')
   })
+  it('Odds-Tabelle sitzt im mobilen Scroll-Wrapper', () => {
+    const { container } = render(<SeasonTab sim={doneSim} />)
+    const wrap = container.querySelector('.an-table-scroll')
+    expect(wrap).toBeTruthy()
+    expect(wrap.querySelector('table.an-odds-table')).toBeTruthy()
+  })
   it('zeigt Record im 9–5-Format und gerundetes Rating', () => {
     render(<SeasonTab sim={doneSim} />)
     expect(screen.getByText('9–5')).toBeTruthy()
