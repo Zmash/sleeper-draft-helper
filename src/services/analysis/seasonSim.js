@@ -1,6 +1,9 @@
 // Saison-Simulation: reine Mathematik, kein Store-, kein Netzwerk-Zugriff.
 // Alle IDs sind Strings (roster_id als String, vgl. useDynastyStore rMap).
-export const ELO_SCALE = 400
+// ELO_SCALE kalibriert (war 400/Schach-Skala — machte alle Teams zu 50:50,
+// live-Befund: alle W-L bei 7,0): ~12 Punkte Projektions-Differenz (typische
+// Kader-Spanne) entsprechen jetzt ~65:35-Favorit.
+export const ELO_SCALE = 45
 export const DEFAULT_SIMS = 10000
 export const SIM_CHUNK = 1000
 
@@ -17,11 +20,19 @@ export function mulberry32(seed) {
   }
 }
 
-// ELO-Erwartung: p = 1 / (1 + 10^(-delta/400)). delta in projizierten Punkten.
+// ELO-Erwartung: p = 1 / (1 + 10^(-delta/ELO_SCALE)). delta in projizierten Punkten.
 export function winProbability(delta) {
   const d = Number(delta)
   if (!Number.isFinite(d)) return 0.5
   return 1 / (1 + Math.pow(10, -d / ELO_SCALE))
+}
+
+// Standard-Single-Elim-Freilose: Auffuellen auf die naechste Zweierpotenz.
+// 6 Teams -> 2 Byes, 8 -> 0, 10 -> 2, 12 -> 4, 4 -> 0 (Sleeper-Standard).
+export function byeCountFor(cutLength) {
+  const n = Math.max(0, Number(cutLength) || 0)
+  if (n < 2) return 0
+  return n - 2 ** Math.floor(Math.log2(n))
 }
 
 // R1 Dynasty-Tiebreak (Rookie-Modus): bei < 0.5 Punkten Differenz entscheidet
@@ -51,8 +62,7 @@ export function pointsFieldFor(scoringType) {
 // (Tiebreak Rest-Staerke) und K.-o.-Baum, in dem jede Paarung probabilistisch
 // mit der Last-Week-Staerke simuliert wird (keine wochen-spezifischen
 // Projektionen im Baum -- V1-Vereinfachung, im Spec dokumentiert).
-// Bye: ab 8 Playoff-Teams bekommen die Top-2-Seeds ein Freilos
-// (haeufigstes Sleeper-Format).
+// Freilose nach byeCountFor (6 Teams -> Top-2-Seeds).
 export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null }) {
   const rng = mulberry32(seed)
   const teams = Math.max(2, Number(playoffTeams) || 2)
@@ -84,14 +94,10 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
     return strengthOf(lastWeek, y) - strengthOf(lastWeek, x)
   })
   const cut = ranked.slice(0, Math.min(teams, ranked.length))
-  const byeCount = cut.length >= 8 ? 2 : 0
-  const byeSeeds = cut.slice(0, byeCount)
-  let round = cut.slice(byeCount)
-  // Auf ungerade Runden auffuellen kann nicht passieren: cut ohne Byes ist
-  // nur bei < 8 Teams ungerade moeglich (z.B. 6) -- dann bekommt Seed 1 das Freilos.
-  if (round.length % 2 === 1) {
-    byeSeeds.push(round.shift())
-  }
+  const byeSeeds = cut.slice(0, byeCountFor(cut.length))
+  // Rest ist per Konstruktion eine Zweierpotenz (byeCountFor fuellt auf) —
+  // kein Auffuell-Hack mehr noetig.
+  const round = cut.slice(byeSeeds.length)
   const playRound = (players) => {
     const winners = []
     for (let i = 0; i < players.length; i += 2) {
@@ -108,7 +114,7 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
 }
 
 // Zaehlt N Einzelsaisons zu Odds pro Team. playoffPct: Team unter den topSeeds;
-// byePct: unter den ersten 2 bei >= 8 Teams, sonst unter erstem Seed bei Freilos.
+// byePct: Team unter den ersten byeCountFor(seeds.length) Seeds.
 export function aggregateOdds(results, { rosterIds, sims }) {
   const n = Math.max(1, Number(sims) || 1)
   const out = new Map()
@@ -121,7 +127,7 @@ export function aggregateOdds(results, { rosterIds, sims }) {
       if (out.has(key)) out.get(key).winsAvg += Number(w) || 0
     }
     const seeds = (r.topSeeds || []).map(String)
-    const byeCount = seeds.length >= 8 ? 2 : seeds.length % 2 === 1 ? 1 : 0
+    const byeCount = byeCountFor(seeds.length)
     for (const s of seeds) {
       if (out.has(s)) out.get(s).playoffPct += 100 / n
     }

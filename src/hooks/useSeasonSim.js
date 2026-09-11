@@ -223,6 +223,26 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       const dynastyTotalsPayload = draftMode === 'rookie'
         ? (strengthsByWeek[0]?.[1] || []).map(([id, , , dt]) => [id, Number(dt) || 0])
         : null
+      // Spiele je Team (fuer Record-Format) + mittleres Rating (fuer
+      // Rating-Spalte) aus Schedule bzw. Wochen-Staerken.
+      const gamesByTeam = new Map()
+      for (const g of schedule) {
+        gamesByTeam.set(g.a, (gamesByTeam.get(g.a) || 0) + 1)
+        gamesByTeam.set(g.b, (gamesByTeam.get(g.b) || 0) + 1)
+      }
+      const ratingAcc = new Map()
+      for (const [, rows] of strengthsPayload) {
+        for (const [id, pts] of rows) {
+          const cur = ratingAcc.get(id) || { sum: 0, n: 0 }
+          cur.sum += Number(pts) || 0
+          cur.n += 1
+          ratingAcc.set(id, cur)
+        }
+      }
+      const ratingOf = (id) => {
+        const c = ratingAcc.get(String(id))
+        return c?.n ? c.sum / c.n : null
+      }
       const applyResults = (results) => {
         const map = useDynastyStore.getState().rosterToUserMap || {}
         const mine = useDynastyStore.getState().mySleeperRosterId
@@ -231,6 +251,8 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           name: rosterLabel(r.rosterId, { ownerLabels, rosterToUserMap: map }),
           isMine: String(mine ?? '') === String(r.rosterId),
             winsAvg: r.winsAvg + (winsBase.get(String(r.rosterId)) || 0),
+            games: gamesByTeam.get(String(r.rosterId)) || 0,
+            rating: ratingOf(r.rosterId),
           playoffPct: r.playoffPct,
           byePct: r.byePct,
           titlePct: r.titlePct,

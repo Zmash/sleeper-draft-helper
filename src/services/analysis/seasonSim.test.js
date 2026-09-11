@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ELO_SCALE, winProbability, matchWinProbability, pointsFieldFor, mulberry32, simulateSeason, aggregateOdds } from './seasonSim'
+import { ELO_SCALE, winProbability, matchWinProbability, byeCountFor, pointsFieldFor, mulberry32, simulateSeason, aggregateOdds } from './seasonSim'
 
 describe('winProbability', () => {
   it('delta 0 ergibt 0.5', () => {
@@ -9,8 +9,28 @@ describe('winProbability', () => {
     expect(winProbability(50)).toBeGreaterThan(0.5)
     expect(winProbability(50)).toBeCloseTo(1 - winProbability(-50), 10)
   })
-  it('ELO_SCALE ist 400', () => {
-    expect(ELO_SCALE).toBe(400)
+  it('ELO_SCALE ist 45 (kalibriert, keine Schach-Skala)', () => {
+    expect(ELO_SCALE).toBe(45)
+  })
+  it('typische Kader-Spanne (~12 Punkte) ergibt klaren Favoriten (~0.65)', () => {
+    expect(winProbability(12)).toBeGreaterThan(0.6)
+    expect(winProbability(12)).toBeLessThan(0.7)
+  })
+})
+
+describe('byeCountFor', () => {
+  it('Single-Elim-Freilose: 6->2, 8->0, 10->2, 12->4, 4->0', () => {
+    expect(byeCountFor(6)).toBe(2)
+    expect(byeCountFor(8)).toBe(0)
+    expect(byeCountFor(10)).toBe(2)
+    expect(byeCountFor(12)).toBe(4)
+    expect(byeCountFor(4)).toBe(0)
+  })
+  it('Kleinstfaelle: 0/1/2/3 -> 0/0/0/1', () => {
+    expect(byeCountFor(0)).toBe(0)
+    expect(byeCountFor(1)).toBe(0)
+    expect(byeCountFor(2)).toBe(0)
+    expect(byeCountFor(3)).toBe(1)
   })
 })
 
@@ -105,5 +125,17 @@ describe('aggregateOdds', () => {
     expect(odds.get('1').titlePct).toBe(50)
     expect(odds.get('1').byePct).toBe(0)
     expect(odds.get('2').titlePct).toBe(50)
+  })
+  it('6er-Cut: Top-2-Seeds bekommen Bye-Credit, Rest nicht', () => {
+    const seeds = ['1', '2', '3', '4', '5', '6']
+    const results = [
+      { wins: new Map(seeds.map((s) => [s, 7])), champion: '1', topSeeds: seeds },
+      { wins: new Map(seeds.map((s) => [s, 7])), champion: '2', topSeeds: seeds },
+    ]
+    const odds = aggregateOdds(results, { rosterIds: seeds, sims: 2 })
+    expect(odds.get('1').byePct).toBe(100)
+    expect(odds.get('2').byePct).toBe(100)
+    expect(odds.get('3').byePct).toBe(0)
+    expect(odds.get('6').byePct).toBe(0)
   })
 })

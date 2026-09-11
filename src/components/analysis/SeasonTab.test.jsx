@@ -9,8 +9,8 @@ const doneSim = {
   onStart: vi.fn(),
   onCancel: vi.fn(),
   odds: [
-    { rosterId: '1', name: 'Team A', isMine: true, winsAvg: 9.5, playoffPct: 82.4, byePct: 20, titlePct: 15.2, reducedAccuracy: false },
-    { rosterId: '2', name: 'Team B', isMine: false, winsAvg: 4.1, playoffPct: 5, byePct: 0, titlePct: 0.5, reducedAccuracy: true },
+    { rosterId: '1', name: 'Team A', isMine: true, winsAvg: 9.4, games: 14, rating: 108.6, playoffPct: 82.4, byePct: 20, titlePct: 15.2, reducedAccuracy: false },
+    { rosterId: '2', name: 'Team B', isMine: false, winsAvg: 4.1, games: 14, rating: 96.2, playoffPct: 5, byePct: 0, titlePct: 0.5, reducedAccuracy: true },
   ],
 }
 
@@ -20,6 +20,11 @@ describe('SeasonTab', () => {
     expect(screen.getByText('Team A')).toBeTruthy()
     expect(screen.getByText('82,4 %')).toBeTruthy()
     expect(screen.getByText('Team A').closest('tr')).toHaveClass('is-mine')
+  })
+  it('zeigt Record im 9–5-Format und gerundetes Rating', () => {
+    render(<SeasonTab sim={doneSim} />)
+    expect(screen.getByText('9–5')).toBeTruthy()
+    expect(screen.getByText('109')).toBeTruthy()
   })
   it('zeigt reducedAccuracy-Badge statt falscher Praezision', () => {
     render(<SeasonTab sim={doneSim} />)
