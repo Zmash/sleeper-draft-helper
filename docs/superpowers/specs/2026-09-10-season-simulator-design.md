@@ -155,6 +155,8 @@ normierte Stärke. Bewusst NICHT umgesetzt: Divisions-Autobids (User-Entscheid,
 reine Top-6) und Full-Roster-ADP (Mac-Richtung unklar, Top-9 ist vergleichbar
 mit der Projektions-Linse).
 
+## V2-Kandidaten (nicht in diesem Spec)
+
 Trade-Impact-Delta in `TradePage`, SOS-Spalte, Portfolio-Sicht,
 Contender/Rebuilder-Badges mit Buy/Sell-Fenstern, wählbare Sim-Tiefe
 (1k/2k/10k), Server-Cache via Cron, Multi-Plattform-Adapter, KI-Erzählung
