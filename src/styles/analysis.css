@@ -617,17 +617,17 @@
 .an-badge { font-size: .72rem; color: var(--muted, #888); border: 1px solid var(--border, #2a2a2a); border-radius: 999px; padding: .05rem .45rem; white-space: nowrap; }
 .an-progress { height: .5rem; width: min(22rem, 100%); background: var(--border, #2a2a2a); border-radius: 999px; overflow: hidden; }
 .an-progress-fill { height: 100%; background: var(--accent, #4ea1ff); transition: width .2s; }
-/* Saison-Tab mobil (<720px, AppShell): Tabelle ist breiter als der Viewport —
-   Wrapper scrollt horizontal, Team-Spalte bleibt sticky, Zellen kompakter. */
+/* Saison-Tab mobil (<720px, AppShell): kein horizontales Scrollen — die
+   Rating-Spalte (reiner Zwischenwert) faellt weg, der Rest passt per
+   Kompakt-Zellen auf 390px. Team-Namen mit Ellipse statt Umbruch. */
 .an-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 @media (max-width: 720px) {
-  .an-table-scroll { margin: 0 -.5rem; padding: 0 .5rem; }
-  .an-odds-table { font-size: .82rem; min-width: 34rem; }
-  .an-odds-table th, .an-odds-table td { padding: .4rem .45rem; white-space: nowrap; }
-  .an-odds-table thead th:nth-child(2),
+  .an-odds-table { font-size: .82rem; width: 100%; }
+  .an-odds-table th, .an-odds-table td { padding: .4rem .35rem; white-space: nowrap; }
+  .an-odds-table th:nth-child(1),
+  .an-odds-table td:nth-child(1) { display: none; }
   .an-odds-table tbody th[scope="row"] {
-    position: sticky; left: 0; z-index: 1;
-    background: var(--card-bg, #161616);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 8.5rem;
   }
 }
 /* Saison-Tab Modell-Umschalter (Projektionen/ADP) im Tab-Ton. */
