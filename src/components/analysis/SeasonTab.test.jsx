@@ -23,6 +23,14 @@ describe('SeasonTab', () => {
     expect(screen.getByText('82,4 %')).toBeTruthy()
     expect(screen.getByText('Team A').closest('tr')).toHaveClass('is-mine')
   })
+  it('Heatmap nutzt Theme-Akzent statt hardcoded Blau', () => {
+    render(<SeasonTab sim={doneSim} />)
+    const cell = screen.getByText('82,4 %').closest('td')
+    const style = cell.getAttribute('style') || ''
+    expect(style).toContain('color-mix')
+    expect(style).toContain('accent-fill')
+    expect(style).not.toContain('78, 161, 255')
+  })
   it('zeigt Record im 9–5-Format und gerundetes Rating', () => {
     render(<SeasonTab sim={doneSim} />)
     expect(screen.getByText('9–5')).toBeTruthy()

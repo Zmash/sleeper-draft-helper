@@ -11,10 +11,13 @@ const fmtRecord = (o) => {
   return `${w}–${Math.max(0, games - w)}`
 }
 const fmtRating = (v) => (v == null || !Number.isFinite(Number(v)) ? '–' : String(Math.round(Number(v))))
-// Heatmap wie Dynasty-Daddy: Zellen bekommen Blau-Anteil nach Prozentwert.
+// Heatmap wie Dynasty-Daddy, aber Theme-sensibel: color-mix mit der
+// Theme-Akzentfarbe (Volt-Gelb, Ferrari-Rot, …) statt hardcoded Blau —
+// Muster aus newshell.css. Aufloesung passiert im Browser pro Theme.
 const heat = (pct) => {
-  const p = Math.max(0, Math.min(100, Number(pct) || 0)) / 100
-  return { backgroundColor: `rgba(78, 161, 255, ${(p * 0.55).toFixed(2)})` }
+  const p = Math.max(0, Math.min(100, Number(pct) || 0))
+  const mix = Math.round((p / 100) * 55)
+  return { backgroundColor: `color-mix(in srgb, var(--accent-fill, var(--accent, #4ea1ff)) ${mix}%, transparent)` }
 }
 
 export function SimControls({ sim }) {
