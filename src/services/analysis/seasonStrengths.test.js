@@ -87,4 +87,18 @@ describe('selectAndScore', () => {
     // QB eine Projektion -> RB/WR fallen auf 0 zurueck, QB zahlt voll.
     expect(r.points).toBeCloseTo(18.3, 5)
   })
+  it('summiert Dynasty-Total der Starter bei echter Map', () => {
+    const rankMaps = buildIdRankMaps({ rosterPlayers: players, getRankMap: fakeGetRankMap })
+    const r = selectAndScore({
+      rosterPlayers: players,
+      rosterPositions: ['QB', 'RB', 'WR', 'BN', 'BN'],
+      rankMaps,
+      byeWeek: null,
+      pointsById,
+      field: 'pts_ppr',
+      dynastyValuesByName: new Map([['q back', 100], ['r back', 200], ['w receiver', 300]]),
+    })
+    expect(r.dynastyTotal).toBe(600)
+    expect(r.points).toBeCloseTo(18.3 + 12.3 + 16.3, 5)
+  })
 })
