@@ -1,14 +1,16 @@
 // src/services/playersMeta.js
 import { SLEEPER_API_BASE, fetchJson } from './api'
+import { byeWeekForTeam } from '../data/nflByes'
 
-// v4: depth_chart_position/-order (main) + status (waiver-wire) dazu --
+// v5: bye_week-Fallback aus NFL_BYES (main) + status (waiver-wire) dazu --
 // Versionsbump erzwingt einen Re-Fetch, sonst fehlen die neuen Felder bis
 // zum naechsten TTL-Ablauf.
-const CACHE_KEY = 'sdh.playersMeta.v4'
+const CACHE_KEY = 'sdh.playersMeta.v5'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
 // Sleeper liefert kein ADP und keine bye_week (verifiziert 2026-07-16: 0 von
-// 3221 aktiven Spielern). ADP kommt aus /api/rankings/ffc-adp, Bye ebenfalls.
+// 3221 aktiven Spielern). ADP kommt aus /api/rankings/ffc-adp, Bye aus der
+// statischen NFL_BYES-Tabelle (src/data/nflByes.js) als Fallback — s. unten.
 const SLIM_KEYS = [
   'player_id',
   'full_name',
@@ -60,6 +62,8 @@ export async function loadPlayersMetaCached({ season } = {}) {
     if (slim.player_id) data[slim.player_id] = slim
   }
 
+  fillByeFallback(data, season)
+
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       season: season ?? null,
@@ -68,6 +72,19 @@ export async function loadPlayersMetaCached({ season } = {}) {
     }))
   } catch { /* ignore quota */ }
 
+  return data
+}
+
+// Bye-Fallback: Sleeper-bye_week ist praktisch immer null — fehlende Werte
+// werden aus der statischen Saisontabelle ergaenzt (Team-Ebene, gilt auch
+// fuer DEF-Eintraege). Vorhandene Sleeper-Werte gewinnen immer; ohne
+// Tabelleneintrag fuer die Saison passiert nichts (kein Fake).
+export function fillByeFallback(data = {}, season) {
+  for (const meta of Object.values(data)) {
+    if (meta?.bye_week != null) continue
+    const bye = byeWeekForTeam(meta?.team, season)
+    if (bye != null) meta.bye_week = bye
+  }
   return data
 }
 
