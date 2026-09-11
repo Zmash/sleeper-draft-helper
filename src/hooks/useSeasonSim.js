@@ -57,6 +57,11 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
   )
   const workerRef = useRef(null)
   const runIdRef = useRef(0)
+  // Ergebnis-Cache je Liga+Modell: Umschalten zeigt das letzte Ergebnis sofort
+  // (kein Re-Sim), "Neu simulieren"/start() rechnet neu und ueberschreibt.
+  // Session-only, keine Persistenz.
+  const cacheRef = useRef({})
+  const cacheKey = `${league?.league_id || ''}:${model === 'adp' ? 'adp' : 'projections'}`
 
   useEffect(() => () => {
     try { workerRef.current?.terminate() } catch {}
@@ -64,7 +69,8 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
   }, [])
 
   // Liga kann nach dem Mount kommen (async Load, Deep-Link) oder wechseln:
-  // dann zurück auf Start (alte Odds nie stehen lassen).
+  // dann zurück auf Start (alte Odds nie stehen lassen — Cache bleibt, gilt
+  // aber nur je Liga, s. cacheKey).
   useEffect(() => {
     runIdRef.current += 1
     try { workerRef.current?.terminate() } catch {}
@@ -79,6 +85,22 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
     setProgress(null)
     setOdds(null)
   }, [league?.league_id])
+
+  // Modellwechsel: Cache zeigen oder zurueck auf Start (kein Auto-Sim).
+  useEffect(() => {
+    const hit = cacheRef.current[cacheKey]
+    if (hit) {
+      setOdds(hit)
+      setProgress(null)
+      setState('done')
+    } else if (league?.league_id) {
+      setState('idle')
+      setUnavailableReason(null)
+      setProgress(null)
+      setOdds(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey])
 
   const cancel = useCallback(() => {
     runIdRef.current += 1
@@ -304,7 +326,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       const applyResults = (results) => {
         const map = useDynastyStore.getState().rosterToUserMap || {}
         const mine = useDynastyStore.getState().mySleeperRosterId
-        setOdds((results || []).map((r) => ({
+        const rows = (results || []).map((r) => ({
           rosterId: String(r.rosterId),
           name: rosterLabel(r.rosterId, { ownerLabels, rosterToUserMap: map }),
           isMine: String(mine ?? '') === String(r.rosterId),
@@ -315,7 +337,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           byePct: r.byePct,
           titlePct: r.titlePct,
           reducedAccuracy: !hasStrengthData || (effMissingByTeam.get(String(r.rosterId)) || 0) > 2,
-        })).sort((a, b) => b.titlePct - a.titlePct))
+        })).sort((a, b) => b.titlePct - a.titlePct)
+        cacheRef.current[cacheKey] = rows
+        setOdds(rows)
         setState('done')
         setProgress(null)
       }

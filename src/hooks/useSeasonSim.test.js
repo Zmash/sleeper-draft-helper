@@ -107,8 +107,7 @@ describe('useSeasonSim', () => {
     expect(Number.isFinite(Number(result.current.odds[0].rating))).toBe(true)
   })
 
-  it('postet strengthsByWeek (Worker-Protokoll) an den Worker', async () => {
-    // Regression: der Worker las p.strengthsByWeek, der Hook postete
+  it('postet strengthsByWeek (Worker-Protokoll) an den Worker', async () => {    // Regression: der Worker las p.strengthsByWeek, der Hook postete
     // strengthsPayload — der Worker simulierte mit leerer Map (alle W-L = 7).
     stubFetch()
     globalThis.__SDH_WORKER_MSGS = []
@@ -120,6 +119,36 @@ describe('useSeasonSim', () => {
       expect(Array.isArray(run.payload.strengthsByWeek)).toBe(true)
       expect(run.payload.strengthsByWeek.length).toBeGreaterThan(0)
       expect(run.payload.strengthsByWeek[0][1].length).toBeGreaterThan(0)
+    } finally {
+      delete globalThis.__SDH_WORKER_MSGS
+    }
+  })
+
+  it('Modellwechsel zeigt Cache ohne Re-Sim', async () => {
+    stubFetch([
+      { nname: 'a back', adp: 10 },
+      { nname: 'b back', adp: 60 },
+    ])
+    globalThis.__SDH_WORKER_MSGS = []
+    try {
+      const { result, rerender } = renderHook(
+        ({ m }) => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft', model: m }),
+        { initialProps: { m: 'projections' } }
+      )
+      await act(async () => { await result.current.start() })
+      expect(result.current.state).toBe('done')
+      const runsAfterFirst = globalThis.__SDH_WORKER_MSGS.filter((x) => x?.type === 'run').length
+      // Wechsel zu ADP ohne Cache -> idle, kein Sim-Lauf:
+      rerender({ m: 'adp' })
+      expect(result.current.state).toBe('idle')
+      expect(result.current.odds).toBeNull()
+      await act(async () => { await result.current.start() })
+      expect(result.current.state).toBe('done')
+      // Zurueck zu Projektionen -> Cache, kein neuer Worker-Run:
+      rerender({ m: 'projections' })
+      expect(result.current.state).toBe('done')
+      expect(result.current.odds?.length).toBeGreaterThan(0)
+      expect(globalThis.__SDH_WORKER_MSGS.filter((x) => x?.type === 'run').length).toBe(runsAfterFirst + 1)
     } finally {
       delete globalThis.__SDH_WORKER_MSGS
     }
