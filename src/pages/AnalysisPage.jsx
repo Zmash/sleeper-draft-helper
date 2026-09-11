@@ -15,13 +15,16 @@ import { teamKeyFromPick, picksUntilMyNext as computePicksUntilMyNext } from '..
 import DraftTab from '../components/analysis/DraftTab'
 import RosterTab from '../components/analysis/RosterTab'
 import MarketTab from '../components/analysis/MarketTab'
+import { useSeasonSim } from '../hooks/useSeasonSim'
+import SeasonTab from '../components/analysis/SeasonTab'
 import { cx } from '../utils/formatting'
 import '../styles/analysis.css'
 
-const TABS = [['draft', 'Draft'], ['roster', 'Kader'], ['market', 'Markt']]
+const TABS = [['draft', 'Draft'], ['roster', 'Kader'], ['market', 'Markt'], ['saison', 'Saison']]
 
 export default function AnalysisPage({
   teamsCount, ownerLabels, effRoster, draftSlot, selectedDraft, draftMode, isSuperflex,
+  selectedLeague, seasonYear, effScoringType,
 }) {
   const [tab, setTab] = useState('draft')
   const { sleeperUserId } = useSessionStore()
@@ -116,6 +119,11 @@ export default function AnalysisPage({
     [boardPlayers, livePicks]
   )
 
+  const seasonSim = useSeasonSim({
+    league: selectedLeague, seasonYear, scoringType: effScoringType,
+    rosterPositions: effRoster, ownerLabels, draftMode,
+  })
+
   return (
     <section className="an-page">
       <nav className="an-tabs" role="tablist" aria-label="Analyse-Bereiche">
@@ -151,6 +159,13 @@ export default function AnalysisPage({
           />
         )}
         {tab === 'market' && <MarketTab market={market} expert={expert} marketMeta={marketMeta} nextPickNo={nextPickNo} />}
+        {tab === 'saison' && (
+          <SeasonTab sim={{
+            state: seasonSim.state, progress: seasonSim.progress, odds: seasonSim.odds,
+            unavailableReason: seasonSim.unavailableReason,
+            onStart: seasonSim.start, onCancel: seasonSim.cancel,
+          }} />
+        )}
       </div>
     </section>
   )
