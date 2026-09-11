@@ -633,5 +633,5 @@
 .an-chip { font: inherit; font-size: .82rem; cursor: pointer; background: none; border: 1px solid var(--border, #2a2a2a); color: var(--muted, #888); border-radius: 999px; padding: .3rem .8rem; }
 .an-chip.is-on { color: var(--fg, #eee); border-color: var(--accent, #4ea1ff); }
 /* Saison-Tab Buttons (Fallback-Stil im Shell-Ton, bis es globale Buttons gibt). */
-.an-btn { font: inherit; cursor: pointer; border: 1px solid var(--border, #2a2a2a); background: var(--accent, #4ea1ff); color: #071026; border-radius: .5rem; padding: .55rem 1.1rem; font-weight: 700; }
-.an-btn-ghost { background: none; color: var(--fg, #eee); font-weight: 400; }
+.an-btn { display: inline-flex; align-items: center; gap: .35rem; height: 30px; padding: 0 .7rem; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; border-radius: var(--r-ctl, 6px); background: var(--accent-fill, var(--accent, #4ea1ff)); color: var(--accent-on, #071026); }
+.an-btn-ghost { background: none; border-color: var(--border, #2a2a2a); color: var(--fg, #eee); font-weight: 400; }
