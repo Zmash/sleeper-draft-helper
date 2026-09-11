@@ -143,7 +143,17 @@ Inputs: leagueRosters (useDynastyStore), effRoster/effScoringType (Props),
 - Vereinfachter Playoff-Baum (kein Einzelmatchup-Sim) unterschätzt Varianz —
   bewusst dokumentiert, V2-Kandidat.
 
-## V2-Kandidaten (nicht in diesem Spec)
+## Stärke-Modelle (ADP-Linse, ergänzt 2026-09-11)
+
+Umschalter im Saison-Tab (Dynasty-Daddy-Parität): **Projektionen**
+(Wochenpunkte der optimalen Starter) vs. **ADP** (Sleeper-ADP-Draftwert,
+Top-9-Summe aus `250 - adp`). Die ADP-Linse wird per z-Normierung auf
+Mittelwert+Streuung der Projektions-Woche-1 gelegt — gleiche ELO-Skala und
+gleiche Entschiedenheit, nur die Team-Reihenfolge kommt aus ADP. ADP ist
+wochen-unabhaengig (keine Bye-Schwankungen), der Playoff-Baum nutzt dieselbe
+normierte Stärke. Bewusst NICHT umgesetzt: Divisions-Autobids (User-Entscheid,
+reine Top-6) und Full-Roster-ADP (Mac-Richtung unklar, Top-9 ist vergleichbar
+mit der Projektions-Linse).
 
 Trade-Impact-Delta in `TradePage`, SOS-Spalte, Portfolio-Sicht,
 Contender/Rebuilder-Badges mit Buy/Sell-Fenstern, wählbare Sim-Tiefe
