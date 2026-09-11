@@ -607,9 +607,7 @@
 .an-sim-controls { display: grid; gap: .6rem; justify-items: start; }
 .an-muted { font-size: .82rem; color: var(--muted, #888); margin: 0; }
 .an-odds-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-.an-odds-table th, .an-odds-table td { padding: .45rem .6rem; text-align: right; border-bottom: 1px solid var(--border, #2a2a2a); }
-.an-odds-table th:first-child, .an-odds-table td:first-child,
-.an-odds-table tbody th[scope="row"] { text-align: left; }
+.an-odds-table th, .an-odds-table td { padding: .45rem .6rem; text-align: left; border-bottom: 1px solid var(--border, #2a2a2a); }
 .an-odds-table thead th { color: var(--muted, #888); font-weight: 600; }
 .an-odds-table tr.is-mine th { color: var(--fg, #eee); }
 .an-odds-table tr.is-mine { background: rgba(78, 161, 255, 0.12); }
