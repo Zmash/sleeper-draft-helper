@@ -94,23 +94,27 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
     return strengthOf(lastWeek, y) - strengthOf(lastWeek, x)
   })
   const cut = ranked.slice(0, Math.min(teams, ranked.length))
-  const byeSeeds = cut.slice(0, byeCountFor(cut.length))
-  // Rest ist per Konstruktion eine Zweierpotenz (byeCountFor fuellt auf) —
-  // kein Auffuell-Hack mehr noetig.
-  const round = cut.slice(byeSeeds.length)
+  // Echter Single-Elim-Baum mit Reseeding: pro Runde spielt der beste
+  // verbliebene Seed gegen den schlechtesten (1v4, 2v3 — nicht 1v2 im Halbfinale).
+  const alive0 = cut.map((id, i) => ({ id, seed: i }))
+  const byeSeeds = alive0.slice(0, byeCountFor(cut.length))
+  const firstRound = alive0.slice(byeSeeds.length)
   const playRound = (players) => {
+    const ordered = [...players].sort((a, b) => a.seed - b.seed)
     const winners = []
-    for (let i = 0; i < players.length; i += 2) {
-      const x = players[i]
-      const y = players[i + 1]
-      if (y == null) { winners.push(x); continue }
-      winners.push(rng() < pFor(lastWeek, x, y) ? x : y)
+    let lo = 0
+    let hi = ordered.length - 1
+    while (lo < hi) {
+      const x = ordered[lo++]
+      const y = ordered[hi--]
+      winners.push(rng() < pFor(lastWeek, x.id, y.id) ? x : y)
     }
+    if (lo === hi) winners.push(ordered[lo])
     return winners
   }
-  let alive = [...byeSeeds, ...playRound(round)]
+  let alive = [...byeSeeds, ...playRound(firstRound)]
   while (alive.length > 1) alive = playRound(alive)
-  return { wins, champion: alive[0] ?? null, topSeeds: cut }
+  return { wins, champion: alive[0]?.id ?? null, topSeeds: cut }
 }
 
 // Zaehlt N Einzelsaisons zu Odds pro Team. playoffPct: Team unter den topSeeds;

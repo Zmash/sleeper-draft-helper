@@ -111,6 +111,23 @@ describe('simulateSeason', () => {
     const r = simulateSeason({ strengthsByWeek, schedule, playoffTeams: 2, seed: 3, dynastyTotals: dt })
     expect(r.topSeeds[0]).toBe('1')
   })
+  it('Reseeding: Top-Seeds holen ueber 100 Saisons mehr Titel als Bottom-Seeds', () => {
+    const ids = ['A', 'B', 'C', 'D', 'E', 'F']
+    const str = new Map([[1, new Map([['A', 150], ['B', 130], ['C', 110], ['D', 90], ['E', 70], ['F', 50]])]])
+    const sched = [
+      { week: 1, a: 'A', b: 'F' }, { week: 1, a: 'B', b: 'E' }, { week: 1, a: 'C', b: 'D' },
+      { week: 1, a: 'A', b: 'E' }, { week: 1, a: 'B', b: 'F' }, { week: 1, a: 'C', b: 'D' },
+    ]
+    const titles = new Map(ids.map((id) => [id, 0]))
+    for (let s = 0; s < 100; s++) {
+      const r = simulateSeason({ strengthsByWeek: str, schedule: sched, playoffTeams: 6, seed: 1000 + s })
+      titles.set(r.champion, titles.get(r.champion) + 1)
+    }
+    // Klare Staerke-Staffel (p~0.99 je Stufe): Top-2-Seeds muessen Bottom-2
+    // deutlich schlagen — bei sequenzieller Paarung (1v2 im Halbfinale)
+    // wuerde A/B sich gegenseitig eliminieren.
+    expect(titles.get('A') + titles.get('B')).toBeGreaterThan(titles.get('E') + titles.get('F') + 40)
+  })
 })
 
 describe('aggregateOdds', () => {
