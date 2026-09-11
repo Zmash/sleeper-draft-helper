@@ -98,15 +98,15 @@ Inputs: leagueRosters (useDynastyStore), effRoster/effScoringType (Props),
    `loadSleeperWeekIfStale({ season, week })` — wiederverwendet 6h/24h-TTLs.
 2. `teamStrength(roster)`: `bestLineup` mit projizierten Punkten füllen
    (Sleeper-Week > FP-ROS-Fallback), Summe Starter-Punkte = Stärke. Bye-Weeks
-   aus `playersMeta` werden in der jeweiligen Woche mit 0 gewertet.
+   aus `playersMeta` werden in der jeweiligen Woche mit 0 gewertet. V1-Vereinfachung: die aktuelle Wochenprojektion wird für alle Restwochen fortgeschrieben; Wochen unterscheiden sich nur via Bye-Ausschluss.
 3. Schedule: `fetchMatchups` Rest-Spielplan ab aktueller Woche; fehlende
    Wochen (Playoffs ausserhalb Sleeper-Schedule) werden als
    Seeding-Runde modelliert, nicht als Matchups.
 4. Monte-Carlo: pro Matchup `p Sieg = 1 / (1 + 10^(-delta / 400))`
    (ELO-Modus, delta = Stärke-Differenz in projizierten Punkten, 400 = fixe
    Skala aus V1-Konstante `ELO_SCALE`) oder dieselbe Formel mit
-   delta = (gegnerischer ADP-Rang-Mittel − eigener) im ADP-Modus. 10k Läufe gechunkt, Aggregation zu
-   W-L-Median, Playoff-% (>= playoff_teams nach Seeding), Bye-% (Top-Seeds),
+   delta = (gegnerischer ADP-Rang-Mittel − eigener) im ADP-Modus. 10k Läufe gechunkt,    Aggregation zu
+   W-L-Mittelwert, Playoff-% (>= playoff_teams nach Seeding), Bye-% (Top-Seeds),
    Title-% (K.-o.-Baum nach Sleeper-Playoff-Format: jede Paarung wird probabilistisch mit Last-Week-Stärke simuliert, ohne wochen-spezifische Projektionen).
 5. Dynasty-Modus (`draftMode === 'rookie'`): identischer Pfad, nur
    `dynastyValues` als Tie-Break bei Stärke-Gleichstand (±1 %).

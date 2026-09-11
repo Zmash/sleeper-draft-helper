@@ -1,5 +1,6 @@
 // Saison-Tab: presentational. Alle Daten kommen als sim-Prop herein
 // (useSeasonSim aus Task 5); diese Datei kennt weder Worker noch Stores.
+import { DEFAULT_SIMS } from '../../services/analysis/seasonSim'
 const fmtPct = (v) => `${Number(v || 0).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`
 const fmtWins = (v) => Number(v || 0).toLocaleString('de-DE', { maximumFractionDigits: 1 })
 
@@ -7,7 +8,7 @@ export function SimControls({ sim }) {
   if (sim.state === 'idle') {
     return (
       <div className="an-sim-controls">
-        <p className="an-muted">10.000 Simulationen aus Rest-Spielplan und projizierten Punkten — lokal auf deinem Gerät, ohne KI.</p>
+        <p className="an-muted">{DEFAULT_SIMS.toLocaleString('de-DE')} Simulationen aus Rest-Spielplan und projizierten Punkten — lokal auf deinem Gerät, ohne KI.</p>
         <button type="button" className="an-btn" onClick={sim.onStart}>Simulation starten</button>
       </div>
     )

@@ -5,7 +5,10 @@ import { renderHook, act } from '@testing-library/react'
 // onmessage synchron mit einem Minimal-Ergebnis auf.
 vi.mock('../workers/simWorker.js?worker', () => ({
   default: class {
-    constructor() { this.onmessage = null; this.onerror = null }
+    constructor() {
+      if (globalThis.__SDH_FORCE_NO_WORKER) throw new Error('kein Worker')
+      this.onmessage = null; this.onerror = null
+    }
     postMessage(msg) {
       if (msg?.type === 'run') {
         this.onmessage?.({ data: { type: 'done', results: [{ rosterId: '1', winsAvg: 10, playoffPct: 100, byePct: 50, titlePct: 60 }] } })
@@ -61,5 +64,18 @@ describe('useSeasonSim', () => {
     expect(result.current.state).toBe('done')
     expect(result.current.odds?.length).toBeGreaterThan(0)
     expect(result.current.odds[0].reducedAccuracy).toBe(true)
+  })
+
+  it('Inline-Fallback liefert done wenn kein Worker existiert', async () => {
+    stubFetch()
+    globalThis.__SDH_FORCE_NO_WORKER = true
+    try {
+      const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft' }))
+      await act(async () => { await result.current.start() })
+      expect(result.current.state).toBe('done')
+      expect(result.current.odds?.length).toBeGreaterThan(0)
+    } finally {
+      delete globalThis.__SDH_FORCE_NO_WORKER
+    }
   })
 })

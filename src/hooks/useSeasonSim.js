@@ -62,6 +62,23 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
     workerRef.current = null
   }, [])
 
+  // Liga kann nach dem Mount kommen (async Load, Deep-Link) oder wechseln:
+  // dann zurück auf Start (alte Odds nie stehen lassen).
+  useEffect(() => {
+    runIdRef.current += 1
+    try { workerRef.current?.terminate() } catch {}
+    workerRef.current = null
+    if (league?.league_id) {
+      setState('idle')
+      setUnavailableReason(null)
+    } else {
+      setState('unavailable')
+      setUnavailableReason('Keine Liga ausgewählt.')
+    }
+    setProgress(null)
+    setOdds(null)
+  }, [league?.league_id])
+
   const cancel = useCallback(() => {
     runIdRef.current += 1
     try { workerRef.current?.postMessage({ type: 'cancel' }) } catch {}
@@ -149,6 +166,12 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       const rankMapsByTeam = new Map(
         teams.map((t) => [t.rosterId, buildIdRankMaps({ rosterPlayers: t.rosterPlayers, getRankMap: fresh.getRankMap })])
       )
+      // Echte Tabellenstände für die projizierte Endbilanz (V1: Seeding bleibt
+      // vereinfacht auf Sim-Siegen, siehe Spec — V1.1-Kandidat).
+      // Ties ignoriert (kein Standard-Format).
+      const winsBase = new Map(
+        (rawRosters || []).map((r) => [String(r.roster_id), Number(r.settings?.wins) || 0])
+      )
       // Rest-Spielplan: Matchups currentWeek..playoffWeekStart-1, Fehler pro
       // Woche werden geschluckt (Woche fehlt dann im Schedule = dokumentierte
       // „reduzierte Genauigkeit", kein harter Fehler).
@@ -158,7 +181,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           try {
             const m = await fetchMatchups(league.league_id, w)
             if (alive() && m?.length) matchupsByWeek.set(w, m)
-          } catch {}
+          } catch (e) {
+            console.warn('[useSeasonSim] Matchups übersprungen (Woche wandert nicht in die Sim)', w, e?.message || e)
+          }
         })
       )
       if (!alive()) return
@@ -170,6 +195,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       }
       // Staerke je Team je Simulations-Woche (Bye-bereinigt via bestLineup).
       // Zeilen: [rosterId, punkte, missingCount, dynastyTotal].
+      // V1-Vereinfachung: Wochenprojektionen der AKTUELLEN Woche werden fuer
+      // alle Restwochen fortgeschrieben; Wochen unterscheiden sich nur via
+      // Bye-Ausschluss (Spec § Datenfluss).
       const weeks = [...new Set(schedule.map((g) => g.week))].sort((a, b) => a - b)
       const strengthsByWeek = weeks.map((w) => [w, teams.map((t) => {
         const s = selectAndScore({
@@ -202,7 +230,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           rosterId: String(r.rosterId),
           name: rosterLabel(r.rosterId, { ownerLabels, rosterToUserMap: map }),
           isMine: String(mine ?? '') === String(r.rosterId),
-          winsAvg: r.winsAvg,
+            winsAvg: r.winsAvg + (winsBase.get(String(r.rosterId)) || 0),
           playoffPct: r.playoffPct,
           byePct: r.byePct,
           titlePct: r.titlePct,
@@ -211,6 +239,8 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         setState('done')
         setProgress(null)
       }
+      try { workerRef.current?.terminate() } catch {}
+      workerRef.current = null
       setState('simulating')
       let worker = null
       try { worker = new SimWorker() } catch { worker = null }
@@ -235,12 +265,16 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         else if (msg.type === 'error') {
           setState('unavailable')
           setUnavailableReason('Simulation fehlgeschlagen.')
+          try { workerRef.current?.terminate() } catch {}
+          workerRef.current = null
         }
       }
       worker.onerror = () => {
         if (!alive()) return
         setState('unavailable')
         setUnavailableReason('Simulation fehlgeschlagen.')
+        try { workerRef.current?.terminate() } catch {}
+        workerRef.current = null
       }
       worker.postMessage({
         type: 'run',
