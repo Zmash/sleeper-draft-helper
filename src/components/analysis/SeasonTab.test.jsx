@@ -19,6 +19,7 @@ describe('SeasonTab', () => {
     render(<SeasonTab sim={doneSim} />)
     expect(screen.getByText('Team A')).toBeTruthy()
     expect(screen.getByText('82,4 %')).toBeTruthy()
+    expect(screen.getByText('Team A').closest('tr')).toHaveClass('is-mine')
   })
   it('zeigt reducedAccuracy-Badge statt falscher Praezision', () => {
     render(<SeasonTab sim={doneSim} />)
