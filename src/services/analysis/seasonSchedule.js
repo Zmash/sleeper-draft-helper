@@ -23,12 +23,14 @@ export function buildRemainingSchedule({ matchupsByWeek, fromWeek }) {
   return out
 }
 
-// Playoff-Format: Feld-Konvention wie ai.js:267 (league.playoff_start_week)
-// zuerst, dann settings.playoff_week_start, Default 15. Team-Anzahl aus
-// settings.playoff_teams_count, Default 6 (haeufigstes Sleeper-Format).
+// Playoff-Format: echte Sleeper-Felder zuerst (settings.playoff_teams,
+// settings.playoff_week_start — verifiziert 2026-09-11 am FFL-Bochum-Objekt),
+// dann ai.js-Konvention (league.playoff_start_week), dann Defaults 15/6.
+// Die falsche Reihenfolge fiel nie auf, weil der Fallback hier zufaellig
+// stimmte — in Ligen mit anderem Format waere sie falsch gewesen.
 export function playoffCutoff({ league }) {
-  const start = Number(league?.playoff_start_week ?? league?.settings?.playoff_week_start)
-  const teams = Number(league?.settings?.playoff_teams_count)
+  const start = Number(league?.settings?.playoff_week_start ?? league?.playoff_start_week)
+  const teams = Number(league?.settings?.playoff_teams ?? league?.settings?.playoff_teams_count)
   return {
     playoffWeekStart: Number.isFinite(start) && start > 0 ? start : 15,
     playoffTeams: Number.isFinite(teams) && teams > 0 ? teams : 6,

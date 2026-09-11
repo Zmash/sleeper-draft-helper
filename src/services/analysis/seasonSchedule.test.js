@@ -29,8 +29,14 @@ describe('buildRemainingSchedule', () => {
 })
 
 describe('playoffCutoff', () => {
-  it('liest ai.js-Konvention playoff_start_week zuerst', () => {
-    expect(playoffCutoff({ league: { playoff_start_week: 15, settings: { playoff_week_start: 14, playoff_teams_count: 8 } } }))
+  it('echte Sleeper-Felder (settings) haben Vorrang', () => {
+    expect(playoffCutoff({ league: {
+      playoff_start_week: 99,
+      settings: { playoff_week_start: 14, playoff_teams: 8, playoff_teams_count: 4 },
+    } })).toEqual({ playoffWeekStart: 14, playoffTeams: 8 })
+  })
+  it('ai.js-Konvention als Fallback, dann Defaults', () => {
+    expect(playoffCutoff({ league: { playoff_start_week: 15, settings: { playoff_teams_count: 8 } } }))
       .toEqual({ playoffWeekStart: 15, playoffTeams: 8 })
   })
   it('faellt auf settings.playoff_week_start und 6 Teams zurueck', () => {
