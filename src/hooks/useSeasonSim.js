@@ -278,7 +278,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       }
       worker.postMessage({
         type: 'run',
-        payload: { strengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload },
+        // Worker-Protokoll: strengthsByWeek (Array-Paare) — der Worker liest
+        // p.strengthsByWeek; falscher Key = leere Map = alle W-L bei 7.
+        payload: { strengthsByWeek: strengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload },
       })
     } catch (e) {
       console.warn('[useSeasonSim] failed', e)

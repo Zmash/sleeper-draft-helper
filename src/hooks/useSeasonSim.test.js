@@ -10,6 +10,7 @@ vi.mock('../workers/simWorker.js?worker', () => ({
       this.onmessage = null; this.onerror = null
     }
     postMessage(msg) {
+      try { (globalThis.__SDH_WORKER_MSGS ||= []).push(msg) } catch {}
       if (msg?.type === 'run') {
         this.onmessage?.({ data: { type: 'done', results: [{ rosterId: '1', winsAvg: 10, playoffPct: 100, byePct: 50, titlePct: 60 }] } })
       }
@@ -66,8 +67,7 @@ describe('useSeasonSim', () => {
     expect(result.current.odds[0].reducedAccuracy).toBe(true)
   })
 
-  it('Inline-Fallback liefert done wenn kein Worker existiert', async () => {
-    stubFetch()
+  it('Inline-Fallback liefert done wenn kein Worker existiert', async () => {    stubFetch()
     globalThis.__SDH_FORCE_NO_WORKER = true
     try {
       const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft' }))
@@ -76,6 +76,24 @@ describe('useSeasonSim', () => {
       expect(result.current.odds?.length).toBeGreaterThan(0)
     } finally {
       delete globalThis.__SDH_FORCE_NO_WORKER
+    }
+  })
+
+  it('postet strengthsByWeek (Worker-Protokoll) an den Worker', async () => {
+    // Regression: der Worker las p.strengthsByWeek, der Hook postete
+    // strengthsPayload — der Worker simulierte mit leerer Map (alle W-L = 7).
+    stubFetch()
+    globalThis.__SDH_WORKER_MSGS = []
+    try {
+      const { result } = renderHook(() => useSeasonSim({ league, seasonYear: 2026, scoringType: 'ppr', rosterPositions: league.roster_positions, ownerLabels: new Map(), draftMode: 'redraft' }))
+      await act(async () => { await result.current.start() })
+      const run = globalThis.__SDH_WORKER_MSGS.find((m) => m?.type === 'run')
+      expect(run).toBeTruthy()
+      expect(Array.isArray(run.payload.strengthsByWeek)).toBe(true)
+      expect(run.payload.strengthsByWeek.length).toBeGreaterThan(0)
+      expect(run.payload.strengthsByWeek[0][1].length).toBeGreaterThan(0)
+    } finally {
+      delete globalThis.__SDH_WORKER_MSGS
     }
   })
 })
