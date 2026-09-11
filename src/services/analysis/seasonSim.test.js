@@ -111,8 +111,7 @@ describe('simulateSeason', () => {
     const r = simulateSeason({ strengthsByWeek, schedule, playoffTeams: 2, seed: 3, dynastyTotals: dt })
     expect(r.topSeeds[0]).toBe('1')
   })
-  it('Reseeding: Top-Seeds holen ueber 100 Saisons mehr Titel als Bottom-Seeds', () => {
-    const ids = ['A', 'B', 'C', 'D', 'E', 'F']
+  it('Reseeding: Top-Seeds holen ueber 100 Saisons mehr Titel als Bottom-Seeds', () => {    const ids = ['A', 'B', 'C', 'D', 'E', 'F']
     const str = new Map([[1, new Map([['A', 150], ['B', 130], ['C', 110], ['D', 90], ['E', 70], ['F', 50]])]])
     const sched = [
       { week: 1, a: 'A', b: 'F' }, { week: 1, a: 'B', b: 'E' }, { week: 1, a: 'C', b: 'D' },
@@ -127,6 +126,25 @@ describe('simulateSeason', () => {
     // deutlich schlagen — bei sequenzieller Paarung (1v2 im Halbfinale)
     // wuerde A/B sich gegenseitig eliminieren.
     expect(titles.get('A') + titles.get('B')).toBeGreaterThan(titles.get('E') + titles.get('F') + 40)
+  })
+  it('Playoff-Baum nutzt playoffStrengths (volle Kader, keine Bye-Luecken)', () => {
+    // Regular Season: X/Y klar vorne (Top-Seeds). Playoff-Staerke umgekehrt:
+    // X faellt auf 40 (W14-Bye-Loch), Y bleibt bei 150.
+    const str = new Map([[1, new Map([['X', 150], ['Y', 140], ['Z', 60], ['W', 50]])]])
+    const sched = [
+      { week: 1, a: 'X', b: 'Z' }, { week: 1, a: 'Y', b: 'W' },
+      { week: 1, a: 'X', b: 'W' }, { week: 1, a: 'Y', b: 'Z' },
+    ]
+    const playoff = new Map([['X', 40], ['Y', 150], ['Z', 60], ['W', 50]])
+    const titles = new Map([['X', 0], ['Y', 0], ['Z', 0], ['W', 0]])
+    for (let s = 0; s < 60; s++) {
+      const r = simulateSeason({ strengthsByWeek: str, schedule: sched, playoffTeams: 4, seed: 5000 + s, playoffStrengths: playoff })
+      titles.set(r.champion, (titles.get(r.champion) || 0) + 1)
+    }
+    // Y (Top-Seed UND staerkster Playoff-Kader) dominiert; X trotz Top-Seed
+    // fast ohne Titel wegen Bye-Loch. Ohne playoffStrengths waere X Favorit.
+    expect(titles.get('Y')).toBeGreaterThan(40)
+    expect(titles.get('X')).toBeLessThan(15)
   })
 })
 

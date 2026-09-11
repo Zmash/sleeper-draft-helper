@@ -24,6 +24,7 @@ self.onmessage = (e) => {
       strengthsByWeek.set(Number(week), toMap(pairs))
     }
     const dynastyTotals = p.dynastyTotals ? toMap(p.dynastyTotals) : null
+    const playoffStrengths = p.playoffStrengths ? toMap(p.playoffStrengths) : null
     const schedule = (p.schedule || []).map((g) => ({ week: Number(g.week), a: String(g.a), b: String(g.b) }))
     const sims = Math.max(1, Number(p.sims) || 1)
     const rosterIds = [...new Set(schedule.flatMap((g) => [g.a, g.b]))]
@@ -39,6 +40,7 @@ self.onmessage = (e) => {
           playoffTeams: p.playoffTeams,
           seed: (Number(p.seed) || 0) + done + i,
           dynastyTotals,
+          playoffStrengths,
         }))
       }
       self.postMessage({ type: 'progress', done: Math.min(done + n, sims), total: sims })

@@ -63,7 +63,7 @@ export function pointsFieldFor(scoringType) {
 // mit der Last-Week-Staerke simuliert wird (keine wochen-spezifischen
 // Projektionen im Baum -- V1-Vereinfachung, im Spec dokumentiert).
 // Freilose nach byeCountFor (6 Teams -> Top-2-Seeds).
-export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null }) {
+export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null, playoffStrengths = null }) {
   const rng = mulberry32(seed)
   const teams = Math.max(2, Number(playoffTeams) || 2)
   const wins = new Map()
@@ -71,6 +71,14 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
     const w = strengthsByWeek?.get(week)
     const v = w?.get(String(id))
     return Number.isFinite(Number(v)) ? Number(v) : 0
+  }
+  // K.-o.-Baum (Wochen 15+, keine Byes mehr): volle Kader-Staerke ohne
+  // Bye-Ausschluss. Fallback Last-Week-Staerke (alte Aufrufer/Tests).
+  const bracketStrengthOf = (id) => {
+    const v = playoffStrengths?.get(String(id))
+    if (Number.isFinite(Number(v))) return Number(v)
+    const lastWeek = Math.max(...(schedule || []).map((g) => Number(g.week) || 0), 0)
+    return strengthOf(lastWeek, id)
   }
   const pFor = (week, a, b) => matchWinProbability(
     strengthOf(week, a) - strengthOf(week, b),
@@ -87,11 +95,10 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
   }
   const ids = [...wins.keys()]
   if (!ids.length) return { wins, champion: null, topSeeds: [] }
-  const lastWeek = Math.max(...(schedule || []).map((g) => Number(g.week) || 0), 0)
   const ranked = [...ids].sort((x, y) => {
     const dw = wins.get(y) - wins.get(x)
     if (dw !== 0) return dw
-    return strengthOf(lastWeek, y) - strengthOf(lastWeek, x)
+    return bracketStrengthOf(y) - bracketStrengthOf(x)
   })
   const cut = ranked.slice(0, Math.min(teams, ranked.length))
   // Echter Single-Elim-Baum mit Reseeding: pro Runde spielt der beste
@@ -107,7 +114,11 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
     while (lo < hi) {
       const x = ordered[lo++]
       const y = ordered[hi--]
-      winners.push(rng() < pFor(lastWeek, x.id, y.id) ? x : y)
+      const d = bracketStrengthOf(x.id) - bracketStrengthOf(y.id)
+      const p = matchWinProbability(d,
+        dynastyTotals?.get(String(x.id)) ?? null,
+        dynastyTotals?.get(String(y.id)) ?? null)
+      winners.push(rng() < p ? x : y)
     }
     if (lo === hi) winners.push(ordered[lo])
     return winners

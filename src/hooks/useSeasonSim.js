@@ -28,17 +28,18 @@ function rosterLabel(rosterId, { ownerLabels, rosterToUserMap }) {
 
 // R3: Sync-Fallback fuer WebViews ohne Worker — gleiche Sims, gechunkt mit
 // Yield pro Chunk, damit die UI nicht einfriert.
-async function runInline({ strengthsPayload, schedule, playoffTeams, dynastyTotals, sims, seed, onProgress, isAlive }) {
+async function runInline({ strengthsPayload, schedule, playoffTeams, dynastyTotals, playoffStrengths, sims, seed, onProgress, isAlive }) {
   const { simulateSeason, aggregateOdds, SIM_CHUNK } = await import('../services/analysis/seasonSim')
   const strengthsByWeek = new Map(strengthsPayload.map(([w, rows]) => [Number(w), new Map(rows)]))
   const dynMap = dynastyTotals ? new Map(dynastyTotals) : null
+  const playoffMap = playoffStrengths ? new Map(playoffStrengths) : null
   const rosterIds = [...new Set(schedule.flatMap((g) => [g.a, g.b]))]
   const results = []
   for (let done = 0; done < sims; done += SIM_CHUNK) {
     if (!isAlive()) return null
     const n = Math.min(SIM_CHUNK, sims - done)
     for (let i = 0; i < n; i++) {
-      results.push(simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed: seed + done + i, dynastyTotals: dynMap }))
+      results.push(simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed: seed + done + i, dynastyTotals: dynMap, playoffStrengths: playoffMap }))
     }
     onProgress({ done: Math.min(done + n, sims), total: sims })
     await new Promise((r) => setTimeout(r, 0))
@@ -223,6 +224,20 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       const dynastyTotalsPayload = draftMode === 'rookie'
         ? (strengthsByWeek[0]?.[1] || []).map(([id, , , dt]) => [id, Number(dt) || 0])
         : null
+      // Playoff-Baum (Wochen 15+, keine Byes): volle Kader-Staerke ohne
+      // Bye-Ausschluss statt Last-Week-Staerke.
+      const playoffStrengthsPayload = teams.map((t) => {
+        const s = selectAndScore({
+          rosterPlayers: t.rosterPlayers,
+          rosterPositions: positions,
+          rankMaps: rankMapsByTeam.get(t.rosterId),
+          byeWeek: null,
+          pointsById,
+          field,
+          dynastyValuesByName: null,
+        })
+        return [t.rosterId, s.points]
+      })
       // Spiele je Team (fuer Record-Format) + mittleres Rating (fuer
       // Rating-Spalte) aus Schedule bzw. Wochen-Staerken.
       const gamesByTeam = new Map()
@@ -270,6 +285,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         // R3 Sync-Fallback (alte WebViews ohne Worker).
         const inline = await runInline({
           strengthsPayload, schedule, playoffTeams, dynastyTotals: dynastyTotalsPayload,
+          playoffStrengths: playoffStrengthsPayload,
           sims: DEFAULT_SIMS, seed: Date.now() % 100000,
           onProgress: (p) => { if (alive()) setProgress(p) },
           isAlive: alive,
@@ -302,7 +318,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         type: 'run',
         // Worker-Protokoll: strengthsByWeek (Array-Paare) — der Worker liest
         // p.strengthsByWeek; falscher Key = leere Map = alle W-L bei 7.
-        payload: { strengthsByWeek: strengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload },
+        payload: { strengthsByWeek: strengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload, playoffStrengths: playoffStrengthsPayload },
       })
     } catch (e) {
       console.warn('[useSeasonSim] failed', e)
