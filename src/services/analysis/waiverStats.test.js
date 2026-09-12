@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from './waiverStats'
 
 describe('matchKey', () => {
   it('returns NAME: for non-DEF positions', () => {
@@ -302,6 +302,85 @@ describe('bestLineup — Lineup-Lock (bereits gespielte Starter)', () => {
     })
     const rbSlot = out.slots.find((s) => s.slot === 'RB')
     expect(rbSlot.player?.sleeper_id).toBe('2')
+  })
+})
+
+describe('irRecommendations', () => {
+  const rosterPositions = ['QB', 'RB', 'RB', 'WR', 'WR', 'BN', 'BN', 'IR', 'IR']
+
+  it('empfiehlt aktive Out/IR-Spieler auf freie IR-Slots, sortiert nach Prioritaet', () => {
+    const roster = [
+      { sleeper_id: '1', pos: 'RB', slot: 'starter', injury_status: null },
+      { sleeper_id: '2', pos: 'WR', slot: 'bench', injury_status: 'Out' },
+      { sleeper_id: '3', pos: 'WR', slot: 'bench', injury_status: 'IR' },
+      { sleeper_id: '4', pos: 'RB', slot: 'bench', injury_status: 'Questionable' },
+    ]
+    const out = irRecommendations({ myRosterPlayers: roster, rosterPositions })
+    expect(out.freeIrSlots).toBe(2) // 2 IR-Slots, aktuell niemand auf IR
+    expect(out.toIR.map((p) => p.sleeper_id)).toEqual(['3', '2']) // IR vor Out
+    expect(out.toIR).toHaveLength(2)
+  })
+
+  it('begrenzt auf die Anzahl freier Slots, wenn mehr Kandidaten als Platz da sind', () => {
+    const roster = [
+      { sleeper_id: '1', pos: 'WR', slot: 'bench', injury_status: 'Out' },
+      { sleeper_id: '2', pos: 'WR', slot: 'bench', injury_status: 'Sus' },
+      { sleeper_id: '3', pos: 'WR', slot: 'bench', injury_status: 'PUP' },
+    ]
+    const out = irRecommendations({
+      myRosterPlayers: roster,
+      rosterPositions: ['QB', 'BN', 'IR'], // nur 1 IR-Slot
+    })
+    expect(out.freeIrSlots).toBe(1)
+    expect(out.toIR.map((p) => p.sleeper_id)).toEqual(['3']) // PUP schlaegt Sus/Out
+  })
+
+  it('erkennt einen wieder gesunden IR-Spieler und meldet ihn als Ruecckehrer', () => {
+    const roster = [
+      { sleeper_id: '5', pos: 'WR', slot: 'ir', injury_status: null }, // wieder gesund
+      { sleeper_id: '6', pos: 'RB', slot: 'ir', injury_status: 'IR' }, // bleibt
+    ]
+    const out = irRecommendations({ myRosterPlayers: roster, rosterPositions })
+    expect(out.offIR.map((p) => p.sleeper_id)).toEqual(['5'])
+  })
+
+  it('ohne genug Bankplatz fuer die Ruecckehr: overflow>0 und Drop-Vorschlag nach Rang (schlechtester zuerst)', () => {
+    // 1 Starter-Slot + 2 BN-Slots + 1 IR-Slot = 3 aktive Slots, exakt von den
+    // 3 aktiven Spielern belegt; der IR-Rueckkehrer braucht einen vierten Platz.
+    const positions = ['RB', 'BN', 'BN', 'IR']
+    const roster = [
+      { sleeper_id: '1', pos: 'RB', slot: 'starter', injury_status: null },
+      { sleeper_id: '2', pos: 'RB', slot: 'bench', injury_status: null },
+      { sleeper_id: '3', pos: 'RB', slot: 'bench', injury_status: null },
+      { sleeper_id: '9', pos: 'WR', slot: 'ir', injury_status: null }, // gesund, muss zurueck
+    ]
+    const dropRankByKey = new Map([['ID:2', 5], ['ID:3', 40]]) // 3 ist schlechter (hoeherer Rang)
+    const out = irRecommendations({ myRosterPlayers: roster, rosterPositions: positions, dropRankByKey })
+    expect(out.offIR.map((p) => p.sleeper_id)).toEqual(['9'])
+    expect(out.overflow).toBe(1)
+    expect(out.dropCandidates.map((p) => p.sleeper_id)).toEqual(['3'])
+  })
+
+  it('IR<->Bank-Tausch gleicht sich aus: kein falscher Drop-Vorschlag, wenn toIR und offIR sich saldieren', () => {
+    // 1 IR-Slot, aktuell belegt von einem jetzt gesunden Spieler (muss raus) --
+    // gleichzeitig ein Bank-Spieler, der neu auf denselben Slot koennte.
+    const positions = ['RB', 'BN', 'IR']
+    const roster = [
+      { sleeper_id: '1', pos: 'RB', slot: 'starter', injury_status: null },
+      { sleeper_id: '2', pos: 'RB', slot: 'bench', injury_status: 'Out' }, // kann auf IR
+      { sleeper_id: '9', pos: 'WR', slot: 'ir', injury_status: null }, // gesund, muss zurueck
+    ]
+    const out = irRecommendations({ myRosterPlayers: roster, rosterPositions: positions })
+    expect(out.toIR.map((p) => p.sleeper_id)).toEqual(['2'])
+    expect(out.offIR.map((p) => p.sleeper_id)).toEqual(['9'])
+    expect(out.overflow).toBe(0) // Tausch gleicht sich aus, kein Drop noetig
+    expect(out.dropCandidates).toEqual([])
+  })
+
+  it('ohne Kandidaten/Ruecckehrer bleibt alles leer', () => {
+    const roster = [{ sleeper_id: '1', pos: 'RB', slot: 'starter', injury_status: null }]
+    const out = irRecommendations({ myRosterPlayers: roster, rosterPositions })
+    expect(out).toEqual({ freeIrSlots: 2, toIR: [], offIR: [], overflow: 0, dropCandidates: [] })
   })
 })
 

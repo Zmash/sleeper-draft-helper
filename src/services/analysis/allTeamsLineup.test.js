@@ -68,6 +68,46 @@ describe('allTeamsLineup', () => {
     expect(outRow.reasons).not.toContain('suboptimal')
   })
 
+  it('markiert IR-faehige Bankspieler mit freiem IR-Slot gelb ("ir-open")', () => {
+    const teamWithIr = {
+      leagueId: 'l3', leagueName: 'Liga C', week: '5',
+      roster: [{ sleeper_id: '20', name: 'Bank Out', pos: 'RB', bye: '9', injury_status: 'Out' }],
+      actualStarterIds: [], recommendedStarterIds: [],
+      irToMoveIds: ['20'],
+    }
+    const rows = buildAllTeamsRows({ teams: [teamWithIr] })
+    const row = rows.find((r) => r.player.sleeper_id === '20')
+    expect(row.severity).toBe('yellow')
+    expect(row.reasons).toContain('ir-open')
+  })
+
+  it('Ruecckehrer von IR ohne freien Platz ist rot, mit Platz nur gelb', () => {
+    const base = {
+      leagueId: 'l4', leagueName: 'Liga D', week: '5',
+      roster: [{ sleeper_id: '21', name: 'Wieder Gesund', pos: 'WR', bye: '9', injury_status: null }],
+      actualStarterIds: [], recommendedStarterIds: [],
+      irReturningIds: ['21'],
+    }
+    const rowsNoRoom = buildAllTeamsRows({ teams: [{ ...base, irOverflow: true }] })
+    expect(rowsNoRoom[0].severity).toBe('red')
+    expect(rowsNoRoom[0].reasons).toContain('ir-return')
+
+    const rowsWithRoom = buildAllTeamsRows({ teams: [{ ...base, irOverflow: false }] })
+    expect(rowsWithRoom[0].severity).toBe('yellow')
+  })
+
+  it('markiert den vorgeschlagenen Drop-Kandidaten gelb ("drop-candidate")', () => {
+    const team = {
+      leagueId: 'l5', leagueName: 'Liga E', week: '5',
+      roster: [{ sleeper_id: '22', name: 'Schwacher Bankspieler', pos: 'WR', bye: '9', injury_status: null }],
+      actualStarterIds: [], recommendedStarterIds: [],
+      dropCandidateIds: ['22'],
+    }
+    const rows = buildAllTeamsRows({ teams: [team] })
+    expect(rows[0].severity).toBe('yellow')
+    expect(rows[0].reasons).toContain('drop-candidate')
+  })
+
   it('zählt Warnstufen für die Kopfzeile', () => {
     const rows = buildAllTeamsRows({ teams: [teamA, teamB] })
     const counts = countBySeverity(rows)

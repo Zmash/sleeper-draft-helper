@@ -2,14 +2,17 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup.js'
-import { bestLineup, matchKey, freeAgents, pickupRanking, lockedStarterSlots } from '../services/analysis/waiverStats.js'
+import { bestLineup, matchKey, freeAgents, pickupRanking, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats.js'
 import { normalizePlayerName } from '../utils/formatting.js'
 import { fantasyProsPositionUrl, extractEcrData, normalizeFantasyProsPlayer, espnScoreboardUrl, extractGameStatusByTeam } from './rankings.js'
 
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1'
 const FP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
 
-const REASON_TEXT = { bye: 'Bye', out: 'Out', suboptimal: 'Bank?', 'better-on-bench': 'Starten?', questionable: 'Fraglich' }
+const REASON_TEXT = {
+  bye: 'Bye', out: 'Out', suboptimal: 'Bank?', 'better-on-bench': 'Starten?', questionable: 'Fraglich',
+  'ir-return': 'Von IR zurück', 'ir-open': 'Auf IR?', 'drop-candidate': 'Droppen?',
+}
 
 export function composeMessage({ warnings = [], pickups = [], type = 'morning' } = {}) {
   const relevant = warnings.filter((w) => w.severity === 'red' || w.severity === 'yellow')
@@ -212,18 +215,25 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
     const mine = (rosters || []).find((r) => String(r.owner_id) === String(userId))
     if (!mine) continue
     const starterSet = new Set((mine.starters || []).map(String))
-    // Kader-Spielerform wie LineupPage.jsx:168-183.
+    const taxiSet = new Set((mine.taxi || []).map(String))
+    const reserveSet = new Set((mine.reserve || []).map(String))
+    // Kader-Spielerform wie LineupPage.jsx:168-183, plus slot (Muster aus
+    // useDynastyStore.js) -- ohne slot wuesste irRecommendations() nie, wer
+    // schon auf IR liegt, und wuerde nie einen Ruecckehrer erkennen.
     const roster = (mine.players || []).map((id) => {
       const m = meta[String(id)] || {}
       const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || `#${id}`
+      const sid = String(id)
+      const slot = taxiSet.has(sid) ? 'taxi' : reserveSet.has(sid) ? 'ir' : starterSet.has(sid) ? 'starter' : 'bench'
       return {
-        sleeper_id: String(id),
+        sleeper_id: sid,
         name,
         nname: normalizePlayerName(name),
         pos: (m.fantasy_positions?.[0] || m.position || '').toUpperCase(),
         team: m.team || '',
         bye: m.bye_week != null ? String(m.bye_week) : '',
         injury_status: m.injury_status || null,
+        slot,
       }
     })
     let ranks
@@ -260,6 +270,15 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
         recommended = [...starterSet]
       }
     }
+    // IR-Verwaltung: freie IR-Slots mit Out/IR-Spielern befuellen, gesunde
+    // IR-Ruecckehrer melden, bei Platzmangel einen Drop vorschlagen. Braucht
+    // ebenfalls die Slot-Reihenfolge (positions) fuer die IR-Slot-Anzahl.
+    // dropRankByKey: die Wochenrang-Map dient als Naeherung fuer Kaderwert --
+    // ROS/Dynasty-Wert wird hier nicht geladen (kein Zusatz-Request je Lauf),
+    // ponytail: bei Bedarf durch echten ROS-/Dynasty-Wert ersetzen.
+    const ir = positions
+      ? irRecommendations({ myRosterPlayers: roster, rosterPositions: positions, dropRankByKey: ranks?.weeklyById || new Map() })
+      : { toIR: [], offIR: [], overflow: 0, dropCandidates: [] }
     teams.push({
       leagueId,
       leagueName,
@@ -268,6 +287,10 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
       actualStarterIds: [...starterSet],
       recommendedStarterIds: recommended,
       lockedStarterIds: lockedSlots.map((l) => l.sleeper_id),
+      irToMoveIds: ir.toIR.map((p) => p.sleeper_id),
+      irReturningIds: ir.offIR.map((p) => p.sleeper_id),
+      dropCandidateIds: ir.dropCandidates.map((p) => p.sleeper_id),
+      irOverflow: ir.overflow > 0,
     })
     try {
       const picks = (await d.rosPicks({ league, rosters, meta, week })) || []

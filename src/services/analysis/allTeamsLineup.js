@@ -9,7 +9,7 @@ const posRank = (pos) => {
   return i === -1 ? 99 : i
 }
 
-function severityFor({ player, isStarter, week, recommendedSet, lockedSet }) {
+function severityFor({ player, isStarter, week, recommendedSet, lockedSet, irToMoveSet, irReturningSet, dropCandidateSet, irOverflow }) {
   const reasons = []
   const id = String(player?.sleeper_id ?? player?.player_id ?? '')
   const isRecommended = recommendedSet.has(id)
@@ -25,8 +25,17 @@ function severityFor({ player, isStarter, week, recommendedSet, lockedSet }) {
   } else if (isRecommended) {
     reasons.push('better-on-bench')
   }
+  // IR-Verwaltung: unabhaengig von Starter/Bank -- ein Spieler kann auf der
+  // Bank sitzen und trotzdem IR-faehig sein, oder auf IR liegen und trotzdem
+  // wieder gesund sein (dann ist er nie "Starter" im obigen Sinn).
+  if (irToMoveSet?.has(id)) reasons.push('ir-open')
+  if (irReturningSet?.has(id)) reasons.push('ir-return')
+  if (dropCandidateSet?.has(id)) reasons.push('drop-candidate')
   let severity = 'green'
   if (reasons.includes('bye') || reasons.includes('out')) severity = 'red'
+  // Ruecckehr ohne freien Platz ist der einzige IR-Fall mit echtem
+  // Handlungsdruck (die Aufstellung wird sonst regelwidrig) -- rot statt gelb.
+  else if (reasons.includes('ir-return') && irOverflow) severity = 'red'
   else if (reasons.length > 0) severity = 'yellow'
   // Fragliche Spieler (Q) aufgestellt: gelb, auch wenn empfohlen.
   if (isStarter && severity === 'green' && ['Questionable', 'Q'].includes(player?.injury_status)) {
@@ -42,11 +51,16 @@ export function buildAllTeamsRows({ teams = [] } = {}) {
     const actual = new Set((t.actualStarterIds || []).map(String))
     const recommended = new Set((t.recommendedStarterIds || []).map(String))
     const locked = new Set((t.lockedStarterIds || []).map(String))
+    const irToMove = new Set((t.irToMoveIds || []).map(String))
+    const irReturning = new Set((t.irReturningIds || []).map(String))
+    const dropCandidates = new Set((t.dropCandidateIds || []).map(String))
     for (const p of t.roster || []) {
       const id = String(p.sleeper_id ?? p.player_id ?? '')
       const isStarter = actual.has(id)
       const { severity, reasons, isRecommended } = severityFor({
         player: p, isStarter, week: t.week, recommendedSet: recommended, lockedSet: locked,
+        irToMoveSet: irToMove, irReturningSet: irReturning, dropCandidateSet: dropCandidates,
+        irOverflow: !!t.irOverflow,
       })
       rows.push({
         leagueId: t.leagueId,

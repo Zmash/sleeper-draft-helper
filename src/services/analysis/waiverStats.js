@@ -234,3 +234,62 @@ export function compareToActualStarters({ recommendedSlots = [], actualStarterId
   const isOptimal = diffs.length === 0 && actual.size === recommendedIds.size
   return { isOptimal, diffs }
 }
+
+// Sleepers eigene IR-Regel (Support-Doku, verifiziert 2026-09-12): nur diese
+// vier Status machen einen Spieler IR-faehig. "Doubtful"/"Questionable" NICHT --
+// das sind reine Wochen-Spielstatus, kein Long-Term-Signal, Sleeper blockt den
+// Slot-Wechsel dafuer in der eigenen UI.
+const IR_ELIGIBLE_STATUSES = new Set(['Out', 'Sus', 'IR', 'PUP'])
+
+// Prioritaet, wenn mehr IR-faehige Spieler als freie Slots vorhanden sind:
+// echte IR-Meldung zuerst (laengster Ausfall zu erwarten), "Out" zuletzt
+// (kommt am ehesten schon naechste Woche zurueck, Slot lohnt sich weniger).
+const IR_PRIORITY = { IR: 0, PUP: 1, Sus: 2, Out: 3 }
+
+/**
+ * IR-Verwaltung: welche aktiven (Bank/Starter-)Spieler koennten auf einen
+ * freien IR-Slot, welche IR-Spieler sind wieder gesund und muessen zurueck,
+ * und -- falls dafuer kein Platz ist -- wer sollte dafuer gedroppt werden.
+ *
+ * dropRankByKey: 'ID:<sleeper_id>' -> Zahl, EINE Konvention fuer beide Modi:
+ * niedriger = werthaltiger (behalten), hoeher = eher droppen (wie ECR-Rang).
+ * Fuer Dynasty-Werte muss der Aufrufer daher den NEGIERTEN Wert eintragen
+ * (hoher Wert -> stark negative Zahl -> "auf keinen Fall droppen").
+ */
+export function irRecommendations({ myRosterPlayers = [], rosterPositions = [], dropRankByKey = new Map() } = {}) {
+  const irSlots = rosterPositions.filter((s) => s === 'IR').length
+  const activeSlots = rosterPositions.filter((s) => s !== 'IR' && s !== 'TAXI').length
+
+  const onIR = myRosterPlayers.filter((p) => p.slot === 'ir')
+  const active = myRosterPlayers.filter((p) => p.slot !== 'ir' && p.slot !== 'taxi')
+
+  // Wieder gesund: auf IR, aber der aktuelle Status ist nicht mehr IR-faehig.
+  const offIR = onIR.filter((p) => !IR_ELIGIBLE_STATUSES.has(p.injury_status))
+  const stayingOnIR = onIR.length - offIR.length
+  // Slots, die frei werden/sind, NACHDEM die Ruecckehrer die IR verlassen haben --
+  // sonst wuerde ein Spieler, dessen IR-Slot gerade erst frei wird, uebersehen.
+  const freeIrSlots = Math.max(0, irSlots - stayingOnIR)
+
+  const irCandidates = active
+    .filter((p) => IR_ELIGIBLE_STATUSES.has(p.injury_status))
+    .sort((a, b) => (IR_PRIORITY[a.injury_status] ?? 9) - (IR_PRIORITY[b.injury_status] ?? 9))
+  const toIR = irCandidates.slice(0, freeIrSlots)
+
+  // Nettoeffekt auf die aktiven Slots, wenn ALLE Empfehlungen zusammen
+  // umgesetzt werden (toIR raus, offIR rein) -- ein reiner IR<->Bank-Tausch
+  // aendert die Belegung sonst faelschlich, wenn man beide Seiten einzeln
+  // zaehlt statt den Saldo zu bilden.
+  const toIrIds = new Set(toIR.map((p) => p.sleeper_id))
+  const newActiveCount = active.length - toIR.length + offIR.length
+  const overflow = Math.max(0, newActiveCount - activeSlots)
+
+  const dropRankOf = (p) => dropRankByKey.get(`ID:${p.sleeper_id}`) ?? Infinity
+  const dropCandidates = overflow > 0
+    ? active
+        .filter((p) => p.slot === 'bench' && !toIrIds.has(p.sleeper_id))
+        .sort((a, b) => dropRankOf(b) - dropRankOf(a))
+        .slice(0, overflow)
+    : []
+
+  return { freeIrSlots, toIR, offIR, overflow, dropCandidates }
+}

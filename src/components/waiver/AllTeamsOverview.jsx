@@ -8,10 +8,13 @@ const REASON_LABEL = {
   suboptimal: 'Bank?',
   'better-on-bench': 'Starten?',
   questionable: 'Fraglich',
+  'ir-return': 'Von IR zurück',
+  'ir-open': 'Auf IR?',
+  'drop-candidate': 'Droppen?',
 }
 
 // Mehrere Gründe -> der wichtigste zuerst (Bye/Out schlägt alles).
-const REASON_PRIORITY = ['bye', 'out', 'questionable', 'suboptimal', 'better-on-bench']
+const REASON_PRIORITY = ['bye', 'out', 'ir-return', 'questionable', 'suboptimal', 'better-on-bench', 'ir-open', 'drop-candidate']
 function primaryReason(reasons = []) {
   for (const key of REASON_PRIORITY) {
     if (reasons.includes(key)) return REASON_LABEL[key]
@@ -98,7 +101,8 @@ export default function AllTeamsOverview({ rows = [], loading = false, onSelectP
         })}
       </div>
       <p className="an-card-basis">
-        Rot: aufgestellt, spielt aber nicht (Bye/Out) · Gelb: bessere Bank-Option oder fraglich · Klick öffnet Details.
+        Rot: aufgestellt, spielt aber nicht (Bye/Out), oder muss ohne freien Platz von IR zurück ·
+        Gelb: bessere Bank-Option, fraglich, freier IR-Slot oder Drop-Vorschlag · Klick öffnet Details.
       </p>
     </div>
   )

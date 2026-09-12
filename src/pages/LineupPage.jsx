@@ -9,7 +9,7 @@ import { useTrendingPlayers } from '../hooks/useTrendingPlayers'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { fetchNflState, fetchMatchups, fetchLeagueRosters } from '../services/api'
 import { effScoringTypeToFpParam } from '../services/draftFormat'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots } from '../services/analysis/waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup'
 import { normalizePlayerName } from '../utils/formatting'
 import PickupSuggestions from '../components/waiver/PickupSuggestions'
@@ -181,20 +181,26 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
         const mine = (rosters || []).find((r) => String(r.owner_id) === String(sleeperUserId))
         if (!mine) return null
         const starterSet = new Set((mine.starters || []).map(String))
+        const taxiSet = new Set((mine.taxi || []).map(String))
+        const reserveSet = new Set((mine.reserve || []).map(String))
         const roster = (mine.players || []).map((id) => {
           const meta = playersMeta[id] || {}
           const name = meta.full_name
             || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()
             || `#${id}`
+          const sid = String(id)
+          // Fehlte bisher: ohne taxi/ir wusste irRecommendations() unten nie,
+          // wer schon auf IR liegt (jeder Nicht-Starter galt als "Bank").
+          const slot = taxiSet.has(sid) ? 'taxi' : reserveSet.has(sid) ? 'ir' : starterSet.has(sid) ? 'starter' : 'bench'
           return {
-            sleeper_id: String(id),
+            sleeper_id: sid,
             name,
             nname: normalizePlayerName(name),
             pos: (meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
             team: meta.team || '',
             bye: meta.bye_week != null ? String(meta.bye_week) : '',
             injury_status: meta.injury_status || null,
-            slot: starterSet.has(String(id)) ? 'starter' : 'bench',
+            slot,
           }
         })
         const positions = lg.roster_positions || []
@@ -235,6 +241,14 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           })
           recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
         } catch { recommended = [] }
+        // IR-Verwaltung: freie IR-Slots mit Out/IR-Spielern befuellen, gesunde
+        // Ruecckehrer melden, bei Platzmangel einen Drop vorschlagen. wk (Wochenrang)
+        // als Kaderwert-Naeherung -- kein Zusatz-Request fuer ROS/Dynasty-Wert.
+        const ir = irRecommendations({
+          myRosterPlayers: roster,
+          rosterPositions: positions.length ? positions : effRoster,
+          dropRankByKey: wk,
+        })
         return {
           leagueId: lg.league_id,
           leagueName: lg.name || lg.league_id,
@@ -243,6 +257,10 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           actualStarterIds: [...starterSet],
           recommendedStarterIds: recommended,
           lockedStarterIds: lockedSlots.map((l) => l.sleeper_id),
+          irToMoveIds: ir.toIR.map((p) => p.sleeper_id),
+          irReturningIds: ir.offIR.map((p) => p.sleeper_id),
+          dropCandidateIds: ir.dropCandidates.map((p) => p.sleeper_id),
+          irOverflow: ir.overflow > 0,
         }
       } catch { return null }
     })).then((teams) => {

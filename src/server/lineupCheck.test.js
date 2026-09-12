@@ -103,4 +103,34 @@ describe('checkUserLeagues', () => {
     const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
     expect(warnings.find((w) => w.playerName === 'Out Spieler')).toBeUndefined()
   })
+
+  it('empfiehlt einen Out-Bankspieler auf einen freien IR-Slot', async () => {
+    const d = deps()
+    d.fetchLeagues = async () => [{ league_id: 'l1', name: 'Dynasty', roster_positions: ['WR', 'BN', 'IR'] }]
+    d.fetchRosters = async () => [{ owner_id: 'u1', players: ['1', '2'], starters: ['2'], taxi: [], reserve: [] }]
+    const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
+    const irOpen = warnings.find((w) => w.playerName === 'Out Spieler')
+    expect(irOpen?.severity).toBe('yellow')
+    expect(irOpen?.reason).toBe('ir-open')
+  })
+
+  it('IR-Ruecckehrer ohne freien Platz: rote Warnung + Drop-Vorschlag fuer den schwaechsten Bankspieler', async () => {
+    const metaIr = {
+      9: { full_name: 'Ex Verletzt', fantasy_positions: ['WR'], team: 'SF', bye_week: 9, injury_status: null },
+      2: { full_name: 'Starter A', fantasy_positions: ['WR'], team: 'MIN', bye_week: 9, injury_status: null },
+      3: { full_name: 'Bank Schwach', fantasy_positions: ['WR'], team: 'DAL', bye_week: 9, injury_status: null },
+    }
+    const d = deps()
+    d.fetchLeagues = async () => [{ league_id: 'l1', name: 'Dynasty', roster_positions: ['WR', 'BN', 'IR'] }]
+    d.fetchRosters = async () => [{ owner_id: 'u1', players: ['9', '2', '3'], starters: ['2'], taxi: [], reserve: ['9'] }]
+    d.fetchMeta = async () => metaIr
+    d.weekRanks = async () => ({ weeklyById: new Map([['ID:2', 5], ['ID:3', 50]]), flexById: new Map(), sflexById: new Map() })
+    const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
+    const back = warnings.find((w) => w.playerName === 'Ex Verletzt')
+    expect(back?.severity).toBe('red')
+    expect(back?.reason).toBe('ir-return')
+    const drop = warnings.find((w) => w.playerName === 'Bank Schwach')
+    expect(drop?.severity).toBe('yellow')
+    expect(drop?.reason).toBe('drop-candidate')
+  })
 })
