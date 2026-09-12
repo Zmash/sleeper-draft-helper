@@ -263,3 +263,37 @@ export function normalizeKtcPlayer(raw, { superflex = false, rookie = false } = 
     nname: normalizePlayerName(name),
   }
 }
+
+// ---------- NFL-Spielstatus (Lineup-Lock: Team hat diese Woche schon gespielt) ----------
+// ESPNs "offizielle" site.api.espn.com blockt Rechenzentrums-IPs ueber Akamai
+// (403, verifiziert 2026-09-12) -- exakt der Host, von dem aus dieser Server
+// laeuft. Dieser CDN-Pfad ist derselbe Request, den espn.com/nfl/scoreboard
+// selbst im Browser ausloest, und liefert dieselben Felder ohne Sperre.
+export function espnScoreboardUrl(season, week) {
+  return `https://cdn.espn.com/core/nfl/scoreboard?xhr=1&year=${season}&week=${week}&seasontype=2`
+}
+
+// Einzige bekannte Abweichung zwischen ESPNs und Sleepers Team-Kuerzeln
+// (verifiziert 2026-09-12 am Live-Scoreboard): Washington ist bei ESPN "WSH",
+// bei Sleeper (playersMeta.team) "WAS". Ohne den Alias faende der Spieler-Match
+// in bestLineup nie ein Team und wuerde nie als "schon gespielt" erkannt.
+const ESPN_TEAM_ALIAS = { WSH: 'WAS' }
+
+// Extrahiert Team-Kuerzel -> Spielstatus ('pre' | 'in' | 'post') aus der
+// ESPN-Scoreboard-Antwort. Kuerzel schon auf Sleeper-Konvention normalisiert,
+// damit der Client direkt gegen playersMeta.team matchen kann.
+export function extractGameStatusByTeam(json) {
+  const events = json?.content?.sbData?.events
+  const out = {}
+  if (!Array.isArray(events)) return out
+  for (const event of events) {
+    const comp = event?.competitions?.[0]
+    const state = comp?.status?.type?.state
+    if (!state) continue
+    for (const c of comp?.competitors || []) {
+      const abbr = String(c?.team?.abbreviation || '').toUpperCase()
+      if (abbr) out[ESPN_TEAM_ALIAS[abbr] || abbr] = state
+    }
+  }
+  return out
+}

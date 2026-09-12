@@ -95,4 +95,12 @@ describe('checkUserLeagues', () => {
     expect(out?.severity).toBe('red')
     expect(out?.reason).toBe('out')
   })
+
+  it('Out-Starter, dessen Spiel schon lief (fetchGameStatus), erzeugt keine Warnung', async () => {
+    const d = deps()
+    // "Out Spieler" spielt fuer NE -- Team-Spiel ist laut ESPN schon vorbei.
+    d.fetchGameStatus = async () => ({ NE: 'post', MIN: 'pre' })
+    const { warnings } = await checkUserLeagues({ username: 'Zmash', season: '2026', deps: d })
+    expect(warnings.find((w) => w.playerName === 'Out Spieler')).toBeUndefined()
+  })
 })

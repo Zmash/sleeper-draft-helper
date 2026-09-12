@@ -111,6 +111,28 @@ const FLEX_ELIGIBLE = {
 // "nicht verfuegbar" (gleiche Fehlerklasse wie der bereits behobene !meta?.team-Fix).
 const UNAVAILABLE_INJURY_STATUSES = new Set(['Out', 'IR', 'PUP', 'Sus', 'NA', 'DNR'])
 
+// Sleepers starters-Array ist positionsgleich zu roster_positions (ohne BN/IR/
+// TAXI): Index i ist der i-te Nicht-Bank-Slot. Das ist die einzige Quelle, aus
+// der sich der ECHTE Slot eines Starters ableiten laesst (nicht nur "Starter
+// ja/nein") -- ohne den genauen Slot (z.B. RB1 vs RB2, oder "RB steckt im
+// FLEX") koennte bestLineup einen bereits gespielten Starter nicht zielgenau
+// auf seinen aktuellen Platz pinnen.
+export function lockedStarterSlots({ rosterPositions = [], actualStarterIds = [], players = [], gameStatusByTeam = {} } = {}) {
+  const teamById = new Map(players.map((p) => [String(p.sleeper_id), p.team]))
+  const nonBench = rosterPositions.filter((s) => s !== 'BN' && s !== 'IR' && s !== 'TAXI')
+  const counters = {}
+  const out = []
+  nonBench.forEach((slot, i) => {
+    const slotIndex = counters[slot] || 0
+    counters[slot] = slotIndex + 1
+    const id = actualStarterIds[i] != null ? String(actualStarterIds[i]) : null
+    if (!id) return
+    const state = gameStatusByTeam[teamById.get(id)]
+    if (state === 'in' || state === 'post') out.push({ slot, slotIndex, sleeper_id: id })
+  })
+  return out
+}
+
 // Greedy statt echtem bipartiten Matching: pro fixem Positions-Slot den
 // bestplatzierten passenden Spieler zuerst, danach FLEX-Slots aus dem Rest.
 // Das ist Standard fuer Fantasy-Lineup-Tools und in der Praxis fast immer
@@ -118,12 +140,19 @@ const UNAVAILABLE_INJURY_STATUSES = new Set(['Out', 'IR', 'PUP', 'Sus', 'NA', 'D
 // gleichzeitig) -- ponytail: greedy statt Optimalloesung, bei Bedarf durch
 // echtes Matching ersetzen, falls FLEX/SUPER_FLEX gemeinsam vorkommen und
 // Fehlzuteilungen auffallen.
-export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), flexRankByKey = new Map(), superflexRankByKey = new Map(), currentWeekBye = null } = {}) {
+export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyRankByKey = new Map(), flexRankByKey = new Map(), superflexRankByKey = new Map(), currentWeekBye = null, lockedStarterSlots: locked = [] } = {}) {
   const eligible = myRosterPlayers.filter((p) => {
     if (currentWeekBye != null && String(p.bye) === String(currentWeekBye)) return false
     if (UNAVAILABLE_INJURY_STATUSES.has(p.injury_status)) return false
     return true
   })
+  // Bereits gespielte Starter (Spiel laeuft/ist vorbei) bleiben auf ihrem
+  // echten Slot fest, egal was Rang/Bye/Injury-Status jetzt sagen -- Sleeper
+  // laesst nach Kickoff ohnehin keine Aenderung mehr zu, ein "besserer"
+  // Vorschlag waere nicht umsetzbar (Nutzer-Befund: verletzter Starter wurde
+  // als "raus" vorgeschlagen, obwohl das Spiel schon lief).
+  const byId = new Map(myRosterPlayers.map((p) => [String(p.sleeper_id), p]))
+  const pinnedBySlotKey = new Map(locked.map((l) => [`${l.slot}:${l.slotIndex}`, byId.get(String(l.sleeper_id))]).filter(([, p]) => p))
   const rankOf = (p) => weeklyRankByKey.get(`ID:${p.sleeper_id}`) ?? Infinity
   // Flex-Slots duerfen NIEMALS nach Positions-Rang besetzt werden: die Skalen
   // sind positionsfremd (TE-Pool ~30 vs. WR-Pool ~100 -- TE5 wuerde WR20 immer
@@ -147,14 +176,28 @@ export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyR
   }
 
   for (const slot of fixedSlots) {
+    const slotIndex = nextSlotIndex(slot)
+    const pinned = pinnedBySlotKey.get(`${slot}:${slotIndex}`)
+    if (pinned && !used.has(pinned.sleeper_id)) {
+      used.add(pinned.sleeper_id)
+      slots.push({ slot, slotIndex, player: pinned, rank: rankOf(pinned), locked: true })
+      continue
+    }
     const candidates = eligible
       .filter((p) => p.pos === slot && !used.has(p.sleeper_id))
       .sort((a, b) => rankOf(a) - rankOf(b))
     const player = candidates[0] || null
     if (player) used.add(player.sleeper_id)
-    slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })
+    slots.push({ slot, slotIndex, player, rank: player ? rankOf(player) : null })
   }
   for (const slot of flexSlots) {
+    const slotIndex = nextSlotIndex(slot)
+    const pinned = pinnedBySlotKey.get(`${slot}:${slotIndex}`)
+    if (pinned && !used.has(pinned.sleeper_id)) {
+      used.add(pinned.sleeper_id)
+      slots.push({ slot, slotIndex, player: pinned, rank: rankOf(pinned), locked: true })
+      continue
+    }
     const allowedPos = FLEX_ELIGIBLE[slot]
     const cmpRankOf = slot === 'SUPER_FLEX' ? superflexRankOf : flexRankOf
     const candidates = eligible
@@ -162,7 +205,7 @@ export function bestLineup({ myRosterPlayers = [], rosterPositions = [], weeklyR
       .sort((a, b) => cmpRankOf(a) - cmpRankOf(b))
     const player = candidates[0] || null
     if (player) used.add(player.sleeper_id)
-    slots.push({ slot, slotIndex: nextSlotIndex(slot), player, rank: player ? rankOf(player) : null })
+    slots.push({ slot, slotIndex, player, rank: player ? rankOf(player) : null })
   }
 
   // "Bank" = nur Spieler, die diese Woche ueberhaupt in die Aufstellung koennten

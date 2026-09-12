@@ -9,7 +9,7 @@ import { useTrendingPlayers } from '../hooks/useTrendingPlayers'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { fetchNflState, fetchMatchups, fetchLeagueRosters } from '../services/api'
 import { effScoringTypeToFpParam } from '../services/draftFormat'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey } from '../services/analysis/waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots } from '../services/analysis/waiverStats'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup'
 import { normalizePlayerName } from '../utils/formatting'
 import PickupSuggestions from '../components/waiver/PickupSuggestions'
@@ -51,6 +51,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
   const [playersMeta, setPlayersMeta] = useState({})
   const [week, setWeek] = useState(null)
   const [actualStarterIds, setActualStarterIds] = useState([])
+  const [gameStatusByTeam, setGameStatusByTeam] = useState({})
   const isDynasty = draftMode === 'rookie'
   const scoring = effScoringTypeToFpParam(effScoringType)
 
@@ -84,6 +85,20 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
   useEffect(() => {
     fetchNflState().then((s) => setWeek(Number(s?.week) || null)).catch(() => setWeek(null))
   }, [])
+
+  // Team -> Spielstatus (pre/in/post) dieser Woche -- Grundlage fuer den
+  // Lineup-Lock (bereits gespielte Starter bleiben gesetzt). Scheitert der
+  // Abruf, bleibt die Map leer: bestLineup verhaelt sich dann wie vor dieser
+  // Funktion (kein Lock, alte Empfehlungslogik).
+  useEffect(() => {
+    if (!week || !seasonYear) return
+    let cancelled = false
+    fetch(`/api/nfl/game-status?season=${seasonYear}&week=${week}`)
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled && data?.ok) setGameStatusByTeam(data.teams || {}) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [week, seasonYear])
 
   useEffect(() => {
     // Superflex-KTC-Werte unterscheiden sich deutlich von 1QB-Werten (QBs
@@ -203,6 +218,12 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           const sv = sflexMap.get(matchKey(p.pos, p))
           if (sv != null) sfx.set(`ID:${p.sleeper_id}`, sv)
         }
+        const lockedSlots = lockedStarterSlots({
+          rosterPositions: positions.length ? positions : effRoster,
+          actualStarterIds: [...starterSet],
+          players: roster,
+          gameStatusByTeam,
+        })
         let recommended = []
         try {
           const res = bestLineup({
@@ -210,6 +231,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
             rosterPositions: positions.length ? positions : effRoster,
             weeklyRankByKey: wk, flexRankByKey: fx, superflexRankByKey: sfx,
             currentWeekBye: week != null ? String(week) : null,
+            lockedStarterSlots: lockedSlots,
           })
           recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
         } catch { recommended = [] }
@@ -220,6 +242,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           roster,
           actualStarterIds: [...starterSet],
           recommendedStarterIds: recommended,
+          lockedStarterIds: lockedSlots.map((l) => l.sleeper_id),
         }
       } catch { return null }
     })).then((teams) => {
@@ -229,7 +252,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       }
     })
     return () => { cancelled = true }
-  }, [allTab, sleeperUserId, availableLeagues, playersMeta, week, effRoster, byKey, getRankMap])
+  }, [allTab, sleeperUserId, availableLeagues, playersMeta, week, effRoster, byKey, getRankMap, gameStatusByTeam])
 
   const allRows = useMemo(() => buildAllTeamsRows({ teams: allTeams }), [allTeams])
 
@@ -333,6 +356,19 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
     [dynastyValues]
   )
 
+  // Bereits gespielte Starter (Team-Spiel laeuft/ist vorbei) -- fuer diese
+  // Woche ohnehin nicht mehr aenderbar, bestLineup pinnt sie auf ihren echten
+  // Slot statt sie wegen Bye/Injury/Rang durch jemand anderen zu ersetzen.
+  const myLockedStarterSlots = useMemo(() => {
+    if (!actualStarterIds.length || !Object.keys(gameStatusByTeam).length) return []
+    return lockedStarterSlots({
+      rosterPositions: lineupRosterPositions.length ? lineupRosterPositions : effRoster,
+      actualStarterIds,
+      players: dynastyRoster,
+      gameStatusByTeam,
+    })
+  }, [lineupRosterPositions, effRoster, actualStarterIds, dynastyRoster, gameStatusByTeam])
+
   // Zweite Wert-Spalte der Aufstellungs-Karte: Dynasty -> KTC-Anlagewert,
   // Redraft -> FantasyPros-ROS-Rang. Die Optimierung selbst bleibt auf dem
   // FantasyPros-Wochenranking (die Frage "wen starte ich DIESE Woche" beantwortet
@@ -344,6 +380,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       myRosterPlayers: dynastyRoster, rosterPositions: lineupRosterPositions.length ? lineupRosterPositions : effRoster, weeklyRankByKey: weeklyRankByIdKey,
       flexRankByKey: flexRankByIdKey, superflexRankByKey: superflexRankByIdKey,
       currentWeekBye: week != null ? String(week) : null,
+      lockedStarterSlots: myLockedStarterSlots,
     })
     const altOf = isDynasty
       ? (p) => ktcValueByNname.get(p.nname) ?? null
@@ -355,7 +392,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       slots: result.slots.map((s) => ({ ...s, alt: s.player ? altOf(s.player) : null, pts: s.player ? ptsOf(s.player) : null })),
       bench: (result.bench || []).map((p) => ({ ...p, rank: rankOf(p), alt: altOf(p), pts: ptsOf(p) })),
     }
-  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, flexRankByIdKey, superflexRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname])
+  }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, flexRankByIdKey, superflexRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname, myLockedStarterSlots])
 
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null

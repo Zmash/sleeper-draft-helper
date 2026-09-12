@@ -81,5 +81,15 @@
   "79": "react-dom",
   "80": "react-router-dom",
   "81": "zustand",
-  "82": "SetupPage.test.jsx"
+  "82": "SetupPage.test.jsx",
+  "83": "enrichBoardWithSleeper.js",
+  "84": "BoardTable.jsx",
+  "85": "SetupPage.test.jsx",
+  "86": "@capacitor/android",
+  "87": "cors",
+  "88": "@fontsource/jetbrains-mono",
+  "89": "lucide-react",
+  "90": "prop-types",
+  "91": "qrcode-generator",
+  "92": "sw.js"
 }

@@ -330,6 +330,86 @@ describe('GET /api/rankings/fantasypros-position', () => {
   })
 })
 
+describe('GET /api/nfl/game-status', () => {
+  function getHandler() {
+    let handler
+    registerApiRoutes(
+      { get: (p, h) => { if (p === '/api/nfl/game-status') handler = h }, post: () => {} },
+      { model: DEFAULT_MODEL },
+    )
+    return handler
+  }
+
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+
+  afterEach(() => {
+    delete global.fetch
+  })
+
+  it('normalisiert ESPN-Events zu Team-Kuerzel -> Status, inkl. WSH->WAS-Alias', async () => {
+    const espnJson = {
+      content: { sbData: { events: [
+        { competitions: [{ status: { type: { state: 'post' } }, competitors: [{ team: { abbreviation: 'SEA' } }, { team: { abbreviation: 'NE' } }] }] },
+        { competitions: [{ status: { type: { state: 'pre' } }, competitors: [{ team: { abbreviation: 'PHI' } }, { team: { abbreviation: 'WSH' } }] }] },
+      ] } },
+    }
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => espnJson })
+
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { season: '2026', week: '1' } }, res)
+
+    expect(res.statusCode ?? 200).toBe(200)
+    expect(res.body.ok).toBe(true)
+    expect(res.body.teams).toEqual({ SEA: 'post', NE: 'post', PHI: 'pre', WAS: 'pre' })
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cdn.espn.com/core/nfl/scoreboard?xhr=1&year=2026&week=1&seasontype=2',
+      expect.anything(),
+    )
+  })
+
+  it('lehnt ungueltige Woche ab', async () => {
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { season: '2026', week: '99' } }, res)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body.ok).toBe(false)
+  })
+
+  it('gibt 502, wenn ESPN keine Events liefert (Struktur geaendert)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    const handler = getHandler()
+    const res = makeRes()
+    await handler({ query: { season: '2026', week: '1' } }, res)
+
+    expect(res.statusCode).toBe(502)
+    expect(res.body.ok).toBe(false)
+  })
+
+  it('cached innerhalb der TTL (kein zweiter Fetch)', async () => {
+    const espnJson = {
+      content: { sbData: { events: [
+        { competitions: [{ status: { type: { state: 'in' } }, competitors: [{ team: { abbreviation: 'KC' } }, { team: { abbreviation: 'DEN' } }] }] },
+      ] } },
+    }
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => espnJson })
+    const handler = getHandler()
+
+    await handler({ query: { season: '2026', week: '1' } }, makeRes())
+    const res2 = makeRes()
+    await handler({ query: { season: '2026', week: '1' } }, res2)
+
+    expect(res2.body.cached).toBe(true)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('pickToolInput — mehrere tool_use-Bloecke', () => {
   const usable = (i) => !!i?.primary?.player_nname
 

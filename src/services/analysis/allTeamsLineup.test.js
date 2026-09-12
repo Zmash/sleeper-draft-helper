@@ -56,6 +56,18 @@ describe('allTeamsLineup', () => {
     expect(lastRed).toBeLessThan(firstGreen)
   })
 
+  it('unterdrueckt "out"/"suboptimal" fuer bereits gespielte Starter (lockedStarterIds)', () => {
+    const teamLocked = {
+      ...teamB,
+      lockedStarterIds: ['9'], // "Out Starter" hatte sein Spiel schon gespielt
+    }
+    const rows = buildAllTeamsRows({ teams: [teamLocked] })
+    const outRow = rows.find((r) => r.player.sleeper_id === '9')
+    expect(outRow.severity).toBe('green')
+    expect(outRow.reasons).not.toContain('out')
+    expect(outRow.reasons).not.toContain('suboptimal')
+  })
+
   it('zählt Warnstufen für die Kopfzeile', () => {
     const rows = buildAllTeamsRows({ teams: [teamA, teamB] })
     const counts = countBySeverity(rows)

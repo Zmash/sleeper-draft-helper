@@ -13,7 +13,7 @@ import {
   FP_SCORING_URLS, FP_POSITIONS, extractEcrData, normalizeFantasyProsPlayer,
   SLEEPER_ADP_FIELD, normalizeSleeperAdpPlayer,
   fantasyProsPositionUrl, extractEmbeddedJson, normalizeKtcPlayer, sleeperWeekProjectionsUrl,
-  normalizeSleeperWeekPlayer,
+  normalizeSleeperWeekPlayer, espnScoreboardUrl, extractGameStatusByTeam,
 } from './rankings.js'
 
 export const DEFAULT_MODEL = 'claude-sonnet-5'
@@ -844,6 +844,37 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
       res.json({ ok: true, meta, players })
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || 'FantasyPros-Scraping fehlgeschlagen' })
+    }
+  })
+
+  // ---------- NFL-Spielstatus (Lineup-Lock) ----------
+  // Kurze TTL: "in" -> "post" muss zeitnah nachziehen, sonst gilt ein
+  // laufendes/beendetes Spiel noch als "pre" und die Lineup-Empfehlung schlaegt
+  // weiter faelschlich vor, einen bereits gespielten Starter zu ersetzen.
+  const gameStatusCache = new Map() // "season:week" -> { at, teams }
+  const GAME_STATUS_TTL_MS = 5 * 60 * 1000
+  app.get('/api/nfl/game-status', async (req, res) => {
+    const season = parseInt(req.query.season) || new Date().getFullYear()
+    const week = parseInt(req.query.week) || 1
+    if (week < 1 || week > 18) return res.status(400).json({ ok: false, error: `Ungueltige Woche: ${req.query.week}` })
+    const cacheKey = `${season}:${week}`
+    const cached = gameStatusCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < GAME_STATUS_TTL_MS) {
+      return res.json({ ok: true, cached: true, teams: cached.teams })
+    }
+    const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    try {
+      const upstream = await fetch(espnScoreboardUrl(season, week), { headers: HEADERS })
+      if (!upstream.ok) return res.status(502).json({ ok: false, error: `ESPN returned ${upstream.status}` })
+      const json = await upstream.json()
+      const teams = extractGameStatusByTeam(json)
+      if (!Object.keys(teams).length) {
+        return res.status(502).json({ ok: false, error: 'Keine Spiele gefunden – ESPN-Struktur möglicherweise geändert' })
+      }
+      gameStatusCache.set(cacheKey, { at: Date.now(), teams })
+      res.json({ ok: true, teams })
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message || 'ESPN-Abruf fehlgeschlagen' })
     }
   })
 

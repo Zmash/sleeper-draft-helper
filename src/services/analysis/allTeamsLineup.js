@@ -9,14 +9,19 @@ const posRank = (pos) => {
   return i === -1 ? 99 : i
 }
 
-function severityFor({ player, isStarter, week, recommendedSet }) {
+function severityFor({ player, isStarter, week, recommendedSet, lockedSet }) {
   const reasons = []
   const id = String(player?.sleeper_id ?? player?.player_id ?? '')
   const isRecommended = recommendedSet.has(id)
+  // Bereits gespielte Starter (Spiel laeuft/ist vorbei) sind fuer diese Woche
+  // ohnehin nicht mehr aenderbar -- "out"/"suboptimal" waeren hier ein
+  // falscher Alarm (Nutzer-Befund: Push-Hinweis "X ist out", obwohl X das
+  // Spiel schon gespielt hatte, bevor er sich verletzte).
+  const isLocked = lockedSet?.has(id) ?? false
   if (isStarter) {
     if (week != null && String(player?.bye ?? '') !== '' && String(player?.bye) === String(week)) reasons.push('bye')
-    if (UNAVAILABLE.has(player?.injury_status)) reasons.push('out')
-    if (!isRecommended) reasons.push('suboptimal')
+    if (!isLocked && UNAVAILABLE.has(player?.injury_status)) reasons.push('out')
+    if (!isLocked && !isRecommended) reasons.push('suboptimal')
   } else if (isRecommended) {
     reasons.push('better-on-bench')
   }
@@ -36,11 +41,12 @@ export function buildAllTeamsRows({ teams = [] } = {}) {
   for (const t of teams) {
     const actual = new Set((t.actualStarterIds || []).map(String))
     const recommended = new Set((t.recommendedStarterIds || []).map(String))
+    const locked = new Set((t.lockedStarterIds || []).map(String))
     for (const p of t.roster || []) {
       const id = String(p.sleeper_id ?? p.player_id ?? '')
       const isStarter = actual.has(id)
       const { severity, reasons, isRecommended } = severityFor({
-        player: p, isStarter, week: t.week, recommendedSet: recommended,
+        player: p, isStarter, week: t.week, recommendedSet: recommended, lockedSet: locked,
       })
       rows.push({
         leagueId: t.leagueId,

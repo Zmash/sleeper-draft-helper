@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots } from './waiverStats'
 
 describe('matchKey', () => {
   it('returns NAME: for non-DEF positions', () => {
@@ -237,6 +237,71 @@ describe('bestLineup', () => {
     })
     expect(out.bench.map((p) => p.sleeper_id)).not.toContain('7')
     expect(out.bench.map((p) => p.sleeper_id)).not.toContain('8')
+  })
+})
+
+describe('lockedStarterSlots', () => {
+  const rosterPositions = ['QB', 'RB', 'RB', 'FLEX', 'BN', 'BN']
+  const players = [
+    { sleeper_id: '1', team: 'KC' },
+    { sleeper_id: '2', team: 'BAL' },
+    { sleeper_id: '3', team: 'SF' },
+    { sleeper_id: '4', team: 'DAL' },
+  ]
+
+  it('erkennt Starter, deren Team-Spiel schon laeuft oder vorbei ist, mit Slot+Index', () => {
+    const out = lockedStarterSlots({
+      rosterPositions,
+      actualStarterIds: ['1', '2', '3', '4'],
+      players,
+      gameStatusByTeam: { KC: 'post', BAL: 'in', SF: 'pre' }, // DAL fehlt (Bye o.ae.)
+    })
+    expect(out).toContainEqual({ slot: 'QB', slotIndex: 0, sleeper_id: '1' })
+    expect(out).toContainEqual({ slot: 'RB', slotIndex: 0, sleeper_id: '2' })
+    expect(out.find((l) => l.sleeper_id === '3')).toBeUndefined() // SF noch 'pre'
+    expect(out.find((l) => l.sleeper_id === '4')).toBeUndefined() // kein Status bekannt
+  })
+
+  it('zaehlt Slot-Index pro Typ separat (RB1 vs RB2)', () => {
+    const out = lockedStarterSlots({
+      rosterPositions,
+      actualStarterIds: ['1', '2', '3', '4'],
+      players,
+      gameStatusByTeam: { KC: 'pre', BAL: 'pre', SF: 'post', DAL: 'pre' },
+    })
+    expect(out).toEqual([{ slot: 'RB', slotIndex: 1, sleeper_id: '3' }])
+  })
+})
+
+describe('bestLineup — Lineup-Lock (bereits gespielte Starter)', () => {
+  const roster = [
+    { sleeper_id: '1', name: 'RB Hurt-Live', pos: 'RB', bye: '', injury_status: 'Out' },
+    { sleeper_id: '2', name: 'RB Bench-Better', pos: 'RB', bye: '', injury_status: null },
+  ]
+  // RB Bench-Better ist laut Rang klar besser (1 = Spitzenwert).
+  const weeklyRankByKey = new Map([['ID:1', 40], ['ID:2', 1]])
+
+  it('pinnt einen bereits gespielten Starter auf seinen echten Slot, trotz Out-Status und schlechterem Rang', () => {
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['RB', 'BN'],
+      weeklyRankByKey,
+      lockedStarterSlots: [{ slot: 'RB', slotIndex: 0, sleeper_id: '1' }],
+    })
+    const rbSlot = out.slots.find((s) => s.slot === 'RB')
+    expect(rbSlot.player?.sleeper_id).toBe('1')
+    expect(rbSlot.locked).toBe(true)
+    expect(out.bench.map((p) => p.sleeper_id)).toEqual(['2'])
+  })
+
+  it('ohne Lock verhaelt sich bestLineup wie zuvor (Out-Spieler fliegt raus)', () => {
+    const out = bestLineup({
+      myRosterPlayers: roster,
+      rosterPositions: ['RB', 'BN'],
+      weeklyRankByKey,
+    })
+    const rbSlot = out.slots.find((s) => s.slot === 'RB')
+    expect(rbSlot.player?.sleeper_id).toBe('2')
   })
 })
 

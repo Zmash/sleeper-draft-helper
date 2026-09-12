@@ -2,9 +2,9 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup.js'
-import { bestLineup, matchKey, freeAgents, pickupRanking } from '../services/analysis/waiverStats.js'
+import { bestLineup, matchKey, freeAgents, pickupRanking, lockedStarterSlots } from '../services/analysis/waiverStats.js'
 import { normalizePlayerName } from '../utils/formatting.js'
-import { fantasyProsPositionUrl, extractEcrData, normalizeFantasyProsPlayer } from './rankings.js'
+import { fantasyProsPositionUrl, extractEcrData, normalizeFantasyProsPlayer, espnScoreboardUrl, extractGameStatusByTeam } from './rankings.js'
 
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1'
 const FP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -131,6 +131,18 @@ function defaultDeps() {
       sleeperJson(`${SLEEPER_API_BASE}/league/${leagueId}/rosters`),
     fetchMeta: () => loadMetaDefault(),
     week: null,
+    // Team -> Spielstatus (pre/in/post) dieser Woche, EIN Request fuer alle
+    // Ligen (NFL-weit, nicht liga-abhaengig). Degradation bei Fehler: leere
+    // Map -> kein Lock, altes Verhalten (Warnung/Empfehlung wie zuvor).
+    fetchGameStatus: async (season, week) => {
+      try {
+        const res = await fetch(espnScoreboardUrl(season, week))
+        if (!res.ok) return {}
+        return extractGameStatusByTeam(await res.json())
+      } catch {
+        return {}
+      }
+    },
     weekRanks: async ({ roster = [] } = {}) => {
       const [posMaps, flexMap, sflexMap] = await Promise.all([
         Promise.all(WEEK_POSITIONS.map((p) => rankMapCached(p, 'week'))),
@@ -183,6 +195,9 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
   if (!leagues.length) return { warnings: [], pickups: [] }
   const meta = (await d.fetchMeta()) || {}
   const week = d.week != null ? String(d.week) : await fetchCurrentWeek()
+  // NFL-weit, ein Request fuer alle Ligen dieses Laufs (nicht liga-abhaengig).
+  // Optionaler Dep (Tests stubben ihn oft nicht) -- ohne ihn einfach kein Lock.
+  const gameStatusByTeam = week && d.fetchGameStatus ? await d.fetchGameStatus(season, week).catch(() => ({})) : {}
   const teams = []
   const pickups = []
   for (const league of leagues) {
@@ -218,9 +233,16 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
       ranks = { weeklyById: new Map(), flexById: new Map(), sflexById: new Map() }
     }
     const positions = league.roster_positions?.length ? league.roster_positions : null
+    // Bereits gespielte Starter (Team-Spiel laeuft/ist vorbei) -- fuer diese
+    // Woche nicht mehr aenderbar, siehe severityFor()/bestLineup(). Braucht
+    // die Slot-Reihenfolge (positions), sonst bleibt die Liste leer.
+    const lockedSlots = positions
+      ? lockedStarterSlots({ rosterPositions: positions, actualStarterIds: [...starterSet], players: roster, gameStatusByTeam })
+      : []
     // Ruling: ohne Positionen ist keine Empfehlung berechenbar -> actual gilt
     // als empfohlen (kein suboptimal-/better-on-bench-Gelb aus Nichts).
-    // Bye/Out-Rot greift weiterhin (haengt nicht an der Empfehlung).
+    // Bye/Out-Rot greift weiterhin (haengt nicht an der Empfehlung), ausser
+    // fuer bereits gespielte Starter (lockedStarterIds unten).
     let recommended = [...starterSet]
     if (positions) {
       try {
@@ -231,6 +253,7 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
           flexRankByKey: ranks?.flexById || new Map(),
           superflexRankByKey: ranks?.sflexById || new Map(),
           currentWeekBye: week,
+          lockedStarterSlots: lockedSlots,
         })
         recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
       } catch {
@@ -244,6 +267,7 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
       roster,
       actualStarterIds: [...starterSet],
       recommendedStarterIds: recommended,
+      lockedStarterIds: lockedSlots.map((l) => l.sleeper_id),
     })
     try {
       const picks = (await d.rosPicks({ league, rosters, meta, week })) || []
