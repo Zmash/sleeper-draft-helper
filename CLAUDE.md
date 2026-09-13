@@ -91,7 +91,7 @@ vereinheitlichen, ohne die Board-Renderpfade komplett zu verstehen.
 
 ### `App.jsx` is the orchestrator
 
-`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/roster`, `/trade`; `/` redirects based on whether a Sleeper user id is set.
+`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
 
 ### Draft modes: redraft vs. rookie (dynasty)
 

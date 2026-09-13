@@ -1,6 +1,43 @@
 # Live-Redzone — Design
 
-**Datum:** 2026-09-13 · **Status:** Entwurf, wartet auf Review
+**Datum:** 2026-09-13 · **Status:** Umgesetzt (`feature/live-redzone`), live gegen den
+echten Sleeper-Account verifiziert.
+
+## Abweichungen von diesem Entwurf (beim Bauen entschieden)
+
+- **Eine Komponenten-Datei** `components/redzone/RedzoneParts.jsx` statt sechs
+  einzelner Dateien (GameStrip, MatchupTile, …) — die Bausteine sind klein und
+  teilen sich Hilfsfunktionen (`gameClock`, `pts`).
+- **`useGamesLiveStore`** statt eines Hooks `useGamesLive`: mehrere Stellen
+  (Rail, Mehr-Sheet, Tabs, Dashboard-Banner) lesen den Live-Status, gepollt wird
+  aber nur zentral einmal in `App.jsx`.
+- **„Nächster Kickoff“** kommt aus den ESPN-Spieldaten der Redzone-Seite selbst
+  (`date`-Feld), nicht aus dem Sleeper-Spielplan — der liefert nur ein Datum
+  ohne Uhrzeit.
+- **Punkte je Spieler über mehrere Ligen:** gezeigt wird der höchste Wert
+  (unterschiedliches Scoring pro Liga), keine Liga-Aufschlüsselung in v1.
+
+## Live-Ergebnis (2026-09-13, Week 1, 7 laufende Spiele, echter Account)
+
+Verifiziert direkt gegen den echten Sleeper-Account (3 reale Ligen) bei
+laufenden Spielen, nicht nur mit Fixtures:
+
+- Spielleiste, Matchup-Kacheln, Meine Spieler (Gruppen Läuft/Noch nicht/Fertig),
+  Redzone-Alarm (auch **mehrere gleichzeitig** in unterschiedlichen Spielen),
+  Gegner live und Scoring-Ticker zeigten korrekte, sich alle ~30 s live
+  aktualisierende Daten — inkl. eines defensiven Scores (Interception Return),
+  der korrekt der DEF statt einem Offensiv-Spieler zugeordnet wurde.
+- Liga-Filter geprüft: Abwählen einer Liga entfernte sie sofort aus
+  Matchup-Reihe und Spielerlisten; erneutes Anwählen stellte sie wieder her.
+- Theme-Wechsel Ferrari/Nike live bestätigt: LIVE-Badge, RZ-Tags und
+  Redzone-Alarm wechselten korrekt auf Giallo Modena (`#fff200`) bzw. Orange
+  (`#d14900`), sichtbar getrennt vom jeweiligen (roten) Marken-Akzent.
+- Mobil (375px, AppShell) geprüft: Filter-Chips sticky, Spielleiste und
+  Matchup-Reihe wischbar, roter Punkt am „Mehr“-Tab sichtbar.
+- **Nicht separat gemessen:** die genaue Verzögerung von Sleepers
+  `players_points` gegenüber der ESPN-Spieluhr (die Spec nennt das als offene
+  Frage; die Live-Punkte wirkten in der Beobachtung plausibel synchron, eine
+  Sekunden-genaue Messung stand nicht an).
 
 ## Ziel
 

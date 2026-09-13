@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "src/App.jsx": {
-    "mtime": 1789329092.9713414,
-    "ast_hash": "0126e1c718b86e26d37e85d6c82ff428",
+    "mtime": 1789021841.1986625,
+    "ast_hash": "0f82743a4785a2dd7f76b4946a3cfc19",
     "semantic_hash": ""
   },
   "src/components/AdviceDialog.jsx": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "src/components/TabsNav.jsx": {
-    "mtime": 1789329252.2220657,
-    "ast_hash": "461a93512ffe2b54670df856649a50bf",
+    "mtime": 1788945391.348354,
+    "ast_hash": "ad7298889bab22585bc944b4c494965e",
     "semantic_hash": ""
   },
   "src/components/ThemeSelect.jsx": {
@@ -250,14 +250,14 @@
     "semantic_hash": ""
   },
   "src/pages/DashboardPage.jsx": {
-    "mtime": 1789329335.7350008,
-    "ast_hash": "fffc02f9926f91f414a5892c09613349",
+    "mtime": 1788447932.7955587,
+    "ast_hash": "717c51cee2bfc2b0c5aebae91154fae1",
     "semantic_hash": ""
   },
   "src/pages/DashboardPage.test.jsx": {
-    "mtime": 1789329300.1638598,
-    "ast_hash": "82f26f11bb0f30fa270d99b42973dfbd",
-    "semantic_hash": ""
+    "mtime": 1784271508.9030094,
+    "ast_hash": "d777b1e10a015f5a8d33eb93544297fd",
+    "semantic_hash": "d777b1e10a015f5a8d33eb93544297fd"
   },
   "src/pages/SetupPage.jsx": {
     "mtime": 1789030998.461919,
@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "src/services/api.js": {
-    "mtime": 1789328615.376657,
-    "ast_hash": "17c175efaf606aecb35e6a1c94648ec7",
+    "mtime": 1788785030.4321835,
+    "ast_hash": "5707f97b3b7e51419a43dd791179f895",
     "semantic_hash": ""
   },
   "src/services/boardGate.js": {
@@ -490,8 +490,8 @@
     "semantic_hash": ""
   },
   "src/stores/useDashboardStore.js": {
-    "mtime": 1789328555.425572,
-    "ast_hash": "cd0039d9756c58fd8f121c1705f96d2f",
+    "mtime": 1789310576.4288225,
+    "ast_hash": "e45a3d2e190621fda17c4069ead188ba",
     "semantic_hash": ""
   },
   "src/stores/useDashboardStore.test.js": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1789329696.8060389,
-    "ast_hash": "f526803f0c3554f6f0c8872efbfafa19",
+    "mtime": 1789030115.6836874,
+    "ast_hash": "cc69ea7a9e436f724798175c4b946ba1",
     "semantic_hash": ""
   },
   "README.md": {
@@ -885,8 +885,8 @@
     "semantic_hash": ""
   },
   "src/components/NextShell.jsx": {
-    "mtime": 1789329171.662519,
-    "ast_hash": "32c2712f53fca80dfab6f7bb1faa9caa",
+    "mtime": 1789026131.857844,
+    "ast_hash": "5fdd793e286b0442464bb7ac3fa05e7f",
     "semantic_hash": ""
   },
   "src/utils/teamLabels.js": {
@@ -905,13 +905,13 @@
     "semantic_hash": ""
   },
   "src/components/MobileMoreSheet.jsx": {
-    "mtime": 1789329212.9132757,
-    "ast_hash": "175e7bf2361d41003c9f09abd13be8ad",
+    "mtime": 1788945391.3558767,
+    "ast_hash": "060acb3bae2dff38e63e8c1b107cf5c5",
     "semantic_hash": ""
   },
   "src/components/MobileNav.jsx": {
-    "mtime": 1789329234.4959495,
-    "ast_hash": "f882d04f0f93138614fb966b1f0ca256",
+    "mtime": 1788966139.6417975,
+    "ast_hash": "7a53fa304ab98c5e80f2b1eb41d485cc",
     "semantic_hash": ""
   },
   "src/components/PlayerDetailSheet.jsx": {
@@ -1350,98 +1350,18 @@
     "semantic_hash": ""
   },
   "docs/mocks/redzone-mocks.html": {
-    "mtime": 1789325663.1501093,
-    "ast_hash": "9aa37783c3d8168083ded946994300bc",
+    "mtime": 1789325644.394456,
+    "ast_hash": "9edea8d540f4e13b387a2ac62559b849",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-09-13-live-redzone-design.md": {
-    "mtime": 1789329714.5997353,
-    "ast_hash": "eae858bff674860e6ade305be362b28e",
+    "mtime": 1789325464.5864727,
+    "ast_hash": "5e1dd6446c52242b726e09510c718d6b",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-09-13-trade-tab-redraft-design.md": {
     "mtime": 1789321625.4178545,
     "ast_hash": "8e570bf25162b97d21d8155a09e2a5d2",
-    "semantic_hash": ""
-  },
-  "src/components/redzone/RedzoneParts.jsx": {
-    "mtime": 1789328885.850548,
-    "ast_hash": "5fb3dadd28ea68edf7b31ad0583ceacf",
-    "semantic_hash": ""
-  },
-  "src/components/redzone/RedzoneParts.test.jsx": {
-    "mtime": 1789328814.3922863,
-    "ast_hash": "380a212d50dc17aff857f62c86ebb5e1",
-    "semantic_hash": ""
-  },
-  "src/pages/RedzonePage.jsx": {
-    "mtime": 1789329058.7275171,
-    "ast_hash": "c3388c37f7bdead2690d0d617e830232",
-    "semantic_hash": ""
-  },
-  "src/pages/RedzonePage.test.jsx": {
-    "mtime": 1789329007.8716748,
-    "ast_hash": "eecf89730afc6d4354d48befe7090463",
-    "semantic_hash": ""
-  },
-  "src/services/redzone/espnLive.js": {
-    "mtime": 1789328278.6803749,
-    "ast_hash": "fe4fbe4dd8ef0968ff45a61035828c1e",
-    "semantic_hash": ""
-  },
-  "src/services/redzone/espnLive.test.js": {
-    "mtime": 1789328249.4629722,
-    "ast_hash": "c1fcfe68a026a0a24706ac14d189ce4c",
-    "semantic_hash": ""
-  },
-  "src/services/redzone/redzoneModel.js": {
-    "mtime": 1789328453.506694,
-    "ast_hash": "2973eda9c46333488b536c35df017ccf",
-    "semantic_hash": ""
-  },
-  "src/services/redzone/redzoneModel.test.js": {
-    "mtime": 1789328435.9826887,
-    "ast_hash": "f066c4144eaae84f04495165be666972",
-    "semantic_hash": ""
-  },
-  "src/services/weekProjections.js": {
-    "mtime": 1789328511.743258,
-    "ast_hash": "a2383878f0e2399afb583de2874c2915",
-    "semantic_hash": ""
-  },
-  "src/services/weekProjections.test.js": {
-    "mtime": 1789328487.6329627,
-    "ast_hash": "15cef91e0e92ee2d660d61b12eec87c2",
-    "semantic_hash": ""
-  },
-  "src/stores/useGamesLiveStore.js": {
-    "mtime": 1789328625.9498603,
-    "ast_hash": "ab70279c96d9f03afcb98a6c8f3382e9",
-    "semantic_hash": ""
-  },
-  "src/stores/useGamesLiveStore.test.js": {
-    "mtime": 1789328596.867985,
-    "ast_hash": "0e59bd810e689ea0a2bb10c90e0ae748",
-    "semantic_hash": ""
-  },
-  "src/stores/useRedzoneStore.js": {
-    "mtime": 1789328763.6179194,
-    "ast_hash": "fcabfc09b2965ca2e9f88410e2a68717",
-    "semantic_hash": ""
-  },
-  "src/stores/useRedzoneStore.test.js": {
-    "mtime": 1789328722.2789636,
-    "ast_hash": "f2030796f0519b54262725c46c2b9ad8",
-    "semantic_hash": ""
-  },
-  "src/theme/liveTokens.test.js": {
-    "mtime": 1789328170.6488037,
-    "ast_hash": "a086945511b31ec98e098429b8233087",
-    "semantic_hash": ""
-  },
-  "docs/superpowers/plans/2026-09-13-live-redzone.md": {
-    "mtime": 1789327401.7376614,
-    "ast_hash": "775fe4fee79316159215325ee8ebb23e",
     "semantic_hash": ""
   }
 }
