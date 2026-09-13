@@ -10,6 +10,7 @@ import { useDynastyStore } from './stores/useDynastyStore'
 import { useDashboardStore } from './stores/useDashboardStore'
 import { useUIStore } from './stores/useUIStore'
 import { useGamesLiveStore } from './stores/useGamesLiveStore'
+import { useRedzoneStore } from './stores/useRedzoneStore'
 
 import { getTeamsCount, teamKeyFromPick } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
@@ -36,6 +37,7 @@ import BoardPage from './pages/BoardPage'
 import ShareTargetPage from './pages/ShareTargetPage'
 import AnalysisPage from './pages/AnalysisPage'
 import LineupPage from './pages/LineupPage'
+import RedzonePage from './pages/RedzonePage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
 import ProfilesPage from './pages/ProfilesPage'
@@ -413,6 +415,8 @@ export default function App() {
       loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs }).catch(() => {})
     } else if (nsPathname.startsWith('/analyse') || nsPathname.startsWith('/lineup')) {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
+    } else if (nsPathname.startsWith('/redzone')) {
+      useRedzoneStore.getState().poll({ leagues: availableLeagues, season: seasonYear, myUserId: sleeperUserId })
     } else if (nsPathname.startsWith('/trade')) {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
       if (selectedLeagueId && sleeperUserId) {
@@ -430,9 +434,11 @@ export default function App() {
       ? 'Picks aktualisieren'
       : nsPathname.startsWith('/lineup')
         ? 'Picks aktualisieren'
-        : nsPathname.startsWith('/trade')
-          ? 'Daten aktualisieren'
-          : 'Daten aktualisieren'
+        : nsPathname.startsWith('/redzone')
+          ? 'Live-Daten aktualisieren'
+          : nsPathname.startsWith('/trade')
+            ? 'Daten aktualisieren'
+            : 'Daten aktualisieren'
 
   // ── Render ─────────────────────────────────────────────────────────────────
   // Beide Shells umschliessen exakt denselben Routen-Baum. Die neue Shell
@@ -447,6 +453,7 @@ export default function App() {
       <Route path="/share-target" element={<ShareTargetPage />} />
       <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
       <Route path="/lineup" element={<LineupPage {...pageProps} />} />
+      <Route path="/redzone" element={<RedzonePage />} />
       {/* Alte Lesezeichen auf /waiver (fruehere Bezeichnung dieser Seite)
           laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}
       <Route path="/waiver" element={<Navigate to="/lineup" replace />} />
