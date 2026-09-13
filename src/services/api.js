@@ -67,6 +67,13 @@ export async function fetchMatchups(leagueId, week) {
   return fetchJson(`${SLEEPER_API_BASE}/league/${leagueId}/matchups/${week}`)
 }
 
+// NFL-Spielplan der Regular Season mit Status je Spiel ('pre_game' | 'in_game'
+// | 'complete' | 'canceled'). Inoffizieller api.sleeper.com-Endpoint (ohne /v1),
+// verifiziert 2026-09-13. Grundlage der Live-Erkennung fuer die Redzone.
+export async function fetchNflSchedule(season) {
+  return fetchJson(`https://api.sleeper.com/schedule/nfl/regular/${season}`)
+}
+
 // --- DRAFT META --------------------------------------------------------------
 
 export async function fetchDraft(draftId) {

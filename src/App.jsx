@@ -9,6 +9,7 @@ import { useLiveStore } from './stores/useLiveStore'
 import { useDynastyStore } from './stores/useDynastyStore'
 import { useDashboardStore } from './stores/useDashboardStore'
 import { useUIStore } from './stores/useUIStore'
+import { useGamesLiveStore } from './stores/useGamesLiveStore'
 
 import { getTeamsCount, teamKeyFromPick } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
@@ -383,6 +384,17 @@ export default function App() {
     // Load picks for the new draft
     if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
   }, [selectedDraftId]) // eslint-disable-line
+
+  // ── Live-Erkennung (Redzone-Einstiege) ─────────────────────────────────────
+  // 3 KB alle 2 Minuten, nur bei sichtbarem Tab. Die Redzone selbst pollt
+  // schneller, aber nur solange sie offen ist.
+  const refreshGamesLive = useGamesLiveStore((s) => s.refresh)
+  useEffect(() => {
+    const tick = () => { if (!document.hidden) refreshGamesLive(seasonYear) }
+    tick()
+    const id = setInterval(tick, 2 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [seasonYear, refreshGamesLive])
 
   // ── Shared page props ──────────────────────────────────────────────────────
   const pageProps = {
