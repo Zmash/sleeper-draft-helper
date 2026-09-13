@@ -178,3 +178,46 @@ export function countsByGame(games = [], { mine = [], opponents = [] }) {
   }
   return out
 }
+
+// ── Redzone-Alarm & Scoring ─────────────────────────────────────────────────
+
+export function buildRedzoneAlerts({ games = [], mine = [], opponents = [] }) {
+  return games
+    .filter((g) => g.state === 'in' && g.isRedZone && g.possessionAbbr)
+    .map((g) => ({
+      game: g,
+      mine: mine.filter((p) => p.team === g.possessionAbbr),
+      opponents: opponents.filter((p) => p.team === g.possessionAbbr),
+    }))
+    .filter((a) => a.mine.length || a.opponents.length)
+}
+
+// Defensiv-/Special-Teams-Scores, die in Sleeper der DEF gutgeschrieben werden.
+const DEF_SCORE = /(interception return|fumble return|blocked|safety|punt return|kickoff return)/i
+
+// ESPN-Scoring-Plays tragen keine Spieler-IDs -> Namensabgleich, streng aufs
+// punktende Team begrenzt. Lieber ein Play auslassen als falsch zuordnen.
+export function matchScoringPlay(play, candidates = []) {
+  const text = String(play.text || '').toLowerCase()
+  return candidates.filter((p) => {
+    if (p.team !== play.teamAbbr) return false
+    if (p.pos === 'DEF') return DEF_SCORE.test(play.text)
+    return !!p.name && text.includes(p.name.toLowerCase())
+  })
+}
+
+export function buildTicker({ scoringPlaysByEvent = {}, mine = [], opponents = [], newPlayIds = [] }) {
+  const fresh = new Set(newPlayIds)
+  const items = []
+  for (const plays of Object.values(scoringPlaysByEvent)) {
+    for (const play of plays) {
+      const m = matchScoringPlay(play, mine)
+      const o = matchScoringPlay(play, opponents)
+      if (m.length || o.length) items.push({ play, mine: m, opponents: o, isNew: fresh.has(play.id) })
+    }
+  }
+  // ponytail: Reihenfolge ueber Viertel + Restzeit, nicht Echtzeit -- parallel
+  // laufende Spiele sind so nur ungefaehr chronologisch. Reicht fuer einen Ticker.
+  return items.sort((a, b) =>
+    (b.play.period ?? 0) - (a.play.period ?? 0) || (a.play.clockValue ?? 0) - (b.play.clockValue ?? 0))
+}

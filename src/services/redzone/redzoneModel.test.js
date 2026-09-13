@@ -3,6 +3,7 @@ import {
   selectedLeagueIds, toggleLeague, soloLeague,
   gamesByTeam, carryPossession, playerGameState, playerTeam,
   buildMatchupTiles, buildPlayers, relevantTeams, countsByGame,
+  buildRedzoneAlerts, matchScoringPlay, buildTicker,
 } from './redzoneModel'
 
 const ALL = ['A', 'B', 'C']
@@ -135,5 +136,64 @@ describe('relevantTeams / countsByGame', () => {
   it('zaehlt meine und gegnerische Starter je Spiel', () => {
     const players = buildPlayers({ ...base, leagueData: [L1, L2] })
     expect(countsByGame(GAMES, players)).toEqual({ g1: { mine: 2, opp: 1 }, g2: { mine: 0, opp: 1 } })
+  })
+})
+
+const entry = (playerId, name, team, pos = 'WR') => ({ playerId, name, team, pos, state: 'in', leagues: [] })
+
+describe('buildRedzoneAlerts', () => {
+  const mine = [entry('P1', 'Joe Burrow', 'CIN', 'QB'), entry('P4', 'Josh Allen', 'BUF', 'QB')]
+  const opponents = [entry('P3', 'Mike Gesicki', 'CIN', 'TE')]
+
+  it('meldet Redzone-Spiele, in denen das Team mit Ballbesitz beteiligte Starter hat', () => {
+    const g = game('g1', 'CIN', 'TB', { isRedZone: true, possessionAbbr: 'CIN' })
+    const [alert] = buildRedzoneAlerts({ games: [g], mine, opponents })
+    expect(alert.game.id).toBe('g1')
+    expect(alert.mine.map((p) => p.playerId)).toEqual(['P1'])
+    expect(alert.opponents.map((p) => p.playerId)).toEqual(['P3'])
+  })
+  it('ignoriert Redzone ohne Beteiligte, ohne Ballbesitz oder ausserhalb laufender Spiele', () => {
+    const games = [
+      game('a', 'TB', 'CIN', { isRedZone: true, possessionAbbr: 'TB' }),
+      game('b', 'CIN', 'TB', { isRedZone: true, possessionAbbr: null }),
+      game('c', 'CIN', 'TB', { isRedZone: true, possessionAbbr: 'CIN', state: 'post' }),
+    ]
+    expect(buildRedzoneAlerts({ games, mine, opponents })).toEqual([])
+  })
+})
+
+describe('matchScoringPlay', () => {
+  const play = (text, teamAbbr) => ({ id: text, text, teamAbbr, type: 'TD', period: 1, clockValue: 100 })
+
+  it('findet Passer und Receiver im Text, beschraenkt aufs punktende Team', () => {
+    const cands = [entry('P1', 'Joe Burrow', 'CIN'), entry('P3', 'Mike Gesicki', 'CIN'), entry('X', 'Ja\'Marr Chase', 'CIN')]
+    const hits = matchScoringPlay(play('Mike Gesicki 2 Yd pass from Joe Burrow (Evan McPherson Kick)', 'CIN'), cands)
+    expect(hits.map((p) => p.playerId)).toEqual(['P1', 'P3'])
+  })
+  it('gleicher Name in anderem Team ist kein Treffer, DEF trifft bei Defensiv-TD', () => {
+    const cands = [entry('P4', 'Josh Allen', 'BUF', 'QB'), entry('JAX', 'Jacksonville Jaguars', 'JAX', 'DEF')]
+    const hits = matchScoringPlay(play('Josh Allen 20 Yd Fumble Return (Cam Little Kick)', 'JAX'), cands)
+    expect(hits.map((p) => p.playerId)).toEqual(['JAX'])
+  })
+  it('DEF trifft nicht bei normalem Offensiv-TD', () => {
+    const cands = [entry('DET', 'Detroit Lions', 'DET', 'DEF')]
+    expect(matchScoringPlay(play('Jahmyr Gibbs 1 Yd Rush (Jake Bates Kick)', 'DET'), cands)).toEqual([])
+  })
+})
+
+describe('buildTicker', () => {
+  it('liefert nur Plays mit Beteiligten, neueste zuerst, markiert neue', () => {
+    const mine = [entry('P1', 'Joe Burrow', 'CIN'), entry('G', 'Jahmyr Gibbs', 'DET', 'RB')]
+    const scoringPlaysByEvent = {
+      g1: [
+        { id: 'a', text: 'Chase McLaughlin 34 Yd Field Goal', teamAbbr: 'TB', period: 1, clockValue: 549 },
+        { id: 'b', text: 'Mike Gesicki 2 Yd pass from Joe Burrow', teamAbbr: 'CIN', period: 1, clockValue: 108 },
+      ],
+      g2: [{ id: 'c', text: 'Jahmyr Gibbs 1 Yd Rush', teamAbbr: 'DET', period: 1, clockValue: 219 }],
+    }
+    const items = buildTicker({ scoringPlaysByEvent, mine, opponents: [], newPlayIds: ['b'] })
+    expect(items.map((i) => i.play.id)).toEqual(['b', 'c'])
+    expect(items[0].isNew).toBe(true)
+    expect(items[1].mine.map((p) => p.playerId)).toEqual(['G'])
   })
 })
