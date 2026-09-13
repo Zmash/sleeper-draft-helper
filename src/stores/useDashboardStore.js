@@ -14,14 +14,9 @@ import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
 import { projectedTotalForStarters } from '../services/analysis/matchupProjection'
 import { standingsRankFor } from '../services/analysis/standings'
+import { detectScoringType, loadWeekProjections, fpPtsMapFor } from '../services/weekProjections'
 
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
-
-// Fuer den Proj-Balken herangezogene Positionen (identisch zur Sleeper-
-// Wochenprojektion, siehe rankings.js SLEEPER_WEEK_POSITIONS) und das FP-
-// Scoring-Slug je App-Scoringtyp (vgl. rankings.js FP_SCORING_PREFIX).
-const FP_WEEK_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DEF']
-const FP_SCORING_FOR_TYPE = { ppr: 'ppr', half_ppr: 'half', standard: 'std' }
 
 function detectFormat(league) {
   // league_type is a string on enriched leagues; settings.type is a number (0=redraft,1=keeper,2=dynasty)
@@ -32,11 +27,6 @@ function detectFormat(league) {
   const pos = league?.roster_positions || []
   if (pos.includes('TAXI')) return 'dynasty'
   return 'redraft'
-}
-
-function detectScoringType(league) {
-  const rec = Number(league?.scoring_settings?.rec ?? 1)
-  return rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
 }
 
 // Build a single league card, fetching all needed data in parallel
@@ -232,35 +222,12 @@ export const useDashboardStore = create((set, get) => ({
       // Nur waehrend der Saison noetig; beide Stores cachen 6h.
       const scoringTypesUsed = new Set((leagues || []).map((l) => detectScoringType(l)))
       if (isInSeason) {
-        await Promise.all([
-          useWeeklyRankingsStore
-            .getState()
-            .loadSleeperWeekIfStale({ season: nflState?.season || seasonYear, week: currentWeek })
-            .catch(() => {}),
-          ...[...scoringTypesUsed].flatMap((scoringType) => {
-            const fpScoring = FP_SCORING_FOR_TYPE[scoringType] || 'ppr'
-            return FP_WEEK_POSITIONS.map((pos) =>
-              useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos, scoring: fpScoring }).catch(() => {})
-            )
-          }),
-        ])
+        await loadWeekProjections({ season: nflState?.season || seasonYear, week: currentWeek, scoringTypes: scoringTypesUsed })
       }
       const sleeperWeekById = useWeeklyRankingsStore.getState().sleeperWeekById
 
-      // Pro benoetigtem Scoringtyp die FantasyPros-Punkte aller Positionen zu
-      // einer Lookup-Map mergen (matchKey-Namespaces ueberschneiden sich nicht
-      // zwischen Positionen, siehe waiverStats.matchKey).
       const fpPtsByScoringType = {}
-      for (const scoringType of scoringTypesUsed) {
-        const fpScoring = FP_SCORING_FOR_TYPE[scoringType] || 'ppr'
-        const merged = new Map()
-        for (const pos of FP_WEEK_POSITIONS) {
-          for (const [k, v] of useWeeklyRankingsStore.getState().getFpWeekPtsMap({ pos, scoring: fpScoring })) {
-            merged.set(k, v)
-          }
-        }
-        fpPtsByScoringType[scoringType] = merged
-      }
+      for (const scoringType of scoringTypesUsed) fpPtsByScoringType[scoringType] = fpPtsMapFor(scoringType)
 
       // Build league cards in parallel
       const leagueCardPromises = (leagues || []).map((l) =>
