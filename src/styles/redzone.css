@@ -1,0 +1,136 @@
+/* Live-Redzone. Layout per grid-areas: mobil einspaltig (Alarm oben),
+   ab 900px Spielleiste/Chips/Matchups ueber zwei Spalten. */
+.rz-page { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'head' 'notice' 'chips' 'alarm' 'matchups' 'strip' 'players' 'opps' 'ticker'; }
+.rz-head { grid-area: head; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rz-notice { grid-area: notice; } .rz-chips { grid-area: chips; } .rz-alerts { grid-area: alarm; }
+.rz-matchups { grid-area: matchups; } .rz-strip { grid-area: strip; } .rz-players { grid-area: players; }
+.rz-opps { grid-area: opps; } .rz-ticker { grid-area: ticker; }
+.rz-section { display: grid; gap: 6px; align-content: start; min-width: 0; }
+@media (min-width: 900px) {
+  .rz-page { grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-areas: 'head head' 'notice notice' 'strip strip' 'chips chips' 'matchups matchups'
+      'players alarm' 'players opps' 'players ticker'; grid-template-rows: repeat(5, auto) auto auto 1fr; }
+}
+
+.rz-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.rz-muted { color: var(--text-muted); }
+.rz-title { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: .02em; }
+.rz-live { display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: var(--live-on);
+  font-family: var(--font-display); font-weight: 700; font-size: .75rem; letter-spacing: .08em; padding: 3px 8px; border-radius: var(--r-ctl); }
+.rz-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: rz-pulse 1.6s infinite; }
+@keyframes rz-pulse { 50% { opacity: .35; } }
+.rz-stamp { margin-left: auto; font-size: .75rem; color: var(--text-dim); }
+.rz-stamp.is-stale { color: var(--bad); }
+.rz-h { font-family: var(--font-display); font-weight: 600; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.rz-card { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); }
+.rz-empty { font-size: .8rem; color: var(--text-dim); padding: 8px 2px; }
+.rz-notice-box { border: 1px solid var(--border); background: var(--surface-card); border-radius: var(--r-card); padding: 8px 12px; color: var(--text-muted); font-size: .85rem; }
+
+.rz-tag { font-family: var(--font-display); font-weight: 700; font-size: .7rem; letter-spacing: .06em; padding: 0 4px;
+  border-radius: var(--r-ctl); background: var(--live); color: var(--live-on); }
+.rz-tag--lg { font-size: .75rem; padding: 1px 6px; }
+.rz-cnt { font-family: var(--font-mono); font-size: .68rem; font-weight: 700; padding: 0 4px; border-radius: var(--r-ctl); white-space: nowrap; }
+.rz-cnt--me { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.rz-cnt--opp { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+
+/* Chips */
+.rz-chips { display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.rz-chips::-webkit-scrollbar { display: none; }
+.rz-chip { display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); font: 500 .82rem var(--font-ui); padding: 4px 10px; border-radius: var(--r-ctl); cursor: pointer;
+  user-select: none; -webkit-touch-callout: none; }
+.rz-chip.is-on { border-color: var(--accent-fill); color: var(--text-primary); background: color-mix(in srgb, var(--accent-fill) 10%, transparent); }
+.rz-chip.is-on svg { color: var(--accent-text); }
+.rz-chip:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.rz-chips-hint { margin-left: auto; flex: none; font-size: .72rem; color: var(--text-dim); }
+@media (max-width: 899px) {
+  .rz-chips { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface-page); padding: 6px 0; }
+  .rz-chips-hint { display: none; }
+}
+
+/* Spielleiste */
+.rz-strip { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.rz-strip::-webkit-scrollbar { display: none; }
+.rz-game { flex: none; width: 132px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 6px 8px; display: grid; gap: 3px; }
+.rz-game.is-redzone { border-color: var(--live); background: color-mix(in srgb, var(--live) 12%, var(--surface-card)); }
+.rz-game.is-final { opacity: .6; }
+.rz-game-row { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--text-muted); }
+.rz-game-row.is-lead { color: var(--text-primary); }
+.rz-game-abbr { font-weight: 600; }
+.rz-game-score { margin-left: auto; font-family: var(--font-mono); font-weight: 700; }
+.rz-poss { width: 6px; height: 6px; border-radius: 50%; }
+.rz-poss.is-on { background: var(--accent-fill); }
+.rz-game-foot { display: flex; align-items: center; gap: 6px; font-size: .68rem; color: var(--text-muted); border-top: 1px solid var(--border-soft); padding-top: 3px; }
+.rz-game-inv { margin-left: auto; display: flex; gap: 4px; }
+
+/* Matchups */
+.rz-matchups { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+@media (max-width: 899px) {
+  .rz-matchups { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 190px; overflow-x: auto; scrollbar-width: none; }
+}
+.rz-mt { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 6px 10px 7px; display: grid; gap: 4px; min-width: 0; }
+.rz-mt-top { display: flex; align-items: center; gap: 6px; font-size: .75rem; color: var(--text-muted); min-width: 0; }
+.rz-mt-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rz-mt-open { margin-left: auto; font-size: .68rem; color: var(--text-dim); white-space: nowrap; }
+.rz-mt-score { display: flex; align-items: baseline; gap: 8px; }
+.rz-mt-me, .rz-mt-opp { font-weight: 700; font-size: 1.1rem; line-height: 1; }
+.rz-mt-opp { color: var(--text-muted); }
+.rz-mt-vs { color: var(--text-dim); font-size: .75rem; }
+.rz-mt-pct { margin-left: auto; font-size: .8rem; font-weight: 700; }
+.rz-mt-pct.is-good { color: var(--good); } .rz-mt-pct.is-bad { color: var(--bad); }
+.rz-mt-error { font-size: .75rem; color: var(--bad); }
+.rz-bar { display: flex; height: 4px; gap: 2px; }
+.rz-bar span { flex: 1; display: flex; background: var(--border); border-radius: 1px; overflow: hidden; }
+.rz-bar span:first-child { justify-content: flex-end; }
+.rz-bar i { display: block; transition: width .4s var(--ease); }
+.rz-bar-me { background: var(--good); } .rz-bar-opp { background: var(--bad); }
+
+/* Spielerlisten */
+.rz-list { overflow: hidden; }
+.rz-group { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 600; font-size: .75rem;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); padding: 6px 10px 4px; border-bottom: 1px solid var(--border-soft); }
+.rz-group.is-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--live); }
+.rz-player { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+.rz-player.is-redzone { background: color-mix(in srgb, var(--live) 10%, transparent); }
+.rz-player.is-opp .rz-player-name { color: var(--text-muted); }
+.rz-pos { font: 700 .66rem var(--font-ui); color: var(--pos-on); text-align: center; padding: 2px 0; border-radius: var(--r-ctl); background: var(--pos-def); }
+.rz-pos--qb { background: var(--pos-qb); } .rz-pos--rb { background: var(--pos-rb); } .rz-pos--wr { background: var(--pos-wr); }
+.rz-pos--te { background: var(--pos-te); } .rz-pos--k { background: var(--pos-k); }
+.rz-player-name { font-weight: 600; font-size: .875rem; display: flex; align-items: center; gap: 6px; }
+.rz-player-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 1px; font-size: .72rem; color: var(--text-muted); }
+.rz-player-pts { text-align: right; font-weight: 700; font-size: 1rem; }
+.rz-player-pts small { display: block; font-size: .66rem; font-weight: 500; color: var(--text-dim); }
+
+/* Alarm */
+.rz-alerts { display: grid; gap: 8px; align-content: start; }
+.rz-alert { border-color: var(--live); background: color-mix(in srgb, var(--live) 9%, var(--surface-card)); padding: 10px; display: grid; gap: 6px; }
+.rz-alert-top { display: flex; align-items: center; gap: 8px; }
+.rz-alert-team { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; }
+.rz-alert-clock { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
+.rz-alert-dd { font-weight: 700; font-size: .82rem; }
+.rz-alert-last { font-size: .75rem; color: var(--text-muted); line-height: 1.4; }
+.rz-alert-inv { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+.rz-side { font-family: var(--font-display); font-weight: 700; font-size: .68rem; letter-spacing: .08em; width: 48px; flex: none; }
+.rz-side--me { color: var(--good); } .rz-side--opp { color: var(--bad); }
+
+/* Ticker */
+.rz-tick { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border-soft); align-items: start; }
+.rz-tick.is-new { background: color-mix(in srgb, var(--accent-fill) 8%, transparent); }
+.rz-tick-when { font-size: .68rem; color: var(--text-dim); line-height: 1.3; }
+.rz-tick-what { font-size: .82rem; line-height: 1.35; }
+.rz-tick-what span { display: block; margin-top: 2px; font-size: .68rem; color: var(--text-dim); }
+.rz-tick-imp { display: grid; gap: 3px; justify-items: end; }
+
+/* Dashboard-Banner */
+.rz-dash-banner { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--live); border-radius: var(--r-card);
+  padding: 10px 14px; margin-bottom: 12px; font: inherit; }
+.rz-dash-banner-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: var(--live-on);
+  font-weight: 600; font-size: .8rem; padding: 5px 10px; border-radius: var(--r-ctl); white-space: nowrap; }
+.rz-dash-banner:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rz-live::before { animation: none; }
+  .rz-bar i { transition: none; }
+}
