@@ -1654,7 +1654,7 @@ th.col-pick, td.col-pick { width: 64px; }
 }
 
 .badge--neutral { background: var(--border); color: var(--muted); }
-.badge--live    { background: #ef4444; color: #fff; animation: pulse-badge 2s infinite; }
+.badge--live    { background: var(--live); color: var(--live-on); animation: pulse-badge 2s infinite; }
 .badge--info    { background: #3b82f6; color: #fff; }
 .badge--warn    { background: #f59e0b; color: #000; }
 .badge--danger  { background: #ef4444; color: #fff; }
@@ -2751,7 +2751,7 @@ th.col-pick, td.col-pick { width: 64px; }
 .bmb-badge {
   position: absolute; top: -4px; right: -8px;
   min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box;
-  background: var(--live); color: #fff;
+  background: var(--live); color: var(--live-on);
   font-family: var(--font-mono); font-size: 9px; line-height: 15px;
   border-radius: 999px; text-align: center;
 }
