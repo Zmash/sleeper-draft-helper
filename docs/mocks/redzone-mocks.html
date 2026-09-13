@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="de" data-theme="broadcast-dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Live-Redzone — Layout-Entwurf v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  /* Tokens: Broadcast Dark (aus src/styles/tokens.css) + neu: --live-on */
+  :root {
+    --surface-page: #071026; --surface-nav: #0a1836; --surface-card: #0f2149; --surface-raised: #102450;
+    --border: #1c336a; --border-soft: #16264d;
+    --text-primary: #eef3ff; --text-muted: #93a6cf; --text-dim: #6b7fa8;
+    --accent-fill: #ffd21e; --accent-on: #1a1400; --accent-text: #ffd21e;
+    --live: #ff3b47; --live-on: #ffffff; --good: #37d67a; --bad: #ff7a6b;
+    --pos-rb: #22b455; --pos-wr: #2f8fe0; --pos-qb: #ef4a63; --pos-te: #f0982f; --pos-k: #a06ff0; --pos-def: #8a94a6; --pos-on: #fff;
+    --font-ui: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Barlow Condensed', 'Barlow', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --r-ctl: 2px; --r-card: 3px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #030817; color: var(--text-primary); font-family: var(--font-ui); font-size: 14px; padding: 28px 24px 64px; }
+  .page-head { max-width: 1720px; margin: 0 auto 20px; }
+  .page-head h1 { font-family: var(--font-display); font-size: 26px; font-weight: 700; }
+  .page-head p { color: var(--text-muted); margin-top: 4px; max-width: 100ch; line-height: 1.5; }
+  .frames { max-width: 1720px; margin: 0 auto; display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-label { font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* ── Desktop-Frame (NextShell) ── */
+  .desk { width: 1280px; height: 860px; background: var(--surface-page); border: 1px solid var(--border); display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 44px 1fr; overflow: hidden; }
+  .rail { grid-row: 1 / 3; background: var(--surface-nav); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+  .rail-btn { position: relative; width: 38px; height: 34px; display: grid; place-items: center; color: var(--text-dim); }
+  .rail-btn.logo span { width: 26px; height: 26px; border-radius: 4px; background: var(--accent-fill); color: var(--accent-on); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; }
+  .rail-btn.is-live { color: var(--live); }
+  .rail-btn.is-live::before { content: ''; position: absolute; left: -7px; top: 6px; bottom: 6px; width: 2px; background: var(--live); }
+  .live-dot { position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px var(--surface-nav); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .ctx { background: var(--surface-nav); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 14px; }
+  .ctx-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: .02em; }
+  .ctx .muted { color: var(--text-muted); }
+  .ctx-spacer { flex: 1; }
+  .badge-live { display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: var(--live-on); font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: .08em; padding: 3px 8px; border-radius: var(--r-ctl); white-space: nowrap; }
+  .badge-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1.6s infinite; }
+  .stamp { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface-card); color: var(--text-primary); font: 600 12px var(--font-ui); padding: 5px 10px; border-radius: var(--r-ctl); white-space: nowrap; }
+
+  .main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+
+  /* Spielleiste */
+  .strip { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid var(--border-soft); background: var(--surface-nav); }
+  .g { flex: none; width: 138px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 6px 8px; display: grid; gap: 3px; }
+  .g.rz { border-color: var(--live); background: color-mix(in srgb, var(--live) 12%, var(--surface-card)); }
+  .g-row { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .g-row .abbr { font-weight: 600; width: 34px; }
+  .g-row .sc { margin-left: auto; font-weight: 700; }
+  .g-row.lead .sc { color: var(--text-primary); }
+  .g-row:not(.lead) .sc { color: var(--text-muted); }
+  .poss { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-fill); }
+  .poss.off { background: transparent; }
+  .g-foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--border-soft); padding-top: 3px; }
+  .g-foot .clock { color: var(--text-muted); }
+  .g-foot .inv { margin-left: auto; display: flex; gap: 4px; }
+  .tag { font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: .06em; padding: 0 4px; border-radius: var(--r-ctl); }
+  .tag.rz { background: var(--live); color: var(--live-on); }
+  .cnt { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 0 4px; border-radius: var(--r-ctl); white-space: nowrap; }
+  .cnt.me { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .cnt.opp { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .g.post { opacity: .6; }
+  .strip-sep { flex: none; width: 1px; background: var(--border); margin: 2px 4px; }
+  .strip, .m-strip, .m-chips, .m-mt { scrollbar-width: none; }
+  .strip::-webkit-scrollbar, .m-strip::-webkit-scrollbar, .m-chips::-webkit-scrollbar, .m-mt::-webkit-scrollbar { display: none; }
+
+  /* Filter (ohne "Alle") */
+  .filters { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border-soft); }
+  .filters .lbl { font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin-right: 4px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: 500 13px var(--font-ui); padding: 4px 10px; border-radius: var(--r-ctl); white-space: nowrap; }
+  .chip.on { border-color: var(--accent-fill); color: var(--text-primary); background: color-mix(in srgb, var(--accent-fill) 10%, transparent); }
+  .chip .av { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-raised); color: var(--text-muted); font: 700 9px var(--font-ui); display: grid; place-items: center; }
+  .chip .ck { color: var(--accent-text); width: 13px; height: 13px; }
+  .filters .hint { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+
+  /* Matchup-Reihe: flach, nur das Wichtigste */
+  .mrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; padding: 10px 14px 0; }
+  .card { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); }
+  .mt { padding: 6px 10px 7px; display: grid; gap: 4px; }
+  .mt-top { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+  .mt-top .av { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-raised); font: 700 9px var(--font-ui); display: grid; place-items: center; flex: none; }
+  .mt-top .ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mt-top .open { margin-left: auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .mt-score { display: flex; align-items: baseline; gap: 8px; }
+  .mt-score .s { font-family: var(--font-mono); font-weight: 700; font-size: 18px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mt-score .s.opp { color: var(--text-muted); }
+  .mt-score .vs { color: var(--text-dim); font-size: 12px; }
+  .winpct { margin-left: auto; font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+  .winpct.w { color: var(--good); } .winpct.l { color: var(--bad); }
+  .bar { display: flex; height: 4px; gap: 2px; }
+  .bar span { flex: 1; display: flex; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .bar span:first-child { justify-content: flex-end; }
+  .bar i { display: block; }
+  .bar .me { background: var(--good); } .bar .opp { background: var(--bad); }
+
+  /* Spalten: Spieler | Redzone + Gegner + Scoring */
+  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 390px; gap: 12px; padding: 12px 14px; }
+  .col { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .sec-h { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+  .sec-h .n { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0; text-transform: none; }
+
+  /* Spielerliste */
+  .pl { overflow: hidden; }
+  .pl-group { font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); padding: 6px 10px 4px; border-bottom: 1px solid var(--border-soft); display: flex; gap: 8px; }
+  .pl-group .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--live); align-self: center; }
+  .pr { display: grid; grid-template-columns: 30px 1fr auto 72px; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+  .pr.rz { background: color-mix(in srgb, var(--live) 10%, transparent); }
+  .pos { font: 700 10.5px var(--font-ui); color: var(--pos-on); text-align: center; padding: 2px 0; border-radius: var(--r-ctl); }
+  .pos.qb { background: var(--pos-qb); } .pos.rb { background: var(--pos-rb); } .pos.wr { background: var(--pos-wr); } .pos.te { background: var(--pos-te); } .pos.k { background: var(--pos-k); } .pos.def { background: var(--pos-def); }
+  .pr .nm { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .pr .sub { font-size: 12px; color: var(--text-dim); margin-top: 1px; display: flex; gap: 8px; align-items: center; }
+  .pr .sub .gs { color: var(--text-muted); }
+  .lg { display: flex; gap: 4px; justify-content: flex-end; }
+  .lg .cnt { font-size: 11px; }
+  .pts { text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 16px; }
+  .pts small { display: block; font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
+  .pr.pre .pts { color: var(--text-dim); }
+  .pr.opp .nm { color: var(--text-muted); }
+
+  /* Redzone-Alarm */
+  .alarm { border-color: var(--live); background: color-mix(in srgb, var(--live) 9%, var(--surface-card)); padding: 10px; display: grid; gap: 8px; }
+  .alarm-top { display: flex; align-items: center; gap: 8px; }
+  .alarm-top .who { font-family: var(--font-display); font-weight: 700; font-size: 20px; }
+  .alarm-top .clock { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+  .alarm .dd { font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: var(--text-primary); }
+  .alarm .last { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+  .alarm .inv { display: grid; gap: 4px; }
+  .alarm .inv-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .alarm .inv-row .side { font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: .08em; width: 48px; }
+  .side.me { color: var(--good); } .side.opp { color: var(--bad); }
+  .alarm .inv-row .where { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+
+  /* Scoring-Ticker */
+  .tick { overflow: hidden; }
+  .tk { display: grid; grid-template-columns: 40px 1fr auto; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border-soft); align-items: start; }
+  .tk.new { background: color-mix(in srgb, var(--accent-fill) 8%, transparent); }
+  .tk .when { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); line-height: 1.3; }
+  .tk .what { font-size: 13px; line-height: 1.35; }
+  .tk .what b { font-weight: 600; }
+  .tk .what .team { font-size: 11px; color: var(--text-dim); display: block; margin-top: 2px; }
+  .tk .imp { text-align: right; display: grid; gap: 3px; justify-items: end; }
+
+  /* ── Mobil-Frame (AppShell) ── */
+  .mob { width: 390px; height: 844px; background: var(--surface-page); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .m-top { height: 48px; background: var(--surface-nav); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; padding: 0 12px; flex: none; }
+  .m-top .ctx-title { font-size: 18px; }
+  .m-top .stamp { margin-left: auto; }
+  .m-chips { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; border-bottom: 1px solid var(--border-soft); background: var(--surface-page); flex: none; }
+  .m-band { margin: 8px 10px 0; flex: none; }
+  .m-band .alarm { padding: 8px 10px; gap: 5px; }
+  .m-band .alarm-top .who { font-size: 17px; }
+  .m-strip { display: flex; gap: 6px; padding: 0 10px; overflow-x: auto; flex: none; }
+  .m-strip .g { width: 118px; }
+  .m-mt { display: grid; grid-auto-flow: column; grid-auto-columns: 190px; gap: 6px; overflow-x: auto; padding: 8px 10px; flex: none; }
+  .m-body { flex: 1; overflow: hidden; padding: 8px 10px 80px; display: grid; gap: 8px; align-content: start; }
+  .mob .pr { grid-template-columns: 28px 1fr 56px; gap: 8px; padding: 7px 8px; }
+  .mob .pr .nm { font-size: 13.5px; }
+  .mob .pts { font-size: 15px; }
+  .m-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: var(--surface-nav); border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; justify-items: center; }
+  .m-bar .it { display: grid; justify-items: center; gap: 2px; font-size: 10.5px; color: var(--text-dim); position: relative; }
+  .m-bar .it svg { width: 20px; height: 20px; }
+  .m-bar .fab { width: 48px; height: 48px; border-radius: 50%; background: var(--accent-fill); color: var(--accent-on); display: grid; place-items: center; margin-top: -18px; }
+  .m-bar .it.more { color: var(--live); }
+  .m-bar .it.more .live-dot { top: -2px; right: 2px; box-shadow: none; }
+
+  /* Dashboard-Banner */
+  .wide { width: 100%; max-width: 1720px; }
+  .dash-banner { display: flex; align-items: center; gap: 12px; background: var(--surface-card); border: 1px solid var(--live); border-radius: var(--r-card); padding: 10px 14px; max-width: 760px; }
+  .dash-banner .txt b { font-weight: 600; }
+  .dash-banner .txt span { color: var(--text-muted); }
+  .dash-banner .btn { margin-left: auto; background: var(--live); border-color: var(--live); color: var(--live-on); }
+
+  /* Theme-Vergleich Live-Farbe */
+  .themes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+  .ts { background: var(--surface-page); border: 1px solid var(--border); border-radius: var(--r-card); padding: 10px; display: grid; gap: 8px; color: var(--text-primary); }
+  .ts-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .ts-name .hex { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
+  .ts-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .ts .g { width: 100%; }
+  .ts .railmini { display: flex; gap: 4px; background: var(--surface-nav); border: 1px solid var(--border-soft); padding: 4px; }
+  .ts .railmini .rail-btn { width: 30px; height: 26px; }
+  .ts .railmini .rail-btn.is-live::before { left: 0; right: 0; top: auto; bottom: -4px; width: auto; height: 2px; }
+  .ts .railmini .live-dot { top: 3px; right: 4px; box-shadow: none; }
+  .ts .note-s { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+  .ts[data-t=dark]     { --surface-page:#071026; --surface-nav:#0a1836; --surface-card:#0f2149; --border:#1c336a; --border-soft:#16264d; --text-primary:#eef3ff; --text-muted:#93a6cf; --text-dim:#6b7fa8; --accent-fill:#ffd21e; --accent-text:#ffd21e; --live:#ff3b47; --live-on:#fff; --good:#37d67a; --bad:#ff7a6b; }
+  .ts[data-t=light]    { --surface-page:#eef1f6; --surface-nav:#ffffff; --surface-card:#ffffff; --border:#d3dbe8; --border-soft:#e4e9f2; --text-primary:#0a1836; --text-muted:#4a5a7a; --text-dim:#6b7896; --accent-fill:#ffd21e; --accent-text:#8a6d00; --live:#d81028; --live-on:#fff; --good:#1c8f4e; --bad:#c8402f; }
+  .ts[data-t=pinkluke] { --surface-page:#000000; --surface-nav:#08080c; --surface-card:#0d0d14; --border:#1c1c24; --border-soft:#15151b; --text-primary:#f5f5f7; --text-muted:#8a8a96; --text-dim:#5e5e6c; --accent-fill:#ff3d9a; --accent-text:#ff3d9a; --live:#ff3b47; --live-on:#fff; --good:#37d67a; --bad:#ff7a6b; }
+  .ts[data-t=volt]     { --surface-page:#141414; --surface-nav:#171717; --surface-card:#1b1b1b; --border:#2e2e2e; --border-soft:#252525; --text-primary:#f2f2ef; --text-muted:#9a9a92; --text-dim:#6c6c64; --accent-fill:#bdfd12; --accent-text:#bdfd12; --live:#ff3b47; --live-on:#fff; --good:#37d67a; --bad:#ff7a6b; }
+  .ts[data-t=ferrari]  { --surface-page:#181818; --surface-nav:#1f1f1f; --surface-card:#262626; --border:#3a3a3a; --border-soft:#2c2c2c; --text-primary:#ffffff; --text-muted:#969696; --text-dim:#666666; --accent-fill:#da291c; --accent-text:#da291c; --live:#fff200; --live-on:#111111; --good:#37d67a; --bad:#ff7a6b; --r-ctl:0px; --r-card:0px; }
+  .ts[data-t=nike]     { --surface-page:#ffffff; --surface-nav:#ffffff; --surface-card:#ffffff; --border:#cacacb; --border-soft:#e5e5e5; --text-primary:#111111; --text-muted:#707072; --text-dim:#9e9ea0; --accent-fill:#d30005; --accent-text:#b80004; --live:#d14900; --live-on:#fff; --good:#1c8f4e; --bad:#c8402f; --r-ctl:999px; --r-card:0px; }
+  .ts[data-t=spotify]  { --surface-page:#121212; --surface-nav:#181818; --surface-card:#1f1f1f; --border:#333333; --border-soft:#202020; --text-primary:#ffffff; --text-muted:#b3b3b3; --text-dim:#7c7c7c; --accent-fill:#1ed760; --accent-text:#1ed760; --live:#ff3b47; --live-on:#fff; --good:#37d67a; --bad:#ff7a6b; --r-ctl:999px; --r-card:8px; }
+  .ts .changed { color: var(--live); font-weight: 600; }
+  .ts[data-t=nike] .changed, .ts[data-t=light] .changed { color: var(--live); }
+
+  .notes { max-width: 1720px; margin: 28px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .note { background: var(--surface-nav); border: 1px solid var(--border-soft); border-radius: var(--r-card); padding: 10px 12px; color: var(--text-muted); line-height: 1.5; font-size: 13px; }
+  .note b { color: var(--text-primary); font-weight: 600; }
+  .note code { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M16 3l4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7"/></symbol>
+  <symbol id="i-roster" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 010 7M18 14c2 .7 3 2.8 3 6"/></symbol>
+  <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 010 8.4M7.8 16.2a6 6 0 010-8.4M19.1 4.9a10 10 0 010 14.2M4.9 19.1a10 10 0 010-14.2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+</svg>
+
+<div class="page-head">
+  <h1>Live-Redzone — Layout-Entwurf v2</h1>
+  <p>Änderungen: kein „Alle“-Chip (alle Ligen angehakt = alle), Matchups als flache Reihe über die volle Breite, Gegner-Starter als eigener Block rechts, Live-Farbe pro Theme (Ferrari und Nike weichen vom Rot ab). Spiele, Stände, Redzone und Scoring-Plays: echte ESPN-Daten vom 13.09.2026. Ligen, Gegner und Fantasy-Punkte erfunden. Filter: 3 von 4 Ligen gewählt.</p>
+</div>
+
+<div class="frames">
+
+  <!-- DESKTOP -->
+  <div>
+    <div class="frame-label">Desktop · ab 900px · NextShell</div>
+    <div class="desk">
+      <nav class="rail">
+        <div class="rail-btn logo"><span>SD</span></div>
+        <div class="rail-btn"><svg class="i"><use href="#i-board"/></svg></div>
+        <div class="rail-btn"><svg class="i"><use href="#i-swap"/></svg></div>
+        <div class="rail-btn"><svg class="i"><use href="#i-chart"/></svg></div>
+        <div class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></div>
+        <div class="rail-btn is-live" title="Redzone"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></div>
+        <div style="flex:1"></div>
+        <div class="rail-btn"><svg class="i"><use href="#i-settings"/></svg></div>
+      </nav>
+
+      <header class="ctx">
+        <span class="ctx-title">Redzone</span>
+        <span class="muted">Week 1</span>
+        <span class="badge-live">8 LIVE</span>
+        <span class="ctx-spacer"></span>
+        <span class="stamp">Stand vor <span class="num">12</span> s</span>
+        <span class="btn"><svg class="i" style="width:14px;height:14px"><use href="#i-refresh"/></svg>Aktualisieren</span>
+      </header>
+
+      <main class="main">
+        <div class="strip">
+          <div class="g rz">
+            <div class="g-row"><span class="poss off"></span><span class="abbr">TB</span><span class="sc num">3</span></div>
+            <div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div>
+            <div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span><span class="inv"><span class="cnt me">3</span><span class="cnt opp">1</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row"><span class="poss"></span><span class="abbr">NO</span><span class="sc num">0</span></div>
+            <div class="g-row lead"><span class="poss off"></span><span class="abbr">DET</span><span class="sc num">7</span></div>
+            <div class="g-foot"><span class="clock num">Q2 9:21</span><span class="inv"><span class="cnt me">1</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row"><span class="poss"></span><span class="abbr">BUF</span><span class="sc num">10</span></div>
+            <div class="g-row lead"><span class="poss off"></span><span class="abbr">HOU</span><span class="sc num">14</span></div>
+            <div class="g-foot"><span class="clock num">Q2 4:48</span><span class="inv"><span class="cnt me">1</span><span class="cnt opp">2</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row lead"><span class="poss"></span><span class="abbr">CHI</span><span class="sc num">21</span></div>
+            <div class="g-row"><span class="poss off"></span><span class="abbr">CAR</span><span class="sc num">14</span></div>
+            <div class="g-foot"><span class="clock num">Q2 10:34</span><span class="inv"><span class="cnt opp">1</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row"><span class="poss off"></span><span class="abbr">ATL</span><span class="sc num">7</span></div>
+            <div class="g-row lead"><span class="poss off"></span><span class="abbr">PIT</span><span class="sc num">13</span></div>
+            <div class="g-foot"><span class="clock num">Q2 10:39</span><span class="inv"><span class="cnt me">1</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row lead"><span class="poss"></span><span class="abbr">BAL</span><span class="sc num">14</span></div>
+            <div class="g-row"><span class="poss off"></span><span class="abbr">IND</span><span class="sc num">6</span></div>
+            <div class="g-foot"><span class="clock num">Q2 9:11</span><span class="inv"><span class="cnt opp">1</span></span></div>
+          </div>
+          <div class="g">
+            <div class="g-row"><span class="poss off"></span><span class="abbr">CLE</span><span class="sc num">0</span></div>
+            <div class="g-row lead"><span class="poss off"></span><span class="abbr">JAX</span><span class="sc num">24</span></div>
+            <div class="g-foot"><span class="clock num">Q2 6:18</span><span class="inv"></span></div>
+          </div>
+          <div class="strip-sep"></div>
+          <div class="g">
+            <div class="g-row"><span class="poss off"></span><span class="abbr">GB</span><span class="sc num">–</span></div>
+            <div class="g-row"><span class="poss off"></span><span class="abbr">MIN</span><span class="sc num">–</span></div>
+            <div class="g-foot"><span class="clock num">22:25</span><span class="inv"><span class="cnt me">2</span></span></div>
+          </div>
+          <div class="g post">
+            <div class="g-row lead"><span class="poss off"></span><span class="abbr">SF</span><span class="sc num">27</span></div>
+            <div class="g-row"><span class="poss off"></span><span class="abbr">LAR</span><span class="sc num">7</span></div>
+            <div class="g-foot"><span class="clock">Final</span><span class="inv"><span class="cnt me">1</span></span></div>
+          </div>
+        </div>
+
+        <div class="filters">
+          <span class="lbl">Ligen</span>
+          <span class="chip on"><span class="av">DB</span>Dynasty Bros<svg class="i ck"><use href="#i-check"/></svg></span>
+          <span class="chip on"><span class="av">BL</span>Büro-Liga<svg class="i ck"><use href="#i-check"/></svg></span>
+          <span class="chip on"><span class="av">SF</span>Superflex Freunde<svg class="i ck"><use href="#i-check"/></svg></span>
+          <span class="chip"><span class="av">ZL</span>Zmash Liga</span>
+          <span class="hint">Doppelklick = nur diese · nochmal = alle</span>
+        </div>
+
+        <div class="mrow">
+          <div class="card mt">
+            <div class="mt-top"><span class="av">BL</span><span class="ln">Büro-Liga</span><span class="open"><span class="num">7</span> · <span class="num">5</span> offen</span></div>
+            <div class="mt-score"><span class="s">48.3</span><span class="vs">:</span><span class="s opp">61.9</span><span class="winpct l">41%</span></div>
+            <div class="bar"><span><i class="me" style="width:41%"></i></span><span><i class="opp" style="width:59%"></i></span></div>
+          </div>
+          <div class="card mt">
+            <div class="mt-top"><span class="av">SF</span><span class="ln">Superflex Freunde</span><span class="open"><span class="num">4</span> · <span class="num">6</span> offen</span></div>
+            <div class="mt-score"><span class="s">71.4</span><span class="vs">:</span><span class="s opp">66.0</span><span class="winpct w">55%</span></div>
+            <div class="bar"><span><i class="me" style="width:55%"></i></span><span><i class="opp" style="width:45%"></i></span></div>
+          </div>
+          <div class="card mt">
+            <div class="mt-top"><span class="av">DB</span><span class="ln">Dynasty Bros</span><span class="open"><span class="num">6</span> · <span class="num">8</span> offen</span></div>
+            <div class="mt-score"><span class="s">52.1</span><span class="vs">:</span><span class="s opp">37.6</span><span class="winpct w">68%</span></div>
+            <div class="bar"><span><i class="me" style="width:68%"></i></span><span><i class="opp" style="width:32%"></i></span></div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <section class="col">
+            <div class="sec-h">Meine Spieler <span class="n">14 Starter · 4 live</span></div>
+            <div class="card pl">
+              <div class="pl-group"><span class="dot"></span>Läuft</div>
+              <div class="pr rz">
+                <span class="pos qb">QB</span>
+                <div><div class="nm">Joe Burrow <span class="tag rz">RZ</span></div><div class="sub"><span class="gs num">CIN 14–3 TB · Q2 6:09</span><span>1st &amp; Goal TB 5</span></div></div>
+                <div class="lg"><span class="cnt me">Büro-Liga</span><span class="cnt me">Superflex Freunde</span></div>
+                <div class="pts">14.6<small>Proj 22.1</small></div>
+              </div>
+              <div class="pr rz">
+                <span class="pos wr">WR</span>
+                <div><div class="nm">Ja'Marr Chase <span class="tag rz">RZ</span></div><div class="sub"><span class="gs num">CIN 14–3 TB · Q2 6:09</span></div></div>
+                <div class="lg"><span class="cnt me">Büro-Liga</span></div>
+                <div class="pts">9.4<small>Proj 18.7</small></div>
+              </div>
+              <div class="pr">
+                <span class="pos rb">RB</span>
+                <div><div class="nm">Jahmyr Gibbs</div><div class="sub"><span class="gs num">DET 7–0 NO · Q2 9:21</span></div></div>
+                <div class="lg"><span class="cnt me">3 Ligen</span></div>
+                <div class="pts">13.2<small>Proj 19.5</small></div>
+              </div>
+              <div class="pr">
+                <span class="pos qb">QB</span>
+                <div><div class="nm">Josh Allen</div><div class="sub"><span class="gs num">BUF 10–14 HOU · Q2 4:48</span></div></div>
+                <div class="lg"><span class="cnt me">Dynasty Bros</span></div>
+                <div class="pts">8.1<small>Proj 23.4</small></div>
+              </div>
+              <div class="pl-group">Noch nicht · 22:25</div>
+              <div class="pr pre">
+                <span class="pos wr">WR</span>
+                <div><div class="nm">Jayden Reed</div><div class="sub"><span class="gs">GB @ MIN</span></div></div>
+                <div class="lg"><span class="cnt me">2 Ligen</span></div>
+                <div class="pts">–<small>Proj 13.8</small></div>
+              </div>
+              <div class="pl-group">Fertig</div>
+              <div class="pr">
+                <span class="pos rb">RB</span>
+                <div><div class="nm">Christian McCaffrey</div><div class="sub"><span class="gs num">SF 27–7 LAR · Final</span></div></div>
+                <div class="lg"><span class="cnt me">Büro-Liga</span></div>
+                <div class="pts">24.7<small>Proj 20.3</small></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="col">
+            <div class="sec-h">Redzone <span class="n">1 aktiv</span></div>
+            <div class="card alarm">
+              <div class="alarm-top"><span class="tag rz" style="font-size:12px;padding:1px 6px">REDZONE</span><span class="who">CIN</span><span class="num" style="color:var(--text-muted)">14–3 TB</span><span class="clock num">Q2 6:09</span></div>
+              <div class="dd">1st &amp; Goal at TB 5</div>
+              <div class="last">J.Burrow pass short right to D.Sample pushed ob at TB 5 for 11 yards</div>
+              <div class="inv">
+                <div class="inv-row"><span class="side me">MEINE</span>Joe Burrow · Ja'Marr Chase<span class="where">2 Ligen</span></div>
+                <div class="inv-row"><span class="side opp">GEGNER</span>Mike Gesicki<span class="where">Büro-Liga</span></div>
+              </div>
+            </div>
+
+            <div class="sec-h" style="margin-top:4px">Gegner live <span class="n">2 Starter in laufenden Spielen</span></div>
+            <div class="card pl">
+              <div class="pr opp" style="grid-template-columns:30px 1fr 60px">
+                <span class="pos te">TE</span>
+                <div><div class="nm">Mike Gesicki <span class="tag rz">RZ</span></div><div class="sub"><span class="gs num">CIN 14–3 · Q2</span><span class="cnt opp">Büro-Liga</span></div></div>
+                <div class="pts">9.2<small>Proj 7.4</small></div>
+              </div>
+              <div class="pr opp" style="grid-template-columns:30px 1fr 60px">
+                <span class="pos rb">RB</span>
+                <div><div class="nm">Joe Mixon</div><div class="sub"><span class="gs num">HOU 14–10 · Q2</span><span class="cnt opp">Superflex Freunde</span></div></div>
+                <div class="pts">11.8<small>Proj 14.2</small></div>
+              </div>
+            </div>
+
+            <div class="sec-h" style="margin-top:4px">Scoring <span class="n">meine &amp; Gegner</span></div>
+            <div class="card tick">
+              <div class="tk new">
+                <div class="when">Q1<br>1:48</div>
+                <div class="what"><b>Mike Gesicki</b> 2 Yd pass from <b>Joe Burrow</b><span class="team">CIN · TD</span></div>
+                <div class="imp"><span class="cnt me">Burrow</span><span class="cnt opp">Gesicki</span></div>
+              </div>
+              <div class="tk">
+                <div class="when">Q1<br>3:39</div>
+                <div class="what"><b>Jahmyr Gibbs</b> 1 Yd Rush<span class="team">DET · TD</span></div>
+                <div class="imp"><span class="cnt me">3 Ligen</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- MOBIL -->
+  <div>
+    <div class="frame-label">Mobil · unter 900px · AppShell</div>
+    <div class="mob">
+      <div class="m-top">
+        <span class="ctx-title">Redzone</span>
+        <span class="badge-live">8 LIVE</span>
+        <span class="stamp">vor <span class="num">12</span> s</span>
+      </div>
+      <div class="m-chips">
+        <span class="chip on"><span class="av">DB</span>Dynasty Bros</span>
+        <span class="chip on"><span class="av">BL</span>Büro-Liga</span>
+        <span class="chip on"><span class="av">SF</span>Superflex Freunde</span>
+        <span class="chip"><span class="av">ZL</span>Zmash Liga</span>
+      </div>
+      <div class="m-band">
+        <div class="card alarm">
+          <div class="alarm-top"><span class="tag rz">RZ</span><span class="who">CIN</span><span class="dd" style="font-size:12px">1st &amp; Goal TB 5</span><span class="clock num">Q2 6:09</span></div>
+          <div class="inv"><div class="inv-row" style="font-size:12.5px"><span class="side me">MEINE</span>Burrow · Chase<span class="side opp" style="margin-left:auto;width:auto">GEGNER</span>Gesicki</div></div>
+        </div>
+      </div>
+      <div class="m-mt">
+        <div class="card mt">
+          <div class="mt-top"><span class="av">BL</span><span class="ln">Büro-Liga</span></div>
+          <div class="mt-score"><span class="s">48.3</span><span class="vs">:</span><span class="s opp">61.9</span><span class="winpct l">41%</span></div>
+          <div class="bar"><span><i class="me" style="width:41%"></i></span><span><i class="opp" style="width:59%"></i></span></div>
+        </div>
+        <div class="card mt">
+          <div class="mt-top"><span class="av">SF</span><span class="ln">Superflex Freunde</span></div>
+          <div class="mt-score"><span class="s">71.4</span><span class="vs">:</span><span class="s opp">66.0</span><span class="winpct w">55%</span></div>
+          <div class="bar"><span><i class="me" style="width:55%"></i></span><span><i class="opp" style="width:45%"></i></span></div>
+        </div>
+        <div class="card mt">
+          <div class="mt-top"><span class="av">DB</span><span class="ln">Dynasty Bros</span></div>
+          <div class="mt-score"><span class="s">52.1</span><span class="vs">:</span><span class="s opp">37.6</span><span class="winpct w">68%</span></div>
+          <div class="bar"><span><i class="me" style="width:68%"></i></span><span><i class="opp" style="width:32%"></i></span></div>
+        </div>
+      </div>
+      <div class="m-strip">
+        <div class="g rz">
+          <div class="g-row"><span class="poss off"></span><span class="abbr">TB</span><span class="sc num">3</span></div>
+          <div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div>
+          <div class="g-foot"><span class="clock num">Q2 6:09</span><span class="inv"><span class="cnt me">3</span><span class="cnt opp">1</span></span></div>
+        </div>
+        <div class="g">
+          <div class="g-row"><span class="poss"></span><span class="abbr">NO</span><span class="sc num">0</span></div>
+          <div class="g-row lead"><span class="poss off"></span><span class="abbr">DET</span><span class="sc num">7</span></div>
+          <div class="g-foot"><span class="clock num">Q2 9:21</span><span class="inv"><span class="cnt me">1</span></span></div>
+        </div>
+        <div class="g">
+          <div class="g-row"><span class="poss"></span><span class="abbr">BUF</span><span class="sc num">10</span></div>
+          <div class="g-row lead"><span class="poss off"></span><span class="abbr">HOU</span><span class="sc num">14</span></div>
+          <div class="g-foot"><span class="clock num">Q2 4:48</span><span class="inv"><span class="cnt opp">2</span></span></div>
+        </div>
+      </div>
+      <div class="m-body">
+        <div class="sec-h">Meine Spieler <span class="n">4 live</span></div>
+        <div class="card pl">
+          <div class="pr rz">
+            <span class="pos qb">QB</span>
+            <div><div class="nm">Joe Burrow <span class="tag rz">RZ</span></div><div class="sub"><span class="gs num">CIN 14–3 · Q2</span><span class="cnt me">2 Ligen</span></div></div>
+            <div class="pts">14.6<small>22.1</small></div>
+          </div>
+          <div class="pr rz">
+            <span class="pos wr">WR</span>
+            <div><div class="nm">Ja'Marr Chase <span class="tag rz">RZ</span></div><div class="sub"><span class="gs num">CIN 14–3 · Q2</span><span class="cnt me">Büro-Liga</span></div></div>
+            <div class="pts">9.4<small>18.7</small></div>
+          </div>
+          <div class="pr">
+            <span class="pos rb">RB</span>
+            <div><div class="nm">Jahmyr Gibbs</div><div class="sub"><span class="gs num">DET 7–0 · Q2</span><span class="cnt me">3 Ligen</span></div></div>
+            <div class="pts">13.2<small>19.5</small></div>
+          </div>
+        </div>
+      </div>
+      <nav class="m-bar">
+        <span class="it"><svg class="i"><use href="#i-board"/></svg>Board</span>
+        <span class="it"><svg class="i"><use href="#i-chart"/></svg>Analyse</span>
+        <span class="fab"><svg class="i" style="width:24px;height:24px"><use href="#i-refresh"/></svg></span>
+        <span class="it"><svg class="i"><use href="#i-home"/></svg>Start</span>
+        <span class="it more"><svg class="i"><use href="#i-menu"/></svg><span class="live-dot"></span>Mehr</span>
+      </nav>
+    </div>
+  </div>
+
+  <!-- DASHBOARD-BANNER -->
+  <div class="wide">
+    <div class="frame-label">Dashboard-Banner · nur solange Spiele laufen</div>
+    <div class="dash-banner">
+      <span class="badge-live">LIVE</span>
+      <div class="txt"><b>8 Spiele laufen</b> <span>· 14 deiner Starter im Einsatz · CIN in der Redzone</span></div>
+      <span class="btn"><svg class="i" style="width:14px;height:14px"><use href="#i-live"/></svg>Redzone öffnen</span>
+    </div>
+  </div>
+
+  <!-- THEME-VERGLEICH -->
+  <div class="wide">
+    <div class="frame-label">Live-Farbe je Theme · gemessen gegen den Akzent</div>
+    <div class="themes">
+      <div class="ts" data-t="dark">
+        <div class="ts-name">Broadcast Dark<span class="hex">#ff3b47</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s">bleibt</div>
+      </div>
+      <div class="ts" data-t="light">
+        <div class="ts-name">Broadcast Light<span class="hex">#d81028</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s">bleibt</div>
+      </div>
+      <div class="ts" data-t="pinkluke">
+        <div class="ts-name">PinkLuke<span class="hex">#ff3b47</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s">bleibt (Magenta-Akzent 25° entfernt)</div>
+      </div>
+      <div class="ts" data-t="volt">
+        <div class="ts-name">Volt<span class="hex">#ff3b47</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s">bleibt</div>
+      </div>
+      <div class="ts" data-t="ferrari">
+        <div class="ts-name">Ferrari<span class="hex">#fff200</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s"><span class="changed">neu: Giallo Modena</span> · Rot lag 8° am Akzent</div>
+      </div>
+      <div class="ts" data-t="nike">
+        <div class="ts-name">Nike<span class="hex">#d14900</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s"><span class="changed">neu: Orange</span> · Rot lag 6° am Akzent</div>
+      </div>
+      <div class="ts" data-t="spotify">
+        <div class="ts-name">Spotify<span class="hex">#ff3b47</span></div>
+        <div class="ts-row"><span class="badge-live">8 LIVE</span><span class="chip on">Büro-Liga</span></div>
+        <div class="railmini"><span class="rail-btn"><svg class="i"><use href="#i-roster"/></svg></span><span class="rail-btn is-live"><svg class="i"><use href="#i-live"/></svg><span class="live-dot"></span></span></div>
+        <div class="g rz"><div class="g-row lead"><span class="poss"></span><span class="abbr">CIN</span><span class="sc num">14</span></div><div class="g-foot"><span class="tag rz">RZ</span><span class="clock num">Q2 6:09</span></div></div>
+        <div class="note-s">bleibt</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="note"><b>Filter:</b> Jede Liga ist ein Haken. Standard: alle an. Die letzte angehakte Liga lässt sich nicht abwählen. Doppelklick (mobil: Langdruck) = nur diese Liga; nochmal = wieder alle. Neu hinzugekommene Ligen sind automatisch angehakt.</div>
+  <div class="note"><b>Matchups:</b> eine flache Reihe über die volle Breite: Liga, Stand, Siegchance, Balken, offene Starter (meine · Gegner). Bei vielen Ligen bricht die Reihe um; mobil seitlich wischbar.</div>
+  <div class="note"><b>Gegner live:</b> eigener Block rechts unter dem Redzone-Alarm statt als Gruppe in meiner Spielerliste. Links stehen nur meine Leute, rechts alles, was gerade gegen mich punkten kann.</div>
+  <div class="note"><b>Live-Farbe:</b> ein Token <code>--live</code> pro Theme (plus <code>--live-on</code> für Text auf der Fläche). Ferrari und Nike weichen ab, weil ihr Akzent selbst rot ist. Wirkt auch auf bestehende „Out“-/Warn-Markierungen dieser zwei Themes.</div>
+</div>
+
+</body>
+</html>
