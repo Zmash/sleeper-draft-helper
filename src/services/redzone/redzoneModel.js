@@ -1,5 +1,6 @@
 // Reine Redzone-Logik: aus Rohdaten (ESPN-Spiele, Sleeper-Matchups/Rosters/
 // Users, playersMeta) die Bausteine der Seite bauen. Kein Fetch, kein Store.
+import { computeMatchupProbability } from '../analysis/matchupProbability'
 
 // ── Liga-Filter ─────────────────────────────────────────────────────────────
 // Gespeichert werden ABGEWAEHLTE IDs, damit neue Ligen automatisch aktiv sind.
@@ -52,4 +53,128 @@ export function playerTeam(meta, playerId) {
 export function playerGameState(meta, byTeam) {
   const team = playerTeam(meta, meta?.player_id)
   return (team && byTeam[team]?.state) || 'none'
+}
+
+// ── Matchups & Spieler ──────────────────────────────────────────────────────
+
+const STATE_ORDER = { in: 0, pre: 1, post: 2, none: 3 }
+const starterIds = (m) => (m?.starters || []).filter((id) => id && id !== '0')
+
+// Mein Matchup-Eintrag + Gegner einer Liga; null, wenn ich dort kein Team habe.
+function leagueView({ matchups = [], rosters = [], users = [] }, myUserId) {
+  const myRoster = rosters.find((r) => String(r.owner_id) === String(myUserId))
+  const mine = myRoster && matchups.find((m) => m.roster_id === myRoster.roster_id)
+  if (!mine) return null
+  const opp = matchups.find(
+    (m) => m.matchup_id != null && m.matchup_id === mine.matchup_id && m.roster_id !== mine.roster_id
+  ) || null
+  const oppRoster = opp && rosters.find((r) => r.roster_id === opp.roster_id)
+  const oppUser = oppRoster && users.find((u) => String(u.user_id) === String(oppRoster.owner_id))
+  const opponentName = oppUser?.display_name || oppUser?.username || (opp ? `Team ${opp.roster_id}` : null)
+  return { mine, opp, opponentName }
+}
+
+export function buildMatchupTiles({ leagueData = [], myUserId, byTeam, playersMeta, projectPlayer }) {
+  const tiles = []
+  const errors = []
+  for (const d of leagueData) {
+    if (d.error) {
+      errors.push({ leagueId: d.league.league_id, leagueName: d.league.name, error: d.error })
+      continue
+    }
+    const v = leagueView(d, myUserId)
+    if (!v) continue
+    const open = (m) => starterIds(m).filter((id) => ['pre', 'in'].includes(playerGameState(playersMeta[id], byTeam))).length
+    const projTotal = (m) => {
+      let sum = 0
+      let any = false
+      for (const id of starterIds(m)) {
+        const p = projectPlayer(d.league, id)
+        if (p != null) { sum += p; any = true }
+      }
+      return any ? sum : null
+    }
+    const myPoints = v.mine.points || 0
+    const opponentPoints = v.opp?.points || 0
+    const prob = v.opp
+      ? computeMatchupProbability({ myPoints, myProjected: projTotal(v.mine), opponentPoints, opponentProjected: projTotal(v.opp) })
+      : null
+    const total = myPoints + opponentPoints
+    tiles.push({
+      leagueId: d.league.league_id,
+      leagueName: d.league.name,
+      leagueAvatar: d.league.avatar ?? null,
+      myPoints,
+      opponentPoints,
+      opponentName: v.opponentName,
+      myWinPct: prob ? prob.myWinPct : total > 0 ? Math.round((myPoints / total) * 100) : 50,
+      hasProjection: !!prob,
+      myOpen: open(v.mine),
+      oppOpen: v.opp ? open(v.opp) : 0,
+    })
+  }
+  tiles.sort((a, b) => Math.abs(a.myWinPct - 50) - Math.abs(b.myWinPct - 50))
+  return [...tiles, ...errors]
+}
+
+export function buildPlayers({ leagueData = [], myUserId, byTeam, playersMeta, projectPlayer }) {
+  const mine = new Map()
+  const opponents = new Map()
+  const add = (map, id, d, matchup) => {
+    const meta = playersMeta[id]
+    if (!meta) return
+    const team = playerTeam(meta, id)
+    const e = map.get(id) || {
+      playerId: id,
+      name: meta.full_name || `${meta.first_name || ''} ${meta.last_name || ''}`.trim() || id,
+      pos: String(meta.fantasy_positions?.[0] || meta.position || '').toUpperCase(),
+      team,
+      state: (team && byTeam[team]?.state) || 'none',
+      game: (team && byTeam[team]) || null,
+      points: null,
+      projected: null,
+      leagues: [],
+    }
+    // ponytail: Punkte/Projektion unterscheiden sich je Liga-Scoring; gezeigt wird der
+    // hoechste Wert. Pro-Liga-Aufschluesselung erst, wenn es jemand vermisst.
+    const pts = matchup.players_points?.[id]
+    if (pts != null) e.points = Math.max(e.points ?? -Infinity, pts)
+    const proj = projectPlayer(d.league, id)
+    if (proj != null) e.projected = Math.max(e.projected ?? -Infinity, proj)
+    e.leagues.push({ leagueId: d.league.league_id, leagueName: d.league.name })
+    map.set(id, e)
+  }
+  for (const d of leagueData) {
+    if (d.error) continue
+    const v = leagueView(d, myUserId)
+    if (!v) continue
+    for (const id of starterIds(v.mine)) add(mine, id, d, v.mine)
+    if (v.opp) for (const id of starterIds(v.opp)) add(opponents, id, d, v.opp)
+  }
+  const sort = (list) => list.sort((a, b) =>
+    STATE_ORDER[a.state] - STATE_ORDER[b.state] || (b.points ?? 0) - (a.points ?? 0))
+  return { mine: sort([...mine.values()]), opponents: sort([...opponents.values()]) }
+}
+
+export function relevantTeams({ leagueData = [], myUserId, playersMeta }) {
+  const teams = new Set()
+  for (const d of leagueData) {
+    if (d.error) continue
+    const v = leagueView(d, myUserId)
+    if (!v) continue
+    for (const id of [...starterIds(v.mine), ...starterIds(v.opp)]) {
+      const team = playerTeam(playersMeta[id], id)
+      if (team) teams.add(team)
+    }
+  }
+  return teams
+}
+
+export function countsByGame(games = [], { mine = [], opponents = [] }) {
+  const out = {}
+  for (const g of games) {
+    const inGame = (p) => p.team === g.home.abbr || p.team === g.away.abbr
+    out[g.id] = { mine: mine.filter(inGame).length, opp: opponents.filter(inGame).length }
+  }
+  return out
 }
