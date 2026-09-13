@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { computeMatchupProbability } from '../services/analysis/matchupProbability'
+import SleeperAvatar from './SleeperAvatar'
 import Icon from './Icon'
 
 // ── Editierbarer Kachel-Name (Nickname statt Sleeper-Liga-/Draft-Name) ────────
@@ -73,9 +74,32 @@ function DraftBadge({ status }) {
   return null
 }
 
-// ── Matchup bar ───────────────────────────────────────────────────────────────
+// ── Liga-Kopfleiste (nur In-Season-Kacheln) ───────────────────────────────────
 
-function MatchupRow({ matchup }) {
+function LeagueHero({ card }) {
+  const { cardNicknames } = useSessionStore()
+  const displayName = cardNicknames?.[card.leagueId] || card.leagueName
+  const sub = [
+    FORMAT_LABELS[card.format] || card.format,
+    SCORING_LABELS[card.scoringType] || card.scoringType,
+    formatRecord(card.wins, card.losses),
+    card.standingsRank ? `#${card.standingsRank}` : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <div className="lc-hero">
+      <SleeperAvatar avatar={card.leagueAvatar} name={displayName} size={34} />
+      <div className="lc-hero-heads">
+        <EditableTitle id={card.leagueId} defaultName={card.leagueName} />
+        <p className="lc-hero-sub">{sub}</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Matchup: Punktestand, Sieg-Wahrscheinlichkeit, Balken ─────────────────────
+
+function MatchupBlock({ matchup }) {
   if (!matchup) return null
   const prob = computeMatchupProbability(matchup)
 
@@ -87,29 +111,42 @@ function MatchupRow({ matchup }) {
 
   return (
     <div className="lc-matchup">
-      <div className="lc-matchup-label">
-        <span className="lc-matchup-side">
-          <span className="lc-matchup-mine">{formatPoints(matchup.myPoints)}</span>
-          {prob && <span className="lc-matchup-proj">Proj {formatPoints(prob.myFinal)}</span>}
+      <div className="lc-score-row">
+        <span className="lc-score-side">
+          <SleeperAvatar avatar={matchup.myAvatar} name={matchup.myName} size={22} />
+          <span className="lc-score">{formatPoints(matchup.myPoints)}</span>
         </span>
-        <span className="lc-matchup-vs">
-          {prob && (
-            <span className={`lc-matchup-winpct ${winning ? 'lc-matchup-winpct--winning' : 'lc-matchup-winpct--losing'}`}>
-              {myPct}%
-            </span>
-          )}
-          vs {matchup.opponentName}
-        </span>
-        <span className="lc-matchup-side lc-matchup-side--opp">
-          <span className="lc-matchup-opp">{formatPoints(matchup.opponentPoints)}</span>
-          {prob && <span className="lc-matchup-proj">Proj {formatPoints(prob.oppFinal)}</span>}
+        {prob && (
+          <span className={`lc-winpct ${winning ? 'lc-winpct--winning' : 'lc-winpct--losing'}`}>
+            {myPct}%
+          </span>
+        )}
+        <span className="lc-score-side lc-score-side--opp">
+          <SleeperAvatar avatar={matchup.opponentAvatar} name={matchup.opponentName} size={22} />
+          <span className="lc-score lc-score--opp">{formatPoints(matchup.opponentPoints)}</span>
         </span>
       </div>
-      <div className="lc-matchup-bar">
-        <div
-          className={`lc-matchup-fill ${winning ? 'lc-matchup-fill--winning' : 'lc-matchup-fill--losing'}`}
-          style={{ width: `${myPct}%` }}
-        />
+
+      {/* Balken waechst aus der Mitte nach aussen: linke Haelfte meine Chance,
+          rechte die des Gegners. */}
+      <div className="lc-bar">
+        <span className="lc-bar-half lc-bar-half--l">
+          <span className="lc-bar-fill lc-bar-fill--me" style={{ width: `${myPct}%` }} />
+        </span>
+        <span className="lc-bar-half">
+          <span className="lc-bar-fill lc-bar-fill--opp" style={{ width: `${100 - myPct}%` }} />
+        </span>
+      </div>
+
+      <div className="lc-teams">
+        <span className="lc-team-cell">
+          <span className="lc-team">{matchup.myName}</span>
+          {prob && <span className="lc-proj">Proj {formatPoints(prob.myFinal)}</span>}
+        </span>
+        <span className="lc-team-cell lc-team-cell--opp">
+          <span className="lc-team">{matchup.opponentName}</span>
+          {prob && <span className="lc-proj">Proj {formatPoints(prob.oppFinal)}</span>}
+        </span>
       </div>
     </div>
   )
@@ -182,26 +219,35 @@ function LeagueCardInner({ card }) {
   }
 
   const record = formatRecord(card.wins, card.losses)
+  // Nur echte, laufende Ligakacheln bekommen die Kopfleiste mit Bild -- Mock-,
+  // Draft- und Off-Season-Kacheln bleiben wie sie waren.
+  const inSeason = !!card.matchup
 
   return (
-    <div className={`league-card ${isLive ? 'league-card--live' : ''} ${card.error ? 'league-card--error' : ''}`}>
-      <div className="lc-header">
-        <div className="lc-title-row">
-          <EditableTitle id={card.leagueId} defaultName={card.leagueName} />
-          {record && <span className="lc-record">{record}</span>}
+    <div className={`league-card ${inSeason ? 'league-card--season' : ''} ${isLive ? 'league-card--live' : ''} ${card.error ? 'league-card--error' : ''}`}>
+      {inSeason ? (
+        <LeagueHero card={card} />
+      ) : (
+        <div className="lc-header">
+          <div className="lc-title-row">
+            <EditableTitle id={card.leagueId} defaultName={card.leagueName} />
+            {record && <span className="lc-record">{record}</span>}
+          </div>
+          <div className="lc-badges">
+            <span className="badge badge--neutral">{FORMAT_LABELS[card.format] || card.format}</span>
+            <span className="badge badge--neutral">{SCORING_LABELS[card.scoringType] || card.scoringType}</span>
+            {card.totalRosters && <span className="badge badge--neutral">{card.totalRosters} teams</span>}
+          </div>
         </div>
-        <div className="lc-badges">
-          <span className="badge badge--neutral">{FORMAT_LABELS[card.format] || card.format}</span>
-          <span className="badge badge--neutral">{SCORING_LABELS[card.scoringType] || card.scoringType}</span>
-          {card.totalRosters && <span className="badge badge--neutral">{card.totalRosters} teams</span>}
-        </div>
-      </div>
+      )}
 
       {card.error ? (
         <p className="lc-error">{card.error}</p>
       ) : (
         <>
-          {(card.draftStatus) && (
+          {/* In der Saison interessiert der Draft nur noch, solange er laeuft --
+              ein "Complete" vom Sommer ist auf der Matchup-Kachel nur Rauschen. */}
+          {card.draftStatus && !(inSeason && card.draftStatus === 'complete') && (
             <div className="lc-section">
               <DraftBadge status={card.draftStatus} />
             </div>
@@ -209,7 +255,7 @@ function LeagueCardInner({ card }) {
 
           {card.matchup && (
             <div className="lc-section">
-              <MatchupRow matchup={card.matchup} />
+              <MatchupBlock matchup={card.matchup} />
             </div>
           )}
 

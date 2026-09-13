@@ -1443,77 +1443,161 @@ th.col-pick, td.col-pick { width: 64px; }
   color: #f87171;
 }
 
-/* Matchup */
+/* Avatare (Liga + Team, Sleeper-CDN mit Monogramm-Fallback) */
 
-.lc-matchup-label {
+.sdh-avatar {
+  border-radius: var(--r-ctl);
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+.sdh-avatar--fallback {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+/* Kopfleiste der In-Season-Kachel: flache Leiste bis an die Kartenkante,
+   Liga-Bild scharf als Marke. Negative Margins statt Umbau von .league-card,
+   deshalb braucht die Karte --season das overflow:hidden. */
+
+.league-card--season { overflow: hidden; }
+
+.lc-hero {
+  margin: -1rem -1rem 0;
+  padding: 0.6rem 0.8rem 0.55rem;
+  background: var(--surface-raised);
+  border-bottom: 2px solid var(--accent-fill);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  margin-bottom: 0.3rem;
+  gap: 0.5rem;
 }
 
-.lc-matchup-side {
+.lc-hero-heads {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.2;
-}
-
-.lc-matchup-side--opp {
-  align-items: flex-end;
-}
-
-.lc-matchup-mine {
-  font-weight: 700;
-  font-size: 1rem;
-}
-
-.lc-matchup-proj {
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
-.lc-matchup-vs {
-  color: var(--muted);
-  font-size: 0.75rem;
-  text-align: center;
+  min-width: 0;
   flex: 1;
-  padding: 0 0.4rem;
+}
+
+.lc-hero-heads .lc-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.lc-hero-sub {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.lc-matchup-winpct {
-  display: block;
+/* Matchup */
+
+.lc-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.lc-score-side {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.lc-score-side--opp { flex-direction: row-reverse; }
+
+.lc-score {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.lc-matchup-winpct--winning { color: #22c55e; }
-.lc-matchup-winpct--losing  { color: #f87171; }
+.lc-score--opp { color: var(--text-muted); }
 
-.lc-matchup-opp {
-  font-size: 0.9rem;
-  color: var(--muted);
+.lc-winpct {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.lc-matchup-bar {
-  height: 6px;
+.lc-winpct--winning { color: var(--good); }
+.lc-winpct--losing  { color: var(--bad); }
+
+.lc-bar {
+  display: flex;
+  height: 5px;
+  gap: 2px;
+}
+
+.lc-bar-half {
+  flex: 1;
+  display: flex;
   background: var(--border);
-  border-radius: 99px;
+  border-radius: 1px;
   overflow: hidden;
 }
 
-.lc-matchup-fill {
-  height: 100%;
-  border-radius: 99px;
+.lc-bar-half--l { justify-content: flex-end; }
+
+.lc-bar-fill {
   transition: width 0.4s ease;
 }
 
-.lc-matchup-fill--winning { background: #22c55e; }
-.lc-matchup-fill--losing  { background: #f87171; }
+.lc-bar-fill--me  { background: var(--good); }
+.lc-bar-fill--opp { background: var(--bad); }
+
+.lc-teams {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.lc-team-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lc-team-cell--opp { align-items: flex-end; }
+
+.lc-team {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.lc-proj {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Injuries */
 .lc-injuries {

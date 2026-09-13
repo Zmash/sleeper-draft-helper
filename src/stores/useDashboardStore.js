@@ -13,6 +13,7 @@ import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
 import { projectedTotalForStarters } from '../services/analysis/matchupProjection'
+import { standingsRankFor } from '../services/analysis/standings'
 
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
 
@@ -72,6 +73,7 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         const oppUser = oppRoster
           ? (users || []).find((u) => String(u.user_id) === String(oppRoster.owner_id))
           : null
+        const myUser = (users || []).find((u) => String(u.user_id) === String(sleeperUserId))
         const scoringType = detectScoringType(league)
         const scoringField = pointsFieldFor(scoringType)
         const fpPtsByKey = fpPtsByScoringType?.[scoringType] || new Map()
@@ -83,6 +85,9 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
             oppUser?.display_name ||
             oppUser?.username ||
             (opp ? `Team ${opp.roster_id}` : '—'),
+          myName: myUser?.display_name || myUser?.username || 'Mein Team',
+          myAvatar: myUser?.avatar ?? null,
+          opponentAvatar: oppUser?.avatar ?? null,
           myProjected: projectedTotalForStarters({ starterIds: mine.starters, ...projArgs }),
           opponentProjected: opp
             ? projectedTotalForStarters({ starterIds: opp.starters, ...projArgs })
@@ -109,10 +114,12 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
       type: 'league',
       leagueId: league.league_id,
       leagueName: league.name || league.league_id,
+      leagueAvatar: league.avatar ?? null,
       format: detectFormat(league),
       scoringType: detectScoringType(league),
       totalRosters: league.total_rosters || 12,
       leagueStatus: league.status,
+      standingsRank: standingsRankFor(rosters, myRosterId),
       draftId: activeDraft?.draft_id ?? null,
       draftStatus: activeDraft?.status ?? null,
       matchup,
