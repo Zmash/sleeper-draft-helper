@@ -7,6 +7,7 @@ import { useDynastyStore } from '../stores/useDynastyStore'
 import { useBoardStore } from '../stores/useBoardStore'
 import { normalizePlayerName } from '../utils/formatting'
 import { pickDynastyValue } from '../services/tradeValue'
+import { resolveDraftMode } from '../services/draftFormat'
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import {
   fetchLeagueRosters, fetchLeagueDrafts, fetchTradedPicks, fetchLeagueUsers, fetchDraft, fetchDraftPicks,
@@ -16,27 +17,30 @@ import {
 const FC_CACHE_KEY = 'sdh-fc-dynasty-v1'
 const FC_CACHE_TTL = 24 * 60 * 60 * 1000
 
-function loadFcCache(numQbs) {
+function loadFcCache(numQbs, isDynastyMode) {
   try {
     const raw = localStorage.getItem(FC_CACHE_KEY)
     if (!raw) return null
-    const { ts, nq, entries } = JSON.parse(raw)
+    const { ts, nq, dyn, entries } = JSON.parse(raw)
     if (Date.now() - ts > FC_CACHE_TTL) return null
     if (nq !== numQbs) return null
+    // dyn fehlt bei aelteren Cache-Eintraegen (vor diesem Feature) -- als Dynasty werten,
+    // damit ein alter Cache nicht faelschlich als Redraft-Treffer gilt.
+    if ((dyn ?? true) !== isDynastyMode) return null
     return new Map(entries)
   } catch { return null }
 }
 
-function saveFcCache(map, numQbs) {
+function saveFcCache(map, numQbs, isDynastyMode) {
   try {
     localStorage.setItem(FC_CACHE_KEY, JSON.stringify({
-      ts: Date.now(), nq: numQbs, entries: [...map.entries()],
+      ts: Date.now(), nq: numQbs, dyn: isDynastyMode, entries: [...map.entries()],
     }))
   } catch {}
 }
 
 // ── Build manager rosters from Sleeper data ───────────────────────────────────
-function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrder, activeDraftPicks, { rounds = 3, year = 2026, numTeams } = {}) {
+function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrder, activeDraftPicks, { rounds = 3, year = 2026, numTeams, isDynastyMode = true } = {}) {
   const userNameById = new Map(
     (users || []).map(u => [String(u.user_id), u.display_name || u.username || `User ${u.user_id}`])
   )
@@ -118,81 +122,85 @@ function buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrde
       })
     }
 
-    // Determine pick ownership for current draft year
-    const tradedAwayRounds = new Set(
-      (tradedPicks || [])
-        .filter(p => String(p.roster_id) === rid && String(p.owner_id) !== rid)
-        .map(p => p.round)
-    )
-    const tradedToHere = (tradedPicks || [])
-      .filter(p => String(p.owner_id) === rid && String(p.roster_id) !== rid)
-
+    // Redraft hat keine ueber die Saison hinaus persistenten, handelbaren Picks -- picks bleibt
+    // leer, keiner der Pick-Bloecke unten laeuft.
     const picks = []
 
-    // Current draft year — own picks (skip slots already used in live draft)
-    for (let r = 1; r <= rounds; r++) {
-      if (!tradedAwayRounds.has(r)) {
-        const slotKey = mySlot ? `${r}_${mySlot}` : null
+    if (isDynastyMode) {
+      // Determine pick ownership for current draft year
+      const tradedAwayRounds = new Set(
+        (tradedPicks || [])
+          .filter(p => String(p.roster_id) === rid && String(p.owner_id) !== rid)
+          .map(p => p.round)
+      )
+      const tradedToHere = (tradedPicks || [])
+        .filter(p => String(p.owner_id) === rid && String(p.roster_id) !== rid)
+
+      // Current draft year — own picks (skip slots already used in live draft)
+      for (let r = 1; r <= rounds; r++) {
+        if (!tradedAwayRounds.has(r)) {
+          const slotKey = mySlot ? `${r}_${mySlot}` : null
+          if (slotKey && usedSlots.has(slotKey)) continue
+          const roundLabel = r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`
+          const label = mySlot
+            ? `${year} - ${r}.${String(mySlot).padStart(2, '0')}`
+            : `${year} ${roundLabel}`
+          picks.push({
+            type: 'pick',
+            id: `pick_own_${rid}_r${r}_${year}`,
+            label,
+            year: String(year),
+            round: r,
+            tier: 'mid',
+            dynasty_value: pickDynastyValue(r, 'mid', { slot: mySlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
+            pos: null, age: null,
+            isOwn: true,
+            originalRosterId: rid,
+          })
+        }
+      }
+
+      // Current draft year — received traded picks (skip slots already used)
+      for (const tp of tradedToHere) {
+        const origRoster = rosters.find(r => String(r.roster_id) === String(tp.roster_id))
+        const origOwnerId = String(origRoster?.owner_id || '')
+        const origSlot = slotByUserId.get(origOwnerId) ?? null
+        const slotKey = origSlot ? `${tp.round}_${origSlot}` : null
         if (slotKey && usedSlots.has(slotKey)) continue
-        const roundLabel = r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`
-        const label = mySlot
-          ? `${year} - ${r}.${String(mySlot).padStart(2, '0')}`
-          : `${year} ${roundLabel}`
+        const origOwner = userNameById.get(origOwnerId) || `Team ${tp.roster_id}`
+        const label = origSlot
+          ? `${year} - ${tp.round}.${String(origSlot).padStart(2, '0')}`
+          : `${year} ${tp.round === 1 ? '1st' : tp.round === 2 ? '2nd' : tp.round === 3 ? '3rd' : `${tp.round}th`} (${origOwner})`
         picks.push({
           type: 'pick',
-          id: `pick_own_${rid}_r${r}_${year}`,
+          id: `pick_trade_${rid}_from${tp.roster_id}_r${tp.round}_${year}`,
           label,
           year: String(year),
+          round: tp.round,
+          tier: 'mid',
+          dynasty_value: pickDynastyValue(tp.round, 'mid', { slot: origSlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
+          pos: null, age: null,
+          isOwn: false,
+          originalRosterId: String(tp.roster_id),
+        })
+      }
+
+      // Next draft year — own picks only (no live draft or trade data yet)
+      const nextYear = year + 1
+      for (let r = 1; r <= rounds; r++) {
+        picks.push({
+          type: 'pick',
+          id: `pick_own_${rid}_r${r}_${nextYear}`,
+          label: `${nextYear} ${r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`}`,
+          year: String(nextYear),
           round: r,
           tier: 'mid',
-          dynasty_value: pickDynastyValue(r, 'mid', { slot: mySlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
+          dynasty_value: pickDynastyValue(r, 'mid', { numTeams: teamCount, yearOffset: 1 }),
           pos: null, age: null,
           isOwn: true,
           originalRosterId: rid,
         })
       }
-    }
-
-    // Current draft year — received traded picks (skip slots already used)
-    for (const tp of tradedToHere) {
-      const origRoster = rosters.find(r => String(r.roster_id) === String(tp.roster_id))
-      const origOwnerId = String(origRoster?.owner_id || '')
-      const origSlot = slotByUserId.get(origOwnerId) ?? null
-      const slotKey = origSlot ? `${tp.round}_${origSlot}` : null
-      if (slotKey && usedSlots.has(slotKey)) continue
-      const origOwner = userNameById.get(origOwnerId) || `Team ${tp.roster_id}`
-      const label = origSlot
-        ? `${year} - ${tp.round}.${String(origSlot).padStart(2, '0')}`
-        : `${year} ${tp.round === 1 ? '1st' : tp.round === 2 ? '2nd' : tp.round === 3 ? '3rd' : `${tp.round}th`} (${origOwner})`
-      picks.push({
-        type: 'pick',
-        id: `pick_trade_${rid}_from${tp.roster_id}_r${tp.round}_${year}`,
-        label,
-        year: String(year),
-        round: tp.round,
-        tier: 'mid',
-        dynasty_value: pickDynastyValue(tp.round, 'mid', { slot: origSlot ?? undefined, numTeams: teamCount, yearOffset: 0 }),
-        pos: null, age: null,
-        isOwn: false,
-        originalRosterId: String(tp.roster_id),
-      })
-    }
-
-    // Next draft year — own picks only (no live draft or trade data yet)
-    const nextYear = year + 1
-    for (let r = 1; r <= rounds; r++) {
-      picks.push({
-        type: 'pick',
-        id: `pick_own_${rid}_r${r}_${nextYear}`,
-        label: `${nextYear} ${r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`}`,
-        year: String(nextYear),
-        round: r,
-        tier: 'mid',
-        dynasty_value: pickDynastyValue(r, 'mid', { numTeams: teamCount, yearOffset: 1 }),
-        pos: null, age: null,
-        isOwn: true,
-        originalRosterId: rid,
-      })
     }
 
     result[rid] = { displayName, ownerId, players, picks }
@@ -226,6 +234,9 @@ export default function TradePage({ selectedLeague }) {
   const league = selectedLeague || null
   const rosterPos = league?.roster_positions || []
   const isSuperflex = rosterPos.some(p => String(p).toUpperCase().includes('SUPER'))
+  // type 1 (Keeper) und 2 (Dynasty) verhalten sich im Trade-Tab identisch -- gleiche
+  // Konvention wie ueberall sonst in der App (resolveDraftMode in draftFormat.js).
+  const isDynastyMode = resolveDraftMode({ league }) !== 'redraft'
 
   const numQbs = isSuperflex ? 2 : 1
   const numTeams = league?.total_rosters || 12
@@ -239,12 +250,12 @@ export default function TradePage({ selectedLeague }) {
     }
   }, [stateLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
 
-  // Load FantasyCalc dynasty values (daily cache)
+  // Load FantasyCalc values (daily cache) — Dynasty- oder Redraft-Werte je nach Liga-Typ
   useEffect(() => {
-    const cached = loadFcCache(numQbs)
+    const cached = loadFcCache(numQbs, isDynastyMode)
     if (cached) { setExtraValuesMap(cached); setKtcLoading(false); return }
     setKtcLoading(true)
-    fetch(`/api/rankings/fantasycalc?numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}`)
+    fetch(`/api/rankings/fantasycalc?numQbs=${numQbs}&numTeams=${numTeams}&ppr=${ppr}&isDynasty=${isDynastyMode}`)
       .then(r => r.json())
       .then(data => {
         if (!data.ok) return
@@ -253,12 +264,12 @@ export default function TradePage({ selectedLeague }) {
           if (!p.name || !p.dynasty_value) continue
           map.set(normalizePlayerName(p.name), p.dynasty_value)
         }
-        saveFcCache(map, numQbs)
+        saveFcCache(map, numQbs, isDynastyMode)
         setExtraValuesMap(map)
       })
       .catch(() => {})
       .finally(() => setKtcLoading(false))
-  }, [isSuperflex]) // eslint-disable-line
+  }, [isSuperflex, isDynastyMode]) // eslint-disable-line
 
   // Load all league rosters + manager info
   const loadLeagueRosters = useCallback(async () => {
@@ -287,7 +298,9 @@ export default function TradePage({ selectedLeague }) {
       let draftOrder = null
       let activeDraftPicks = []
       let draftNumTeams = rosters.length
-      if (upcomingDraft?.draft_id) {
+      // Picks/Draft-Order sind nur fuer Dynasty relevant -- bei Redraft wuerde
+      // buildManagerRosters das Ergebnis ohnehin verwerfen, also erst gar nicht abrufen.
+      if (isDynastyMode && upcomingDraft?.draft_id) {
         const isDraftActive = ['drafting', 'paused'].includes(upcomingDraft.status)
         try {
           const [tp, fullDraft, dp] = await Promise.all([
@@ -302,7 +315,7 @@ export default function TradePage({ selectedLeague }) {
         } catch {}
       }
 
-      const rosters_ = buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrder, activeDraftPicks, { rounds, year: draftYear, numTeams: draftNumTeams })
+      const rosters_ = buildManagerRosters(rosters, playersMeta, users, tradedPicks, draftOrder, activeDraftPicks, { rounds, year: draftYear, numTeams: draftNumTeams, isDynastyMode })
       setRostersByRosterId(rosters_)
 
       // Find current user's roster
@@ -313,9 +326,9 @@ export default function TradePage({ selectedLeague }) {
     } finally {
       setRosterLoading(false)
     }
-  }, [stateLeagueId, sleeperUserId, seasonYear]) // eslint-disable-line
+  }, [stateLeagueId, sleeperUserId, seasonYear, isDynastyMode]) // eslint-disable-line
 
-  useEffect(() => { loadLeagueRosters() }, [stateLeagueId]) // eslint-disable-line
+  useEffect(() => { loadLeagueRosters() }, [stateLeagueId, isDynastyMode]) // eslint-disable-line
 
   // ── No league context ─────────────────────────────────────────────────────
   if (!stateLeagueId) {
@@ -336,6 +349,7 @@ export default function TradePage({ selectedLeague }) {
       <div className="trade-page-header">
         <h2 className="section-title">Trade Analyzer</h2>
         {stateLeagueName && <span className="trade-league-name muted">{stateLeagueName}</span>}
+        <span className="badge badge--muted badge--sm">{isDynastyMode ? 'Dynasty-Werte' : 'Redraft-Werte'}</span>
       </div>
       <TradeAnalyzer
         dynastyRoster={dynastyRoster}
@@ -347,6 +361,7 @@ export default function TradePage({ selectedLeague }) {
         rosterLoading={rosterLoading}
         rosterError={rosterError}
         myRosterId={myRosterId}
+        isDynastyMode={isDynastyMode}
       />
     </section>
   )

@@ -6,7 +6,9 @@ const SCORING_LABEL = { ppr: 'PPR', half_ppr: '0.5 PPR', standard: 'Standard' }
 // String-Literale vergleichen (siehe CLAUDE.md).
 function deriveLeagueContext(league) {
   const leagueType = Number(league?.settings?.type)
-  const format = leagueType === 2 ? 'dynasty' : 'redraft'
+  // type 1 (Keeper) zaehlt wie Dynasty -- deckt sich mit resolveDraftMode (draftFormat.js),
+  // das Keeper/Dynasty gleich behandelt. Muss mit der tatsaechlichen Wertequelle uebereinstimmen.
+  const format = leagueType === 0 ? 'redraft' : 'dynasty'
   const keeper = leagueType === 1
   const scoringType = deriveFormat({ league }).scoringType
   const scoring = SCORING_LABEL[scoringType] || scoringType
@@ -148,13 +150,15 @@ export function buildTradeSuggestionsRequest({ myRoster, enrichedRosters, myRost
     league: { format, ...(keeper ? { keeper: true } : {}), scoring, superflex: isSuperflex, teams: league?.total_rosters || null },
     my_team: {
       name: myRoster.displayName,
-      profile,
+      ...(format === 'dynasty' ? { profile } : {}),
       position_depth: posDepth,
       top_players: myData.players,
       available_picks: myData.picks,
     },
     other_teams: opponents,
-    value_scale: 'dynasty_value on 0–10000 scale (FantasyCalc).',
+    value_scale: format === 'dynasty'
+      ? 'dynasty_value on 0–10000 scale (FantasyCalc).'
+      : 'market_value on 0–10000 scale (FantasyCalc, redraft/current season).',
     instruction: 'Propose 2–4 FAIR trades (value within ±10%). Use ONLY names from the provided roster data. Each trade must address a real positional need for both sides.',
   }
 
@@ -164,8 +168,7 @@ Regeln:
 - Schlage nur Trades vor, von denen beide Teams wirklich profitieren.
 - Halte den Wert ausgeglichen — innerhalb von ±10 % des Gesamtwerts.
 - Nutze AUSSCHLIESSLICH Spieler- und Pick-Namen aus den mitgelieferten Daten.
-- Beruecksichtige positionellen Ueberschuss/Bedarf auf beiden Seiten.
-- Beziehe das Team-Profil ein (Contender vs. Rebuild).
+- Beruecksichtige positionellen Ueberschuss/Bedarf auf beiden Seiten.${format === 'dynasty' ? '\n- Beziehe das Team-Profil ein (Contender vs. Rebuild).' : ''}
 - Alle Freitexte auf Deutsch (du-Form).`
 
   return {
@@ -202,14 +205,16 @@ export function buildTradeAnalysisRequest({
     },
     your_team: {
       name: managerGiveRoster?.displayName || 'Your Team',
-      profile,
-      avg_starter_age: avgAge ? Number(avgAge.toFixed(1)) : null,
-      profile_note:
-        profile === 'contender'
-          ? 'Contender — Winning now matters more than future assets.'
-          : profile === 'rebuild'
-          ? 'Rebuild — Youth and picks matter more than immediate wins.'
-          : 'Balanced team.',
+      ...(format === 'dynasty' ? {
+        profile,
+        avg_starter_age: avgAge ? Number(avgAge.toFixed(1)) : null,
+        profile_note:
+          profile === 'contender'
+            ? 'Contender — Winning now matters more than future assets.'
+            : profile === 'rebuild'
+            ? 'Rebuild — Youth and picks matter more than immediate wins.'
+            : 'Balanced team.',
+      } : {}),
       top_players: managerGiveRoster
         ? formatRosterSummary(managerGiveRoster.players)
         : [fallbackStarters],
@@ -228,24 +233,26 @@ export function buildTradeAnalysisRequest({
       algorithmic_verdict: verdict,
       value_ratio: ratio !== null ? Number(ratio.toFixed(2)) : null,
     },
-    value_scale_note: 'dynasty_value on 0–10000 scale (FantasyCalc). adjusted_value includes team profile modifier.',
-    instruction: 'Do NOT overvalue future picks. Use ONLY the provided values. Consider the roster context of both teams.',
+    value_scale_note: format === 'dynasty'
+      ? 'dynasty_value on 0–10000 scale (FantasyCalc). adjusted_value includes team profile modifier.'
+      : 'market_value on 0–10000 scale (FantasyCalc, redraft/current season). adjusted_value equals market_value — no team profile modifier in redraft.',
+    instruction: format === 'dynasty'
+      ? 'Do NOT overvalue future picks. Use ONLY the provided values. Consider the roster context of both teams.'
+      : 'Use ONLY the provided values. Consider the roster context of both teams.',
   }
 
   const system = `Du bist ein erfahrener Fantasy-Football-Analyst (${format === 'dynasty' ? 'Dynasty' : 'Redraft'}). Analysiere den Trade aus Sicht des Nutzers ("you give" / "you receive").
 
 Regeln:
-- Nutze AUSSCHLIESSLICH die mitgelieferten Werte (dynasty_value/adjusted_value).
-- Ueberbewerte zukuenftige Picks nicht.
-- Beruecksichtige Kaderstaerken und Beduerfnisse beider Teams.
-- Beziehe das Team-Profil ein (Contender vs. Rebuild).
+- Nutze AUSSCHLIESSLICH die mitgelieferten Werte (dynasty_value/adjusted_value).${format === 'dynasty' ? '\n- Ueberbewerte zukuenftige Picks nicht.' : ''}
+- Beruecksichtige Kaderstaerken und Beduerfnisse beider Teams.${format === 'dynasty' ? '\n- Beziehe das Team-Profil ein (Contender vs. Rebuild).' : ''}
 - Alle Freitexte auf Deutsch (du-Form).`
 
   return {
     system,
     messages: [{
       role: 'user',
-      content: `Analyze this dynasty trade:\n\n${JSON.stringify(context, null, 2)}`,
+      content: `Analyze this ${format} trade:\n\n${JSON.stringify(context, null, 2)}`,
     }],
     tools: [TRADE_TOOL],
     tool_choice: { type: 'tool', name: 'return_trade_analysis' },

@@ -88,14 +88,21 @@ function applyModifier(item, profile) {
   return { ...item, adjusted_value: Math.round(base * mod), modifier: mod }
 }
 
-export function evaluateTrade(sideGive, sideGet, { dynastyRoster, profileOverride } = {}) {
-  const profile =
-    profileOverride && profileOverride !== 'auto'
+// Redraft hat keine Zukunft, in die investiert wird - kein Alters-/Pick-Modifikator, keine
+// Contender/Rebuild-Achse. Identitaets-Abbildung statt applyModifier.
+function applyIdentity(item) {
+  return { ...item, adjusted_value: item.dynasty_value || 0, modifier: 1 }
+}
+
+export function evaluateTrade(sideGive, sideGet, { dynastyRoster, profileOverride, isDynastyMode = true } = {}) {
+  const profile = !isDynastyMode
+    ? null
+    : profileOverride && profileOverride !== 'auto'
       ? profileOverride
       : detectTeamProfile(dynastyRoster)
 
-  const enrichedGive = sideGive.map(i => applyModifier(i, profile))
-  const enrichedGet  = sideGet.map(i  => applyModifier(i, profile))
+  const enrichedGive = isDynastyMode ? sideGive.map(i => applyModifier(i, profile)) : sideGive.map(applyIdentity)
+  const enrichedGet  = isDynastyMode ? sideGet.map(i  => applyModifier(i, profile)) : sideGet.map(applyIdentity)
 
   const totalGive = enrichedGive.reduce((s, i) => s + i.adjusted_value, 0)
   const totalGet  = enrichedGet.reduce((s, i)  => s + i.adjusted_value, 0)
@@ -118,7 +125,7 @@ export function evaluateTrade(sideGive, sideGet, { dynastyRoster, profileOverrid
   return {
     totalGive, totalGet, ratio, verdict, profile,
     enrichedGive, enrichedGet,
-    avgAge: avgStarterAge(dynastyRoster),
+    avgAge: isDynastyMode ? avgStarterAge(dynastyRoster) : null,
   }
 }
 

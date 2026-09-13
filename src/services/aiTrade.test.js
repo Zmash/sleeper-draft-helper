@@ -16,7 +16,26 @@ describe('aiTrade — ehrliches Format', () => {
     const ctx = JSON.parse(p.messages[0].content.replace(/^[^{]*/, ''))
     expect(ctx.league.format).toBe('dynasty')
     const k = buildTradeAnalysisRequest({ tradeGive: [], tradeGet: [], evalResult, dynastyRoster: [], league: { ...redraftLeague, settings: { type: 1 } } })
-    expect(JSON.parse(k.messages[0].content.replace(/^[^{]*/, '')).league.keeper).toBe(true)
+    const kCtx = JSON.parse(k.messages[0].content.replace(/^[^{]*/, ''))
+    expect(kCtx.league.keeper).toBe(true)
+    // Keeper nutzt Dynasty-Werte (resolveDraftMode-Konvention) -- muss der KI auch als
+    // dynasty gezeigt werden, sonst widerspricht das Format-Label der Wertequelle.
+    expect(kCtx.league.format).toBe('dynasty')
+  })
+  it('Redraft-Prompt laesst Picks-/Profil-Saetze weg, Dynasty-Prompt behaelt sie', () => {
+    const redraftEval = { ...evalResult, profile: null, avgAge: null }
+    const r = buildTradeAnalysisRequest({ tradeGive: [], tradeGet: [], evalResult: redraftEval, dynastyRoster: [], league: redraftLeague })
+    const d = buildTradeAnalysisRequest({ tradeGive: [], tradeGet: [], evalResult, dynastyRoster: [], league: dynastyLeague })
+    expect(r.system).not.toMatch(/Team-Profil/)
+    expect(r.system).not.toMatch(/zukuenftige Picks/)
+    expect(d.system).toMatch(/Team-Profil/)
+    expect(d.system).toMatch(/zukuenftige Picks/)
+    const rCtx = JSON.parse(r.messages[0].content.replace(/^[^{]*/, ''))
+    expect(rCtx.your_team.profile).toBeUndefined()
+    expect(rCtx.value_scale_note).toMatch(/market_value/)
+    const dCtx = JSON.parse(d.messages[0].content.replace(/^[^{]*/, ''))
+    expect(dCtx.your_team.profile).toBe('balanced')
+    expect(dCtx.value_scale_note).toMatch(/dynasty_value/)
   })
   it('Scoring kommt aus deriveFormat, nicht aus rec??1 — rec 0 ist standard', () => {
     const p = buildTradeAnalysisRequest({ tradeGive: [], tradeGet: [], evalResult, dynastyRoster: [], league: redraftLeague })

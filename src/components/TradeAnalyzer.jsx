@@ -220,7 +220,7 @@ function TradeSide({
   side, items, evalItems, total,
   allPlayers, onAdd, onRemove,
   managerOptions, selectedManagerId, onManagerChange,
-  managerRoster,
+  managerRoster, isDynastyMode,
 }) {
   const [mode, setMode] = useState(null)
   const excludeIds = useMemo(() => new Set(items.map(i => i.id)), [items])
@@ -273,13 +273,13 @@ function TradeSide({
         />
       )}
 
-      {/* Manual pick form (only without manager context) */}
-      {!managerRoster && mode === 'pick' && (
+      {/* Manual pick form (only without manager context, only Dynasty/Keeper) */}
+      {isDynastyMode && !managerRoster && mode === 'pick' && (
         <PickForm onAdd={p => { onAdd(p); setMode(null) }} onCancel={() => setMode(null)} />
       )}
 
       {/* Manager picks */}
-      {managerRoster && (
+      {isDynastyMode && managerRoster && (
         <AvailablePicks picks={managerRoster.picks} excludeIds={excludeIds} onAdd={onAdd} />
       )}
 
@@ -288,7 +288,7 @@ function TradeSide({
           <button className="btn btn-secondary btn-sm" onClick={() => setMode('player')}>
             + Player
           </button>
-          {!managerRoster && (
+          {isDynastyMode && !managerRoster && (
             <button className="btn btn-secondary btn-sm" onClick={() => setMode('pick')}>
               + Pick
             </button>
@@ -420,6 +420,7 @@ export default function TradeAnalyzer({
   dynastyRoster, boardPlayers, league,
   extraValuesMap, ktcLoading,
   rostersByRosterId, rosterLoading, rosterError, myRosterId,
+  isDynastyMode = true,
 }) {
   const {
     tradeGive, tradeGet, profileOverride, addItem, removeItem, clearTrade, setProfileOverride,
@@ -483,8 +484,8 @@ export default function TradeAnalyzer({
 
   // Trade evaluation
   const evalResult = useMemo(
-    () => evaluateTrade(tradeGive, tradeGet, { dynastyRoster, profileOverride }),
-    [tradeGive, tradeGet, dynastyRoster, profileOverride]
+    () => evaluateTrade(tradeGive, tradeGet, { dynastyRoster, profileOverride, isDynastyMode }),
+    [tradeGive, tradeGet, dynastyRoster, profileOverride, isDynastyMode]
   )
   const { totalGive, totalGet, verdict, profile, avgAge, enrichedGive, enrichedGet } = evalResult
   const verdictCfg = VERDICT_CONFIG[verdict] || VERDICT_CONFIG.neutral
@@ -672,12 +673,12 @@ export default function TradeAnalyzer({
       {/* ── Status hints ──────────────────────────────────────────── */}
       {ktcLoading && (
         <div className="trade-no-values-hint trade-no-values-hint--loading">
-          Loading dynasty values…
+          Werte werden geladen…
         </div>
       )}
       {!ktcLoading && !hasDynastyValues && (
         <div className="trade-no-values-hint">
-          Failed to load dynasty values. Check your internet connection.
+          Werte konnten nicht geladen werden. Internetverbindung prüfen.
         </div>
       )}
       {rosterLoading && (
@@ -703,6 +704,7 @@ export default function TradeAnalyzer({
           selectedManagerId={managerGive}
           onManagerChange={setManagerGive}
           managerRoster={managerGiveRoster}
+          isDynastyMode={isDynastyMode}
         />
         <div className="trade-vs">VS</div>
         <TradeSide
@@ -717,6 +719,7 @@ export default function TradeAnalyzer({
           selectedManagerId={managerGet}
           onManagerChange={setManagerGet}
           managerRoster={managerGetRoster}
+          isDynastyMode={isDynastyMode}
         />
       </div>
 
@@ -729,24 +732,26 @@ export default function TradeAnalyzer({
             <span className="trade-verdict-label">{verdictCfg.label}</span>
           </div>
 
-          {/* ── Team profile ──────────────────────────────────────── */}
-          <div className="trade-profile-row">
-            <span className="trade-profile-label">
-              <Icon name={PROFILE_ICONS[profile]} size={14} /> Team profile: <strong>{PROFILE_LABELS[profile]}</strong>
-              {avgAge && <span className="muted"> · Avg. starter age {Number(avgAge).toFixed(1)}</span>}
-            </span>
-            <div className="trade-profile-controls">
-              {['auto', 'contender', 'balanced', 'rebuild'].map(p => (
-                <button
-                  key={p}
-                  className={`btn btn-sm ${profileOverride === p ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setProfileOverride(p)}
-                >
-                  {PROFILE_LABELS[p]}
-                </button>
-              ))}
+          {/* ── Team profile (nur Dynasty/Keeper — Redraft hat keine Zukunft, in die investiert wird) ── */}
+          {isDynastyMode && (
+            <div className="trade-profile-row">
+              <span className="trade-profile-label">
+                <Icon name={PROFILE_ICONS[profile]} size={14} /> Team profile: <strong>{PROFILE_LABELS[profile]}</strong>
+                {avgAge && <span className="muted"> · Avg. starter age {Number(avgAge).toFixed(1)}</span>}
+              </span>
+              <div className="trade-profile-controls">
+                {['auto', 'contender', 'balanced', 'rebuild'].map(p => (
+                  <button
+                    key={p}
+                    className={`btn btn-sm ${profileOverride === p ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setProfileOverride(p)}
+                  >
+                    {PROFILE_LABELS[p]}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ── AI analysis ───────────────────────────────────────── */}
           <div className="trade-ai-section-wrap">
