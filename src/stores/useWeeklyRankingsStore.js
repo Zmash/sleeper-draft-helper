@@ -43,6 +43,46 @@ export const useWeeklyRankingsStore = create((set, get) => ({
 
   getRankMap: ({ pos, scope }) => get().byKey.get(`${pos}:${scope}`) || new Map(),
 
+  // FantasyPros-Wochenprojektion (fantasy_pts), UNABHAENGIG von byKey/getRankMap
+  // gecached -- byKeys Cache-Key ("pos:scope") enthaelt kein Scoring, weil bisher
+  // immer nur EIN Format gleichzeitig aktiv war (eine Liga pro Seite). Das
+  // Dashboard zeigt aber mehrere Ligen mit potenziell unterschiedlichem Scoring
+  // gleichzeitig -- ein zweiter Aufruf mit anderem "scoring" wuerde sonst als
+  // "noch frisch" durchgehen und die falschen (ersten) Werte behalten.
+  fpWeekPtsByScoring: new Map(), // "pos:scoring" -> Map<matchKey, fantasy_pts>
+  fpWeekPtsLoadedAt: new Map(),
+  fpWeekPtsLoading: new Set(),
+
+  loadFpWeekPtsIfStale: async ({ pos, scoring = 'ppr' } = {}) => {
+    const cacheKey = `${pos}:${scoring}`
+    const { fpWeekPtsLoadedAt, fpWeekPtsLoading } = get()
+    const fresh = fpWeekPtsLoadedAt.has(cacheKey) && Date.now() - fpWeekPtsLoadedAt.get(cacheKey) < TTL_MS.week
+    if (fresh || fpWeekPtsLoading.has(cacheKey)) return
+    fpWeekPtsLoading.add(cacheKey)
+    try {
+      const res = await fetch(`/api/rankings/fantasypros-position?pos=${pos}&scope=week&scoring=${scoring}`)
+      const data = await res.json()
+      if (!data.ok) return
+      const ptsMap = new Map()
+      for (const p of data.players || []) {
+        if (p.fantasy_pts != null) ptsMap.set(matchKey(pos, { name: p.name, team: p.team }), p.fantasy_pts)
+      }
+      set((s) => {
+        const next = new Map(s.fpWeekPtsByScoring)
+        next.set(cacheKey, ptsMap)
+        const nextLoadedAt = new Map(s.fpWeekPtsLoadedAt)
+        nextLoadedAt.set(cacheKey, Date.now())
+        return { fpWeekPtsByScoring: next, fpWeekPtsLoadedAt: nextLoadedAt }
+      })
+    } catch {
+      // Bleibt leer -- Aufrufer faellt dann auf die andere Quelle zurueck.
+    } finally {
+      fpWeekPtsLoading.delete(cacheKey)
+    }
+  },
+
+  getFpWeekPtsMap: ({ pos, scoring = 'ppr' }) => get().fpWeekPtsByScoring.get(`${pos}:${scoring}`) || new Map(),
+
   // Sleeper Wochen-Projektionen (ein Request pro Woche, alle Positionen).
   // Schluessel ist die native Sleeper-ID -- direkter Match auf Kader und
   // Free Agents, kein Name-Matching wie bei den FP-Rankings.

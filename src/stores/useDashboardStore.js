@@ -12,8 +12,15 @@ import {
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
+import { projectedTotalForStarters } from '../services/analysis/matchupProjection'
 
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
+
+// Fuer den Proj-Balken herangezogene Positionen (identisch zur Sleeper-
+// Wochenprojektion, siehe rankings.js SLEEPER_WEEK_POSITIONS) und das FP-
+// Scoring-Slug je App-Scoringtyp (vgl. rankings.js FP_SCORING_PREFIX).
+const FP_WEEK_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DEF']
+const FP_SCORING_FOR_TYPE = { ppr: 'ppr', half_ppr: 'half', standard: 'std' }
 
 function detectFormat(league) {
   // league_type is a string on enriched leagues; settings.type is a number (0=redraft,1=keeper,2=dynasty)
@@ -31,24 +38,8 @@ function detectScoringType(league) {
   return rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
 }
 
-// Summe der Wochenprojektion (Sleeper) ueber die Starter-IDs eines Matchup-
-// Eintrags, im Liga-Scoringformat. null, wenn keine Projektionsdaten vorliegen
-// (z.B. Server-Route/AI-Proxy nicht erreichbar) -- dann faellt die Karte auf
-// die reine Punktestand-Anzeige zurueck.
-function projectedPointsForStarters(starterIds, scoringField, sleeperWeekById) {
-  if (!starterIds?.length || !sleeperWeekById?.size) return null
-  let sum = 0
-  let any = false
-  for (const id of starterIds) {
-    if (!id || id === '0') continue
-    const proj = sleeperWeekById.get(String(id))?.[scoringField]
-    if (proj != null) { sum += proj; any = true }
-  }
-  return any ? sum : null
-}
-
 // Build a single league card, fetching all needed data in parallel
-async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById) {
+async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType) {
   try {
     const [drafts, rosters, users, matchups] = await Promise.all([
       fetchLeagueDrafts(league.league_id).catch(() => []),
@@ -81,7 +72,10 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         const oppUser = oppRoster
           ? (users || []).find((u) => String(u.user_id) === String(oppRoster.owner_id))
           : null
-        const scoringField = pointsFieldFor(detectScoringType(league))
+        const scoringType = detectScoringType(league)
+        const scoringField = pointsFieldFor(scoringType)
+        const fpPtsByKey = fpPtsByScoringType?.[scoringType] || new Map()
+        const projArgs = { playersMeta, sleeperWeekById, scoringField, fpPtsByKey }
         matchup = {
           myPoints: mine.points || 0,
           opponentPoints: opp?.points || 0,
@@ -89,9 +83,9 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
             oppUser?.display_name ||
             oppUser?.username ||
             (opp ? `Team ${opp.roster_id}` : '—'),
-          myProjected: projectedPointsForStarters(mine.starters, scoringField, sleeperWeekById),
+          myProjected: projectedTotalForStarters({ starterIds: mine.starters, ...projArgs }),
           opponentProjected: opp
-            ? projectedPointsForStarters(opp.starters, scoringField, sleeperWeekById)
+            ? projectedTotalForStarters({ starterIds: opp.starters, ...projArgs })
             : null,
         }
       }
@@ -225,19 +219,45 @@ export const useDashboardStore = create((set, get) => ({
           }).catch(() => ({}))
         : {}
 
-      // Sleeper-Wochenprojektionen fuer den Proj-vs-Live-Balken (nur waehrend
-      // der Saison noetig; Store cached 6h, siehe useWeeklyRankingsStore).
+      // Projektionen fuer den Proj-vs-Live-Balken: zwei unabhaengige Quellen
+      // (Sleeper + FantasyPros), im Dashboard-Store gemittelt (matchupProjection.js)
+      // -- eine Quelle allein trifft manchmal daneben (Nutzer-Befund zu Sleeper).
+      // Nur waehrend der Saison noetig; beide Stores cachen 6h.
+      const scoringTypesUsed = new Set((leagues || []).map((l) => detectScoringType(l)))
       if (isInSeason) {
-        await useWeeklyRankingsStore
-          .getState()
-          .loadSleeperWeekIfStale({ season: nflState?.season || seasonYear, week: currentWeek })
-          .catch(() => {})
+        await Promise.all([
+          useWeeklyRankingsStore
+            .getState()
+            .loadSleeperWeekIfStale({ season: nflState?.season || seasonYear, week: currentWeek })
+            .catch(() => {}),
+          ...[...scoringTypesUsed].flatMap((scoringType) => {
+            const fpScoring = FP_SCORING_FOR_TYPE[scoringType] || 'ppr'
+            return FP_WEEK_POSITIONS.map((pos) =>
+              useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos, scoring: fpScoring }).catch(() => {})
+            )
+          }),
+        ])
       }
       const sleeperWeekById = useWeeklyRankingsStore.getState().sleeperWeekById
 
+      // Pro benoetigtem Scoringtyp die FantasyPros-Punkte aller Positionen zu
+      // einer Lookup-Map mergen (matchKey-Namespaces ueberschneiden sich nicht
+      // zwischen Positionen, siehe waiverStats.matchKey).
+      const fpPtsByScoringType = {}
+      for (const scoringType of scoringTypesUsed) {
+        const fpScoring = FP_SCORING_FOR_TYPE[scoringType] || 'ppr'
+        const merged = new Map()
+        for (const pos of FP_WEEK_POSITIONS) {
+          for (const [k, v] of useWeeklyRankingsStore.getState().getFpWeekPtsMap({ pos, scoring: fpScoring })) {
+            merged.set(k, v)
+          }
+        }
+        fpPtsByScoringType[scoringType] = merged
+      }
+
       // Build league cards in parallel
       const leagueCardPromises = (leagues || []).map((l) =>
-        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById)
+        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType)
       )
 
       // Standalone-Drafts = echte Mocks (league_id === null, vgl.

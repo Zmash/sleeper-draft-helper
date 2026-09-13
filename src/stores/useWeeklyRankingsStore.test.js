@@ -11,7 +11,10 @@ function mockFetch(response) {
 }
 
 beforeEach(() => {
-  useWeeklyRankingsStore.setState({ byKey: new Map(), sleeperWeekKey: null, sleeperWeekById: new Map(), loadedAt: new Map(), loading: new Set() })
+  useWeeklyRankingsStore.setState({
+    byKey: new Map(), sleeperWeekKey: null, sleeperWeekById: new Map(), loadedAt: new Map(), loading: new Set(),
+    fpWeekPtsByScoring: new Map(), fpWeekPtsLoadedAt: new Map(), fpWeekPtsLoading: new Set(),
+  })
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -65,5 +68,40 @@ describe('useWeeklyRankingsStore', () => {
     ).resolves.toBeUndefined()
     const map = useWeeklyRankingsStore.getState().getRankMap({ pos: 'TE', scope: 'week' })
     expect(map.size).toBe(0)
+  })
+})
+
+describe('useWeeklyRankingsStore.loadFpWeekPtsIfStale', () => {
+  it('laedt FantasyPros-Wochenpunkte je Position+Scoring, gecached unabhaengig vom ECR-Cache', async () => {
+    const fetchSpy = mockFetch(MOCK_RANKINGS)
+    vi.stubGlobal('fetch', fetchSpy)
+    await useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos: 'TE', scoring: 'ppr' })
+    expect(fetchSpy).toHaveBeenCalledWith('/api/rankings/fantasypros-position?pos=TE&scope=week&scoring=ppr')
+    const map = useWeeklyRankingsStore.getState().getFpWeekPtsMap({ pos: 'TE', scoring: 'ppr' })
+    expect(map.get('NAME:travis kelce')).toBe('14.2')
+  })
+
+  it('haelt unterschiedliche Scoring-Varianten derselben Position getrennt (Dashboard zeigt mehrere Ligaformate gleichzeitig)', async () => {
+    const fetchSpy = vi.fn((url) => {
+      const scoring = new URL(url, 'http://x').searchParams.get('scoring')
+      return Promise.resolve({
+        ok: true, status: 200,
+        json: () => Promise.resolve({ ok: true, players: [{ name: 'Travis Kelce', team: 'KC', fantasy_pts: scoring === 'ppr' ? 14.2 : 9.7 }] }),
+      })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+    await useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos: 'TE', scoring: 'ppr' })
+    await useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos: 'TE', scoring: 'std' })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(useWeeklyRankingsStore.getState().getFpWeekPtsMap({ pos: 'TE', scoring: 'ppr' }).get('NAME:travis kelce')).toBe(14.2)
+    expect(useWeeklyRankingsStore.getState().getFpWeekPtsMap({ pos: 'TE', scoring: 'std' }).get('NAME:travis kelce')).toBe(9.7)
+  })
+
+  it('laedt nicht erneut, solange derselbe pos+scoring-Cache frisch ist', async () => {
+    const fetchSpy = mockFetch(MOCK_RANKINGS)
+    vi.stubGlobal('fetch', fetchSpy)
+    await useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos: 'TE', scoring: 'ppr' })
+    await useWeeklyRankingsStore.getState().loadFpWeekPtsIfStale({ pos: 'TE', scoring: 'ppr' })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
