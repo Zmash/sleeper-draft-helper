@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import MobileMoreSheet from './MobileMoreSheet'
+import { useGamesLiveStore } from '../stores/useGamesLiveStore'
 
 // Mobile Bottom-Navigation fuer alle Seiten ausser dem Board — dort uebernimmt
 // BoardMobileBar dieselbe Leiste mit board-spezifischen Aktionen. Gleiche
@@ -21,6 +22,7 @@ import MobileMoreSheet from './MobileMoreSheet'
 export default function MobileNav({ onSync, syncLabel = 'Daten aktualisieren', showSync = true, autoRefreshActive = false }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const liveCount = useGamesLiveStore((s) => s.liveCount)
   const [moreOpen, setMoreOpen] = useState(false)
 
   // Wie board-mobile-active: die Seite braucht unten Platz fuer die Bar.
@@ -60,8 +62,17 @@ export default function MobileNav({ onSync, syncLabel = 'Daten aktualisieren', s
         )}
 
         {item('home', 'Start', '/dashboard')}
-        <button type="button" className={cx('bmb-item', moreOpen && 'is-active')} onClick={() => setMoreOpen(true)}>
-          <Icon name="menu" size={20} /><span>Mehr</span>
+        <button
+          type="button"
+          className={cx('bmb-item', moreOpen && 'is-active')}
+          onClick={() => setMoreOpen(true)}
+          aria-label={liveCount > 0 ? 'Mehr – Spiele laufen' : 'Mehr'}
+        >
+          <span className="bmb-badge-wrap">
+            <Icon name="menu" size={20} />
+            {liveCount > 0 && <span className="bmb-live-dot" aria-hidden="true" />}
+          </span>
+          <span>Mehr</span>
         </button>
       </nav>
 

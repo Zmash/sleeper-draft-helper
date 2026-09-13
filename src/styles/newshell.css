@@ -51,6 +51,15 @@
   width: 2px;
   background: var(--accent-fill);
 }
+.ns-rail-btn--live { color: var(--live); }
+.ns-rail-btn--live.is-active { color: var(--live); }
+.ns-rail-btn--live.is-active::before { background: var(--live); }
+.ns-rail-live-dot {
+  position: absolute; top: 5px; right: 6px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--live); box-shadow: 0 0 0 2px var(--surface-nav); animation: ns-live-pulse 1.6s infinite;
+}
+@keyframes ns-live-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .ns-rail-live-dot { animation: none; } }
 .ns-rail-logo {
   width: 26px;
   height: 26px;

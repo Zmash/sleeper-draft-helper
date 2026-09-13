@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { useGamesLiveStore } from '../stores/useGamesLiveStore'
 
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual('react-router-dom')),
@@ -51,5 +52,23 @@ describe('DashboardPage — Empty-State ohne Ligen', () => {
   it('bietet weiterhin den Weg ins Setup an', () => {
     setup()
     expect(screen.getByRole('button', { name: /Setup öffnen/i })).toBeTruthy()
+  })
+})
+
+describe('Redzone-Banner', () => {
+  afterEach(() => {
+    useGamesLiveStore.setState({ liveCount: 0 })
+    sessionState.availableLeagues = []
+  })
+
+  it('erscheint nur, solange NFL-Spiele laufen', () => {
+    sessionState.availableLeagues = [{ league_id: 'L1', name: 'Büro-Liga' }]
+    const { unmount } = setup()
+    expect(screen.queryByText(/Redzone öffnen/)).not.toBeInTheDocument()
+    unmount()
+
+    useGamesLiveStore.setState({ liveCount: 3 })
+    setup()
+    expect(screen.getByRole('button', { name: /3 Spiele laufen/ })).toBeInTheDocument()
   })
 })

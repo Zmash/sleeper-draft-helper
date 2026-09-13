@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
+import { useGamesLiveStore } from '../stores/useGamesLiveStore'
 
 // Untermenue der mobilen Bottom-Bar: nur die Bereiche, die gerade nicht in
 // der Leiste stehen. Theme haengt in der Topbar, Setup und Profile im
@@ -16,6 +17,10 @@ const NAV = [
 export default function MobileMoreSheet({ open, onClose }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const liveCount = useGamesLiveStore((s) => s.liveCount)
+  const nav = liveCount > 0 || pathname === '/redzone'
+    ? [{ icon: 'radio', label: liveCount > 0 ? `Redzone · ${liveCount} live` : 'Redzone', path: '/redzone', live: liveCount > 0 }, ...NAV]
+    : NAV
 
   function go(item) {
     onClose?.()
@@ -35,11 +40,11 @@ export default function MobileMoreSheet({ open, onClose }) {
 
         <div className="mob-more-group">Bereiche</div>
         <div className="mob-more-grid">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <button
               key={n.path}
               type="button"
-              className={cx('mob-more-tile', pathname === n.path && 'is-active')}
+              className={cx('mob-more-tile', pathname === n.path && 'is-active', n.live && 'mob-more-tile--live')}
               onClick={() => go(n)}
             >
               <Icon name={n.icon} size={20} />

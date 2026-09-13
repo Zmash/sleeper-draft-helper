@@ -2755,6 +2755,9 @@ th.col-pick, td.col-pick { width: 64px; }
   font-family: var(--font-mono); font-size: 9px; line-height: 15px;
   border-radius: 999px; text-align: center;
 }
+.bmb-live-dot { position: absolute; top: -2px; right: -5px; width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
+.mob-more-tile--live { color: var(--live); }
+.tab--live { color: var(--live); }
 
 /* Sheet-Kopf + Navigations-/Tipps-Sheet-Inhalt */
 .board-sheet-head strong {

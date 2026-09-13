@@ -7,6 +7,8 @@ import { fetchJson, SLEEPER_API_BASE } from '../services/api'
 import LeagueCard, { LeagueCardSkeleton } from '../components/LeagueCard'
 import MockDraftCard from '../components/MockDraftCard'
 import Icon from '../components/Icon'
+import { useGamesLiveStore } from '../stores/useGamesLiveStore'
+import '../styles/redzone.css'
 
 const SEASON_TYPE_LABEL = {
   pre: 'Pre-Season',
@@ -123,6 +125,7 @@ export default function DashboardPage() {
   const { sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs } = useSessionStore()
   const { draftMode } = useBoardStore()
   const { nflState, cards, loading, lastRefreshed, loadDashboard } = useDashboardStore()
+  const liveCount = useGamesLiveStore((s) => s.liveCount)
 
   const load = useCallback(() => {
     loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs })
@@ -199,6 +202,14 @@ export default function DashboardPage() {
           {loading ? '…' : <Icon name="refresh" size={14} />} Refresh
         </button>
       </div>
+
+      {liveCount > 0 && (
+        <button type="button" className="rz-dash-banner" onClick={() => navigate('/redzone')}>
+          <span className="rz-live">LIVE</span>
+          <b>{liveCount === 1 ? '1 Spiel läuft' : `${liveCount} Spiele laufen`}</b>
+          <span className="rz-dash-banner-cta"><Icon name="radio" size={14} />Redzone öffnen</span>
+        </button>
+      )}
 
       {lastRefreshed && (
         <p className="dashboard-refresh-hint muted">Updated {formatLastRefreshed(lastRefreshed)}</p>

@@ -6,6 +6,7 @@ import { useUIStore } from '../stores/useUIStore'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useLiveStore } from '../stores/useLiveStore'
 import { useBoardStore } from '../stores/useBoardStore'
+import { useGamesLiveStore } from '../stores/useGamesLiveStore'
 import { THEMES } from '../theme/themes'
 import { groupDrafts, draftLabel, draftSubtitle } from '../services/draftGroups'
 import { useMarketRefresh } from '../hooks/useMarketRefresh'
@@ -31,6 +32,11 @@ const RAIL = [
 export default function NextShell({ children, pageProps = {} }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const liveCount = useGamesLiveStore((s) => s.liveCount)
+  const showRedzone = liveCount > 0 || pathname === '/redzone'
+  const rail = showRedzone
+    ? [...RAIL, { icon: 'radio', tip: liveCount > 0 ? `Redzone · ${liveCount} live` : 'Redzone', path: '/redzone', live: liveCount > 0 }]
+    : RAIL
   const themeId = useUIStore((s) => s.themeId)
   const setTheme = useUIStore((s) => s.setTheme)
   const boardDensity = useUIStore((s) => s.boardDensity)
@@ -106,11 +112,12 @@ export default function NextShell({ children, pageProps = {} }) {
     { group: 'Gehe zu', label: 'Dashboard', keys: 'G D', run: () => navigate('/dashboard') },
     { group: 'Gehe zu', label: 'Analyse', keys: 'G A', run: () => navigate('/analyse') },
     { group: 'Gehe zu', label: 'Trade-Analyse', keys: 'G T', run: () => navigate('/trade') },
+    ...(showRedzone ? [{ group: 'Gehe zu', label: 'Redzone', run: () => navigate('/redzone') }] : []),
     { group: 'Gehe zu', label: 'Liga/Mock-Setup', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },
     { group: 'Ansicht', label: 'Tipps ein/aus', keys: 'T', run: () => setTipsOpen((v) => !v) },
     { group: 'Ansicht', label: 'Theme wählen', run: () => setThemeOpen(true) },
-  ], [autoRefreshEnabled, boardDensity, selectedDraftId, themeId, draftMode, refreshMarket, pageProps.onOpenDraftReview]) // eslint-disable-line
+  ], [autoRefreshEnabled, boardDensity, selectedDraftId, themeId, draftMode, refreshMarket, pageProps.onOpenDraftReview, showRedzone]) // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e) => {
@@ -137,15 +144,16 @@ export default function NextShell({ children, pageProps = {} }) {
   return (
     <div className="ns-root">
       <nav className="ns-rail" aria-label="Bereiche">
-        {RAIL.map((r) => (
+        {rail.map((r) => (
           <button
             key={r.path}
-            className={cx('ns-rail-btn', pathname === r.path && 'is-active')}
+            className={cx('ns-rail-btn', pathname === r.path && 'is-active', r.live && 'ns-rail-btn--live')}
             data-tip={r.tip}
             aria-label={r.tip}
             onClick={() => { if (r.logo) handleLogoTap(); navigate(r.path) }}
           >
             {r.logo ? <img src="/logo.png" alt="" className="ns-rail-logo" /> : <Icon name={r.icon} size={17} />}
+            {r.live && <span className="ns-rail-live-dot" aria-hidden="true" />}
           </button>
         ))}
         <div className="ns-rail-spacer" />
