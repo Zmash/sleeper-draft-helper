@@ -1281,6 +1281,11 @@ th.col-pick, td.col-pick { width: 64px; }
 .dashboard {
   padding: 0 0 2rem;
 }
+/* Ab 900px sass der Inhalt buendig an der Shell-Kante, waehrend Analyse/
+   Lineup (.an-page) laengst 1rem Rand haben -- gleiche Behandlung wie dort. */
+@media (min-width: 900px) {
+  .dashboard { padding: 1rem 1rem 2rem; }
+}
 
 .dashboard-header {
   display: flex;
@@ -3035,9 +3040,12 @@ th.col-pick, td.col-pick { width: 64px; }
   .wrap:not(.row) { padding: 0 0 16px; }
   /* Reiner Text ausserhalb der Karten (Dashboard-/Trade-Kopfzeilen) klebt im
      randlosen Mobil-Layout sonst an der Kante -- minimaler Seitenabstand wie
-     bei .an-head (analysis.css). Karten bleiben bewusst randlos. */
+     bei .an-head (analysis.css). Nur das Board bleibt bewusst randlos (eigene
+     .board-mobile-active-Regeln); das Dashboard-Grid (echte .league-card mit
+     Rahmen/Radius, kein Flush-Design wie .card) bekommt denselben Rand. */
   .dashboard-header,
   .dashboard-refresh-hint,
+  .dashboard-grid,
   .trade-page-header { padding-inline: 12px; }
   .card {
     padding: 10px 11px;
