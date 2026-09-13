@@ -10,6 +10,8 @@ import {
   fetchDraft,
 } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
+import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
+import { pointsFieldFor } from '../services/analysis/seasonSim'
 
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
 
@@ -29,8 +31,24 @@ function detectScoringType(league) {
   return rec >= 0.95 ? 'ppr' : rec >= 0.45 ? 'half_ppr' : 'standard'
 }
 
+// Summe der Wochenprojektion (Sleeper) ueber die Starter-IDs eines Matchup-
+// Eintrags, im Liga-Scoringformat. null, wenn keine Projektionsdaten vorliegen
+// (z.B. Server-Route/AI-Proxy nicht erreichbar) -- dann faellt die Karte auf
+// die reine Punktestand-Anzeige zurueck.
+function projectedPointsForStarters(starterIds, scoringField, sleeperWeekById) {
+  if (!starterIds?.length || !sleeperWeekById?.size) return null
+  let sum = 0
+  let any = false
+  for (const id of starterIds) {
+    if (!id || id === '0') continue
+    const proj = sleeperWeekById.get(String(id))?.[scoringField]
+    if (proj != null) { sum += proj; any = true }
+  }
+  return any ? sum : null
+}
+
 // Build a single league card, fetching all needed data in parallel
-async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta) {
+async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById) {
   try {
     const [drafts, rosters, users, matchups] = await Promise.all([
       fetchLeagueDrafts(league.league_id).catch(() => []),
@@ -63,6 +81,7 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         const oppUser = oppRoster
           ? (users || []).find((u) => String(u.user_id) === String(oppRoster.owner_id))
           : null
+        const scoringField = pointsFieldFor(detectScoringType(league))
         matchup = {
           myPoints: mine.points || 0,
           opponentPoints: opp?.points || 0,
@@ -70,6 +89,10 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
             oppUser?.display_name ||
             oppUser?.username ||
             (opp ? `Team ${opp.roster_id}` : '—'),
+          myProjected: projectedPointsForStarters(mine.starters, scoringField, sleeperWeekById),
+          opponentProjected: opp
+            ? projectedPointsForStarters(opp.starters, scoringField, sleeperWeekById)
+            : null,
         }
       }
     }
@@ -202,9 +225,19 @@ export const useDashboardStore = create((set, get) => ({
           }).catch(() => ({}))
         : {}
 
+      // Sleeper-Wochenprojektionen fuer den Proj-vs-Live-Balken (nur waehrend
+      // der Saison noetig; Store cached 6h, siehe useWeeklyRankingsStore).
+      if (isInSeason) {
+        await useWeeklyRankingsStore
+          .getState()
+          .loadSleeperWeekIfStale({ season: nflState?.season || seasonYear, week: currentWeek })
+          .catch(() => {})
+      }
+      const sleeperWeekById = useWeeklyRankingsStore.getState().sleeperWeekById
+
       // Build league cards in parallel
       const leagueCardPromises = (leagues || []).map((l) =>
-        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta)
+        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById)
       )
 
       // Standalone-Drafts = echte Mocks (league_id === null, vgl.

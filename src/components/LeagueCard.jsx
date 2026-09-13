@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
+import { computeMatchupProbability } from '../services/analysis/matchupProbability'
 import Icon from './Icon'
 
 // ── Editierbarer Kachel-Name (Nickname statt Sleeper-Liga-/Draft-Name) ────────
@@ -76,19 +77,37 @@ function DraftBadge({ status }) {
 
 function MatchupRow({ matchup }) {
   if (!matchup) return null
+  const prob = computeMatchupProbability(matchup)
+
+  // Ohne Projektionsdaten (Server/AI-Proxy nicht erreichbar): Fallback auf
+  // den reinen Punktestand-Anteil wie zuvor.
   const total = (matchup.myPoints || 0) + (matchup.opponentPoints || 0)
-  const myPct = total > 0 ? Math.round((matchup.myPoints / total) * 100) : 50
+  const myPct = prob ? prob.myWinPct : total > 0 ? Math.round((matchup.myPoints / total) * 100) : 50
+  const winning = prob ? myPct >= 50 : matchup.myPoints >= matchup.opponentPoints
 
   return (
     <div className="lc-matchup">
       <div className="lc-matchup-label">
-        <span className="lc-matchup-mine">{formatPoints(matchup.myPoints)}</span>
-        <span className="lc-matchup-vs">vs {matchup.opponentName}</span>
-        <span className="lc-matchup-opp">{formatPoints(matchup.opponentPoints)}</span>
+        <span className="lc-matchup-side">
+          <span className="lc-matchup-mine">{formatPoints(matchup.myPoints)}</span>
+          {prob && <span className="lc-matchup-proj">Proj {formatPoints(prob.myFinal)}</span>}
+        </span>
+        <span className="lc-matchup-vs">
+          {prob && (
+            <span className={`lc-matchup-winpct ${winning ? 'lc-matchup-winpct--winning' : 'lc-matchup-winpct--losing'}`}>
+              {myPct}%
+            </span>
+          )}
+          vs {matchup.opponentName}
+        </span>
+        <span className="lc-matchup-side lc-matchup-side--opp">
+          <span className="lc-matchup-opp">{formatPoints(matchup.opponentPoints)}</span>
+          {prob && <span className="lc-matchup-proj">Proj {formatPoints(prob.oppFinal)}</span>}
+        </span>
       </div>
       <div className="lc-matchup-bar">
         <div
-          className={`lc-matchup-fill ${matchup.myPoints >= matchup.opponentPoints ? 'lc-matchup-fill--winning' : 'lc-matchup-fill--losing'}`}
+          className={`lc-matchup-fill ${winning ? 'lc-matchup-fill--winning' : 'lc-matchup-fill--losing'}`}
           style={{ width: `${myPct}%` }}
         />
       </div>
