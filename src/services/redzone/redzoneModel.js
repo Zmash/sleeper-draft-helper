@@ -1,6 +1,7 @@
 // Reine Redzone-Logik: aus Rohdaten (ESPN-Spiele, Sleeper-Matchups/Rosters/
 // Users, playersMeta) die Bausteine der Seite bauen. Kein Fetch, kein Store.
 import { computeMatchupProbability } from '../analysis/matchupProbability'
+import { liveStarterTotals } from '../analysis/matchupProjection'
 
 // ── Liga-Filter ─────────────────────────────────────────────────────────────
 // Gespeichert werden ABGEWAEHLTE IDs, damit neue Ligen automatisch aktiv sind.
@@ -85,19 +86,27 @@ export function buildMatchupTiles({ leagueData = [], myUserId, byTeam, playersMe
     const v = leagueView(d, myUserId)
     if (!v) continue
     const open = (m) => starterIds(m).filter((id) => ['pre', 'in'].includes(playerGameState(playersMeta[id], byTeam))).length
-    const projTotal = (m) => {
-      let sum = 0
-      let any = false
-      for (const id of starterIds(m)) {
-        const p = projectPlayer(d.league, id)
-        if (p != null) { sum += p; any = true }
-      }
-      return any ? sum : null
-    }
+    // Nur der NOCH OFFENE Teil der Wochenprojektion zaehlt auf den Stand drauf --
+    // abgepfiffene Spiele duerfen keine Restchance mehr erzeugen.
+    const totals = (m) => liveStarterTotals({
+      starterIds: starterIds(m),
+      projectionFor: (id) => projectPlayer(d.league, id),
+      pointsFor: (id) => m.players_points?.[id],
+      gameFor: (id) => byTeam[playerTeam(playersMeta[id], id)] || null,
+    })
     const myPoints = v.mine.points || 0
     const opponentPoints = v.opp?.points || 0
+    const myTotals = totals(v.mine)
+    const oppTotals = v.opp ? totals(v.opp) : null
     const prob = v.opp
-      ? computeMatchupProbability({ myPoints, myProjected: projTotal(v.mine), opponentPoints, opponentProjected: projTotal(v.opp) })
+      ? computeMatchupProbability({
+        myPoints,
+        myProjected: myTotals ? myPoints + myTotals.rest : null,
+        opponentPoints,
+        opponentProjected: oppTotals ? opponentPoints + oppTotals.rest : null,
+        myRemaining: myTotals?.hasGameStates ? myTotals.rest : null,
+        opponentRemaining: oppTotals?.hasGameStates ? oppTotals.rest : null,
+      })
       : null
     const total = myPoints + opponentPoints
     tiles.push({

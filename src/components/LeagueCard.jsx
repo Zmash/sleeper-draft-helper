@@ -99,6 +99,13 @@ function LeagueHero({ card }) {
 
 // ── Matchup: Punktestand, Sieg-Wahrscheinlichkeit, Balken ─────────────────────
 
+// Wie viele Starter noch spielen -- erklaert, warum die Projektion ueber dem
+// aktuellen Stand liegt (und warum sie es bei 0 eben NICHT mehr tut).
+function openHint(open) {
+  if (open == null) return null
+  return open > 0 ? ` · ${open} offen` : ' · fertig'
+}
+
 function MatchupBlock({ matchup }) {
   if (!matchup) return null
   const prob = computeMatchupProbability(matchup)
@@ -141,11 +148,19 @@ function MatchupBlock({ matchup }) {
       <div className="lc-teams">
         <span className="lc-team-cell">
           <span className="lc-team">{matchup.myName}</span>
-          {prob && <span className="lc-proj">Proj {formatPoints(prob.myFinal)}</span>}
+          {prob && (
+            <span className="lc-proj">
+              Proj {formatPoints(prob.myFinal)}{openHint(matchup.myOpen)}
+            </span>
+          )}
         </span>
         <span className="lc-team-cell lc-team-cell--opp">
           <span className="lc-team">{matchup.opponentName}</span>
-          {prob && <span className="lc-proj">Proj {formatPoints(prob.oppFinal)}</span>}
+          {prob && (
+            <span className="lc-proj">
+              Proj {formatPoints(prob.oppFinal)}{openHint(matchup.opponentOpen)}
+            </span>
+          )}
         </span>
       </div>
     </div>

@@ -35,6 +35,9 @@ export function normalizeScoreboard(json) {
       detail: status.type?.shortDetail || '',
       period: status.period ?? null,
       clock: status.displayClock || '',
+      // Restsekunden im laufenden Viertel (ESPN liefert status.clock numerisch) --
+      // Grundlage der Rest-Projektion, siehe matchupProjection.remainingGameFraction.
+      clockSeconds: Number.isFinite(Number(status.clock)) ? Number(status.clock) : null,
       home,
       away,
       possessionAbbr,
