@@ -61,6 +61,21 @@ export function normalizeScoringPlays(json) {
   }))
 }
 
+// Letzter bereits erfolgter Kickoff der Woche. Inactives stehen ~90 Minuten
+// vor Kickoff fest und aendern sich danach nicht mehr -- ein playersMeta-Cache,
+// der aelter ist als dieser Zeitpunkt, hat sie also garantiert noch nicht.
+// Damit reicht EIN Nachladen pro Slate statt einer kurzen Blind-TTL auf einer
+// 5-MB-Antwort (Sleeper bittet ausdruecklich, /players/nfl selten zu ziehen).
+export function lastKickoffAt(games = [], now = Date.now()) {
+  let latest = null
+  for (const g of games) {
+    const t = g?.date ? Date.parse(g.date) : NaN
+    if (!Number.isFinite(t) || t > now) continue
+    if (latest == null || t > latest) latest = t
+  }
+  return latest
+}
+
 export async function fetchScoreboard({ season, week }) {
   return normalizeScoreboard(await fetchJson(`${ESPN_BASE}/scoreboard?seasontype=2&week=${week}&dates=${season}`))
 }

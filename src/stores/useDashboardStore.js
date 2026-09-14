@@ -12,10 +12,10 @@ import {
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
-import { blendedPlayerProjection, liveStarterTotals } from '../services/analysis/matchupProjection'
+import { blendedPlayerProjection, isRuledOut, liveStarterTotals } from '../services/analysis/matchupProjection'
 import { standingsRankFor } from '../services/analysis/standings'
 import { detectScoringType, loadWeekProjections, fpPtsMapFor } from '../services/weekProjections'
-import { fetchScoreboard } from '../services/redzone/espnLive'
+import { fetchScoreboard, lastKickoffAt } from '../services/redzone/espnLive'
 // gamesByTeam/playerTeam sind generische NFL-Helfer (kein Redzone-State) und
 // liegen aus historischen Gruenden im redzoneModel.
 import { gamesByTeam, playerTeam } from '../services/redzone/redzoneModel'
@@ -74,6 +74,7 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         const projArgs = { playersMeta, sleeperWeekById, scoringField, fpPtsByKey }
         const projectionFor = (id) => blendedPlayerProjection({ playerId: id, ...projArgs })
         const gameFor = (id) => gamesByTeamAbbr[playerTeam(playersMeta[id], id)] || null
+        const outFor = (id) => isRuledOut(playersMeta[id])
         // Projizierter Endstand = erzielte Punkte + Rest der Wochenprojektion.
         // Der Rest schrumpft mit dem Spielverlauf, damit ein durchgespieltes
         // Team nicht weiter mit seiner Vorab-Projektion gefuehrt wird.
@@ -83,6 +84,7 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
             projectionFor,
             pointsFor: (id) => m.players_points?.[id],
             gameFor,
+            outFor,
           })
         const myTotals = totalsFor(mine)
         const oppTotals = opp ? totalsFor(opp) : null
@@ -233,10 +235,24 @@ export const useDashboardStore = create((set, get) => ({
       const seasonType = nflState?.season_type || 'off'
       const isInSeason = seasonType === 'regular' || seasonType === 'post'
 
-      // Player meta for injury checks (only during season)
+      // Live-Spielstatus (ESPN) zuerst: er entscheidet, wie viel einer
+      // Wochenprojektion ueberhaupt noch offen ist UND ab wann der
+      // playersMeta-Cache die Game-Day-Inactives verpasst haben muss.
+      // Faellt der Abruf aus, bleibt es bei der reinen Vorab-Projektion.
+      const season = nflState?.season || seasonYear
+      const games = isInSeason
+        ? await fetchScoreboard({ season, week: currentWeek }).catch(() => null)
+        : null
+      const gamesByTeamAbbr = games?.length ? gamesByTeam(games) : {}
+
+      // Player meta fuer Ausfaelle und Verletzungen (nur waehrend der Saison).
+      // staleBefore = letzter Kickoff: die 24h-TTL wuerde am Spieltag sonst
+      // einen Kader-Stand von gestern weiterreichen, in dem die Inactives
+      // noch fehlen.
       const playersMeta = isInSeason
         ? await loadPlayersMetaCached({
             season: Number(seasonYear) || new Date().getFullYear(),
+            staleBefore: games?.length ? lastKickoffAt(games) : null,
           }).catch(() => ({}))
         : {}
 
@@ -244,17 +260,9 @@ export const useDashboardStore = create((set, get) => ({
       // (Sleeper + FantasyPros), im Dashboard-Store gemittelt (matchupProjection.js)
       // -- eine Quelle allein trifft manchmal daneben (Nutzer-Befund zu Sleeper).
       // Nur waehrend der Saison noetig; beide Stores cachen 6h.
-      // Live-Spielstatus (ESPN): entscheidet, wie viel einer Wochenprojektion
-      // ueberhaupt noch offen ist. Faellt der Abruf aus, bleibt es bei der
-      // reinen Vorab-Projektion (alter Stand).
       const scoringTypesUsed = new Set((leagues || []).map((l) => detectScoringType(l)))
-      let gamesByTeamAbbr = {}
       if (isInSeason) {
-        const [, games] = await Promise.all([
-          loadWeekProjections({ season: nflState?.season || seasonYear, week: currentWeek, scoringTypes: scoringTypesUsed }),
-          fetchScoreboard({ season: nflState?.season || seasonYear, week: currentWeek }).catch(() => null),
-        ])
-        if (games?.length) gamesByTeamAbbr = gamesByTeam(games)
+        await loadWeekProjections({ season, week: currentWeek, scoringTypes: scoringTypesUsed })
       }
       const sleeperWeekById = useWeeklyRankingsStore.getState().sleeperWeekById
 

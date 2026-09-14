@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScoreboard, normalizeScoringPlays, normAbbr } from './espnLive'
+import { normalizeScoreboard, normalizeScoringPlays, normAbbr, lastKickoffAt } from './espnLive'
 
 const comp = (over = {}) => ({
   status: { displayClock: '6:09', clock: 369, period: 2, type: { state: 'in', shortDetail: '6:09 - 2nd' } },
@@ -57,5 +57,21 @@ describe('normalizeScoringPlays', () => {
       teamAbbr: 'CIN', type: 'TD', period: 1, clockValue: 108, clock: '1:48',
     }])
     expect(normalizeScoringPlays({})).toEqual([])
+  })
+})
+
+describe('lastKickoffAt', () => {
+  const now = Date.parse('2026-09-13T21:30:00Z')
+  const g = (date) => ({ date })
+
+  it('nimmt den spaetesten bereits erfolgten Kickoff', () => {
+    const at = lastKickoffAt([g('2026-09-13T17:00:00Z'), g('2026-09-13T20:05:00Z'), g('2026-09-14T00:20:00Z')], now)
+    expect(at).toBe(Date.parse('2026-09-13T20:05:00Z'))
+  })
+
+  it('null, wenn noch nichts angepfiffen wurde oder keine Termine bekannt sind', () => {
+    expect(lastKickoffAt([g('2026-09-14T00:20:00Z')], now)).toBeNull()
+    expect(lastKickoffAt([{ date: null }, {}], now)).toBeNull()
+    expect(lastKickoffAt([], now)).toBeNull()
   })
 })

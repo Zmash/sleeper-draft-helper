@@ -33,13 +33,24 @@ function slimPlayer(p) {
   return out
 }
 
-export async function loadPlayersMetaCached({ season } = {}) {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.season]
+ * @param {number|null} [opts.staleBefore] Timestamp: ein Cache, der VOR diesem
+ *   Zeitpunkt geholt wurde, gilt als veraltet -- auch innerhalb der 24h-TTL.
+ *   Aufrufer setzen hier den letzten Kickoff (siehe espnLive.lastKickoffAt),
+ *   damit die Game-Day-Inactives genau einmal pro Slate nachgeladen werden
+ *   statt gar nicht (bisher) oder staendig (kurze TTL auf 5 MB).
+ */
+export async function loadPlayersMetaCached({ season, staleBefore = null } = {}) {
   // Try cache
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (raw) {
       const cached = JSON.parse(raw)
-      if (cached && cached.season === season && (Date.now() - cached.fetched_at) < TTL_MS && cached.data) {
+      const withinTtl = (Date.now() - cached?.fetched_at) < TTL_MS
+      const afterKickoff = staleBefore == null || cached?.fetched_at >= staleBefore
+      if (cached && cached.season === season && withinTtl && afterKickoff && cached.data) {
         return cached.data
       }
     }

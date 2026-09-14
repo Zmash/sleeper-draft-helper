@@ -62,6 +62,29 @@ export function remainingGameFraction(game) {
   return Math.min(1, Math.max(0, 1 - elapsed / REGULATION_SECONDS))
 }
 
+// Spieler, die heute sicher nicht (mehr) auflaufen -- ihre Projektion ist tot,
+// egal was die Spieluhr sagt. Das war bisher der groesste Einzelfehler: ein
+// inaktiver Starter lief mit seinen vollen ~14 Projektionspunkten mit.
+//
+// Sleeper fuehrt zwei Felder (beide in playersMeta.SLIM_KEYS):
+//   injury_status -- wochenweise ('Out', 'IR', 'PUP', 'Sus', 'Questionable'...)
+//   status        -- Kaderstatus ('Active', 'Inactive', 'Injured Reserve'...)
+// Wir schreiben NUR die eindeutigen Faelle auf 0. 'Questionable' und
+// 'Doubtful' bleiben bewusst drin: die loesen sich ~90 Minuten vor Kickoff
+// von selbst auf, wenn die Inactives kommen -- raten muessen wir da nicht.
+const RULED_OUT = new Set([
+  'OUT', 'IR', 'INJUREDRESERVE', 'PUP', 'PHYSICALLYUNABLETOPERFORM',
+  'NFI', 'NFIR', 'NONFOOTBALLINJURY', 'SUS', 'SUSPENDED', 'DNR', 'INACTIVE',
+])
+
+const normStatus = (v) => String(v || '').toUpperCase().replace(/[^A-Z]/g, '')
+
+/** Steht dieser Spieler laut Sleeper-Status heute definitiv nicht auf dem Feld? */
+export function isRuledOut(meta) {
+  if (!meta) return false
+  return RULED_OUT.has(normStatus(meta.injury_status)) || RULED_OUT.has(normStatus(meta.status))
+}
+
 /**
  * Wie viele Projektionspunkte einer Starter-Aufstellung noch ausstehen.
  * Bewusst NUR der Rest: der bereits erzielte Stand kommt aus Sleepers
@@ -73,10 +96,11 @@ export function remainingGameFraction(game) {
  * @param {(id:string)=>number|null} args.projectionFor  Wochenprojektion (z.B. blendedPlayerProjection)
  * @param {(id:string)=>number|null|undefined} [args.pointsFor]  bereits erzielte Punkte des Spielers
  * @param {(id:string)=>object|null} [args.gameFor]  NFL-Spiel des Spielers
+ * @param {(id:string)=>boolean} [args.outFor]  Spieler faellt heute aus (siehe isRuledOut)
  * @returns {{rest:number, open:number, hasGameStates:boolean}|null}
  *   null, wenn fuer KEINEN Starter irgendeine Projektionsquelle Daten hat.
  */
-export function liveStarterTotals({ starterIds, projectionFor, pointsFor = () => 0, gameFor = () => null }) {
+export function liveStarterTotals({ starterIds, projectionFor, pointsFor = () => 0, gameFor = () => null, outFor = () => false }) {
   if (!starterIds?.length) return null
   let rest = 0
   let open = 0
@@ -91,7 +115,11 @@ export function liveStarterTotals({ starterIds, projectionFor, pointsFor = () =>
     const scored = Number(pointsFor(id)) || 0
     // Ohne Spielstatus bleibt die alte Annahme: der Spieler kann seine
     // Projektion noch erreichen, mehr als die Differenz steht aber nicht offen.
-    const openPts = frac == null ? Math.max(0, (proj ?? 0) - scored) : (proj ?? 0) * frac
+    // Wer heute ausfaellt, hat gar nichts mehr offen -- bereits erzielte
+    // Punkte (z.B. erst spaeter rausgenommen) bleiben natuerlich stehen.
+    const openPts = outFor(id)
+      ? 0
+      : frac == null ? Math.max(0, (proj ?? 0) - scored) : (proj ?? 0) * frac
     rest += openPts
     if (openPts > 0) open += 1
   }
