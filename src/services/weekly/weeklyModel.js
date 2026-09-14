@@ -32,45 +32,111 @@ const sum = (list, pick) => list.reduce((a, x) => a + num(pick(x)), 0)
  * optimal; exotische, sich nur teilweise ueberschneidende Slot-Mengen
  * koennten theoretisch einen Punkt danebenliegen.
  */
+// Besetzt wird von der engsten zur weitesten Eignung (feste Slots zuerst),
+// AUSGEGEBEN wird aber in der Reihenfolge von roster_positions -- nur so laesst
+// sich das Optimum Slot fuer Slot gegen die tatsaechliche Aufstellung legen.
+const slotWidth = (slot) => (FLEX_ELIGIBLE[slot] ? FLEX_ELIGIBLE[slot].length : 0)
+
 export function optimalLineupByPoints({ players = [], rosterPositions = [] } = {}) {
   const slots = startSlots(rosterPositions)
   const used = new Set()
-  const out = []
+  const out = slots.map((slot) => ({ slot, player: null }))
   const best = (allowed) =>
     players
       .filter((p) => !used.has(p.playerId) && allowed.includes(p.pos))
       .sort((a, b) => num(b.points) - num(a.points))[0] || null
 
-  const fixed = slots.filter((s) => !FLEX_ELIGIBLE[s])
-  const flex = slots
-    .filter((s) => FLEX_ELIGIBLE[s])
-    .sort((a, b) => FLEX_ELIGIBLE[a].length - FLEX_ELIGIBLE[b].length)
-
-  for (const slot of [...fixed, ...flex]) {
+  // Array.sort ist stabil -> gleich weite Slots behalten ihre Roster-Reihenfolge.
+  const order = [...slots.keys()].sort((a, b) => slotWidth(slots[a]) - slotWidth(slots[b]))
+  for (const i of order) {
+    const slot = slots[i]
     const player = best(FLEX_ELIGIBLE[slot] || [slot])
     if (player) used.add(player.playerId)
-    out.push({ slot, player })
+    out[i] = { slot, player }
   }
   return { slots: out, points: sum(out.filter((s) => s.player), (s) => s.player.points) }
 }
 
 /**
- * Welche Wechsel haetten die Woche verbessert? Aus der Optimal-Aufstellung:
- * Bankspieler, die hineingehoert haetten, gegen die schwaechsten Starter, die
- * herausgefallen waeren -- der Reihe nach gepaart. Die Summe der `gain`-Werte
- * ist genau die verschenkte Punktzahl.
- *
- * `out: null` heisst: da war gar kein Starter, der Slot blieb leer (Sleeper
- * traegt dafuer eine '0' ein). Das ist der teuerste Fall und soll sichtbar
- * bleiben, nicht herausgefiltert werden.
+ * Die tatsaechliche Aufstellung als Slot-Liste. Sleepers `starters`-Array ist
+ * positionsgleich zu den Startslots aus roster_positions -- die '0' fuer einen
+ * leeren Platz MUSS dabei stehenbleiben, sonst verschiebt sich alles dahinter
+ * um einen Slot.
  */
-export function benchMisses({ starters = [], bench = [], optimal = [] } = {}) {
-  const optimalIds = new Set(optimal.filter((s) => s.player).map((s) => s.player.playerId))
-  const gems = bench.filter((p) => optimalIds.has(p.playerId)).sort((a, b) => num(b.points) - num(a.points))
-  const duds = starters.filter((p) => !optimalIds.has(p.playerId)).sort((a, b) => num(a.points) - num(b.points))
-  return gems
-    .map((gem, i) => ({ in: gem, out: duds[i] || null, gain: num(gem.points) - num(duds[i]?.points) }))
-    .filter((m) => m.gain > 0)
+export function actualSlotAssignment({ rosterPositions = [], rawStarters = [], byId = new Map() } = {}) {
+  return startSlots(rosterPositions).map((slot, i) => {
+    const id = rawStarters[i]
+    const player = id && id !== '0' ? byId.get(String(id)) : null
+    return { slot, player: player || null }
+  })
+}
+
+/**
+ * Innerhalb gleichnamiger Slots (RB/RB, WR/WR) ist die Reihenfolge der
+ * Optimal-Besetzung beliebig -- der Punktbeste landet im ersten. Dadurch stuende
+ * ein Bankspieler dem falschen der beiden Starter gegenueber ("statt RB1 18.0"
+ * statt "statt RB2 2.0"). Wer in der Gruppe schon stand, behaelt deshalb seinen
+ * Platz; die Neuzugaenge fuellen die frei gewordenen.
+ */
+export function alignOptimalToActual(optimal = [], actualSlots = []) {
+  const out = optimal.map((s) => ({ ...s }))
+  const groups = new Map()
+  optimal.forEach((s, i) => {
+    if (!groups.has(s.slot)) groups.set(s.slot, [])
+    groups.get(s.slot).push(i)
+  })
+  for (const idx of groups.values()) {
+    if (idx.length < 2) continue
+    const actualIds = idx.map((i) => actualSlots[i]?.player?.playerId ?? null)
+    const placed = new Array(idx.length).fill(null)
+    const rest = []
+    for (const i of idx) {
+      const p = optimal[i].player
+      const at = p ? actualIds.indexOf(p.playerId) : -1
+      if (at !== -1 && placed[at] == null) placed[at] = p
+      else rest.push(p)
+    }
+    let r = 0
+    for (let k = 0; k < placed.length; k++) if (placed[k] == null) placed[k] = rest[r++] ?? null
+    idx.forEach((i, k) => { out[i] = { slot: optimal[i].slot, player: placed[k] } })
+  }
+  return out
+}
+
+/**
+ * Welche Wechsel haetten die Woche verbessert? Slot fuer Slot: wen hat das
+ * Optimum dort stehen, wer stand tatsaechlich da.
+ *
+ * Frueher wurden Bankspieler und schwache Starter nach Punkte-Rang gepaart --
+ * das stellte positionsfremde Paare gegenueber ("Jaxson Dart 26.6 statt Kenny
+ * Gainwell 2.3": QB gegen RB, auf keinem Slot dieser Liga austauschbar). Ueber
+ * den Slot ist jedes Paar per Konstruktion zulaessig.
+ *
+ * Gemeldet wird nur, wo ein NICHT aufgestellter Spieler hereinkommt -- reine
+ * Umbesetzungen innerhalb der Aufstellung (RB2 rutscht in den FLEX, weil ein
+ * Bankspieler seinen RB-Slot uebernimmt) sind keine Entscheidung, die man
+ * anders haette treffen koennen.
+ *
+ * `out: null` heisst: der Slot war gar nicht besetzt (Sleeper traegt dafuer
+ * eine '0' ein). Die Summe der `gain`-Werte ist NICHT die Gesamtdifferenz --
+ * dafuer steht `pointsLeftOnBench` direkt aus der Optimal-Aufstellung; bei
+ * verketteten Umbesetzungen verteilt sich der Rest auf die Folge-Slots.
+ */
+export function benchMisses({ actualSlots = [], optimal = [] } = {}) {
+  const startedIds = new Set(actualSlots.filter((s) => s.player).map((s) => s.player.playerId))
+  return optimal
+    .map((want, i) => {
+      const had = actualSlots[i]
+      if (!want.player || !had || had.slot !== want.slot) return null
+      if (startedIds.has(want.player.playerId)) return null
+      return {
+        slot: want.slot,
+        in: want.player,
+        out: had.player || null,
+        gain: num(want.player.points) - num(had.player?.points),
+      }
+    })
+    .filter((m) => m && m.gain > 0)
     .sort((a, b) => b.gain - a.gain)
 }
 
@@ -134,12 +200,16 @@ export function buildLeagueWeek({
     byTeam,
   })
 
+  // rawStarters behaelt die '0'-Platzhalter -- nur so bleibt die Zuordnung zu
+  // den Startslots aus roster_positions stimmig (siehe actualSlotAssignment).
+  const rawStarters = mine.starters || []
   const myStarterIds = starterIds(mine)
   const myStarterSet = new Set(myStarterIds)
   const starters = myStarterIds.map((id) => entry(id, mine))
   const bench = (mine.players || [])
     .filter((id) => id && !myStarterSet.has(id))
     .map((id) => entry(id, mine))
+  const byId = new Map([...starters, ...bench].map((p) => [p.playerId, p]))
   const oppStarters = opp ? starterIds(opp).map((id) => entry(id, opp)) : []
 
   const myPoints = num(mine.points)
@@ -165,10 +235,14 @@ export function buildLeagueWeek({
   const rank = scores.findIndex((s) => s.isMine) + 1 || null
 
   const optimalPlayers = [...starters, ...bench]
-  const { slots: optimal, points: optimalPoints } = optimalLineupByPoints({
+  const { slots: rawOptimal, points: optimalPoints } = optimalLineupByPoints({
     players: optimalPlayers,
     rosterPositions: league?.roster_positions || [],
   })
+  const actualSlots = actualSlotAssignment({
+    rosterPositions: league?.roster_positions || [], rawStarters, byId,
+  })
+  const optimal = alignOptimalToActual(rawOptimal, actualSlots)
   const starterPoints = sum(starters, (p) => p.points)
 
   return {
@@ -198,7 +272,7 @@ export function buildLeagueWeek({
     // Summe, aus der auch das Optimum gebaut ist: sonst kaeme > 100 % heraus.
     efficiency: optimalPoints > 0 ? starterPoints / optimalPoints : null,
     pointsLeftOnBench: Math.max(0, optimalPoints - starterPoints),
-    misses: benchMisses({ starters, bench, optimal }),
+    misses: benchMisses({ actualSlots, optimal }),
   }
 }
 

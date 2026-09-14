@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   optimalLineupByPoints, benchMisses, playerEntry, buildLeagueWeek, buildWeek,
   weekRecord, buildOutliers, buildInjuryReport, positionBreakdown, weekOptions, startSlots,
+  actualSlotAssignment, alignOptimalToActual,
 } from './weeklyModel'
 
 const META = {
@@ -46,9 +47,11 @@ describe('optimalLineupByPoints', () => {
   it('besetzt feste Slots mit den Punktbesten und den FLEX aus dem Rest', () => {
     const { slots, points } = optimalLineupByPoints({ players, rosterPositions: ROSTER_POSITIONS })
     const bySlot = slots.map((s) => [s.slot, s.player ? s.player.playerId : null])
+    // Ausgabe in Roster-Reihenfolge (FLEX vor DEF), damit sie sich Slot fuer
+    // Slot gegen die tatsaechliche Aufstellung legen laesst.
     expect(bySlot).toEqual([
       ['QB', 'QB1'], ['RB', 'RB1'], ['RB', 'RB2'], ['WR', 'WR1'], ['WR', 'WR2'],
-      ['TE', 'TE1'], ['DEF', 'SEA'], ['FLEX', null],
+      ['TE', 'TE1'], ['FLEX', null], ['DEF', 'SEA'],
     ])
     expect(points).toBeCloseTo(95)
   })
@@ -70,8 +73,9 @@ describe('optimalLineupByPoints', () => {
       ],
       rosterPositions: ['QB', 'SUPER_FLEX', 'FLEX'],
     })
+    // Besetzt wird QB -> FLEX -> SUPER_FLEX, ausgegeben in Roster-Reihenfolge.
     expect(slots.map((s) => [s.slot, s.player?.playerId])).toEqual([
-      ['QB', 'QB1'], ['FLEX', 'RB1'], ['SUPER_FLEX', 'QB2'],
+      ['QB', 'QB1'], ['SUPER_FLEX', 'QB2'], ['FLEX', 'RB1'],
     ])
   })
 
@@ -80,28 +84,95 @@ describe('optimalLineupByPoints', () => {
   })
 })
 
+describe('actualSlotAssignment', () => {
+  it('haelt die Zuordnung ueber die 0-Platzhalter hinweg stabil', () => {
+    const a = { playerId: 'A', pos: 'QB' }
+    const b = { playerId: 'B', pos: 'WR' }
+    const rows = actualSlotAssignment({
+      rosterPositions: ['QB', 'RB', 'WR', 'BN'],
+      rawStarters: ['A', '0', 'B'],
+      byId: new Map([['A', a], ['B', b]]),
+    })
+    // Ohne den '0'-Platzhalter waere B faelschlich im RB-Slot gelandet.
+    expect(rows).toEqual([{ slot: 'QB', player: a }, { slot: 'RB', player: null }, { slot: 'WR', player: b }])
+  })
+})
+
+describe('alignOptimalToActual', () => {
+  const slot = (s, player) => ({ slot: s, player })
+
+  it('laesst Spieler in gleichnamigen Slots auf ihrem Platz', () => {
+    const rb1 = { playerId: 'RB1', pos: 'RB', points: 18 }
+    const rb2 = { playerId: 'RB2', pos: 'RB', points: 2 }
+    const gem = { playerId: 'GEM', pos: 'RB', points: 21 }
+    // Das Optimum setzt den Punktbesten in den ERSTEN RB-Slot; tatsaechlich
+    // stand dort RB1. Nach dem Ausrichten bleibt RB1, GEM ersetzt RB2.
+    const aligned = alignOptimalToActual(
+      [slot('RB', gem), slot('RB', rb1)],
+      [slot('RB', rb1), slot('RB', rb2)]
+    )
+    expect(aligned.map((s) => s.player.playerId)).toEqual(['RB1', 'GEM'])
+  })
+
+  it('laesst einzelne Slots unveraendert', () => {
+    const a = { playerId: 'A', pos: 'QB', points: 9 }
+    expect(alignOptimalToActual([slot('QB', a)], [slot('QB', null)])).toEqual([slot('QB', a)])
+  })
+})
+
 describe('benchMisses', () => {
-  it('paart Bankspieler, die ins Optimum gehoeren, mit den schwaechsten Startern', () => {
-    const starters = [{ playerId: 'A', name: 'A', pos: 'RB', points: 3 }]
-    const bench = [{ playerId: 'B', name: 'B', pos: 'RB', points: 20 }]
-    const optimal = [{ slot: 'RB', player: bench[0] }]
-    const misses = benchMisses({ starters, bench, optimal })
+  const slot = (s, player) => ({ slot: s, player })
+
+  it('paart den Bankspieler mit dem schwaechsten Starter auf einem zulaessigen Slot', () => {
+    const weakRb = { playerId: 'A', name: 'A', pos: 'RB', points: 3 }
+    const gem = { playerId: 'B', name: 'B', pos: 'RB', points: 20 }
+    const misses = benchMisses({
+      actualSlots: [slot('RB', weakRb)],
+      optimal: [slot('RB', gem)],
+    })
     expect(misses).toHaveLength(1)
+    expect(misses[0]).toMatchObject({ slot: 'RB', gain: 17 })
     expect(misses[0].in.playerId).toBe('B')
     expect(misses[0].out.playerId).toBe('A')
-    expect(misses[0].gain).toBeCloseTo(17)
+  })
+
+  it('paart NIE ueber Positionsgrenzen hinweg', () => {
+    // Der Befund aus der Praxis: Bank-QB (26.6) und Start-RB (2.3) wurden
+    // gepaart, obwohl sie sich in dieser Liga keinen Slot teilen koennen.
+    const rb = { playerId: 'GAINWELL', name: 'Kenny Gainwell', pos: 'RB', points: 2.3 }
+    const benchQb = { playerId: 'DART', name: 'Jaxson Dart', pos: 'QB', points: 26.6 }
+    const startedQb = { playerId: 'QB1', name: 'Starter QB', pos: 'QB', points: 9 }
+    const misses = benchMisses({
+      actualSlots: [slot('QB', startedQb), slot('RB', rb)],
+      // Optimal steht Dart im QB-Slot -- verdraengt wird also der QB, nie der RB.
+      optimal: [slot('QB', benchQb), slot('RB', rb)],
+    })
+    expect(misses).toHaveLength(1)
+    expect(misses[0]).toMatchObject({ slot: 'QB' })
+    expect(misses[0].out.playerId).toBe('QB1')
+    expect(misses[0].gain).toBeCloseTo(17.6)
+  })
+
+  it('setzt einen Bankspieler in den FLEX, wenn dort der schwaechste sitzt', () => {
+    const rb1 = { playerId: 'RB1', pos: 'RB', points: 18 }
+    const flexDud = { playerId: 'WRX', pos: 'WR', points: 1.2 }
+    const gem = { playerId: 'GEM', pos: 'WR', points: 22 }
+    const misses = benchMisses({
+      actualSlots: [slot('RB', rb1), slot('FLEX', flexDud)],
+      optimal: [slot('RB', rb1), slot('FLEX', gem)],
+    })
+    expect(misses[0]).toMatchObject({ slot: 'FLEX', gain: 20.8 })
   })
 
   it('meldet einen leeren Slot ohne Gegenspieler', () => {
-    const bench = [{ playerId: 'B', name: 'B', pos: 'RB', points: 20 }]
-    const misses = benchMisses({ starters: [], bench, optimal: [{ slot: 'FLEX', player: bench[0] }] })
-    expect(misses).toEqual([{ in: bench[0], out: null, gain: 20 }])
+    const gem = { playerId: 'B', name: 'B', pos: 'RB', points: 20 }
+    const misses = benchMisses({ actualSlots: [slot('FLEX', null)], optimal: [slot('FLEX', gem)] })
+    expect(misses).toEqual([{ slot: 'FLEX', in: gem, out: null, gain: 20 }])
   })
 
   it('meldet nichts, wenn die Aufstellung optimal war', () => {
-    const starters = [{ playerId: 'A', pos: 'RB', points: 20 }]
-    const bench = [{ playerId: 'B', pos: 'RB', points: 3 }]
-    expect(benchMisses({ starters, bench, optimal: [{ slot: 'RB', player: starters[0] }] })).toEqual([])
+    const a = { playerId: 'A', pos: 'RB', points: 20 }
+    expect(benchMisses({ actualSlots: [slot('RB', a)], optimal: [slot('RB', a)] })).toEqual([])
   })
 })
 
@@ -209,8 +280,12 @@ describe('buildLeagueWeek', () => {
     expect(l.bench.map((p) => p.playerId)).toEqual(['BENCHRB'])
     expect(l.pointsLeftOnBench).toBeCloseTo(21)
     expect(l.efficiency).toBeLessThan(1)
-    expect(l.misses[0]).toMatchObject({ gain: 21, out: null })
+    // BENCHRB (21) uebernimmt den RB-Slot von RB2 (2). Dass RB2 dadurch den
+    // leeren FLEX besetzt, ist eine Folge-Umbesetzung -- die restlichen 2
+    // Punkte der Differenz stecken dort, nicht in einer eigenen Zeile.
+    expect(l.misses[0]).toMatchObject({ slot: 'RB', gain: 19 })
     expect(l.misses[0].in.playerId).toBe('BENCHRB')
+    expect(l.misses[0].out.playerId).toBe('RB2')
   })
 
   it('zaehlt NUR die Differenz zum Optimum, nicht die Bankpunkte', () => {
@@ -257,10 +332,12 @@ describe('buildLeagueWeek', () => {
       starters: ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'WR3', 'SEA'],
       players_points: { WR3: 1 },
     })
-    // WR2 (0 Punkte) ist der einzige Starter, der aus dem Optimum faellt.
+    // BENCHRB (21) uebernimmt den RB-Slot des schwaechsten RB (RB2, 2 Punkte) --
+    // nicht den von RB1 (18), obwohl das Optimum ihn intern zuerst besetzt.
+    expect(l.misses).toHaveLength(1)
+    expect(l.misses[0]).toMatchObject({ slot: 'RB', gain: 19 })
     expect(l.misses[0].in.playerId).toBe('BENCHRB')
-    expect(l.misses[0].out.playerId).toBe('WR2')
-    expect(l.misses[0].gain).toBeCloseTo(21)
+    expect(l.misses[0].out.playerId).toBe('RB2')
   })
 
   it('gibt null zurueck, wenn ich in der Liga kein Team habe', () => {

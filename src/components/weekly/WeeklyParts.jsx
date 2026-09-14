@@ -314,7 +314,10 @@ export function BenchReport({ leagues }) {
               )}
             </div>
             {miss && (
+              // Der Slot steht bewusst dabei: nur mit ihm ist der Tausch
+              // nachvollziehbar (und ein positionsfremdes Paar faellt sofort auf).
               <div className="wk-bench-miss">
+                <span className="wk-bench-slot">{miss.slot}</span>
                 <span className="wk-chip is-me">{miss.in.name} {pts(miss.in.points)}</span>
                 <Icon name="swap" size={13} />
                 {miss.out

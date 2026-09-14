@@ -17,9 +17,12 @@ const L1_DATA = {
   users: [{ user_id: 'me', display_name: 'Ich' }, { user_id: 'u2', display_name: 'Kevin' }],
   matchups: [
     {
+      // Reihenfolge = Startslots ['QB','RB','WR','FLEX']; die '0' ist der leer
+      // gelassene FLEX. Positionen passen zu ihren Slots, sonst prueft der Test
+      // eine Aufstellung, die Sleeper so nie zulassen wuerde.
       roster_id: 1, matchup_id: 1, points: 61.9,
-      starters: ['P1', 'P2', 'P4', '0'],
-      players: ['P1', 'P2', 'P4', 'P3'],
+      starters: ['P1', 'P4', 'P2', '0'],
+      players: ['P1', 'P4', 'P2', 'P3'],
       players_points: { P1: 28.4, P2: 0, P4: 12.1, P3: 21.4 },
     },
     { roster_id: 2, matchup_id: 1, points: 48.3, starters: ['P5'], players: ['P5'], players_points: { P5: 30 } },
@@ -91,9 +94,12 @@ describe('WeeklyPage', () => {
     expect(screen.getAllByText('−11.0')).toHaveLength(2)
     expect(screen.getByText('Out')).toBeInTheDocument()
     expect(screen.getByText('Aufgestellt und ausgefallen')).toBeInTheDocument()
-    // Bank Held (21.4) haette den leeren FLEX besetzt.
+    // Bank Held (RB, 21.4) haette den RB-Slot von Rico Dowdle (RB, 12.1)
+    // uebernommen -- gepaart wird ueber den Slot, nie ueber den Punkte-Rang.
     expect(screen.getByText('Bank Held 21.4')).toBeInTheDocument()
-    expect(screen.getByText('Slot leer')).toBeInTheDocument()
+    expect(screen.getByText('Rico Dowdle 12.1')).toBeInTheDocument()
+    // Der Slot steht als eigene Marke an der Zeile.
+    expect(document.querySelector('.wk-bench-slot')).toHaveTextContent('RB')
   })
 
   it('erzwingt beim Aktualisieren ein Neuladen', () => {

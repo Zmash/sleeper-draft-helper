@@ -158,6 +158,8 @@
 .wk-bench-bar i { display: block; height: 100%; background: var(--accent-fill); transition: width .4s var(--ease); }
 .wk-bench-sub { font-size: .72rem; color: var(--text-muted); }
 .wk-bench-miss { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--text-muted); flex-wrap: wrap; }
+.wk-bench-slot { font: 700 .62rem var(--font-display); letter-spacing: .06em; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 0 5px; flex: none; }
 .wk-bench-gain { margin-left: auto; font-weight: 700; color: var(--bad); }
 
 /* Positionsbilanz */
