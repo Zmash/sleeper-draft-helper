@@ -24,6 +24,7 @@ const BY_TEAM = {
 }
 
 const ROSTER_POSITIONS = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'BN', 'BN', 'IR']
+const sumPoints = (list) => list.reduce((a, p) => a + (p.points ?? 0), 0)
 
 describe('startSlots', () => {
   it('laesst BN/IR/TAXI weg und behaelt die Reihenfolge', () => {
@@ -212,6 +213,45 @@ describe('buildLeagueWeek', () => {
     expect(l.misses[0].in.playerId).toBe('BENCHRB')
   })
 
+  it('zaehlt NUR die Differenz zum Optimum, nicht die Bankpunkte', () => {
+    // Zwei Bankspieler mit zusammen 33.4 Punkten, aber nur einer (BENCHRB)
+    // haette ueberhaupt in die Aufstellung gehoert -- und auch nur mit dem
+    // Zugewinn gegenueber dem leeren FLEX-Slot. Die Summe der Bankpunkte darf
+    // hier nie herauskommen.
+    const playersMeta = {
+      ...META,
+      BENCHRB: { player_id: 'BENCHRB', full_name: 'Bank Held', position: 'RB', fantasy_positions: ['RB'], team: 'DAL' },
+      BENCHQB: { player_id: 'BENCHQB', full_name: 'Bank Backup', position: 'QB', fantasy_positions: ['QB'], team: 'CIN' },
+    }
+    const matchups = MATCHUPS.map((m) => (m.roster_id === 1
+      ? {
+        ...m,
+        players: [...m.players, 'BENCHRB', 'BENCHQB'],
+        players_points: { ...m.players_points, BENCHRB: 21, BENCHQB: 12.4 },
+      }
+      : m))
+    const l = buildLeagueWeek({ ...leagueArgs, matchups, playersMeta })
+    expect(l.bench.map((p) => p.playerId)).toEqual(['BENCHRB', 'BENCHQB'])
+    // Bankpunkte gesamt waeren 33.4 -- der Backup-QB hat aber keinen Slot
+    // (QB1 hat mehr) und zaehlt deshalb gar nicht.
+    expect(l.pointsLeftOnBench).toBeCloseTo(21)
+    expect(l.optimalPoints - sumPoints(l.starters)).toBeCloseTo(l.pointsLeftOnBench)
+  })
+
+  it('meldet 0 verschenkte Punkte, wenn die Bank nichts gebracht haette', () => {
+    const playersMeta = {
+      ...META,
+      BENCHRB: { player_id: 'BENCHRB', full_name: 'Bank Niete', position: 'RB', fantasy_positions: ['RB'], team: 'DAL' },
+    }
+    // Bankspieler mit 1.0 Punkten: besetzt zwar den leeren FLEX, bringt aber
+    // fast nichts -- verschenkt sind genau diese 1.0, nicht mehr.
+    const matchups = MATCHUPS.map((m) => (m.roster_id === 1
+      ? { ...m, players: [...m.players, 'BENCHRB'], players_points: { ...m.players_points, BENCHRB: 1 } }
+      : m))
+    const l = buildLeagueWeek({ ...leagueArgs, matchups, playersMeta })
+    expect(l.pointsLeftOnBench).toBeCloseTo(1)
+  })
+
   it('benennt den verdraengten Starter, wenn alle Slots besetzt waren', () => {
     const l = withBench({
       starters: ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'WR3', 'SEA'],
@@ -264,6 +304,11 @@ describe('weekRecord', () => {
     // Ueber Projektion: QB1, RB1, WR1 -> 3 von 7.
     expect(r.ratedStarters).toBe(7)
     expect(r.hitRate).toBeCloseTo(3 / 7)
+  })
+
+  it('summiert die verschenkten Punkte ueber alle Ligen', () => {
+    const l = finished()
+    expect(weekRecord([l, l]).pointsLeftOnBench).toBeCloseTo(l.pointsLeftOnBench * 2)
   })
 
   it('zaehlt laufende Ligen separat', () => {

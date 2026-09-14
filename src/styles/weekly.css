@@ -1,5 +1,8 @@
 /* Wochenrueckblick. Layout per grid-areas wie die Redzone: mobil einspaltig,
    ab 900px zweispaltig mit den Listen (Verletzungen) in der schmalen Spalte. */
+/* Seitenrahmen wie .an-page: in der NextShell (>=900px) bringt die Seite den
+   Rand selbst mit, mobil setzt ihn .wrap der AppShell. */
+@media (min-width: 900px) { .wk-page { padding: 1rem; } }
 .wk-page { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr);
   grid-template-areas: 'head' 'notice' 'chips' 'record' 'results' 'outliers' 'inj' 'bench' 'pos' 'opp'; }
 .wk-head { grid-area: head; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -52,10 +55,33 @@
   border: 0; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--r-ctl); }
 .wk-week-btn:disabled { opacity: .35; cursor: default; }
 .wk-week-btn:not(:disabled):hover { color: var(--text-primary); background: var(--surface-raised); }
-.wk-rot-r { transform: rotate(90deg); }
-.wk-week-select { border: 0; background: transparent; color: var(--text-primary); font: 600 .85rem var(--font-ui);
-  padding: 3px 2px; cursor: pointer; }
-.wk-week-select:focus-visible, .wk-week-btn:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.wk-week-host { position: relative; display: flex; }
+.wk-week-current { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent;
+  color: var(--text-primary); font: 600 .85rem var(--font-ui); padding: 3px 6px; cursor: pointer;
+  border-radius: var(--r-ctl); white-space: nowrap; }
+.wk-week-current:not(:disabled):hover { background: var(--surface-raised); }
+.wk-week-current:disabled { opacity: .5; cursor: default; }
+.wk-week-current svg { color: var(--text-dim); }
+.wk-week-current:focus-visible, .wk-week-btn:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+/* Eigenes Menue statt <select>: die aufgeklappte Liste eines <select> zeichnet
+   das Betriebssystem, nicht die App -- im dunklen Theme stand da eine helle
+   Systemliste. Gleiche Bauart wie .ns-menu in der NextShell. */
+.wk-menu-backdrop { position: fixed; inset: 0; z-index: var(--z-dropdown); }
+.wk-menu { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%);
+  z-index: calc(var(--z-dropdown) + 1); min-width: 150px; max-height: 55vh; overflow: auto; padding: 4px;
+  background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--shadow-pop, 0 10px 30px rgba(0, 0, 0, .45)); }
+.wk-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0;
+  background: transparent; border-radius: var(--r-ctl); color: var(--text-muted);
+  font: 500 .8rem var(--font-ui); text-align: left; cursor: pointer; }
+.wk-menu-item:hover { background: var(--surface-raised); color: var(--text-primary); }
+.wk-menu-item.is-active { color: var(--accent-text); }
+.wk-menu-item svg { margin-left: auto; }
+.wk-menu-now { font: 700 .6rem var(--font-display); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--live); border: 1px solid color-mix(in srgb, var(--live) 45%, transparent);
+  border-radius: var(--r-ctl); padding: 0 4px; }
+.wk-menu-item.is-active .wk-menu-now + svg { margin-left: 0; }
 
 /* Woche in Zahlen */
 .wk-record { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
@@ -137,19 +163,23 @@
 /* Positionsbilanz */
 .wk-posbars { padding: 10px; display: grid; gap: 7px; }
 .wk-posrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) 92px; align-items: center; gap: 10px; }
-.wk-posbar { position: relative; height: 14px; background: var(--border); border-radius: 2px; overflow: hidden; }
-.wk-posbar i { position: absolute; left: 0; display: block; transition: width .4s var(--ease); }
-.wk-posbar-proj { top: 0; height: 100%; background: color-mix(in srgb, var(--text-dim) 40%, transparent); }
-.wk-posbar-real { top: 3px; height: 8px; border-radius: 2px; }
+.wk-posbar { position: relative; height: 14px; background: var(--border); border-radius: 2px; }
+.wk-posbar-real { position: absolute; left: 0; top: 0; height: 100%; display: block; border-radius: 2px;
+  transition: width .4s var(--ease); }
 .wk-posbar-real.is-good { background: var(--good); } .wk-posbar-real.is-bad { background: var(--bad); }
+/* Zielmarke der Projektion. Frueher ein zweiter grauer Balken hinter dem
+   echten -- im Volt-Theme liegen --border und --text-dim so dicht beieinander,
+   dass davon nichts zu sehen war. --text-primary steht in jedem Theme. */
+.wk-posbar-proj { position: absolute; top: -3px; height: 20px; width: 2px; margin-left: -1px; display: block;
+  background: var(--text-primary); border-radius: 1px; transition: left .4s var(--ease); }
 .wk-posval { text-align: right; font-weight: 700; font-size: .9rem; }
 .wk-posval small { font-size: .68rem; font-weight: 600; margin-left: 5px; }
 .wk-poslegend { display: flex; gap: 12px; font-size: .68rem; color: var(--text-dim); padding-top: 2px; }
 .wk-poslegend span { display: inline-flex; align-items: center; gap: 5px; }
 .wk-swatch { width: 10px; height: 6px; border-radius: 1px; display: inline-block; }
-.wk-swatch--proj { background: color-mix(in srgb, var(--text-dim) 40%, transparent); }
+.wk-swatch--proj { width: 2px; height: 11px; background: var(--text-primary); }
 .wk-swatch--real { background: var(--good); }
 
 @media (prefers-reduced-motion: reduce) {
-  .wk-out-bar i, .wk-bench-bar i, .wk-posbar i { transition: none; }
+  .wk-out-bar i, .wk-bench-bar i, .wk-posbar-real, .wk-posbar-proj { transition: none; }
 }

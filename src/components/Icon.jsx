@@ -3,7 +3,7 @@ import {
   Trophy, Star, X, Check, CircleCheck, ThumbsUp, Scale, Hammer, TriangleAlert,
   ArrowLeftRight, Search, Eye, EyeOff, ChartColumn, MessageCircle, Radio, Plus, ClipboardCheck,
   Home, Users, LayoutList, Zap, Menu, SlidersHorizontal, ArrowDownToLine, Settings,
-  ChevronUp, ChevronDown, Trash2, Maximize2, Minimize2, Anchor, Shuffle, ExternalLink, Pencil, Info, Bell,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trash2, Maximize2, Minimize2, Anchor, Shuffle, ExternalLink, Pencil, Info, Bell,
 } from 'lucide-react'
 
 const MAP = {
@@ -15,7 +15,8 @@ const MAP = {
   chart: ChartColumn, message: MessageCircle, radio: Radio, plus: Plus,
   home: Home, roster: Users, board: LayoutList, zap: Zap,
   menu: Menu, filter: SlidersHorizontal, 'arrow-down': ArrowDownToLine, settings: Settings,
-  'chevron-up': ChevronUp, 'chevron-down': ChevronDown, 'trash-2': Trash2,
+  'chevron-up': ChevronUp, 'chevron-down': ChevronDown,
+  'chevron-left': ChevronLeft, 'chevron-right': ChevronRight, 'trash-2': Trash2,
   maximize: Maximize2, minimize: Minimize2, anchor: Anchor, shuffle: Shuffle,
   'external-link': ExternalLink, pencil: Pencil, info: Info, bell: Bell,
 }

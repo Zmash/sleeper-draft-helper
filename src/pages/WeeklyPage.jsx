@@ -118,7 +118,7 @@ export default function WeeklyPage() {
     <section className="wk-page">
       <header className="wk-head">
         <span className="wk-title">Wochenrückblick</span>
-        <WeekPicker week={wk.week} weeks={weeks} onPick={wk.setWeek} disabled={wk.loading} />
+        <WeekPicker week={wk.week} weeks={weeks} currentWeek={wk.currentWeek} onPick={wk.setWeek} disabled={wk.loading} />
         {isCurrentWeek && <span className="wk-pill">laufende Woche</span>}
         <Stamp at={wk.lastUpdated} />
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => load(true)} disabled={wk.loading}>
@@ -182,9 +182,12 @@ export default function WeeklyPage() {
 
       <div className="wk-section wk-opp-area">
         <div className="wk-h">Bei den Gegnern</div>
+        {/* Farben gespiegelt: ein Gegner über seiner Projektion ist für dich
+            das schlechte Ereignis, einer darunter das gute. */}
         <OutlierBoard
           outliers={view.oppOutliers}
           labels={{ over: 'Hat dich gekostet', under: 'Hat dir geholfen' }}
+          tones={{ over: 'bad', under: 'good' }}
           emptyHint="Keine nennenswerten Abweichungen."
         />
       </div>

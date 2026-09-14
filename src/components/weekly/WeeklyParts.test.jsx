@@ -28,11 +28,32 @@ describe('WeekPicker', () => {
     expect(screen.getByRole('button', { name: 'Woche zurück' })).toBeDisabled()
   })
 
-  it('erlaubt den direkten Sprung ueber die Auswahl', () => {
+  it('erlaubt den direkten Sprung ueber das Menue und markiert die laufende Woche', () => {
     const onPick = vi.fn()
-    render(<WeekPicker week={3} weeks={weeks} onPick={onPick} />)
-    fireEvent.change(screen.getByLabelText('Woche'), { target: { value: '1' } })
+    render(<WeekPicker week={3} weeks={weeks} currentWeek={3} onPick={onPick} />)
+    const toggle = screen.getByRole('button', { name: 'Woche' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(screen.getByRole('listbox', { name: 'Woche' })).toBeInTheDocument()
+    expect(screen.getByText('läuft')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Week 3/ })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('option', { name: /Week 1/ }))
     expect(onPick).toHaveBeenCalledWith(1)
+    // Auswahl schliesst das Menue wieder.
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('schliesst das Menue mit Escape', () => {
+    render(<WeekPicker week={3} weeks={weeks} currentWeek={3} onPick={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Woche' }))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('benutzt kein natives select (dessen Liste zeichnet das OS)', () => {
+    const { container } = render(<WeekPicker week={3} weeks={weeks} onPick={() => {}} />)
+    expect(container.querySelector('select')).toBeNull()
   })
 })
 
@@ -46,6 +67,9 @@ describe('RecordStrip', () => {
     expect(screen.getByText('1 noch offen')).toBeInTheDocument()
     expect(screen.getByText('412.6')).toBeInTheDocument()
     expect(screen.getByText('60 %')).toBeInTheDocument()
+    // Differenz zur besten Aufstellung, nicht die Summe der Bankpunkte.
+    expect(screen.getByText('Verschenkte Punkte')).toBeInTheDocument()
+    expect(screen.getByText('gegen die beste Aufstellung')).toBeInTheDocument()
     expect(screen.getByText('8.4')).toBeInTheDocument()
   })
 
@@ -108,6 +132,23 @@ describe('OutlierBoard', () => {
     expect(screen.getByText('28.4 statt 20.0')).toBeInTheDocument()
   })
 
+  it('spiegelt die Farben fuer die Gegnerseite', () => {
+    const over = [player({ delta: 12 })]
+    const under = [player({ playerId: 'P9', delta: -12 })]
+    // Eigene Starter: ueber Projektion = gut.
+    const own = render(<OutlierBoard outliers={{ over, under, pending: 0 }} labels={labels} emptyHint="leer" />)
+    expect(own.container.querySelector('.wk-out-bar i')).toHaveClass('is-good')
+    own.unmount()
+    // Gegner: ueber Projektion hat dich Punkte gekostet -> rot.
+    const opp = render(<OutlierBoard
+      outliers={{ over, under, pending: 0 }} labels={labels} emptyHint="leer"
+      tones={{ over: 'bad', under: 'good' }}
+    />)
+    const bars = opp.container.querySelectorAll('.wk-out-bar i')
+    expect(bars[0]).toHaveClass('is-bad')
+    expect(bars[1]).toHaveClass('is-good')
+  })
+
   it('weist auf noch laufende Spieler hin', () => {
     render(<OutlierBoard outliers={{ over: [], under: [], pending: 4 }} labels={labels} emptyHint="leer" />)
     expect(screen.getByText(/4 Spieler sind noch im Einsatz/)).toBeInTheDocument()
@@ -143,7 +184,7 @@ describe('BenchReport', () => {
   it('zeigt Effizienz und den groessten Fehlgriff', () => {
     render(<BenchReport leagues={[base]} />)
     expect(screen.getByText('82 %')).toBeInTheDocument()
-    expect(screen.getByText(/23.1 Punkte auf der Bank/)).toBeInTheDocument()
+    expect(screen.getByText(/23.1 Punkte verschenkt/)).toBeInTheDocument()
     expect(screen.getByText('Bank Held 21.0')).toBeInTheDocument()
     expect(screen.getByText('Rico Dowdle 2.0')).toBeInTheDocument()
   })
@@ -166,13 +207,20 @@ describe('BenchReport', () => {
 
 describe('PositionBars', () => {
   it('zeigt je Position erzielte Punkte und Abweichung', () => {
-    render(<PositionBars rows={[
+    const { container } = render(<PositionBars rows={[
       { pos: 'QB', points: 28.4, projected: 20, delta: 8.4, count: 1 },
       { pos: 'WR', points: 25, projected: 27, delta: -2, count: 2 },
     ]} />)
     expect(screen.getByText('QB')).toBeInTheDocument()
     expect(screen.getByText('+8.4')).toBeInTheDocument()
     expect(screen.getByText('−2.0')).toBeInTheDocument()
+    // Balken = erzielt (grün/rot), Marke = Projektion, beide auf denselben Maximalwert skaliert.
+    const rows = container.querySelectorAll('.wk-posrow')
+    expect(rows[0].querySelector('.wk-posbar-real')).toHaveClass('is-good')
+    expect(rows[1].querySelector('.wk-posbar-real')).toHaveClass('is-bad')
+    // Maximum ist 28.4 -> QB-Balken voll, Projektionsmarke bei 20/28.4.
+    expect(rows[0].querySelector('.wk-posbar-real')).toHaveStyle({ width: '100%' })
+    expect(rows[0].querySelector('.wk-posbar-proj')).toHaveStyle({ left: `${(20 / 28.4) * 100}%` })
   })
 
   it('meldet fehlende Daten', () => {

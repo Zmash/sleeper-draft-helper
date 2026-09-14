@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import SleeperAvatar from '../SleeperAvatar'
 import { cx } from '../../utils/formatting'
@@ -10,7 +11,48 @@ const leagueTitle = (list = []) => list.map((l) => l.leagueName).join(', ')
 
 // ── Kopf ────────────────────────────────────────────────────────────────────
 
-export function WeekPicker({ week, weeks, onPick, disabled }) {
+// Bewusst KEIN <select>: dessen aufgeklappte Liste zeichnet das Betriebssystem,
+// nicht die App -- im dunklen Theme steht da eine systemhelle Liste in
+// Systemschrift. Dieselbe Loesung wie fuer Theme-Wahl und Draft-Umschalter in
+// der NextShell: eigener Knopf + eigenes Menue.
+function WeekMenu({ week, weeks, currentWeek, onPick, onClose }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    // Auf die aktive Woche scrollen: bei 18 Wochen liegt Week 1 sonst
+    // unsichtbar unterhalb des Menuerands.
+    // scrollIntoView fehlt in jsdom (und alten WebViews) -> optional aufrufen.
+    ref.current?.querySelector('.is-active')?.scrollIntoView?.({ block: 'nearest' })
+  }, [])
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <>
+      <div className="wk-menu-backdrop" onClick={onClose} />
+      <div className="wk-menu" role="listbox" aria-label="Woche" ref={ref}>
+        {weeks.map((w) => (
+          <button
+            key={w}
+            type="button"
+            role="option"
+            aria-selected={w === week}
+            className={cx('wk-menu-item', w === week && 'is-active')}
+            onClick={() => { onPick(w); onClose() }}
+          >
+            <span className="wk-num">Week {w}</span>
+            {w === currentWeek && <span className="wk-menu-now">läuft</span>}
+            {w === week && <Icon name="check" size={13} />}
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+export function WeekPicker({ week, weeks, currentWeek, onPick, disabled }) {
+  const [open, setOpen] = useState(false)
   const idx = weeks.indexOf(week)
   // weeks ist absteigend (aktuelle Woche zuerst) -- "zurueck" geht im Array
   // also nach hinten, "vor" nach vorn.
@@ -24,19 +66,33 @@ export function WeekPicker({ week, weeks, onPick, disabled }) {
         type="button" className="wk-week-btn" onClick={() => go(1)}
         disabled={disabled || idx === -1 || idx >= weeks.length - 1} aria-label="Woche zurück"
       >
-        <Icon name="chevron-down" size={15} className="wk-rot-r" />
+        <Icon name="chevron-left" size={15} />
       </button>
-      <select
-        className="wk-week-select" value={week ?? ''} disabled={disabled}
-        onChange={(e) => onPick(Number(e.target.value))} aria-label="Woche"
-      >
-        {weeks.map((w) => <option key={w} value={w}>Week {w}</option>)}
-      </select>
+      <div className="wk-week-host">
+        <button
+          type="button"
+          className="wk-week-current"
+          onClick={() => setOpen((v) => !v)}
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Woche"
+        >
+          <span className="wk-num">Week {week ?? '–'}</span>
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} />
+        </button>
+        {open && (
+          <WeekMenu
+            week={week} weeks={weeks} currentWeek={currentWeek}
+            onPick={onPick} onClose={() => setOpen(false)}
+          />
+        )}
+      </div>
       <button
         type="button" className="wk-week-btn" onClick={() => go(-1)}
         disabled={disabled || idx <= 0} aria-label="Woche vor"
       >
-        <Icon name="chevron-up" size={15} className="wk-rot-r" />
+        <Icon name="chevron-right" size={15} />
       </button>
     </div>
   )
@@ -62,10 +118,13 @@ export function RecordStrip({ record }) {
       tone: record.hitRate == null ? null : record.hitRate >= 0.5 ? 'good' : 'bad',
     },
     {
+      // "Auf der Bank gelassen" las sich wie die Summe aller Bankpunkte. Es ist
+      // die DIFFERENZ zur bestmoeglichen Aufstellung -- also nur das, was ein
+      // anderer Einsatz wirklich mehr gebracht haette.
       key: 'bench',
-      label: 'Auf der Bank gelassen',
+      label: 'Verschenkte Punkte',
       value: pts(record.pointsLeftOnBench),
-      hint: record.pointsLeftOnBench > 0 ? 'Punkte über alle Ligen' : 'optimal aufgestellt',
+      hint: record.pointsLeftOnBench > 0 ? 'gegen die beste Aufstellung' : 'optimal aufgestellt',
       tone: record.pointsLeftOnBench > 0 ? 'bad' : 'good',
     },
   ]
@@ -140,7 +199,7 @@ function OutlierRow({ player, max, tone }) {
       <div className="wk-out-main">
         <div className="wk-out-name">
           <span className="wk-ellip">{player.name}</span>
-          <span className="wk-num wk-out-delta">{signed(player.delta)}</span>
+          <span className={cx('wk-num wk-out-delta', `is-${tone}`)}>{signed(player.delta)}</span>
         </div>
         <div className="wk-out-bar" aria-hidden="true">
           <i className={`is-${tone}`} style={{ width: `${width}%` }} />
@@ -154,11 +213,18 @@ function OutlierRow({ player, max, tone }) {
   )
 }
 
-export function OutlierBoard({ outliers, labels, emptyHint }) {
+/**
+ * @param {object} props
+ * @param {{over:'good'|'bad', under:'good'|'bad'}} [props.tones]
+ *   Farbe je Spalte. Default gilt fuer die EIGENEN Starter: über Projektion ist
+ *   gut. Bei den Gegnern ist es genau umgekehrt -- ein Gegner über seiner
+ *   Projektion hat dich Punkte gekostet und darf nicht grün sein.
+ */
+export function OutlierBoard({ outliers, labels, emptyHint, tones = { over: 'good', under: 'bad' } }) {
   const max = Math.max(0, ...[...outliers.over, ...outliers.under].map((p) => Math.abs(p.delta)))
   const columns = [
-    { key: 'over', tone: 'good', title: labels.over, list: outliers.over },
-    { key: 'under', tone: 'bad', title: labels.under, list: outliers.under },
+    { key: 'over', tone: tones.over, title: labels.over, list: outliers.over },
+    { key: 'under', tone: tones.under, title: labels.under, list: outliers.under },
   ]
   return (
     <div className="wk-outliers">
@@ -242,7 +308,7 @@ export function BenchReport({ leagues }) {
             </div>
             <div className="wk-bench-sub">
               {l.pointsLeftOnBench > 0.05 ? (
-                <span className="wk-num">{pts(l.pointsLeftOnBench)} Punkte auf der Bank · optimal {pts(l.optimalPoints)}</span>
+                <span className="wk-num">{pts(l.pointsLeftOnBench)} Punkte verschenkt · optimal wären {pts(l.optimalPoints)}</span>
               ) : (
                 <span>Optimale Aufstellung.</span>
               )}
@@ -266,6 +332,11 @@ export function BenchReport({ leagues }) {
 
 // ── Positionsbilanz ─────────────────────────────────────────────────────────
 
+// Bullet-Chart statt zweier gestapelter Balken: die Projektion ist eine
+// Zielmarke, keine Flaeche. Zwei Graustufen uebereinander (Balken auf Spur)
+// verschwinden in Themes, deren --border und --text-dim dicht beieinander
+// liegen (Befund im Volt-Theme); eine Marke in --text-primary steht dagegen
+// in jedem Theme.
 export function PositionBars({ rows }) {
   if (!rows.length) return <div className="wk-empty">Noch keine abgeschlossenen Starter-Spiele.</div>
   const max = Math.max(...rows.map((r) => Math.max(r.points, r.projected)), 1)
@@ -275,8 +346,8 @@ export function PositionBars({ rows }) {
         <div key={r.pos} className="wk-posrow">
           <span className={`wk-pos wk-pos--${String(r.pos || '').toLowerCase()}`}>{r.pos}</span>
           <div className="wk-posbar" aria-hidden="true">
-            <i className="wk-posbar-proj" style={{ width: `${(r.projected / max) * 100}%` }} />
             <i className={cx('wk-posbar-real', r.delta >= 0 ? 'is-good' : 'is-bad')} style={{ width: `${(r.points / max) * 100}%` }} />
+            <i className="wk-posbar-proj" style={{ left: `${(r.projected / max) * 100}%` }} />
           </div>
           <span className="wk-num wk-posval" title={`${pts(r.points)} Punkte, projiziert ${pts(r.projected)} (${r.count} Starter)`}>
             {pts(r.points)}
