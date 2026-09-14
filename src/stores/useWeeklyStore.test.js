@@ -133,4 +133,11 @@ describe('useWeeklyStore Filter', () => {
     useWeeklyStore.getState().soloLeague(all, 'L2')
     expect(useWeeklyStore.getState().deselectedLeagueIds).toEqual(['L1'])
   })
+
+  it('showAllLeagues schaltet alle Ligen wieder an', () => {
+    useWeeklyStore.getState().toggleLeague(['L1', 'L2'], 'L2')
+    expect(useWeeklyStore.getState().deselectedLeagueIds).toEqual(['L2'])
+    useWeeklyStore.getState().showAllLeagues()
+    expect(useWeeklyStore.getState().deselectedLeagueIds).toEqual([])
+  })
 })

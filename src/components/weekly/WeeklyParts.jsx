@@ -245,6 +245,32 @@ export function OutlierBoard({ outliers, labels, emptyHint, tones = { over: 'goo
   )
 }
 
+// ── Detail-Tabs (Ausreißer du / Gegner / Team-Check) ─────────────────────────
+// Spart die vier gestapelten Sections: nur ein Panel ist sichtbar.
+export function DetailTabs({ active, onActive, injuryCount = 0 }) {
+  const tabs = [
+    { key: 'du', label: 'Deine Ausreißer' },
+    { key: 'geg', label: 'Gegner' },
+    { key: 'team', label: `Team-Check${injuryCount > 0 ? ` ${injuryCount}` : ''}` },
+  ]
+  return (
+    <div className="wk-tabs" role="tablist" aria-label="Details">
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          role="tab"
+          aria-selected={active === t.key}
+          className={cx('wk-tab', active === t.key && 'is-active')}
+          onClick={() => onActive(t.key)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── Verletzungen & Ausfaelle ────────────────────────────────────────────────
 
 const SEVERITY_TEXT = {
@@ -282,6 +308,94 @@ export function InjuryList({ entries }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Liga-Filter als Dropdown (Mobile) ───────────────────────────────────────
+// Dieselbe Auswahl wie die Chips, aber ohne horizontales Scrollen: Button mit
+// Zusammenfassung + Menü mit Checkbox-Zeilen. Bewusst eigenes Menü statt
+// nativem <select> (siehe WeekPicker): die OS-Liste passt nicht ins Theme.
+// Das Menü bleibt nach einem Toggle offen (Multi-Select), "Alle Ligen" setzt zurück.
+export function LeagueFilterDropdown({ leagues = [], activeIds = [], onToggle, onSelectAll }) {
+  const [open, setOpen] = useState(false)
+  const allOn = leagues.length > 0 && leagues.every((l) => activeIds.includes(l.id))
+  const label = allOn ? 'Alle Ligen' : `${activeIds.length} von ${leagues.length} Ligen`
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+  return (
+    <div className="wk-leagues">
+      <div className="wk-leagues-host">
+        <button
+          type="button"
+          className="wk-leagues-current"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="wk-leagues-label">{label}</span>
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} />
+        </button>
+        {open && (
+          <>
+            <div className="wk-menu-backdrop" onClick={() => setOpen(false)} />
+            <div className="wk-menu wk-leagues-menu" role="menu" aria-label="Ligen filtern">
+              {!allOn && (
+                <button
+                  type="button" role="menuitem" className="wk-menu-item"
+                  onClick={() => { onSelectAll(); setOpen(false) }}
+                >
+                  <Icon name="check" size={13} />
+                  <span>Alle Ligen</span>
+                </button>
+              )}
+              {leagues.map((l) => {
+                const on = activeIds.includes(l.id)
+                return (
+                  <button
+                    key={l.id}
+                    type="button" role="menuitemcheckbox" aria-checked={on}
+                    className={cx('wk-menu-item', on && 'is-active')}
+                    onClick={() => onToggle(l.id)}
+                  >
+                    <SleeperAvatar avatar={l.avatar} name={l.label} size={16} />
+                    <span className="wk-ellip">{l.label}</span>
+                    {on && <Icon name="check" size={13} />}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Team-Check: Verletzungen (Dringende offen, Bank eingeklappt) + ──────────
+// Aufstellung + Positionsbilanz in einem Panel. Auf Mobile einspaltig,
+// damit die Spark-Zeilen nicht aus der Card laufen.
+export function TeamCheck({ injuries = [], leagues = [], positions = [] }) {
+  const urgent = injuries.filter((p) => p.severity !== 'bench')
+  const bank = injuries.filter((p) => p.severity === 'bench')
+  return (
+    <div className="wk-team">
+      <div className="wk-team-h">Verletzungen – nur aufgestellt</div>
+      <InjuryList entries={urgent} />
+      {bank.length > 0 && (
+        <details className="wk-bank">
+          <summary>Bank betroffen ({bank.length}) – aufklappen</summary>
+          <InjuryList entries={bank} />
+        </details>
+      )}
+      <div className="wk-team-h">Aufstellung im Rückblick</div>
+      <BenchReport leagues={leagues} />
+      <div className="wk-team-h">Positionsbilanz</div>
+      <PositionBars rows={positions} />
     </div>
   )
 }

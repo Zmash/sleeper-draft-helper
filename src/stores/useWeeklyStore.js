@@ -32,6 +32,7 @@ export const useWeeklyStore = create(
         set((s) => ({ deselectedLeagueIds: toggleLeague(allIds, s.deselectedLeagueIds, id) })),
       soloLeague: (allIds, id) =>
         set((s) => ({ deselectedLeagueIds: soloLeague(allIds, s.deselectedLeagueIds, id) })),
+      showAllLeagues: () => set({ deselectedLeagueIds: [] }),
       setWeek: (week) => set({ week: Number(week) || null }),
 
       /**

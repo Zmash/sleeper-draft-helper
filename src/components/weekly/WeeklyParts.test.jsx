@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import {
   WeekPicker, RecordStrip, LeagueResults, OutlierBoard, InjuryList, BenchReport, PositionBars,
+  DetailTabs, TeamCheck, LeagueFilterDropdown,
 } from './WeeklyParts'
 
 const player = (over = {}) => ({
@@ -202,6 +203,76 @@ describe('BenchReport', () => {
   it('bleibt leer ohne bewertbare Liga', () => {
     render(<BenchReport leagues={[{ ...base, efficiency: null }]} />)
     expect(screen.getByText(/Noch keine Punkte/)).toBeInTheDocument()
+  })
+})
+
+describe('DetailTabs', () => {
+  it('zeigt drei Tabs und schaltet per Klick um', () => {
+    const onActive = vi.fn()
+    render(<DetailTabs active="du" onActive={onActive} injuryCount={2} />)
+    expect(screen.getByRole('tab', { name: /Deine Ausreißer/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Gegner/ })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: /Team-Check/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Gegner/ }))
+    expect(onActive).toHaveBeenCalledWith('geg')
+  })
+})
+
+describe('TeamCheck', () => {
+  const benchEntry = (over = {}) => ({
+    playerId: 'PB', name: 'Bank Spieler', pos: 'QB', points: 0, projected: 5,
+    injuryStatus: 'Out', severity: 'bench', startedIn: [], benchedIn: [{ leagueId: 'L1', leagueName: 'Büro-Liga' }],
+    leagues: [{ leagueId: 'L1', leagueName: 'Büro-Liga' }], ...over,
+  })
+  const urgentEntry = (over = {}) => ({
+    playerId: 'PU', name: 'Dringend Fall', pos: 'WR', points: 0, projected: 12,
+    injuryStatus: 'Out', severity: 'out', startedIn: [{ leagueId: 'L1', leagueName: 'Büro-Liga' }], benchedIn: [],
+    leagues: [{ leagueId: 'L1', leagueName: 'Büro-Liga' }], ...over,
+  })
+
+  it('klappt Bank-Betroffene ein und zeigt Dringende offen', () => {
+    render(<TeamCheck
+      injuries={[urgentEntry(), benchEntry()]}
+      leagues={[]}
+      positions={[]}
+    />)
+    expect(screen.getByText('Dringend Fall')).toBeInTheDocument()
+    const details = document.querySelector('details.wk-bank')
+    expect(details).not.toBeNull()
+    expect(details.textContent).toMatch(/Bank Spieler/)
+  })
+})
+
+describe('LeagueFilterDropdown', () => {
+  const leagues = [
+    { id: 'L1', label: 'Büro-Liga', avatar: null },
+    { id: 'L2', label: 'Dynasty Bros', avatar: null },
+  ]
+
+  it('zeigt die Auswahl als Zusammenfassung und toggelt per Menü', () => {
+    const onToggle = vi.fn()
+    render(<LeagueFilterDropdown leagues={leagues} activeIds={['L1', 'L2']} onToggle={onToggle} onSelectAll={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Alle Ligen' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Alle Ligen' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Dynasty Bros/ }))
+    expect(onToggle).toHaveBeenCalledWith('L2')
+  })
+
+  it('bietet Alle Ligen zum Zurücksetzen an', () => {
+    const onSelectAll = vi.fn()
+    render(<LeagueFilterDropdown leagues={leagues} activeIds={['L1']} onToggle={() => {}} onSelectAll={onSelectAll} />)
+    expect(screen.getByRole('button', { name: '1 von 2 Ligen' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '1 von 2 Ligen' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Alle Ligen' }))
+    expect(onSelectAll).toHaveBeenCalled()
+  })
+
+  it('schliesst das Menü mit Escape', () => {
+    render(<LeagueFilterDropdown leagues={leagues} activeIds={['L1', 'L2']} onToggle={() => {}} onSelectAll={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Alle Ligen' }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })
 

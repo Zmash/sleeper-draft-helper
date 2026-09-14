@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useWeeklyStore } from '../stores/useWeeklyStore'
 import { useWeeklyRankingsStore } from '../stores/useWeeklyRankingsStore'
@@ -11,7 +11,8 @@ import {
 } from '../services/weekly/weeklyModel'
 import { LeagueChips, Stamp } from '../components/redzone/RedzoneParts'
 import {
-  WeekPicker, RecordStrip, LeagueResults, OutlierBoard, InjuryList, BenchReport, PositionBars,
+  WeekPicker, RecordStrip, LeagueResults, OutlierBoard, TeamCheck, DetailTabs,
+  LeagueFilterDropdown,
 } from '../components/weekly/WeeklyParts'
 import Icon from '../components/Icon'
 // LeagueChips und Stamp kommen aus RedzoneParts und tragen rz-Klassen -- ohne
@@ -101,6 +102,8 @@ export default function WeeklyPage() {
     }
   }, [leagues, filterKey, wk.leagueDataByWeek, wk.gamesByWeek, wk.week, wk.playersMeta, sleeperUserId, projectPlayer, cardNicknames]) // eslint-disable-line
 
+  const [detailTab, setDetailTab] = useState('du')
+
   if (!sleeperUserId || !leagues.length) {
     return (
       <section className="card dashboard-empty">
@@ -113,17 +116,29 @@ export default function WeeklyPage() {
 
   const weeks = weekOptions(wk.currentWeek)
   const hasData = view.leagues.length > 0 || view.errors.length > 0
+  const injuryCount = view.injuries.filter((p) => p.severity !== 'bench').length
 
   return (
     <section className="wk-page">
       <header className="wk-head">
         <span className="wk-title">Wochenrückblick</span>
         <WeekPicker week={wk.week} weeks={weeks} currentWeek={wk.currentWeek} onPick={wk.setWeek} disabled={wk.loading} />
+        <LeagueFilterDropdown
+          leagues={leagues.map((l) => ({ id: l.league_id, label: labelOf(l), avatar: l.avatar ?? null }))}
+          activeIds={activeIds}
+          onToggle={(id) => wk.toggleLeague(allIds, id)}
+          onSelectAll={wk.showAllLeagues}
+        />
         {isCurrentWeek && <span className="wk-pill">laufende Woche</span>}
-        <Stamp at={wk.lastUpdated} />
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => load(true)} disabled={wk.loading}>
-          <Icon name="refresh" size={14} /> Aktualisieren
-        </button>
+        <span className="wk-head-meta">
+          <Stamp at={wk.lastUpdated} />
+          <button
+            type="button" className="btn btn-secondary btn-icon" aria-label="Aktualisieren" title="Aktualisieren"
+            onClick={() => load(true)} disabled={wk.loading}
+          >
+            <Icon name="refresh" size={14} />
+          </button>
+        </span>
       </header>
 
       {wk.error && <div className="wk-notice">{wk.error}</div>}
@@ -156,40 +171,35 @@ export default function WeeklyPage() {
         <LeagueResults leagues={view.leagues} errors={view.errors} />
       </div>
 
-      <div className="wk-section wk-outliers-area">
-        <div className="wk-h">Ausreißer bei deinen Startern</div>
-        <OutlierBoard
-          outliers={view.outliers}
-          labels={{ over: 'Weit über Projektion', under: 'Weit unter Projektion' }}
-          emptyHint="Keine nennenswerten Abweichungen."
-        />
-      </div>
-
-      <div className="wk-section wk-inj-area">
-        <div className="wk-h">Verletzungen &amp; Ausfälle</div>
-        <InjuryList entries={view.injuries} />
-      </div>
-
-      <div className="wk-section wk-bench-area">
-        <div className="wk-h">Aufstellung im Rückblick</div>
-        <BenchReport leagues={view.leagues} />
-      </div>
-
-      <div className="wk-section wk-pos-area">
-        <div className="wk-h">Positionsbilanz</div>
-        <PositionBars rows={view.positions} />
-      </div>
-
-      <div className="wk-section wk-opp-area">
-        <div className="wk-h">Bei den Gegnern</div>
-        {/* Farben gespiegelt: ein Gegner über seiner Projektion ist für dich
-            das schlechte Ereignis, einer darunter das gute. */}
-        <OutlierBoard
-          outliers={view.oppOutliers}
-          labels={{ over: 'Hat dich gekostet', under: 'Hat dir geholfen' }}
-          tones={{ over: 'bad', under: 'good' }}
-          emptyHint="Keine nennenswerten Abweichungen."
-        />
+      <div className="wk-section wk-details-area">
+        <div className="wk-h">Details</div>
+        <DetailTabs active={detailTab} onActive={setDetailTab} injuryCount={injuryCount} />
+        {detailTab === 'du' && (
+          <div role="tabpanel" aria-label="Deine Ausreißer">
+            <OutlierBoard
+              outliers={view.outliers}
+              labels={{ over: 'Weit über Projektion', under: 'Weit unter Projektion' }}
+              emptyHint="Keine nennenswerten Abweichungen."
+            />
+          </div>
+        )}
+        {detailTab === 'geg' && (
+          <div role="tabpanel" aria-label="Gegner">
+            {/* Farben gespiegelt: ein Gegner über seiner Projektion ist für dich
+                das schlechte Ereignis, einer darunter das gute. */}
+            <OutlierBoard
+              outliers={view.oppOutliers}
+              labels={{ over: 'Hat dich gekostet', under: 'Hat dir geholfen' }}
+              tones={{ over: 'bad', under: 'good' }}
+              emptyHint="Keine nennenswerten Abweichungen."
+            />
+          </div>
+        )}
+        {detailTab === 'team' && (
+          <div role="tabpanel" aria-label="Team-Check">
+            <TeamCheck injuries={view.injuries} leagues={view.leagues} positions={view.positions} />
+          </div>
+        )}
       </div>
     </section>
   )

@@ -66,7 +66,7 @@ beforeEach(() => {
       P5: { player_id: 'P5', full_name: 'Gegner Star', team: 'CIN', position: 'WR', fantasy_positions: ['WR'] },
     },
     lastUpdated: Date.now(), loading: false, error: null,
-    load: vi.fn(() => Promise.resolve()), setWeek: vi.fn(), toggleLeague: vi.fn(), soloLeague: vi.fn(),
+    load: vi.fn(() => Promise.resolve()), setWeek: vi.fn(), toggleLeague: vi.fn(), soloLeague: vi.fn(), showAllLeagues: vi.fn(),
   }
 })
 
@@ -74,6 +74,13 @@ describe('WeeklyPage', () => {
   it('laedt beim Oeffnen mit Ligen, Saison und User', () => {
     render(<WeeklyPage />)
     expect(wk.load).toHaveBeenCalledWith({ leagues: session.availableLeagues, season: '2026', myUserId: 'me', force: false })
+  })
+
+  it('bietet die Liga-Auswahl auch als Dropdown an', () => {
+    render(<WeeklyPage />)
+    expect(screen.getByRole('button', { name: 'Alle Ligen' })).toBeInTheDocument()
+    // Mobil sitzt das Dropdown im Header neben dem Wochen-Umschalter.
+    expect(document.querySelector('.wk-head .wk-leagues-current')).not.toBeNull()
   })
 
   it('zeigt Ergebnis, Wochenbilanz und Liga-Chips', () => {
@@ -89,9 +96,10 @@ describe('WeeklyPage', () => {
   it('listet Ausreisser, Verletzungen und den Bankverlust', () => {
     render(<WeeklyPage />)
     // P1 28.4 statt 18 -> Ueberperformer; P2 0 statt 11 -> Unterperformer und Ausfall.
-    // Je einmal bei den Ausreissern und in der Positionsbilanz.
-    expect(screen.getAllByText('+10.4')).toHaveLength(2)
-    expect(screen.getAllByText('−11.0')).toHaveLength(2)
+    // Details stecken in Tabs: erst eigene Ausreißer, dann Team-Check.
+    expect(screen.getByText('+10.4')).toBeInTheDocument()
+    expect(screen.getByText('−11.0')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Team-Check/ }))
     expect(screen.getByText('Out')).toBeInTheDocument()
     expect(screen.getByText('Aufgestellt und ausgefallen')).toBeInTheDocument()
     // Bank Held (RB, 21.4) haette den RB-Slot von Rico Dowdle (RB, 12.1)
@@ -104,8 +112,26 @@ describe('WeeklyPage', () => {
 
   it('erzwingt beim Aktualisieren ein Neuladen', () => {
     render(<WeeklyPage />)
-    fireEvent.click(screen.getByRole('button', { name: /Aktualisieren/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
     expect(wk.load).toHaveBeenLastCalledWith({ leagues: session.availableLeagues, season: '2026', myUserId: 'me', force: true })
+  })
+
+  it('zeigt den Aktualisieren-Knopf als Icon ohne Textzeile', () => {
+    render(<WeeklyPage />)
+    const btn = screen.getByRole('button', { name: 'Aktualisieren' })
+    expect(btn).toHaveAttribute('aria-label', 'Aktualisieren')
+    expect(btn.textContent).not.toMatch(/Aktualisieren/)
+  })
+
+  it('bündelt Ausreißer, Gegner und Team-Check in Tabs', () => {
+    render(<WeeklyPage />)
+    expect(screen.getByRole('tab', { name: /Deine Ausreißer/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Gegner/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Team-Check/ })).toBeInTheDocument()
+    // Default: eigene Ausreißer sichtbar, Gegner-Panel versteckt.
+    expect(screen.getByText(/Weit über Projektion/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Gegner/ }))
+    expect(screen.getByText(/Hat dich gekostet/)).toBeInTheDocument()
   })
 
   it('wechselt die Woche ueber den Waehler', () => {

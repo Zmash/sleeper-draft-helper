@@ -4,13 +4,14 @@
    Rand selbst mit, mobil setzt ihn .wrap der AppShell. */
 @media (min-width: 900px) { .wk-page { padding: 1rem; } }
 .wk-page { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'head' 'notice' 'chips' 'record' 'results' 'outliers' 'inj' 'bench' 'pos' 'opp'; }
+  grid-template-areas: 'head' 'notice' 'chips' 'record' 'results' 'details'; }
 .wk-head { grid-area: head; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wk-head-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.wk-head-meta .btn-icon { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+@media (max-width: 639px) { .wk-head-meta .rz-stamp { display: none; } }
 .wk-notice, .wk-page > .wk-empty { grid-area: notice; }
 .wk-chips-area { grid-area: chips; } .wk-record-area { grid-area: record; }
-.wk-results-area { grid-area: results; } .wk-outliers-area { grid-area: outliers; }
-.wk-inj-area { grid-area: inj; } .wk-bench-area { grid-area: bench; }
-.wk-pos-area { grid-area: pos; } .wk-opp-area { grid-area: opp; }
+.wk-results-area { grid-area: results; } .wk-details-area { grid-area: details; }
 .wk-section { display: grid; gap: 6px; align-content: start; min-width: 0; }
 /* LeagueChips kommt aus der Redzone und traegt dort `grid-area: chips` fuer
    das Redzone-Raster mit. Hier ist .rz-chips ein Kind von .wk-chips-area --
@@ -20,8 +21,24 @@
 @media (min-width: 900px) {
   .wk-page { grid-template-columns: minmax(0, 1fr) 380px;
     grid-template-areas: 'head head' 'notice notice' 'chips chips' 'record record' 'results results'
-      'outliers outliers' 'bench inj' 'pos inj' 'opp opp'; }
+      'details details'; }
 }
+/* Detail-Tabs: Underline-Reiter wie .an-tab in Analyse/Lineup -- keine Pillen.
+   Eine Tabzeile statt vier gestapelter Sections. */
+.wk-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+.wk-tabs::-webkit-scrollbar { display: none; }
+.wk-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: .55rem .8rem; color: var(--text-muted); font: 600 .8rem var(--font-ui);
+  cursor: pointer; white-space: nowrap; }
+.wk-tab:hover { color: var(--text-primary); }
+.wk-tab.is-active { color: var(--text-primary); border-bottom-color: var(--accent-fill); }
+.wk-tab:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.wk-team { display: grid; gap: 8px; }
+.wk-team-h { font: 600 .74rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 8px 2px 0; }
+.wk-bank { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+.wk-bank summary { cursor: pointer; padding: 8px 10px; font-size: .76rem; color: var(--text-muted); }
 
 /* Grundbausteine (bewusst parallel zu redzone.css benannt, aber eigener
    Praefix -- die Seiten teilen nur die Liga-Chips). */
@@ -122,16 +139,17 @@
 .wk-outcol { overflow: hidden; align-content: start; }
 .wk-outcol-h { font: 600 .74rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-dim); padding: 7px 10px 5px; border-bottom: 1px solid var(--border-soft); }
-.wk-out { display: flex; align-items: flex-start; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+.wk-out { display: flex; align-items: flex-start; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--border-soft); }
 .wk-outcol > .wk-out:last-child { border-bottom: 0; }
-.wk-out-main { min-width: 0; flex: 1; display: grid; gap: 3px; }
-.wk-out-name { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: .85rem; }
+.wk-out-main { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.wk-out-name { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: .8rem; }
 .wk-out-delta { margin-left: auto; flex: none; font-weight: 700; }
-.wk-out-bar { height: 4px; background: var(--border); border-radius: 1px; overflow: hidden; }
+.wk-out-bar { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
 .wk-out-bar i { display: block; height: 100%; transition: width .4s var(--ease); }
 .wk-out-bar i.is-good { background: var(--good); } .wk-out-bar i.is-bad { background: var(--bad); }
-.wk-out-sub { display: flex; align-items: center; gap: 8px; font-size: .7rem; color: var(--text-muted); }
-.wk-out-sub .wk-chip { margin-left: auto; }
+.wk-out-sub { display: flex; align-items: center; gap: 8px; font-size: .68rem; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; }
+.wk-out-sub .wk-chip { margin-left: auto; flex: none; }
 
 /* Verletzungen */
 .wk-inj { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px; align-items: center; gap: 10px;
@@ -163,8 +181,42 @@
 .wk-bench-gain { margin-left: auto; font-weight: 700; color: var(--bad); }
 
 /* Positionsbilanz */
-.wk-posbars { padding: 10px; display: grid; gap: 7px; }
+.wk-posbars { padding: 10px; display: grid; gap: 6px; }
 .wk-posrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) 92px; align-items: center; gap: 10px; }
+@media (max-width: 639px) {
+  .wk-posrow { grid-template-columns: 26px minmax(0, 1fr) 72px; gap: 6px; }
+  .wk-inj { grid-template-columns: 26px minmax(0, 1fr) 56px; gap: 6px; }
+  /* Mobile Shell: kein "laufende Woche"-Pill (nur Titel + Wochen-Dropdown) und
+     kein Refresh oben -- der steckt unten in der Shell (App.jsx handleMobileSync). */
+  .wk-head .wk-pill { display: none; }
+  .wk-head-meta .btn-icon { display: none; }
+}
+/* Liga-Auswahl: Desktop Chips in der Chips-Section, Mobile Dropdown im Header
+   neben dem Wochen-Umschalter (kein Seitwärts-Scrollen). */
+.wk-leagues { display: none; }
+.wk-leagues-host { position: relative; display: flex; }
+.wk-leagues-current { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  background: var(--surface-card); color: var(--text-primary); font: 600 .82rem var(--font-ui);
+  padding: 6px 10px; border-radius: var(--r-ctl); cursor: pointer; max-width: 100%; }
+.wk-leagues-current svg { color: var(--text-dim); flex: none; }
+.wk-leagues-current:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.wk-leagues-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-leagues-menu { left: 0; transform: none; min-width: 220px; max-width: min(78vw, 320px); }
+@media (max-width: 899px) {
+  /* Header einzeilig: Titel + schmaler Umschalter + Liga-Dropdown rechts.
+     Das Dropdown kürzt sein Label per Ellipse statt umzubrechen. */
+  .wk-head { flex-wrap: nowrap; gap: 8px; }
+  .wk-title { flex: none; font-size: 1.05rem; }
+  .wk-week-btn { width: 24px; height: 24px; }
+  .wk-week-current { font-size: .8rem; padding: 3px 4px; }
+  .wk-head-meta { display: none; }
+  .wk-leagues { display: flex; min-width: 0; margin-left: auto; }
+  .wk-leagues-host { min-width: 0; margin-left: auto; }
+  .wk-leagues-current { min-width: 0; }
+  .wk-leagues-menu { left: auto; right: 0; }
+  /* Chips-Section entfällt mobil komplett (Chips = Desktop, Dropdown = Header). */
+  .wk-chips-area { display: none; }
+}
 .wk-posbar { position: relative; height: 14px; background: var(--border); border-radius: 2px; }
 .wk-posbar-real { position: absolute; left: 0; top: 0; height: 100%; display: block; border-radius: 2px;
   transition: width .4s var(--ease); }
