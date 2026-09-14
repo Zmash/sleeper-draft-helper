@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { fetchNflState, fetchMatchups, fetchLeagueRosters, fetchLeagueUsers } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
-import { fetchScoreboard } from '../services/redzone/espnLive'
+import { fetchScoreboard, lastKickoffAt } from '../services/redzone/espnLive'
 import { selectedLeagueIds, toggleLeague, soloLeague } from '../services/redzone/redzoneModel'
 
 // Rohdaten des Wochenrueckblicks. Aufbereitung passiert in weeklyModel (rein)
@@ -23,6 +23,7 @@ export const useWeeklyStore = create(
       leagueDataByWeek: {},
       rosterCache: {}, // leagueId -> { rosters, users } (aendert sich innerhalb einer Woche nicht)
       playersMeta: {},
+      playersMetaAt: null,
       lastUpdated: null,
       loading: false,
       error: null,
@@ -48,9 +49,6 @@ export const useWeeklyStore = create(
           const nfl = await fetchNflState().catch(() => null)
           const currentWeek = Number(nfl?.week) || s.currentWeek || 1
           const week = s.week || currentWeek
-          const playersMeta = Object.keys(s.playersMeta).length
-            ? s.playersMeta
-            : await loadPlayersMetaCached({ season: Number(season) }).catch(() => ({}))
 
           const activeIds = new Set(selectedLeagueIds(leagues.map((l) => l.league_id), s.deselectedLeagueIds))
           const active = leagues.filter((l) => activeIds.has(l.league_id))
@@ -78,6 +76,22 @@ export const useWeeklyStore = create(
             fetchScoreboard({ season, week }).then((games) => ({ games }), () => ({ games: null })),
             ...active.map(loadLeague),
           ])
+          const games = scoreboard.games || s.gamesByWeek[week] || []
+
+          // playersMeta erst NACH dem Scoreboard: der Verletzungsblock lebt von
+          // injury_status/status, und die Game-Day-Inactives stehen erst ~90 min
+          // vor Kickoff fest. staleBefore verwirft einen Cache von vor dem
+          // letzten Kickoff -- genau ein Nachladen pro Slate statt gar keinem
+          // (5-MB-Antwort, Sleeper bittet um seltene Abrufe). Fuer
+          // zurueckliegende Wochen liegt der Kickoff in der Vergangenheit, der
+          // Cache bleibt also gueltig.
+          const kickoff = lastKickoffAt(games)
+          const metaStale = !Object.keys(s.playersMeta).length
+            || (kickoff != null && (s.playersMetaAt ?? 0) < kickoff)
+          const playersMeta = metaStale
+            ? await loadPlayersMetaCached({ season: Number(season), staleBefore: kickoff })
+              .catch(() => s.playersMeta)
+            : s.playersMeta
 
           const leagueData = { ...cachedWeek, ...Object.fromEntries(entries) }
           const rosterCache = { ...s.rosterCache }
@@ -89,13 +103,11 @@ export const useWeeklyStore = create(
             week,
             currentWeek,
             playersMeta,
+            playersMetaAt: metaStale ? Date.now() : s.playersMetaAt,
             rosterCache,
-            gamesByWeek: {
-              ...s.gamesByWeek,
-              // Bei ESPN-Ausfall den letzten bekannten Stand der Woche behalten,
-              // statt die Spielstatus (und damit jede "fertig"-Aussage) zu verlieren.
-              [week]: scoreboard.games || s.gamesByWeek[week] || [],
-            },
+            // Bei ESPN-Ausfall den letzten bekannten Stand der Woche behalten,
+            // statt die Spielstatus (und damit jede "fertig"-Aussage) zu verlieren.
+            gamesByWeek: { ...s.gamesByWeek, [week]: games },
             leagueDataByWeek: { ...s.leagueDataByWeek, [week]: leagueData },
             error: scoreboard.games ? null : 'ESPN-Spieldaten gerade nicht verfügbar — Spielstatus kann fehlen.',
             lastUpdated: Date.now(),

@@ -4,11 +4,11 @@ vi.mock('../services/api', () => ({
   fetchNflState: vi.fn(), fetchMatchups: vi.fn(), fetchLeagueRosters: vi.fn(), fetchLeagueUsers: vi.fn(),
 }))
 vi.mock('../services/playersMeta', () => ({ loadPlayersMetaCached: vi.fn() }))
-vi.mock('../services/redzone/espnLive', () => ({ fetchScoreboard: vi.fn() }))
+vi.mock('../services/redzone/espnLive', () => ({ fetchScoreboard: vi.fn(), lastKickoffAt: vi.fn(() => null) }))
 
 import { fetchNflState, fetchMatchups, fetchLeagueRosters, fetchLeagueUsers } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
-import { fetchScoreboard } from '../services/redzone/espnLive'
+import { fetchScoreboard, lastKickoffAt } from '../services/redzone/espnLive'
 import { useWeeklyStore } from './useWeeklyStore'
 
 const INITIAL = useWeeklyStore.getState()
@@ -26,6 +26,8 @@ beforeEach(() => {
   fetchLeagueUsers.mockResolvedValue([{ user_id: 'me', display_name: 'Ich' }])
   fetchMatchups.mockResolvedValue([{ roster_id: 1, matchup_id: 1, points: 10, starters: ['P1'], players: ['P1'], players_points: { P1: 10 } }])
   fetchScoreboard.mockResolvedValue(GAMES)
+  lastKickoffAt.mockReturnValue(null)
+  loadPlayersMetaCached.mockResolvedValue(META)
 })
 
 describe('useWeeklyStore.load', () => {
@@ -92,6 +94,24 @@ describe('useWeeklyStore.load', () => {
     const data = useWeeklyStore.getState().leagueDataByWeek[3]
     expect(data.L1.error).toBeNull()
     expect(data.L2.error).toBe('HTTP 500')
+  })
+
+  it('holt playersMeta einmal pro Sitzung und nach dem naechsten Kickoff erneut', async () => {
+    await useWeeklyStore.getState().load(args)
+    expect(loadPlayersMetaCached).toHaveBeenCalledTimes(1)
+
+    // Gleicher Slate: der Cache im Store reicht.
+    await useWeeklyStore.getState().load({ ...args, force: true })
+    expect(loadPlayersMetaCached).toHaveBeenCalledTimes(1)
+
+    // Neuer Kickoff nach dem letzten Abruf -> einmal nachladen, damit die
+    // Game-Day-Inactives im Verletzungsblock stehen.
+    lastKickoffAt.mockReturnValue(Date.now() + 60_000)
+    await useWeeklyStore.getState().load({ ...args, force: true })
+    expect(loadPlayersMetaCached).toHaveBeenCalledTimes(2)
+    expect(loadPlayersMetaCached).toHaveBeenLastCalledWith(
+      expect.objectContaining({ season: 2026, staleBefore: expect.any(Number) })
+    )
   })
 
   it('tut nichts ohne Ligen', async () => {

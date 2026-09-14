@@ -305,6 +305,20 @@ describe('buildInjuryReport', () => {
     expect(report.find((p) => p.playerId === 'TE1')).toMatchObject({ severity: 'dnp' })
   })
 
+  it('erkennt Game-Day-Inactives, die nur im Kaderstatus stehen', () => {
+    // injury_status leer, aber status 'Inactive' -- genau der Fall, den
+    // isRuledOut abdeckt und eine reine injury_status-Pruefung verpasst.
+    const playersMeta = { ...META, TE1: { ...META.TE1, status: 'Inactive' } }
+    const report = buildInjuryReport([buildLeagueWeek({ ...leagueArgs, playersMeta })])
+    expect(report.find((p) => p.playerId === 'TE1')).toMatchObject({ severity: 'out' })
+  })
+
+  it('stuft fraglich Aufgestellte als Beobachtung ein, nicht als Ausfall', () => {
+    const playersMeta = { ...META, RB1: { ...META.RB1, injury_status: 'Questionable' } }
+    const report = buildInjuryReport([buildLeagueWeek({ ...leagueArgs, playersMeta })])
+    expect(report.find((p) => p.playerId === 'RB1')).toMatchObject({ severity: 'watch' })
+  })
+
   it('meldet verletzte Bankspieler mit niedrigerer Dringlichkeit', () => {
     const matchups = MATCHUPS.map((m) => (m.roster_id === 1
       ? { ...m, starters: ['QB1'], players: ['QB1', 'WR2'] } : m))

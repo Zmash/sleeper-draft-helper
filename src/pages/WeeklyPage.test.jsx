@@ -40,9 +40,13 @@ vi.mock('../stores/useWeeklyRankingsStore', () => {
 vi.mock('../services/weekProjections', () => ({
   detectScoringType: () => 'ppr', loadWeekProjections: vi.fn(() => Promise.resolve()), fpPtsMapFor: () => new Map(),
 }))
-vi.mock('../services/analysis/matchupProjection', () => ({
+// Nur die Projektionsquelle ersetzen -- isRuledOut wird vom weeklyModel
+// gebraucht und soll echt bleiben.
+vi.mock('../services/analysis/matchupProjection', async (importOriginal) => ({
+  ...(await importOriginal()),
   blendedPlayerProjection: ({ playerId }) => PROJ[playerId] ?? null,
 }))
+vi.mock('../services/redzone/espnLive', () => ({ fetchScoreboard: vi.fn(), lastKickoffAt: () => null }))
 
 import WeeklyPage from './WeeklyPage'
 

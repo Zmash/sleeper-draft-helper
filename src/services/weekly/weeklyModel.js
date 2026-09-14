@@ -3,6 +3,7 @@
 // Store. Gegenstueck zu redzoneModel.js -- die Redzone beantwortet "was
 // passiert gerade", diese Datei "was ist in dieser Woche passiert".
 import { playerTeam } from '../redzone/redzoneModel'
+import { isRuledOut } from '../analysis/matchupProjection'
 
 // ── Slots ───────────────────────────────────────────────────────────────────
 // Bewusste Kopie der FLEX-Tabelle aus waiverStats.js (dort nicht exportiert):
@@ -95,6 +96,9 @@ export function playerEntry({ playerId, playersMeta = {}, points, projected, byT
     delta: pts == null || projected == null ? null : pts - Number(projected),
     final: state === 'post',
     injuryStatus: meta?.injury_status || null,
+    // isRuledOut liest injury_status UND status -- damit zaehlen auch die
+    // Game-Day-Inactives, die nur in `status` stehen (siehe matchupProjection).
+    ruledOut: isRuledOut(meta),
   }
 }
 
@@ -271,11 +275,11 @@ export function buildOutliers(leagues = [], { minDelta = 5, limit = 6, side = 'm
 
 // ── Verletzungen & Ausfaelle ────────────────────────────────────────────────
 
-// Sleeper-Status, die einen Ausfall bedeuten (vgl. waiverStats
-// UNAVAILABLE_INJURY_STATUSES, hier plus 'Doubtful'/'NFI-R': fuer den
-// Rueckblick zaehlt "hat gefehlt bzw. faellt aus", nicht die Startbarkeit).
-export const OUT_STATUSES = new Set(['Out', 'IR', 'PUP', 'Sus', 'NA', 'DNR', 'Doubtful', 'NFI-R'])
-export const WATCH_STATUSES = new Set(['Questionable', 'Q'])
+// Ausfall = isRuledOut (matchupProjection): eindeutige Status aus
+// injury_status ODER status, inklusive der Game-Day-Inactives. 'Doubtful'
+// gehoert dort bewusst NICHT dazu -- fuer den Rueckblick ist es zusammen mit
+// 'Questionable' die zweite Stufe: aufgestellt, obwohl es wackelte.
+export const WATCH_STATUSES = new Set(['Questionable', 'Q', 'Doubtful', 'D'])
 
 const SEVERITY_ORDER = { out: 0, dnp: 1, watch: 2, bench: 3 }
 
@@ -302,16 +306,16 @@ export function buildInjuryReport(leagues = []) {
       // DEF/K punkten regelmaessig sehr niedrig, aber echte Nullnummern sind
       // auch dort ein Signal -- gefiltert wird nur ueber "Spiel ist vorbei".
       const dnp = p.final && (p.points ?? 0) <= 0
-      if (OUT_STATUSES.has(p.injuryStatus) || WATCH_STATUSES.has(p.injuryStatus) || dnp) note(p, true, league)
+      if (p.ruledOut || WATCH_STATUSES.has(p.injuryStatus) || dnp) note(p, true, league)
     }
     for (const p of l.bench) {
-      if (OUT_STATUSES.has(p.injuryStatus)) note(p, false, league)
+      if (p.ruledOut) note(p, false, league)
     }
   }
   return [...byId.values()]
     .map((p) => {
       const started = p.startedIn.length > 0
-      const severity = started && OUT_STATUSES.has(p.injuryStatus) ? 'out'
+      const severity = started && p.ruledOut ? 'out'
         : started && p.final && (p.points ?? 0) <= 0 ? 'dnp'
           : started ? 'watch' : 'bench'
       return { ...p, severity }
