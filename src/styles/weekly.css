@@ -9,6 +9,11 @@
 .wk-inj-area { grid-area: inj; } .wk-bench-area { grid-area: bench; }
 .wk-pos-area { grid-area: pos; } .wk-opp-area { grid-area: opp; }
 .wk-section { display: grid; gap: 6px; align-content: start; min-width: 0; }
+/* LeagueChips kommt aus der Redzone und traegt dort `grid-area: chips` fuer
+   das Redzone-Raster mit. Hier ist .rz-chips ein Kind von .wk-chips-area --
+   ohne diese Ruecknahme legt der Fremdname eine implizite Spur an und die
+   Chips rutschen aus der linken Kante. */
+.wk-chips-area > .rz-chips { grid-area: auto; }
 @media (min-width: 900px) {
   .wk-page { grid-template-columns: minmax(0, 1fr) 380px;
     grid-template-areas: 'head head' 'notice notice' 'chips chips' 'record record' 'results results'

@@ -14,6 +14,10 @@ import {
   WeekPicker, RecordStrip, LeagueResults, OutlierBoard, InjuryList, BenchReport, PositionBars,
 } from '../components/weekly/WeeklyParts'
 import Icon from '../components/Icon'
+// LeagueChips und Stamp kommen aus RedzoneParts und tragen rz-Klassen -- ohne
+// diesen Import stehen sie unstyled da, sobald /weekly der erste Aufruf ist
+// (im Dev-Server wird CSS je Modul injiziert, nicht gebuendelt).
+import '../styles/redzone.css'
 import '../styles/weekly.css'
 
 export default function WeeklyPage() {
