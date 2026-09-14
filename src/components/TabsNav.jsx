@@ -8,6 +8,7 @@ const TABS = [
   { path: '/board', label: 'Board', icon: 'board' },
   { path: '/analyse', label: 'Analyse', icon: 'chart' },
   { path: '/lineup', label: 'Lineup', icon: 'roster' },
+  { path: '/weekly', label: 'Woche', icon: 'clipboard-check' },
   { path: '/trade', label: 'Trade', icon: 'swap' },
 ]
 

@@ -91,7 +91,30 @@ vereinheitlichen, ohne die Board-Renderpfade komplett zu verstehen.
 
 ### `App.jsx` is the orchestrator
 
-`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
+`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`, `/weekly`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
+
+### Spieltags-Seiten: `/redzone` (live) und `/weekly` (Rückblick)
+
+Beide Seiten teilen sich die Datenquellen (ESPN-Scoreboard via `services/redzone/espnLive.js`,
+Sleeper-Matchups, `services/weekProjections.js`) und das Muster "dünner Store mit Rohdaten +
+reines Modell + präsentationale Parts":
+
+| | `/redzone` | `/weekly` |
+|---|---|---|
+| Frage | Was passiert **gerade**? | Was ist in **dieser Woche** passiert? |
+| Sichtbar | nur bei laufenden Spielen (`useGamesLiveStore.liveCount`) | immer |
+| Store | `useRedzoneStore` (30-s-Polling) | `useWeeklyStore` (kein Polling, Cache pro Woche) |
+| Modell | `services/redzone/redzoneModel.js` | `services/weekly/weeklyModel.js` |
+
+`/weekly` kann jede bereits gespielte Woche anzeigen. Für **zurückliegende** Wochen zählt allein
+Sleepers Wochenprojektion (`/api/rankings/sleeper-projections-week`, hat einen Wochenparameter);
+FantasyPros liefert unter `scope=week` immer nur die laufende Woche und wird deshalb nur dann
+dazugemischt, wenn die gezeigte Woche die laufende ist. `useWeeklyRankingsStore` cacht die
+Sleeper-Projektionen pro Woche (`sleeperWeekByKey` / `getSleeperWeekMap`) — `sleeperWeekById`
+zeigt immer nur auf die *zuletzt* geladene Woche und ist beim Blättern nicht verlässlich.
+
+Der Liga-Filter (`LeagueChips` aus `components/redzone/RedzoneParts.jsx`) wird geteilt, die
+abgewählten IDs aber je Seite getrennt persistiert (`sdh-redzone-v1` / `sdh-weekly-v1`).
 
 ### Draft modes: redraft vs. rookie (dynasty)
 

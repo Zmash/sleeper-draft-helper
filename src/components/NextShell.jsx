@@ -27,6 +27,7 @@ const RAIL = [
   { icon: 'swap', tip: 'Trade', path: '/trade' },
   { icon: 'chart', tip: 'Analyse', path: '/analyse' },
   { icon: 'roster', tip: 'Lineup', path: '/lineup' },
+  { icon: 'clipboard-check', tip: 'Wochenrückblick', path: '/weekly' },
 ]
 
 export default function NextShell({ children, pageProps = {} }) {
@@ -112,6 +113,7 @@ export default function NextShell({ children, pageProps = {} }) {
     { group: 'Gehe zu', label: 'Dashboard', keys: 'G D', run: () => navigate('/dashboard') },
     { group: 'Gehe zu', label: 'Analyse', keys: 'G A', run: () => navigate('/analyse') },
     { group: 'Gehe zu', label: 'Trade-Analyse', keys: 'G T', run: () => navigate('/trade') },
+    { group: 'Gehe zu', label: 'Wochenrückblick', keys: 'G W', run: () => navigate('/weekly') },
     ...(showRedzone ? [{ group: 'Gehe zu', label: 'Redzone', run: () => navigate('/redzone') }] : []),
     { group: 'Gehe zu', label: 'Liga/Mock-Setup', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },

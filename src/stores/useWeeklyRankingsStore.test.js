@@ -12,7 +12,8 @@ function mockFetch(response) {
 
 beforeEach(() => {
   useWeeklyRankingsStore.setState({
-    byKey: new Map(), sleeperWeekKey: null, sleeperWeekById: new Map(), loadedAt: new Map(), loading: new Set(),
+    byKey: new Map(), sleeperWeekKey: null, sleeperWeekById: new Map(), sleeperWeekByKey: new Map(),
+    loadedAt: new Map(), loading: new Set(),
     fpWeekPtsByScoring: new Map(), fpWeekPtsLoadedAt: new Map(), fpWeekPtsLoading: new Set(),
   })
 })
@@ -51,6 +52,31 @@ describe('useWeeklyRankingsStore', () => {
     await useWeeklyRankingsStore.getState().loadSleeperWeekIfStale({ season: 2026, week: 1 })
     await useWeeklyRankingsStore.getState().loadSleeperWeekIfStale({ season: 2026, week: 1 })
     expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('haelt jede Woche einzeln vor und schaltet beim Zurueckblaettern korrekt um', async () => {
+    const byWeek = {
+      1: { ok: true, players: [{ sleeper_id: 'X', pts_ppr: 10 }] },
+      2: { ok: true, players: [{ sleeper_id: 'X', pts_ppr: 20 }] },
+    }
+    const fetchSpy = vi.fn((url) => {
+      const week = new URL(url, 'http://x').searchParams.get('week')
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(byWeek[week]) })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+    const store = () => useWeeklyRankingsStore.getState()
+    await store().loadSleeperWeekIfStale({ season: 2026, week: 1 })
+    await store().loadSleeperWeekIfStale({ season: 2026, week: 2 })
+    expect(store().sleeperWeekById.get('X').pts_ppr).toBe(20)
+
+    // Zurueck auf Woche 1: der Frische-Check greift, sleeperWeekById muss
+    // trotzdem wieder auf Woche 1 zeigen statt auf Woche 2 stehenzubleiben.
+    await store().loadSleeperWeekIfStale({ season: 2026, week: 1 })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(store().sleeperWeekKey).toBe('sleeper-week:2026/1')
+    expect(store().sleeperWeekById.get('X').pts_ppr).toBe(10)
+    expect(store().getSleeperWeekMap({ season: 2026, week: 2 }).get('X').pts_ppr).toBe(20)
+    expect(store().getSleeperWeekMap({ season: 2026, week: 7 }).size).toBe(0)
   })
 
   it('scraped nicht erneut, solange der Cache frisch ist', async () => {
