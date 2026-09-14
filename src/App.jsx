@@ -11,6 +11,7 @@ import { useDashboardStore } from './stores/useDashboardStore'
 import { useUIStore } from './stores/useUIStore'
 import { useGamesLiveStore } from './stores/useGamesLiveStore'
 import { useRedzoneStore } from './stores/useRedzoneStore'
+import { useWeeklyStore } from './stores/useWeeklyStore'
 
 import { getTeamsCount, teamKeyFromPick } from './services/derive'
 import { prioritizeTips } from './services/tipsPrioritizer'
@@ -38,6 +39,7 @@ import ShareTargetPage from './pages/ShareTargetPage'
 import AnalysisPage from './pages/AnalysisPage'
 import LineupPage from './pages/LineupPage'
 import RedzonePage from './pages/RedzonePage'
+import WeeklyPage from './pages/WeeklyPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
 import ProfilesPage from './pages/ProfilesPage'
@@ -417,6 +419,8 @@ export default function App() {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
     } else if (nsPathname.startsWith('/redzone')) {
       useRedzoneStore.getState().poll({ leagues: availableLeagues, season: seasonYear, myUserId: sleeperUserId })
+    } else if (nsPathname.startsWith('/weekly')) {
+      useWeeklyStore.getState().load({ leagues: availableLeagues, season: seasonYear, myUserId: sleeperUserId, force: true })
     } else if (nsPathname.startsWith('/trade')) {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
       if (selectedLeagueId && sleeperUserId) {
@@ -436,6 +440,8 @@ export default function App() {
         ? 'Picks aktualisieren'
         : nsPathname.startsWith('/redzone')
           ? 'Live-Daten aktualisieren'
+          : nsPathname.startsWith('/weekly')
+            ? 'Woche aktualisieren'
           : nsPathname.startsWith('/trade')
             ? 'Daten aktualisieren'
             : 'Daten aktualisieren'
@@ -454,6 +460,7 @@ export default function App() {
       <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
       <Route path="/lineup" element={<LineupPage {...pageProps} />} />
       <Route path="/redzone" element={<RedzonePage />} />
+      <Route path="/weekly" element={<WeeklyPage />} />
       {/* Alte Lesezeichen auf /waiver (fruehere Bezeichnung dieser Seite)
           laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}
       <Route path="/waiver" element={<Navigate to="/lineup" replace />} />

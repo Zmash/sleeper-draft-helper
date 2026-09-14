@@ -86,12 +86,27 @@ export const useWeeklyRankingsStore = create((set, get) => ({
   // Sleeper Wochen-Projektionen (ein Request pro Woche, alle Positionen).
   // Schluessel ist die native Sleeper-ID -- direkter Match auf Kader und
   // Free Agents, kein Name-Matching wie bei den FP-Rankings.
+  // Pro Woche eigener Eintrag: sleeperWeekById zeigt immer auf die ZULETZT
+  // geladene Woche. Ohne diesen Zweitcache liesse sich nach einem Wochenwechsel
+  // nicht mehr auf eine frueher geladene Woche zurueckschalten -- der
+  // Frische-Check unten wuerde greifen und sleeperWeekById bliebe auf der
+  // falschen Woche stehen (Wochenrueckblick blaettert genau so).
+  sleeperWeekByKey: new Map(), // "sleeper-week:season/week" -> Map<sleeper_id, pts>
+
+  getSleeperWeekMap: ({ season, week } = {}) =>
+    get().sleeperWeekByKey.get(`sleeper-week:${season}/${week}`) || new Map(),
+
   loadSleeperWeekIfStale: async ({ season, week } = {}) => {
     if (season == null || week == null) return
     const cacheKey = `sleeper-week:${season}/${week}`
     const { loadedAt, loading } = get()
     const fresh = loadedAt.has(cacheKey) && Date.now() - loadedAt.get(cacheKey) < TTL_MS.week
-    if (fresh || loading.has(cacheKey)) return
+    if (fresh) {
+      const cached = get().sleeperWeekByKey.get(cacheKey)
+      if (cached && get().sleeperWeekKey !== cacheKey) set({ sleeperWeekKey: cacheKey, sleeperWeekById: cached })
+      return
+    }
+    if (loading.has(cacheKey)) return
     loading.add(cacheKey)
     try {
       const res = await fetch(`/api/rankings/sleeper-projections-week?season=${season}&week=${week}`)
@@ -104,7 +119,9 @@ export const useWeeklyRankingsStore = create((set, get) => ({
       set((s) => {
         const nextLoadedAt = new Map(s.loadedAt)
         nextLoadedAt.set(cacheKey, Date.now())
-        return { sleeperWeekKey: cacheKey, sleeperWeekById: byId, loadedAt: nextLoadedAt }
+        const nextByKey = new Map(s.sleeperWeekByKey)
+        nextByKey.set(cacheKey, byId)
+        return { sleeperWeekKey: cacheKey, sleeperWeekById: byId, sleeperWeekByKey: nextByKey, loadedAt: nextLoadedAt }
       })
     } catch {
       // Bleibt leer -- Pkt-Spalten rendern dann nicht.
