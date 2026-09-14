@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blendedPlayerProjection, liveStarterTotals, remainingGameFraction } from './matchupProjection'
+import { blendedPlayerProjection, isRuledOut, liveStarterTotals, remainingGameFraction } from './matchupProjection'
 
 const PLAYERS_META = {
   '1': { full_name: 'Travis Kelce', fantasy_positions: ['TE'], team: 'KC' },
@@ -125,5 +125,50 @@ describe('liveStarterTotals', () => {
   it('null, wenn kein Starter irgendeine Projektion hat', () => {
     expect(liveStarterTotals({ starterIds: ['4'], projectionFor: () => null })).toBeNull()
     expect(liveStarterTotals({ starterIds: [], projectionFor: () => 10 })).toBeNull()
+  })
+})
+
+describe('isRuledOut', () => {
+  it('erkennt eindeutige Ausfaelle aus injury_status und status', () => {
+    expect(isRuledOut({ injury_status: 'Out' })).toBe(true)
+    expect(isRuledOut({ injury_status: 'IR' })).toBe(true)
+    expect(isRuledOut({ injury_status: 'NFI-R' })).toBe(true)
+    expect(isRuledOut({ status: 'Inactive' })).toBe(true)
+    expect(isRuledOut({ status: 'Injured Reserve' })).toBe(true)
+    expect(isRuledOut({ status: 'Physically Unable to Perform' })).toBe(true)
+  })
+
+  it('laesst Unsicheres in Ruhe -- Questionable/Doubtful klaeren sich mit den Inactives', () => {
+    expect(isRuledOut({ injury_status: 'Questionable' })).toBe(false)
+    expect(isRuledOut({ injury_status: 'Doubtful' })).toBe(false)
+    expect(isRuledOut({ status: 'Active', injury_status: null })).toBe(false)
+    expect(isRuledOut(null)).toBe(false)
+    expect(isRuledOut({})).toBe(false)
+  })
+})
+
+describe('liveStarterTotals — Ausfaelle', () => {
+  it('ein inaktiver Starter steuert nichts mehr bei, auch vor Kickoff', () => {
+    const r = liveStarterTotals({
+      starterIds: ['a', 'b'],
+      projectionFor: () => 14,
+      gameFor: () => ({ state: 'pre' }),
+      outFor: (id) => id === 'a',
+    })
+    expect(r.rest).toBe(14)
+    expect(r.open).toBe(1)
+  })
+
+  it('bereits erzielte Punkte bleiben stehen, wenn jemand erst spaeter ausfaellt', () => {
+    // Der Stand kommt aus matchup.points, liveStarterTotals liefert nur den Rest.
+    const r = liveStarterTotals({
+      starterIds: ['a'],
+      projectionFor: () => 14,
+      pointsFor: () => 9,
+      gameFor: () => ({ state: 'in', period: 2, clockSeconds: 0 }),
+      outFor: () => true,
+    })
+    expect(r.rest).toBe(0)
+    expect(r.open).toBe(0)
   })
 })

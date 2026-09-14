@@ -1,7 +1,7 @@
 // Reine Redzone-Logik: aus Rohdaten (ESPN-Spiele, Sleeper-Matchups/Rosters/
 // Users, playersMeta) die Bausteine der Seite bauen. Kein Fetch, kein Store.
 import { computeMatchupProbability } from '../analysis/matchupProbability'
-import { liveStarterTotals } from '../analysis/matchupProjection'
+import { isRuledOut, liveStarterTotals } from '../analysis/matchupProjection'
 
 // ── Liga-Filter ─────────────────────────────────────────────────────────────
 // Gespeichert werden ABGEWAEHLTE IDs, damit neue Ligen automatisch aktiv sind.
@@ -93,6 +93,7 @@ export function buildMatchupTiles({ leagueData = [], myUserId, byTeam, playersMe
       projectionFor: (id) => projectPlayer(d.league, id),
       pointsFor: (id) => m.players_points?.[id],
       gameFor: (id) => byTeam[playerTeam(playersMeta[id], id)] || null,
+      outFor: (id) => isRuledOut(playersMeta[id]),
     })
     const myPoints = v.mine.points || 0
     const opponentPoints = v.opp?.points || 0

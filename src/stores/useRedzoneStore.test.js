@@ -4,7 +4,11 @@ vi.mock('../services/api', () => ({
   fetchNflState: vi.fn(), fetchMatchups: vi.fn(), fetchLeagueRosters: vi.fn(), fetchLeagueUsers: vi.fn(),
 }))
 vi.mock('../services/playersMeta', () => ({ loadPlayersMetaCached: vi.fn() }))
-vi.mock('../services/redzone/espnLive', () => ({ fetchScoreboard: vi.fn(), fetchScoringPlays: vi.fn() }))
+// lastKickoffAt bleibt echt: der Store entscheidet damit, ob playersMeta
+// (Game-Day-Inactives) neu geholt werden muss.
+vi.mock('../services/redzone/espnLive', async (importOriginal) => ({
+  ...(await importOriginal()), fetchScoreboard: vi.fn(), fetchScoringPlays: vi.fn(),
+}))
 
 import { fetchNflState, fetchMatchups, fetchLeagueRosters, fetchLeagueUsers } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
