@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { fetchNflState, fetchMatchups, fetchLeagueRosters, fetchLeagueUsers } from '../services/api'
 import { loadPlayersMetaCached } from '../services/playersMeta'
-import { fetchScoreboard, fetchScoringPlays } from '../services/redzone/espnLive'
+import { fetchScoreboard, fetchScoringPlays, lastKickoffAt } from '../services/redzone/espnLive'
 import {
   selectedLeagueIds, toggleLeague, soloLeague, carryPossession, relevantTeams,
 } from '../services/redzone/redzoneModel'
@@ -24,6 +24,7 @@ export const useRedzoneStore = create(
       scoreKeyByEvent: {},
       newPlayIds: [],
       playersMeta: {},
+      playersMetaAt: null,
       lastUpdated: null,
       espnError: null,
       loading: false,
@@ -41,9 +42,17 @@ export const useRedzoneStore = create(
           const nfl = await fetchNflState().catch(() => null)
           const week = Number(nfl?.week) || s.week || 1
           const weekChanged = s.week != null && s.week !== week
-          const playersMeta = Object.keys(s.playersMeta).length
-            ? s.playersMeta
-            : await loadPlayersMetaCached({ season: Number(season) }).catch(() => ({}))
+          // playersMeta bleibt normalerweise den ganzen Poll-Zyklus im RAM (5 MB
+          // Antwort, nicht bei jedem Tick). Einmal pro Slate muss er aber neu
+          // rein, sonst fehlen die Game-Day-Inactives fuer die Restprojektion.
+          // Der Kickoff kommt aus den Spielen des VORIGEN Ticks -- ein Poll
+          // Verzoegerung, das reicht.
+          const kickoff = lastKickoffAt(s.games)
+          const metaStale = !Object.keys(s.playersMeta).length
+            || (kickoff != null && (s.playersMetaAt ?? 0) < kickoff)
+          const playersMeta = metaStale
+            ? await loadPlayersMetaCached({ season: Number(season), staleBefore: kickoff }).catch(() => s.playersMeta)
+            : s.playersMeta
 
           const activeIds = new Set(selectedLeagueIds(leagues.map((l) => l.league_id), s.deselectedLeagueIds))
           const active = leagues.filter((l) => activeIds.has(l.league_id))
@@ -100,6 +109,7 @@ export const useRedzoneStore = create(
 
           set({
             week, games, playersMeta, leagueData, scoringPlaysByEvent, scoreKeyByEvent, newPlayIds,
+            playersMetaAt: metaStale ? Date.now() : s.playersMetaAt,
             espnError: scoreboard.games ? null : 'ESPN-Daten gerade nicht verfügbar',
             lastUpdated: Date.now(),
             loading: false,

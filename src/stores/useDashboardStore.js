@@ -12,9 +12,13 @@ import {
 import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
-import { projectedTotalForStarters } from '../services/analysis/matchupProjection'
+import { blendedPlayerProjection, isRuledOut, liveStarterTotals } from '../services/analysis/matchupProjection'
 import { standingsRankFor } from '../services/analysis/standings'
 import { detectScoringType, loadWeekProjections, fpPtsMapFor } from '../services/weekProjections'
+import { fetchScoreboard, lastKickoffAt } from '../services/redzone/espnLive'
+// gamesByTeam/playerTeam sind generische NFL-Helfer (kein Redzone-State) und
+// liegen aus historischen Gruenden im redzoneModel.
+import { gamesByTeam, playerTeam } from '../services/redzone/redzoneModel'
 
 const INJURY_STATUSES = new Set(['Out', 'Doubtful', 'IR', 'Sus', 'PUP', 'NFI-R', 'DNR'])
 
@@ -30,7 +34,7 @@ function detectFormat(league) {
 }
 
 // Build a single league card, fetching all needed data in parallel
-async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType) {
+async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType, gamesByTeamAbbr = {}) {
   try {
     const [drafts, rosters, users, matchups] = await Promise.all([
       fetchLeagueDrafts(league.league_id).catch(() => []),
@@ -68,9 +72,27 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         const scoringField = pointsFieldFor(scoringType)
         const fpPtsByKey = fpPtsByScoringType?.[scoringType] || new Map()
         const projArgs = { playersMeta, sleeperWeekById, scoringField, fpPtsByKey }
+        const projectionFor = (id) => blendedPlayerProjection({ playerId: id, ...projArgs })
+        const gameFor = (id) => gamesByTeamAbbr[playerTeam(playersMeta[id], id)] || null
+        const outFor = (id) => isRuledOut(playersMeta[id])
+        // Projizierter Endstand = erzielte Punkte + Rest der Wochenprojektion.
+        // Der Rest schrumpft mit dem Spielverlauf, damit ein durchgespieltes
+        // Team nicht weiter mit seiner Vorab-Projektion gefuehrt wird.
+        const totalsFor = (m) =>
+          liveStarterTotals({
+            starterIds: m.starters,
+            projectionFor,
+            pointsFor: (id) => m.players_points?.[id],
+            gameFor,
+            outFor,
+          })
+        const myTotals = totalsFor(mine)
+        const oppTotals = opp ? totalsFor(opp) : null
+        const myPoints = mine.points || 0
+        const opponentPoints = opp?.points || 0
         matchup = {
-          myPoints: mine.points || 0,
-          opponentPoints: opp?.points || 0,
+          myPoints,
+          opponentPoints,
           opponentName:
             oppUser?.display_name ||
             oppUser?.username ||
@@ -78,10 +100,14 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
           myName: myUser?.display_name || myUser?.username || 'Mein Team',
           myAvatar: myUser?.avatar ?? null,
           opponentAvatar: oppUser?.avatar ?? null,
-          myProjected: projectedTotalForStarters({ starterIds: mine.starters, ...projArgs }),
-          opponentProjected: opp
-            ? projectedTotalForStarters({ starterIds: opp.starters, ...projArgs })
-            : null,
+          myProjected: myTotals ? myPoints + myTotals.rest : null,
+          opponentProjected: oppTotals ? opponentPoints + oppTotals.rest : null,
+          // Nur mit echten Spielstatus-Daten ist der Rest aussagekraeftig --
+          // sonst faellt computeMatchupProbability auf die ELO-Formel zurueck.
+          myRemaining: myTotals?.hasGameStates ? myTotals.rest : null,
+          opponentRemaining: oppTotals?.hasGameStates ? oppTotals.rest : null,
+          myOpen: myTotals?.hasGameStates ? myTotals.open : null,
+          opponentOpen: oppTotals?.hasGameStates ? oppTotals.open : null,
         }
       }
     }
@@ -209,10 +235,24 @@ export const useDashboardStore = create((set, get) => ({
       const seasonType = nflState?.season_type || 'off'
       const isInSeason = seasonType === 'regular' || seasonType === 'post'
 
-      // Player meta for injury checks (only during season)
+      // Live-Spielstatus (ESPN) zuerst: er entscheidet, wie viel einer
+      // Wochenprojektion ueberhaupt noch offen ist UND ab wann der
+      // playersMeta-Cache die Game-Day-Inactives verpasst haben muss.
+      // Faellt der Abruf aus, bleibt es bei der reinen Vorab-Projektion.
+      const season = nflState?.season || seasonYear
+      const games = isInSeason
+        ? await fetchScoreboard({ season, week: currentWeek }).catch(() => null)
+        : null
+      const gamesByTeamAbbr = games?.length ? gamesByTeam(games) : {}
+
+      // Player meta fuer Ausfaelle und Verletzungen (nur waehrend der Saison).
+      // staleBefore = letzter Kickoff: die 24h-TTL wuerde am Spieltag sonst
+      // einen Kader-Stand von gestern weiterreichen, in dem die Inactives
+      // noch fehlen.
       const playersMeta = isInSeason
         ? await loadPlayersMetaCached({
             season: Number(seasonYear) || new Date().getFullYear(),
+            staleBefore: games?.length ? lastKickoffAt(games) : null,
           }).catch(() => ({}))
         : {}
 
@@ -222,7 +262,7 @@ export const useDashboardStore = create((set, get) => ({
       // Nur waehrend der Saison noetig; beide Stores cachen 6h.
       const scoringTypesUsed = new Set((leagues || []).map((l) => detectScoringType(l)))
       if (isInSeason) {
-        await loadWeekProjections({ season: nflState?.season || seasonYear, week: currentWeek, scoringTypes: scoringTypesUsed })
+        await loadWeekProjections({ season, week: currentWeek, scoringTypes: scoringTypesUsed })
       }
       const sleeperWeekById = useWeeklyRankingsStore.getState().sleeperWeekById
 
@@ -231,7 +271,7 @@ export const useDashboardStore = create((set, get) => ({
 
       // Build league cards in parallel
       const leagueCardPromises = (leagues || []).map((l) =>
-        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType)
+        buildLeagueCard(l, sleeperUserId, currentWeek, isInSeason, playersMeta, sleeperWeekById, fpPtsByScoringType, gamesByTeamAbbr)
       )
 
       // Standalone-Drafts = echte Mocks (league_id === null, vgl.

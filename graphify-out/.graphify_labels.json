@@ -87,5 +87,21 @@
   "85": "lucide-react",
   "86": "prop-types",
   "87": "qrcode-generator",
-  "92": "sw.js"
+  "88": "tradeValue.js",
+  "89": "rosterStats.js",
+  "90": "useBoardStore.js",
+  "91": "aiValidate.js",
+  "92": "sw.js",
+  "93": "strategyMatch.js",
+  "94": "DraftGrid.jsx",
+  "95": "RecommendedLineupCard.jsx",
+  "96": "LineupPage.test.jsx",
+  "97": "enrichBoardWithSleeper.js",
+  "98": "useDynastyStore.test.js",
+  "99": "useDynastyValuesStore.js",
+  "100": "useWeeklyRankingsStore.js",
+  "101": "SetupPage.test.jsx",
+  "102": "BoardSection.test.jsx",
+  "103": "RedzonePage.test.jsx",
+  "104": "@anthropic-ai/sdk"
 }

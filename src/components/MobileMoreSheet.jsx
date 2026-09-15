@@ -11,6 +11,8 @@ const NAV = [
   { icon: 'board', label: 'Board', path: '/board' },
   { icon: 'chart', label: 'Analyse', path: '/analyse' },
   { icon: 'roster', label: 'Lineup', path: '/lineup' },
+  { icon: 'clipboard-check', label: 'Wochenrückblick', path: '/weekly' },
+  { icon: 'scoreboard', label: 'Scores', path: '/scores' },
   { icon: 'swap', label: 'Trade', path: '/trade' },
 ]
 

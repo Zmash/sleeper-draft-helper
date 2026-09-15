@@ -1,0 +1,239 @@
+/* Wochenrueckblick. Layout per grid-areas wie die Redzone: mobil einspaltig,
+   ab 900px zweispaltig mit den Listen (Verletzungen) in der schmalen Spalte. */
+/* Seitenrahmen wie .an-page: in der NextShell (>=900px) bringt die Seite den
+   Rand selbst mit, mobil setzt ihn .wrap der AppShell. */
+@media (min-width: 900px) { .wk-page { padding: 1rem; } }
+.wk-page { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'head' 'notice' 'chips' 'record' 'results' 'details'; }
+.wk-head { grid-area: head; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wk-head-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.wk-head-meta .btn-icon { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+@media (max-width: 639px) { .wk-head-meta .rz-stamp { display: none; } }
+.wk-notice, .wk-page > .wk-empty { grid-area: notice; }
+.wk-chips-area { grid-area: chips; } .wk-record-area { grid-area: record; }
+.wk-results-area { grid-area: results; } .wk-details-area { grid-area: details; }
+.wk-section { display: grid; gap: 6px; align-content: start; min-width: 0; }
+/* LeagueChips kommt aus der Redzone und traegt dort `grid-area: chips` fuer
+   das Redzone-Raster mit. Hier ist .rz-chips ein Kind von .wk-chips-area --
+   ohne diese Ruecknahme legt der Fremdname eine implizite Spur an und die
+   Chips rutschen aus der linken Kante. */
+.wk-chips-area > .rz-chips { grid-area: auto; }
+@media (min-width: 900px) {
+  .wk-page { grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-areas: 'head head' 'notice notice' 'chips chips' 'record record' 'results results'
+      'details details'; }
+}
+/* Detail-Tabs: Underline-Reiter wie .an-tab in Analyse/Lineup -- keine Pillen.
+   Eine Tabzeile statt vier gestapelter Sections. */
+.wk-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+.wk-tabs::-webkit-scrollbar { display: none; }
+.wk-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: .55rem .8rem; color: var(--text-muted); font: 600 .8rem var(--font-ui);
+  cursor: pointer; white-space: nowrap; }
+.wk-tab:hover { color: var(--text-primary); }
+.wk-tab.is-active { color: var(--text-primary); border-bottom-color: var(--accent-fill); }
+.wk-tab:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.wk-team { display: grid; gap: 8px; }
+.wk-team-h { font: 600 .74rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 8px 2px 0; }
+.wk-bank { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+.wk-bank summary { cursor: pointer; padding: 8px 10px; font-size: .76rem; color: var(--text-muted); }
+
+/* Grundbausteine (bewusst parallel zu redzone.css benannt, aber eigener
+   Praefix -- die Seiten teilen nur die Liga-Chips). */
+.wk-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.wk-title { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: .02em; }
+.wk-h { font-family: var(--font-display); font-weight: 600; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.wk-card { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); }
+.wk-list { overflow: hidden; }
+.wk-empty { font-size: .8rem; color: var(--text-dim); padding: 8px 2px; }
+.wk-ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wk-notice { border: 1px solid var(--border); background: var(--surface-card); border-radius: var(--r-card);
+  padding: 8px 12px; color: var(--text-muted); font-size: .85rem; }
+.wk-notice--soft { color: var(--text-dim); }
+.wk-pill { font-size: .72rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 2px 8px; }
+.wk-hint { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: .75rem; color: var(--text-dim); }
+.is-good { color: var(--good); } .is-bad { color: var(--bad); }
+
+.wk-chip { font-family: var(--font-mono); font-size: .68rem; font-weight: 700; padding: 0 4px;
+  border-radius: var(--r-ctl); white-space: nowrap; color: var(--text-dim); background: var(--surface-raised); }
+.wk-chip.is-me { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.wk-chip.is-opp { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.wk-pos { font: 700 .66rem var(--font-ui); color: var(--pos-on); text-align: center; padding: 2px 0;
+  border-radius: var(--r-ctl); background: var(--pos-def); width: 30px; flex: none; }
+.wk-pos--qb { background: var(--pos-qb); } .wk-pos--rb { background: var(--pos-rb); } .wk-pos--wr { background: var(--pos-wr); }
+.wk-pos--te { background: var(--pos-te); } .wk-pos--k { background: var(--pos-k); }
+
+/* Wochenwahl */
+.wk-weeks { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border);
+  border-radius: var(--r-ctl); background: var(--surface-card); }
+.wk-week-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border: 0; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--r-ctl); }
+.wk-week-btn:disabled { opacity: .35; cursor: default; }
+.wk-week-btn:not(:disabled):hover { color: var(--text-primary); background: var(--surface-raised); }
+.wk-week-host { position: relative; display: flex; }
+.wk-week-current { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent;
+  color: var(--text-primary); font: 600 .85rem var(--font-ui); padding: 3px 6px; cursor: pointer;
+  border-radius: var(--r-ctl); white-space: nowrap; }
+.wk-week-current:not(:disabled):hover { background: var(--surface-raised); }
+.wk-week-current:disabled { opacity: .5; cursor: default; }
+.wk-week-current svg { color: var(--text-dim); }
+.wk-week-current:focus-visible, .wk-week-btn:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+/* Eigenes Menue statt <select>: die aufgeklappte Liste eines <select> zeichnet
+   das Betriebssystem, nicht die App -- im dunklen Theme stand da eine helle
+   Systemliste. Gleiche Bauart wie .ns-menu in der NextShell. */
+.wk-menu-backdrop { position: fixed; inset: 0; z-index: var(--z-dropdown); }
+.wk-menu { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%);
+  z-index: calc(var(--z-dropdown) + 1); min-width: 150px; max-height: 55vh; overflow: auto; padding: 4px;
+  background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--shadow-pop, 0 10px 30px rgba(0, 0, 0, .45)); }
+.wk-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0;
+  background: transparent; border-radius: var(--r-ctl); color: var(--text-muted);
+  font: 500 .8rem var(--font-ui); text-align: left; cursor: pointer; }
+.wk-menu-item:hover { background: var(--surface-raised); color: var(--text-primary); }
+.wk-menu-item.is-active { color: var(--accent-text); }
+.wk-menu-item svg { margin-left: auto; }
+.wk-menu-now { font: 700 .6rem var(--font-display); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--live); border: 1px solid color-mix(in srgb, var(--live) 45%, transparent);
+  border-radius: var(--r-ctl); padding: 0 4px; }
+.wk-menu-item.is-active .wk-menu-now + svg { margin-left: 0; }
+
+/* Woche in Zahlen */
+.wk-record { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.wk-stat { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 8px 12px; min-width: 0; }
+.wk-stat-label { font-size: .72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.wk-stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.wk-stat-hint { font-size: .7rem; color: var(--text-dim); }
+
+/* Ergebnisse */
+.wk-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.wk-result { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 8px 12px 9px; display: grid; gap: 4px; min-width: 0; }
+.wk-result.is-win { border-color: color-mix(in srgb, var(--good) 55%, var(--border)); }
+.wk-result.is-loss { border-color: color-mix(in srgb, var(--bad) 45%, var(--border)); }
+.wk-result.is-live { border-color: var(--live); }
+.wk-result-top { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--text-muted); min-width: 0; }
+.wk-result-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-badge { margin-left: auto; flex: none; font: 700 .66rem var(--font-display); letter-spacing: .06em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: var(--r-ctl); background: var(--surface-raised); color: var(--text-dim); }
+.wk-badge.is-win { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.wk-badge.is-loss { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.wk-badge.is-live { background: var(--live); color: var(--live-on); }
+.wk-result-score { display: flex; align-items: baseline; gap: 8px; }
+.wk-result-me { font-weight: 700; font-size: 1.35rem; line-height: 1; }
+.wk-result-opp { font-weight: 700; font-size: 1.35rem; line-height: 1; color: var(--text-muted); }
+.wk-result-vs { color: var(--text-dim); font-size: .8rem; }
+.wk-result-margin { margin-left: auto; font-size: .85rem; font-weight: 700; }
+.wk-result-sub { display: flex; align-items: center; gap: 8px; font-size: .74rem; color: var(--text-muted); min-width: 0; }
+.wk-result-sub .wk-num { margin-left: auto; flex: none; }
+.wk-result-foot { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .68rem; color: var(--text-dim);
+  border-top: 1px solid var(--border-soft); padding-top: 4px; }
+.wk-open { color: var(--live); }
+.wk-result-error { font-size: .75rem; color: var(--bad); }
+
+/* Ausreisser */
+.wk-outliers { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@media (min-width: 640px) { .wk-outliers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.wk-outcol { overflow: hidden; align-content: start; }
+.wk-outcol-h { font: 600 .74rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 7px 10px 5px; border-bottom: 1px solid var(--border-soft); }
+.wk-out { display: flex; align-items: flex-start; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--border-soft); }
+.wk-outcol > .wk-out:last-child { border-bottom: 0; }
+.wk-out-main { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.wk-out-name { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: .8rem; }
+.wk-out-delta { margin-left: auto; flex: none; font-weight: 700; }
+.wk-out-bar { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+.wk-out-bar i { display: block; height: 100%; transition: width .4s var(--ease); }
+.wk-out-bar i.is-good { background: var(--good); } .wk-out-bar i.is-bad { background: var(--bad); }
+.wk-out-sub { display: flex; align-items: center; gap: 8px; font-size: .68rem; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; }
+.wk-out-sub .wk-chip { margin-left: auto; flex: none; }
+
+/* Verletzungen */
+.wk-inj { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px; align-items: center; gap: 10px;
+  padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+.wk-inj:last-child { border-bottom: 0; }
+.wk-inj.is-out { background: color-mix(in srgb, var(--bad) 9%, transparent); }
+.wk-inj.is-dnp { background: color-mix(in srgb, var(--bad) 5%, transparent); }
+.wk-inj.is-bench { opacity: .75; }
+.wk-inj-name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .875rem; }
+.wk-inj-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 1px; font-size: .7rem; color: var(--text-muted); }
+.wk-inj-pts { text-align: right; font-weight: 700; font-size: 1rem; }
+.wk-inj-pts small { display: block; font-size: .66rem; font-weight: 500; color: var(--text-dim); }
+.wk-tag { font: 700 .64rem var(--font-display); letter-spacing: .04em; padding: 0 5px; border-radius: var(--r-ctl);
+  background: var(--surface-raised); color: var(--text-dim); flex: none; }
+.wk-tag.is-out, .wk-tag.is-dnp { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.wk-tag.is-watch { background: color-mix(in srgb, var(--live) 22%, transparent); color: var(--text-primary); }
+
+/* Aufstellung im Rueckblick */
+.wk-bench { display: grid; gap: 4px; padding: 9px 10px; border-bottom: 1px solid var(--border-soft); }
+.wk-bench:last-child { border-bottom: 0; }
+.wk-bench-top { display: flex; align-items: baseline; gap: 8px; font-size: .82rem; font-weight: 600; }
+.wk-bench-eff { margin-left: auto; flex: none; font-size: .95rem; font-weight: 700; }
+.wk-bench-bar { height: 5px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.wk-bench-bar i { display: block; height: 100%; background: var(--accent-fill); transition: width .4s var(--ease); }
+.wk-bench-sub { font-size: .72rem; color: var(--text-muted); }
+.wk-bench-miss { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--text-muted); flex-wrap: wrap; }
+.wk-bench-slot { font: 700 .62rem var(--font-display); letter-spacing: .06em; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 0 5px; flex: none; }
+.wk-bench-gain { margin-left: auto; font-weight: 700; color: var(--bad); }
+
+/* Positionsbilanz */
+.wk-posbars { padding: 10px; display: grid; gap: 6px; }
+.wk-posrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) 92px; align-items: center; gap: 10px; }
+@media (max-width: 639px) {
+  .wk-posrow { grid-template-columns: 26px minmax(0, 1fr) 72px; gap: 6px; }
+  .wk-inj { grid-template-columns: 26px minmax(0, 1fr) 56px; gap: 6px; }
+  /* Mobile Shell: kein "laufende Woche"-Pill (nur Titel + Wochen-Dropdown) und
+     kein Refresh oben -- der steckt unten in der Shell (App.jsx handleMobileSync). */
+  .wk-head .wk-pill { display: none; }
+  .wk-head-meta .btn-icon { display: none; }
+}
+/* Liga-Auswahl: Desktop Chips in der Chips-Section, Mobile Dropdown im Header
+   neben dem Wochen-Umschalter (kein Seitwärts-Scrollen). */
+.wk-leagues { display: none; }
+.wk-leagues-host { position: relative; display: flex; }
+.wk-leagues-current { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  background: var(--surface-card); color: var(--text-primary); font: 600 .82rem var(--font-ui);
+  padding: 6px 10px; border-radius: var(--r-ctl); cursor: pointer; max-width: 100%; }
+.wk-leagues-current svg { color: var(--text-dim); flex: none; }
+.wk-leagues-current:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.wk-leagues-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-leagues-menu { left: 0; transform: none; min-width: 220px; max-width: min(78vw, 320px); }
+@media (max-width: 899px) {
+  /* Header einzeilig: Titel + schmaler Umschalter + Liga-Dropdown rechts.
+     Das Dropdown kürzt sein Label per Ellipse statt umzubrechen. */
+  .wk-head { flex-wrap: nowrap; gap: 8px; }
+  .wk-title { flex: none; font-size: 1.05rem; }
+  .wk-week-btn { width: 24px; height: 24px; }
+  .wk-week-current { font-size: .8rem; padding: 3px 4px; }
+  .wk-head-meta { display: none; }
+  .wk-leagues { display: flex; min-width: 0; margin-left: auto; }
+  .wk-leagues-host { min-width: 0; margin-left: auto; }
+  .wk-leagues-current { min-width: 0; }
+  .wk-leagues-menu { left: auto; right: 0; }
+  /* Chips-Section entfällt mobil komplett (Chips = Desktop, Dropdown = Header). */
+  .wk-chips-area { display: none; }
+}
+.wk-posbar { position: relative; height: 14px; background: var(--border); border-radius: 2px; }
+.wk-posbar-real { position: absolute; left: 0; top: 0; height: 100%; display: block; border-radius: 2px;
+  transition: width .4s var(--ease); }
+.wk-posbar-real.is-good { background: var(--good); } .wk-posbar-real.is-bad { background: var(--bad); }
+/* Zielmarke der Projektion. Frueher ein zweiter grauer Balken hinter dem
+   echten -- im Volt-Theme liegen --border und --text-dim so dicht beieinander,
+   dass davon nichts zu sehen war. --text-primary steht in jedem Theme. */
+.wk-posbar-proj { position: absolute; top: -3px; height: 20px; width: 2px; margin-left: -1px; display: block;
+  background: var(--text-primary); border-radius: 1px; transition: left .4s var(--ease); }
+.wk-posval { text-align: right; font-weight: 700; font-size: .9rem; }
+.wk-posval small { font-size: .68rem; font-weight: 600; margin-left: 5px; }
+.wk-poslegend { display: flex; gap: 12px; font-size: .68rem; color: var(--text-dim); padding-top: 2px; }
+.wk-poslegend span { display: inline-flex; align-items: center; gap: 5px; }
+.wk-swatch { width: 10px; height: 6px; border-radius: 1px; display: inline-block; }
+.wk-swatch--proj { width: 2px; height: 11px; background: var(--text-primary); }
+.wk-swatch--real { background: var(--good); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wk-out-bar i, .wk-bench-bar i, .wk-posbar-real, .wk-posbar-proj { transition: none; }
+}

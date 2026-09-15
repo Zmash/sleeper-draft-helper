@@ -91,7 +91,78 @@ vereinheitlichen, ohne die Board-Renderpfade komplett zu verstehen.
 
 ### `App.jsx` is the orchestrator
 
-`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
+`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`, `/weekly`, `/scores`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
+
+### Spieltags-Seiten: `/redzone` (live) und `/weekly` (Rückblick)
+
+Beide Seiten teilen sich die Datenquellen (ESPN-Scoreboard via `services/redzone/espnLive.js`,
+Sleeper-Matchups, `services/weekProjections.js`) und das Muster "dünner Store mit Rohdaten +
+reines Modell + präsentationale Parts":
+
+| | `/redzone` | `/weekly` |
+|---|---|---|
+| Frage | Was passiert **gerade**? | Was ist in **dieser Woche** passiert? |
+| Sichtbar | nur bei laufenden Spielen (`useGamesLiveStore.liveCount`) | immer |
+| Store | `useRedzoneStore` (30-s-Polling) | `useWeeklyStore` (kein Polling, Cache pro Woche) |
+| Modell | `services/redzone/redzoneModel.js` | `services/weekly/weeklyModel.js` |
+
+`/weekly` kann jede bereits gespielte Woche anzeigen. Für **zurückliegende** Wochen zählt allein
+Sleepers Wochenprojektion (`/api/rankings/sleeper-projections-week`, hat einen Wochenparameter);
+FantasyPros liefert unter `scope=week` immer nur die laufende Woche und wird deshalb nur dann
+dazugemischt, wenn die gezeigte Woche die laufende ist. `useWeeklyRankingsStore` cacht die
+Sleeper-Projektionen pro Woche (`sleeperWeekByKey` / `getSleeperWeekMap`) — `sleeperWeekById`
+zeigt immer nur auf die *zuletzt* geladene Woche und ist beim Blättern nicht verlässlich.
+
+Der Liga-Filter (`LeagueChips` aus `components/redzone/RedzoneParts.jsx`) wird geteilt, die
+abgewählten IDs aber je Seite getrennt persistiert (`sdh-redzone-v1` / `sdh-weekly-v1`).
+
+### `/scores` — Spielplan, Live-Stand, deutsche Sender
+
+Die einzige Seite ohne Liga-Bezug: sie laeuft auch ohne Sleeper-Account. Quelle ist
+dasselbe ESPN-Scoreboard wie in Redzone/Weekly (`services/redzone/espnLive.js`,
+`fetchScoreboard`) — dessen `normalizeScoreboard` liefert zusaetzlich zu den
+Redzone-Feldern Teamname/Logo/Bilanz, US-Sender (`network`), `venue` und
+`neutralSite`; die Redzone liest diese Felder nicht.
+
+| Baustein | Datei |
+|---|---|
+| Store (kein persist, Cache je Woche) | `stores/useNflStore.js` |
+| Reines Modell (Sortierung, Tagesgruppen, Statustexte) | `services/nfl/nflModel.js` |
+| Deutsche Rechtetabelle | `data/nflBroadcast.js` |
+| Zeitzonen-Helfer | `utils/berlinTime.js` |
+| Praesentation | `components/nfl/NflParts.jsx`, `pages/NflPage.jsx` |
+
+Zwei Punkte, die man beim Anfassen kennen muss:
+
+1. **Alle Zeiten sind Europe/Berlin, nicht die Geraetezeitzone.** `utils/berlinTime.js`
+   rechnet fest ueber `Intl`; `new Date().getHours()` waere auf einem Handy im
+   Ausland falsch. Gruppiert wird nach deutschem Kalendertag — das US-Sonntag-
+   abendspiel steht deshalb unter *Montag*.
+2. **`data/nflBroadcast.js` ist eine gepflegte Tabelle wie `nflByes.js`**, keine API.
+   Sie bildet nur das *Sendefenster* auf Sender ab (abgeleitet aus dem deutschen
+   Kickoff-Zeitpunkt), nicht das konkrete Spiel: welches Sonntagsspiel RTL, RTL+
+   bzw. Sky in einer Woche waehlen, gibt keine offene Quelle her. Diese Fenster
+   sind `selection: true` und werden in der UI als "Auswahl" gekennzeichnet.
+   `RIGHTS_SEASONS` begrenzt die Tabelle auf die Saisons des aktuellen
+   RTL/Sky-Vertrags — ausserhalb nennt die Seite gar keinen Sender und sagt
+   warum, statt eine Rechtelage zu raten. Der NFL Game Pass steht bewusst
+   nicht in `outlets`: er zeigt jedes Spiel und waere unter jeder Zeile
+   dieselbe Angabe — einmal in der Legende der Seite genuegt.
+
+Die Spielkachel (`GameRow`) hat zwei Layouts aus derselben DOM: ab 561 px
+eine zweizeilige Zeile (links Kuerzel/Punkte, rechts Status und Sender,
+Meta-Spalte fest 140 px), darunter zwei Kacheln nebeneinander mit
+gestapeltem Inhalt (Status / Teams / Sender) — dafuer loest
+`.nfl-meta { display: contents }` nur den Meta-Container auf. Was nirgends
+Platz hat (voller Teamname, Spielort, Down & Distance), haengt am `title`
+der Kachel statt eine weitere Zeile aufzumachen. Nicht angezeigt werden der
+US-Sender (fuer "wo kann ich das sehen" ohne Belang) und die Saisonbilanz
+(die gehoert in die Tabelle, nicht an jedes Spiel).
+
+Beim Anfassen der Spalten: Punktestand und Meta-Spalte haben feste Breiten,
+und der Punktestand wird auch vor dem Anpfiff gerendert (leer). Beides ist
+Absicht — jede Kachel ist ihr eigenes Grid, ohne feste Breiten hat jede Zeile
+eine andere Spaltenflucht. `NflPage.test.jsx` haelt das fest.
 
 ### Draft modes: redraft vs. rookie (dynasty)
 
