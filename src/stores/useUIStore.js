@@ -13,11 +13,17 @@ export const useUIStore = create(
       setupVersion: 0,
       boardDensity: 'normal', // 'normal' | 'compact' — Zeilenhoehe der Board-Tabelle (vor allem mobil relevant)
       streamPositions: ['DEF'], // welche Positionen im Waiver-Streaming-Board angehakt sind
+      // Hauptschalter fuer das automatische Nachladen aller Seiten (Takte je
+      // Seite in services/pageSync.js). Aus heisst: nur noch von Hand. Der
+      // Rot-Punkt am Sync-Knopf bleibt davon unberuehrt — gerade dann will man
+      // sehen, dass der Stand alt ist.
+      autoSyncEnabled: true,
 
       setTheme: (id) => set({ themeId: validThemeId(id) }),
       setAnalysisOpen: (v) => set({ analysisOpen: v }),
       incrementSetupVersion: () => set((s) => ({ setupVersion: s.setupVersion + 1 })),
       setBoardDensity: (d) => set({ boardDensity: d === 'compact' ? 'compact' : 'normal' }),
+      setAutoSyncEnabled: (v) => set({ autoSyncEnabled: !!v }),
       toggleStreamPosition: (pos) => set((s) => ({
         streamPositions: s.streamPositions.includes(pos)
           ? s.streamPositions.filter((p) => p !== pos)
@@ -27,13 +33,18 @@ export const useUIStore = create(
     {
       name: 'sdh-ui-v1',
       version: 1,
-      partialize: (s) => ({ themeId: s.themeId, boardDensity: s.boardDensity, streamPositions: s.streamPositions }),
+      partialize: (s) => ({
+        themeId: s.themeId, boardDensity: s.boardDensity, streamPositions: s.streamPositions,
+        autoSyncEnabled: s.autoSyncEnabled,
+      }),
       migrate: (persisted, version) => {
         if (persisted && version < 1) {
           persisted.themeId = persisted.themeMode === 'light' ? 'broadcast-light' : 'broadcast-dark'
           delete persisted.themeMode
         }
         if (persisted) persisted.themeId = validThemeId(persisted.themeId)
+        // Bestandsnutzer hatten den Schalter noch nicht -- an ist der Default.
+        if (persisted && typeof persisted.autoSyncEnabled !== 'boolean') persisted.autoSyncEnabled = true
         return persisted
       },
     }

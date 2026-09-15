@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import MobileMoreSheet from './MobileMoreSheet'
 import { useGamesLiveStore } from '../stores/useGamesLiveStore'
+import { useSyncDot } from '../hooks/useSyncDot'
 
 // Mobile Bottom-Navigation fuer alle Seiten ausser dem Board — dort uebernimmt
 // BoardMobileBar dieselbe Leiste mit board-spezifischen Aktionen. Gleiche
@@ -18,12 +19,18 @@ import { useGamesLiveStore } from '../stores/useGamesLiveStore'
 //   onSync        – Callback fuer den Sync-Button (je nach aktueller Seite)
 //   syncLabel     – Aria-Label / Title fuer den Sync-Button
 //   showSync      – Button anzeigen (false z.B. auf /setup, /profiles)
-//   autoRefreshActive – Auto-Refresh-Indikator-Punkt (Dot)
-export default function MobileNav({ onSync, syncLabel = 'Daten aktualisieren', showSync = true, autoRefreshActive = false }) {
+//   autoRefreshActive – Auto-Sync laeuft fuer diese Seite (gruener Punkt)
+//   lastSyncAt / staleSeconds – ab wann der Stand als veraltet gilt; dann
+//     wird derselbe Punkt rot, auch bei ausgeschaltetem Auto-Sync
+export default function MobileNav({
+  onSync, syncLabel = 'Daten aktualisieren', showSync = true, autoRefreshActive = false,
+  lastSyncAt = null, staleSeconds = null,
+}) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const liveCount = useGamesLiveStore((s) => s.liveCount)
   const [moreOpen, setMoreOpen] = useState(false)
+  const dot = useSyncDot({ lastAt: lastSyncAt, staleSeconds, autoOn: autoRefreshActive })
 
   // Wie board-mobile-active: die Seite braucht unten Platz fuer die Bar.
   useEffect(() => {
@@ -53,11 +60,11 @@ export default function MobileNav({ onSync, syncLabel = 'Daten aktualisieren', s
             className="bmb-fab"
             onClick={() => onSync?.()}
             disabled={!onSync}
-            aria-label={syncLabel}
-            title={syncLabel}
+            aria-label={dot === 'stale' ? `${syncLabel} — Stand veraltet` : syncLabel}
+            title={dot === 'stale' ? `${syncLabel} — Stand veraltet` : syncLabel}
           >
             <Icon name="refresh" size={26} />
-            {autoRefreshActive && <span className="bmb-fab-auto" aria-hidden />}
+            {dot !== 'none' && <span className={cx('bmb-fab-auto', dot === 'stale' && 'is-stale')} aria-hidden />}
           </button>
         )}
 

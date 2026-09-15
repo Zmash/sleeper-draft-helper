@@ -5,6 +5,7 @@ import { loadPreferences, clearPreferencesForMode } from '../services/preference
 import ProfileBadgeCard from './ProfileBadgeCard'
 import ProfileEditor from './ProfileEditor'
 import SyncSection from './SyncSection'
+import AutoSyncSetting from './AutoSyncSetting'
 import Icon from './Icon'
 
 // Scoring-Label fuer den FantasyPros-Button: der Import laedt die zum aktiven
@@ -273,6 +274,8 @@ export default function SetupForm(props) {
       />
 
       <SyncSection />
+
+      <AutoSyncSetting />
 
       <div className="card">
         <h3>Rankings importieren</h3>

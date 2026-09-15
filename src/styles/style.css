@@ -2803,6 +2803,13 @@ th.col-pick, td.col-pick { width: 64px; }
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--good); border: 2px solid var(--accent-fill);
 }
+/* Rot heisst: der Stand dieser Seite ist aelter als ihre Schwelle
+   (services/pageSync.js). Gilt auch bei ausgeschaltetem Auto-Sync — gerade
+   dann soll man sehen, dass etwas nachzuladen ist. Das Pulsieren macht den
+   9px-Punkt am Daumen ueberhaupt erst auffaellig. */
+.bmb-fab-auto.is-stale { background: var(--bad); animation: bmb-stale 1.8s ease-in-out infinite; }
+@keyframes bmb-stale { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .bmb-fab-auto.is-stale { animation: none; } }
 
 /* Auto-Sync-Sheet: Preset-Buttons */
 .bmb-sync-presets { display: flex; gap: 8px; }

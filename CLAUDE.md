@@ -221,6 +221,39 @@ folgen damit jedem Theme. **Neuer Code nimmt die kanonischen Namen.**
   verdrahtet ueber `handleMobileSync` in `App.jsx` — neue Seiten dort
   eintragen). Ein zusaetzlicher Knopf in der Seitenkopfzeile wird mobil
   ausgeblendet, statt zweimal dazustehen.
+
+### Auto-Sync: `services/pageSync.js` ist die einzige Quelle
+
+Wie oft sich eine Seite von selbst aktualisiert und ab wann ihr Stand als
+veraltet gilt, steht **nur** in `PAGE_SYNC`. Vorher hatte jede Seite ihr
+eigenes `setInterval` (Redzone 30 s, Scores 30 s/5 min, Draft-Picks in
+`App.jsx`) — und der Wochenrueckblick gar keins.
+
+- **Eine Schleife** in `App.jsx` treibt alle Seiten und ruft
+  `handleMobileSync()` im Takt der offenen Seite. Neue Seite = ein Eintrag in
+  `PAGE_SYNC` plus ein Zweig in `handleMobileSync`. **Kein eigenes
+  `setInterval` in der Seite** — das wuerde doppelt holen. Laden beim Oeffnen
+  oder bei Wechsel eines Parameters (Woche, Liga-Filter) gehoert weiter in die
+  Seite.
+- Der Takt haengt an der Ref `syncRef`, nicht direkt am Callback: `handleMobileSync`
+  wechselt oft die Identitaet, und ein Intervall daran wuerde staendig neu
+  starten und bei kurzen Takten nie ausloesen.
+- **Veraltet-Schwelle** = `STALE_FACTOR` (3) x Takt, mindestens 90 s. Ein
+  verpasster Tick ist normal, drei sind es nicht. Override per `staleSeconds`.
+- Der Punkt am Sync-FAB hat drei Zustaende (`useSyncDot`): gruen = Auto-Sync
+  laeuft und Stand frisch, **rot = Stand veraltet** (auch bei ausgeschaltetem
+  Auto-Sync — gerade dann soll man es sehen), kein Punkt = nichts zu melden.
+  Er tickt in der Bottom-Bar selbst weiter (10 s), nicht in `App.jsx`: dort
+  wuerde jede Sekunde der ganze Orchestrator samt useMemos neu rechnen.
+- `useUIStore.autoSyncEnabled` (persistiert, Default an) ist der Hauptschalter
+  ueber alle Seiten; Draft-Seiten haben zusaetzlich weiterhin ihren eigenen
+  `autoRefreshEnabled` samt Intervall-Presets aus dem Board.
+- Zeitstempel sind uneinheitlich: `useLiveStore.lastSyncAt` ist ein `Date`,
+  die uebrigen Stores halten Millisekunden. `toMs()` in `pageSync.js`
+  vereinheitlicht beim Auswerten.
+
+**`App.jsx` wird von keinem Test importiert** — ein Syntaxfehler dort faellt
+erst im `npm run build` auf. Nach Aenderungen an `App.jsx` immer bauen.
 - Mobile builds ship via **Capacitor** (Android); `webDir` is `dist`, appId `eu.zmash.sleeperdrafthelper`. The `android/` directory is a generated Capacitor project — do not hand-edit its `build/` artifacts.
 - This is an **unofficial** tool; it only consumes public Sleeper/FantasyPros/FantasyCalc/KTC data.
 

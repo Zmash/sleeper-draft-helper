@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../utils/formatting'
 import MobileMoreSheet from './MobileMoreSheet'
+import { useSyncDot } from '../hooks/useSyncDot'
 
 // Presets fuer den Auto-Sync (Long-Press auf den Sync-Button). „Aus" schaltet
 // den Auto-Refresh ab, eine Zahl aktiviert ihn mit diesem Intervall.
@@ -28,6 +29,8 @@ export default function BoardMobileBar({
   boardView = 'list',
   onToggleBoardView,
   autoRefreshEnabled = true,
+  lastSyncAt = null,
+  staleSeconds = null,
   refreshIntervalSeconds = 30,
   onToggleAutoRefresh,
   onChangeInterval,
@@ -69,6 +72,7 @@ export default function BoardMobileBar({
     }
     setSyncOpen(false)
   }
+  const dot = useSyncDot({ lastAt: lastSyncAt, staleSeconds, autoOn: autoRefreshEnabled })
   const activePreset = !autoRefreshEnabled
     ? 'Aus'
     : SYNC_PRESETS.find((p) => p.seconds === Number(refreshIntervalSeconds))?.label || null
@@ -95,7 +99,7 @@ export default function BoardMobileBar({
           title="Tippen: synchronisieren · Lange drücken: Auto-Sync"
         >
           <Icon name="refresh" size={26} />
-          {autoRefreshEnabled && <span className="bmb-fab-auto" aria-hidden />}
+          {dot !== 'none' && <span className={cx('bmb-fab-auto', dot === 'stale' && 'is-stale')} aria-hidden />}
         </button>
 
         <button

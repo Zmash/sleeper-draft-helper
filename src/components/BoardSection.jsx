@@ -7,6 +7,7 @@ import DraftGrid from './DraftGrid'
 import PlayerDetailSheet from './PlayerDetailSheet'
 import DataProvenanceBar from './DataProvenanceBar'
 import BoardMobileBar from './BoardMobileBar'
+import { pageSyncFor, staleSecondsFor } from '../services/pageSync'
 import Icon from './Icon'
 import { cx, normalizePlayerName } from '../utils/formatting'
 import { useBoardStore } from '../stores/useBoardStore'
@@ -928,6 +929,8 @@ export default function BoardSection({
         refreshIntervalSeconds={refreshIntervalSeconds}
         onToggleAutoRefresh={onToggleAutoRefresh}
         onChangeInterval={onChangeInterval}
+        lastSyncAt={lastSyncAt}
+        staleSeconds={staleSecondsFor(pageSyncFor('/board'), { draftSeconds: refreshIntervalSeconds })}
         reviewMode={reviewMode}
         onOpenDraftReview={onOpenDraftReview}
       />

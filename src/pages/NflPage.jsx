@@ -9,11 +9,6 @@ import { Stamp } from '../components/redzone/RedzoneParts'
 import Icon from '../components/Icon'
 import '../styles/nfl.css'
 
-// Waehrend Spiele laufen lohnt sich ein kurzer Takt, sonst nicht: ein
-// Spielplan aendert sich zwischen den Spieltagen praktisch nie.
-const POLL_LIVE_MS = 30 * 1000
-const POLL_IDLE_MS = 5 * 60 * 1000
-
 export default function NflPage() {
   const seasonYear = useSessionStore((s) => s.seasonYear)
   const nfl = useNflStore()
@@ -28,15 +23,13 @@ export default function NflPage() {
     [nfl.load, seasonYear] // eslint-disable-line
   )
 
-  // Wochenwechsel laedt sofort nach (week in den Deps). Der Intervall-Takt
-  // richtet sich danach, ob gerade gespielt wird.
-  const anyLive = games.some(isLive)
+  // Laden beim Oeffnen und bei jedem Wochenwechsel (week in den Deps). Den
+  // wiederkehrenden Takt stellt die zentrale Auto-Sync-Schleife in App.jsx
+  // (services/pageSync.js) — sie schaltet bei laufenden Spielen selbst auf
+  // den kurzen Takt um.
   useEffect(() => {
-    const tick = () => { if (!document.hidden) load() }
-    tick()
-    const id = setInterval(tick, anyLive ? POLL_LIVE_MS : POLL_IDLE_MS)
-    return () => clearInterval(id)
-  }, [load, week, anyLive])
+    load()
+  }, [load, week])
 
   // Die Tabelle wird erst geholt, wenn man sie aufschlaegt -- und danach nur
   // noch, wenn ihr Stand abgelaufen ist (TTL im Store).

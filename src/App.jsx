@@ -24,6 +24,7 @@ import { deriveFormat, resolveDraftMode, isStandaloneDraft } from './services/dr
 import { isDraftComplete } from './services/analysis'
 import { inferMyDraftSlot } from './services/api'
 import { startSync } from './services/syncClient'
+import { pageSyncFor, autoSecondsFor, staleSecondsFor } from './services/pageSync'
 
 import AppShell from './components/AppShell'
 import NextShell from './components/NextShell'
@@ -355,16 +356,6 @@ export default function App() {
     return onSharedText(handleShared)
   }, []) // eslint-disable-line
 
-  // Polling
-  const pollingRef = useRef(null)
-  useEffect(() => {
-    if (!autoRefreshEnabled || !selectedDraftId) return
-    clearInterval(pollingRef.current)
-    pollingRef.current = setInterval(() => {
-      loadPicks(selectedDraftId).catch(() => {})
-    }, Math.max(4, Number(refreshIntervalSeconds)) * 1000)
-    return () => clearInterval(pollingRef.current)
-  }, [autoRefreshEnabled, selectedDraftId, refreshIntervalSeconds]) // eslint-disable-line
 
   // Draft change → auto-reset picks + board statuses, then load fresh.
   // Ref startet auf null, damit auch der erste Mount (Seiten-Reload) als
@@ -412,6 +403,15 @@ export default function App() {
   // ── Mobile Sync: seiten-abhaengiger Callback ──────────────────────────────
   const { loadDashboard } = useDashboardStore()
 
+  // Zeitstempel der einzelnen Seiten, fuer den Veralt-Punkt am Sync-Knopf.
+  // Einzeln selektiert, damit ein Tick nur rendert, wenn er die offene Seite
+  // betrifft.
+  const liveCount = useGamesLiveStore((s) => s.liveCount)
+  const dashboardLastRefreshed = useDashboardStore((s) => s.lastRefreshed)
+  const redzoneLastUpdated = useRedzoneStore((s) => s.lastUpdated)
+  const weeklyLastUpdated = useWeeklyStore((s) => s.lastUpdated)
+  const nflLastUpdated = useNflStore((s) => (s.view === 'standings' ? s.standingsAt : s.lastUpdated))
+
   const isSetupOrProfiles = nsPathname.startsWith('/setup') || nsPathname.startsWith('/profiles')
 
   const handleMobileSync = useCallback(() => {
@@ -439,21 +439,42 @@ export default function App() {
     }
   }, [nsPathname, selectedDraftId, selectedLeagueId, sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs, loadDashboard, loadPicks, loadDynastyRoster])
 
-  const mobileSyncLabel = nsPathname.startsWith('/dashboard')
-    ? 'Ligen aktualisieren'
-    : nsPathname.startsWith('/analyse')
-      ? 'Picks aktualisieren'
-      : nsPathname.startsWith('/lineup')
-        ? 'Picks aktualisieren'
-        : nsPathname.startsWith('/redzone')
-          ? 'Live-Daten aktualisieren'
-          : nsPathname.startsWith('/scores')
-            ? 'Spielstände aktualisieren'
-          : nsPathname.startsWith('/weekly')
-            ? 'Woche aktualisieren'
-          : nsPathname.startsWith('/trade')
-            ? 'Daten aktualisieren'
-            : 'Daten aktualisieren'
+  // ── Auto-Sync: eine Schleife fuer alle Seiten ──────────────────────────────
+  // Takte und Veralt-Schwellen stehen in services/pageSync.js; was tatsaechlich
+  // nachgeladen wird, entscheidet handleMobileSync oben. Frueher hatte jede
+  // Seite ihr eigenes setInterval (oder gar keins).
+  const autoSyncEnabled = useUIStore((s) => s.autoSyncEnabled)
+  const syncCfg = pageSyncFor(nsPathname)
+  const syncCtx = { live: liveCount > 0, draftSeconds: autoRefreshEnabled ? refreshIntervalSeconds : null }
+  const autoSeconds = autoSyncEnabled ? autoSecondsFor(syncCfg, syncCtx) : null
+  const staleSeconds = staleSecondsFor(syncCfg, syncCtx)
+
+  // Der Callback haengt an vielen Werten (Liga, Draft, Saison ...) und wechselt
+  // die Identitaet oft. Haengte das Intervall direkt daran, wuerde es bei jedem
+  // Wechsel neu starten und bei kurzen Takten nie ausloesen -- daher ueber eine
+  // Ref stabil halten und nur am Takt selbst haengen.
+  const syncRef = useRef(handleMobileSync)
+  useEffect(() => { syncRef.current = handleMobileSync }, [handleMobileSync])
+  useEffect(() => {
+    if (!autoSeconds) return
+    const id = setInterval(() => { if (!document.hidden) syncRef.current() }, autoSeconds * 1000)
+    return () => clearInterval(id)
+  }, [autoSeconds])
+
+  // Zeitstempel der gerade offenen Seite -- Grundlage des roten Punkts.
+  // useLiveStore haelt ein Date, die uebrigen Millisekunden; toMs in pageSync
+  // vereinheitlicht das beim Auswerten.
+  const pageLastSyncAt = nsPathname.startsWith('/dashboard')
+    ? dashboardLastRefreshed
+    : nsPathname.startsWith('/redzone')
+      ? redzoneLastUpdated
+      : nsPathname.startsWith('/weekly')
+        ? weeklyLastUpdated
+        : nsPathname.startsWith('/scores')
+          ? nflLastUpdated
+          : lastSyncAt
+
+  const mobileSyncLabel = syncCfg.label || 'Daten aktualisieren'
 
   // ── Render ─────────────────────────────────────────────────────────────────
   // Beide Shells umschliessen exakt denselben Routen-Baum. Die neue Shell
@@ -511,7 +532,9 @@ export default function App() {
           onSync={isSetupOrProfiles ? null : handleMobileSync}
           syncLabel={mobileSyncLabel}
           showSync={!isSetupOrProfiles}
-          autoRefreshActive={autoRefreshEnabled}
+          autoRefreshActive={!!autoSeconds}
+          lastSyncAt={pageLastSyncAt}
+          staleSeconds={staleSeconds}
         />
       )}
       {useNextShell ? (

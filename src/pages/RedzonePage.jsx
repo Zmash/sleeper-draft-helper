@@ -15,8 +15,6 @@ import {
 import Icon from '../components/Icon'
 import '../styles/redzone.css'
 
-const POLL_MS = 30 * 1000
-
 export default function RedzonePage() {
   const { sleeperUserId, seasonYear, availableLeagues, cardNicknames } = useSessionStore()
   const liveCount = useGamesLiveStore((s) => s.liveCount)
@@ -35,13 +33,12 @@ export default function RedzonePage() {
     [rz.poll, leagues, seasonYear, sleeperUserId] // eslint-disable-line
   )
 
-  // Filterwechsel pollt sofort neu (filterKey in den Deps).
+  // Laden beim Oeffnen und bei jedem Filterwechsel (filterKey in den Deps).
+  // Den wiederkehrenden Takt stellt die zentrale Auto-Sync-Schleife in App.jsx
+  // (services/pageSync.js) — ein eigenes Intervall hier wuerde doppelt holen.
   useEffect(() => {
     if (!leagues.length || !sleeperUserId) return
-    const tick = () => { if (!document.hidden) pollNow() }
-    tick()
-    const id = setInterval(tick, POLL_MS)
-    return () => clearInterval(id)
+    pollNow()
   }, [pollNow, filterKey]) // eslint-disable-line
 
   // Projektionen je Woche und benoetigtem Scoring (Stores cachen 6h).
