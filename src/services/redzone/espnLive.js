@@ -13,13 +13,31 @@ export function normAbbr(abbr) {
   return TEAM_ALIAS[u] || u
 }
 
+// US-Sender: ESPN liefert ihn je nach Endpoint unter broadcasts[].names oder
+// unter geoBroadcasts[].media.shortName -- beides defensiv lesen.
+function usNetwork(comp) {
+  const fromBroadcasts = (comp?.broadcasts || []).flatMap((b) => b?.names || [])
+  const fromGeo = (comp?.geoBroadcasts || []).map((b) => b?.media?.shortName).filter(Boolean)
+  return [...new Set([...fromBroadcasts, ...fromGeo])].join('/') || null
+}
+
 export function normalizeScoreboard(json) {
   const events = Array.isArray(json?.events) ? json.events : []
   return events.map((ev) => {
     const comp = ev?.competitions?.[0] || {}
     const side = (homeAway) => {
       const c = (comp.competitors || []).find((t) => t.homeAway === homeAway) || {}
-      return { id: String(c.team?.id ?? ''), abbr: normAbbr(c.team?.abbreviation), score: Number(c.score) || 0 }
+      const overall = (c.records || []).find((r) => r.type === 'total') || (c.records || [])[0]
+      return {
+        id: String(c.team?.id ?? ''),
+        abbr: normAbbr(c.team?.abbreviation),
+        score: Number(c.score) || 0,
+        // Ab hier nur Deko fuer die NFL-Seite -- die Redzone liest sie nicht.
+        name: c.team?.shortDisplayName || c.team?.name || c.team?.displayName || '',
+        logo: c.team?.logo || null,
+        color: c.team?.color ? `#${String(c.team.color).replace('#', '')}` : null,
+        record: overall?.summary || null,
+      }
     }
     const home = side('home')
     const away = side('away')
@@ -44,6 +62,10 @@ export function normalizeScoreboard(json) {
       isRedZone: !!sit.isRedZone,
       downDistance: sit.downDistanceText || null,
       lastPlay: sit.lastPlay?.text?.trim() || null,
+      // US-Sender als Kontext (die deutsche Zuordnung macht data/nflBroadcast).
+      network: usNetwork(comp),
+      venue: comp.venue?.fullName || null,
+      neutralSite: !!comp.neutralSite,
     }
   })
 }

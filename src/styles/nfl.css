@@ -1,0 +1,118 @@
+/* Allgemeine NFL-Seite: Spielplan, Live-Stand, deutsche Sendezeiten.
+   Aufbau wie die Redzone (gleiche Tokens, gleiche Dichte), aber ohne
+   Liga-Bezug -- diese Seite funktioniert auch ohne Sleeper-Account. */
+.nfl-page { display: grid; gap: 10px; align-content: start; min-width: 0; }
+
+.nfl-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nfl-title { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: .02em; }
+.nfl-muted { color: var(--text-muted); font-size: .85rem; }
+.nfl-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.nfl-live { display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: var(--live-on);
+  font-family: var(--font-display); font-weight: 700; font-size: .75rem; letter-spacing: .08em;
+  padding: 3px 8px; border-radius: var(--r-ctl); }
+.nfl-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: nfl-pulse 1.6s infinite; }
+@keyframes nfl-pulse { 50% { opacity: .35; } }
+
+/* Wochenwahl */
+.nfl-weeks { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.nfl-week-scroll { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 1px; }
+.nfl-week-scroll::-webkit-scrollbar { display: none; }
+.nfl-week, .nfl-week-arrow { flex: none; border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+  font: 600 .8rem var(--font-mono); min-width: 30px; height: 28px; border-radius: var(--r-ctl); cursor: pointer; }
+.nfl-week-arrow { display: inline-flex; align-items: center; justify-content: center; }
+.nfl-week-arrow:disabled { opacity: .35; cursor: default; }
+.nfl-week.is-current { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--border)); color: var(--accent-text); }
+.nfl-week.is-on { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--accent-on); }
+.nfl-week:focus-visible, .nfl-week-arrow:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+/* Kurzbilanz + Filter */
+.nfl-summary { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; font-size: .8rem; color: var(--text-muted); }
+.nfl-sum { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.nfl-sum b { color: var(--text-primary); font-weight: 700; }
+.nfl-sum--live b { color: var(--live); }
+.nfl-sum--next svg { color: var(--accent-text); }
+.nfl-sum--bye { color: var(--text-dim); }
+
+.nfl-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.nfl-filter { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); font: 500 .8rem var(--font-ui); padding: 3px 10px; border-radius: var(--r-ctl); cursor: pointer; }
+.nfl-filter.is-on { border-color: var(--accent-fill); color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-fill) 10%, transparent); }
+.nfl-filter-n { font-family: var(--font-mono); font-size: .7rem; color: var(--text-dim); }
+.nfl-filter.is-on .nfl-filter-n { color: var(--accent-text); }
+.nfl-filter:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+.nfl-notice { border: 1px solid var(--border); background: var(--surface-card); border-radius: var(--r-card);
+  padding: 8px 12px; color: var(--bad); font-size: .85rem; }
+.nfl-empty { font-size: .85rem; color: var(--text-dim); padding: 16px 2px; }
+
+/* Spieltag */
+.nfl-day { display: grid; gap: 6px; }
+.nfl-day-head { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-family: var(--font-display);
+  font-weight: 600; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.nfl-day-head::after { content: ''; flex: 1; height: 1px; background: var(--border-soft); order: 1; }
+.nfl-day-n { order: 2; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--text-dim); text-transform: none; }
+.nfl-day-live { order: 3; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--live); text-transform: none; }
+
+.nfl-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+
+/* Spielkarte */
+.nfl-game { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 7px 10px 8px; display: grid; gap: 4px; min-width: 0; }
+.nfl-game.is-post { opacity: .78; }
+.nfl-game.is-in { border-color: color-mix(in srgb, var(--live) 45%, var(--border)); }
+.nfl-game.is-redzone { border-color: var(--live); background: color-mix(in srgb, var(--live) 10%, var(--surface-card)); }
+
+.nfl-game-head { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--text-dim); min-width: 0; }
+.nfl-status { font-family: var(--font-mono); font-weight: 700; letter-spacing: .02em; }
+.nfl-status--live { color: var(--live); }
+.nfl-status--final { color: var(--text-muted); }
+.nfl-status--pre { color: var(--text-primary); }
+.nfl-rz { font-family: var(--font-display); font-weight: 700; font-size: .68rem; letter-spacing: .06em;
+  padding: 0 4px; border-radius: var(--r-ctl); background: var(--live); color: var(--live-on); }
+.nfl-slot { font-family: var(--font-display); font-weight: 600; font-size: .68rem;
+  letter-spacing: .06em; color: var(--text-muted); border: 1px solid var(--border-soft); padding: 0 4px; border-radius: var(--r-ctl); }
+.nfl-venue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; min-width: 0; }
+.nfl-us { font-family: var(--font-mono); font-size: .64rem; color: var(--text-dim); white-space: nowrap; }
+/* Ort, US-Sender und Sendefenster stehen als Block rechts -- welche davon es
+   gibt, ist je Spiel verschieden, darum eine Gruppe statt Geschwister-Regeln. */
+.nfl-game-meta { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
+
+.nfl-team { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-muted); font-size: .88rem; }
+.nfl-team.is-lead { color: var(--text-primary); }
+.nfl-poss { flex: none; width: 5px; height: 5px; border-radius: 50%; }
+.nfl-poss.is-on { background: var(--accent-fill); }
+.nfl-logo { flex: none; width: 20px; height: 20px; object-fit: contain; }
+.nfl-logo--ph { border-radius: 50%; background: var(--border-soft); }
+.nfl-abbr { flex: none; font-weight: 700; font-size: .8rem; width: 34px; }
+.nfl-tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.nfl-rec { flex: none; font-size: .68rem; color: var(--text-dim); }
+.nfl-score { flex: none; margin-left: auto; font-weight: 700; font-size: 1rem; min-width: 26px; text-align: right; }
+.nfl-team.is-lead .nfl-score { color: var(--text-primary); }
+
+.nfl-dd { font-size: .72rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+/* Sender */
+.nfl-game-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  border-top: 1px solid var(--border-soft); padding-top: 5px; margin-top: 1px; }
+.nfl-outlets { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.nfl-outlet { font: 600 .68rem var(--font-ui); padding: 1px 5px; border-radius: var(--r-ctl);
+  border: 1px solid transparent; white-space: nowrap; }
+.nfl-outlet--free { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent);
+  border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+.nfl-outlet--pay { color: var(--text-muted); border-color: var(--border); }
+.nfl-outlet--stream { color: var(--text-dim); border-color: var(--border-soft); }
+.nfl-outlet-hint { font-size: .64rem; color: var(--text-dim); font-style: italic; }
+/* Konferenz steht einmal je Spieltag, direkt unter der Tagesueberschrift. */
+.nfl-conf { font-size: .72rem; color: var(--text-dim); margin: -2px 0 2px; }
+.nfl-note { font-size: .68rem; color: var(--accent-text); }
+
+.nfl-legend { margin: 6px 0 0; font-size: .72rem; color: var(--text-dim); line-height: 1.5; }
+.nfl-legend b { color: var(--text-muted); font-weight: 600; }
+
+@media (max-width: 599px) {
+  .nfl-grid { grid-template-columns: minmax(0, 1fr); }
+  .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface-page); padding: 4px 0; }
+  .nfl-rec { display: none; }
+  .nfl-legend { display: none; }
+}

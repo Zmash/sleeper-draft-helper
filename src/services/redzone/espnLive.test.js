@@ -4,10 +4,12 @@ import { normalizeScoreboard, normalizeScoringPlays, normAbbr, lastKickoffAt } f
 const comp = (over = {}) => ({
   status: { displayClock: '6:09', clock: 369, period: 2, type: { state: 'in', shortDetail: '6:09 - 2nd' } },
   competitors: [
-    { homeAway: 'home', score: '14', team: { id: '4', abbreviation: 'CIN' } },
-    { homeAway: 'away', score: '3', team: { id: '27', abbreviation: 'TB' } },
+    { homeAway: 'home', score: '14', team: { id: '4', abbreviation: 'CIN', shortDisplayName: 'Bengals', logo: 'cin.png', color: 'FB4F14' }, records: [{ type: 'total', summary: '1-0' }] },
+    { homeAway: 'away', score: '3', team: { id: '27', abbreviation: 'TB', shortDisplayName: 'Buccaneers', logo: 'tb.png' } },
   ],
   situation: { possession: '4', isRedZone: true, downDistanceText: '1st & Goal at TB 5', lastPlay: { text: ' J.Burrow pass short right ' } },
+  broadcasts: [{ market: 'national', names: ['FOX'] }],
+  venue: { fullName: 'Paycor Stadium' },
   ...over,
 })
 
@@ -16,9 +18,20 @@ describe('normalizeScoreboard', () => {
     const [g] = normalizeScoreboard({ events: [{ id: 401872925, date: '2026-09-13T17:00Z', competitions: [comp()] }] })
     expect(g).toEqual({
       id: '401872925', date: '2026-09-13T17:00Z', state: 'in', detail: '6:09 - 2nd', period: 2, clock: '6:09', clockSeconds: 369,
-      home: { id: '4', abbr: 'CIN', score: 14 }, away: { id: '27', abbr: 'TB', score: 3 },
+      home: { id: '4', abbr: 'CIN', score: 14, name: 'Bengals', logo: 'cin.png', color: '#FB4F14', record: '1-0' },
+      away: { id: '27', abbr: 'TB', score: 3, name: 'Buccaneers', logo: 'tb.png', color: null, record: null },
       possessionAbbr: 'CIN', isRedZone: true, downDistance: '1st & Goal at TB 5', lastPlay: 'J.Burrow pass short right',
+      network: 'FOX', venue: 'Paycor Stadium', neutralSite: false,
     })
+  })
+
+  it('liest den US-Sender auch aus geoBroadcasts und bleibt ohne Sender still', () => {
+    const c = comp({ broadcasts: [], geoBroadcasts: [{ media: { shortName: 'NBC' } }] })
+    expect(normalizeScoreboard({ events: [{ id: '1', competitions: [c] }] })[0].network).toBe('NBC')
+    const bare = comp({ broadcasts: undefined, geoBroadcasts: undefined, venue: undefined })
+    const [g] = normalizeScoreboard({ events: [{ id: '1', competitions: [bare] }] })
+    expect(g.network).toBeNull()
+    expect(g.venue).toBeNull()
   })
 
   it('ohne numerische Uhr bleibt clockSeconds null', () => {

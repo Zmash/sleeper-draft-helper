@@ -39,6 +39,7 @@ import ShareTargetPage from './pages/ShareTargetPage'
 import AnalysisPage from './pages/AnalysisPage'
 import LineupPage from './pages/LineupPage'
 import RedzonePage from './pages/RedzonePage'
+import NflPage from './pages/NflPage'
 import WeeklyPage from './pages/WeeklyPage'
 import DashboardPage from './pages/DashboardPage'
 import TradePage from './pages/TradePage'
@@ -460,6 +461,7 @@ export default function App() {
       <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
       <Route path="/lineup" element={<LineupPage {...pageProps} />} />
       <Route path="/redzone" element={<RedzonePage />} />
+      <Route path="/nfl" element={<NflPage />} />
       <Route path="/weekly" element={<WeeklyPage />} />
       {/* Alte Lesezeichen auf /waiver (fruehere Bezeichnung dieser Seite)
           laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}

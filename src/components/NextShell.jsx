@@ -28,6 +28,7 @@ const RAIL = [
   { icon: 'chart', tip: 'Analyse', path: '/analyse' },
   { icon: 'roster', tip: 'Lineup', path: '/lineup' },
   { icon: 'clipboard-check', tip: 'Wochenrückblick', path: '/weekly' },
+  { icon: 'calendar', tip: 'NFL — Spielplan & Sender', path: '/nfl' },
 ]
 
 export default function NextShell({ children, pageProps = {} }) {
@@ -114,6 +115,7 @@ export default function NextShell({ children, pageProps = {} }) {
     { group: 'Gehe zu', label: 'Analyse', keys: 'G A', run: () => navigate('/analyse') },
     { group: 'Gehe zu', label: 'Trade-Analyse', keys: 'G T', run: () => navigate('/trade') },
     { group: 'Gehe zu', label: 'Wochenrückblick', keys: 'G W', run: () => navigate('/weekly') },
+    { group: 'Gehe zu', label: 'NFL — Spielplan & Sender', keys: 'G N', run: () => navigate('/nfl') },
     ...(showRedzone ? [{ group: 'Gehe zu', label: 'Redzone', run: () => navigate('/redzone') }] : []),
     { group: 'Gehe zu', label: 'Liga/Mock-Setup', run: () => navigate('/setup', { state: { mode: 'edit' } }) },
     { group: 'Gehe zu', label: 'Profile verwalten', run: () => navigate('/profiles') },
