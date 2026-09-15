@@ -124,9 +124,14 @@
    Der Seitenabstand folgt dem .dashboard-grid (style.css): ein Raster aus
    Karten mit Rahmen und Radius bekommt einen Rand, anders als die randlosen
    Volllisten. */
+/* Aktualisieren steckt im FAB der Bottom-Bar, sobald die da ist. Die Bar
+   erscheint unter 900 px (useIsWideViewport), nicht erst unter 560 px — an
+   einem festen Breakpoint haengte der Knopf dazwischen doppelt herum.
+   body.mobile-nav-active setzt MobileNav selbst, das ist die exakte
+   Bedingung statt einer geratenen Breite. */
+body.mobile-nav-active .nfl-refresh { display: none; }
+
 @media (max-width: 560px) {
-  /* Aktualisieren steckt mobil im FAB der Bottom-Bar. */
-  .nfl-refresh { display: none; }
   .nfl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding-inline: 12px; }
   .nfl-game {
     grid-template-columns: minmax(0, 1fr);

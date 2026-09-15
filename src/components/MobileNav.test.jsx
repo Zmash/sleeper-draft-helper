@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('../stores/useGamesLiveStore', () => {
@@ -51,6 +51,56 @@ describe('MobileNav — Punkt am Sync-Knopf', () => {
       syncLabel: 'Picks aktualisieren', lastSyncAt: Date.now() - 999_000, staleSeconds: 90,
     })
     expect(container.querySelector('.bmb-fab')).toHaveAttribute('aria-label', 'Picks aktualisieren — Stand veraltet')
+  })
+})
+
+describe('MobileNav — Auto-Sync-Sheet per Long-Press', () => {
+  // Der Store ist modulweit: ohne Reset traegt ein Test seinen Schalterstand
+  // in den naechsten.
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    const { useUIStore } = await import('../stores/useUIStore')
+    useUIStore.getState().setAutoSyncEnabled(true)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const press = (el, ms) => {
+    fireEvent.pointerDown(el)
+    act(() => { vi.advanceTimersByTime(ms) })
+    fireEvent.pointerUp(el)
+    fireEvent.click(el)
+  }
+
+  it('kurzer Tap aktualisiert, ohne das Sheet zu oeffnen', () => {
+    const onSync = vi.fn()
+    const { container } = renderNav({ onSync })
+    press(container.querySelector('.bmb-fab'), 100)
+    expect(onSync).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('.bmb-tips-sheet')).not.toHaveClass('is-open')
+  })
+
+  it('langer Druck oeffnet das Sheet und loest KEIN Aktualisieren aus', () => {
+    const onSync = vi.fn()
+    const { container } = renderNav({ onSync })
+    press(container.querySelector('.bmb-fab'), 600)
+    expect(container.querySelector('.bmb-tips-sheet')).toHaveClass('is-open')
+    expect(onSync).not.toHaveBeenCalled()
+  })
+
+  it('schaltet den seitenuebergreifenden Auto-Sync im Sheet', async () => {
+    const { useUIStore } = await import('../stores/useUIStore')
+    const { container } = renderNav({ autoSeconds: 300 })
+    press(container.querySelector('.bmb-fab'), 600)
+    const box = container.querySelector('.bmb-tips-sheet input[type="checkbox"]')
+    expect(box).toBeChecked()
+    fireEvent.click(box)
+    expect(useUIStore.getState().autoSyncEnabled).toBe(false)
+  })
+
+  it('nennt den Takt der offenen Seite', () => {
+    const { container } = renderNav({ autoSeconds: 300 })
+    press(container.querySelector('.bmb-fab'), 600)
+    expect(container.querySelector('.bmb-tips-sheet').textContent).toContain('alle 5 min')
   })
 })
 

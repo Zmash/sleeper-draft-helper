@@ -240,6 +240,13 @@ eigenes `setInterval` (Redzone 30 s, Scores 30 s/5 min, Draft-Picks in
   starten und bei kurzen Takten nie ausloesen.
 - **Veraltet-Schwelle** = `STALE_FACTOR` (3) x Takt, mindestens 90 s. Ein
   verpasster Tick ist normal, drei sind es nicht. Override per `staleSeconds`.
+- **Verwaltet wird Auto-Sync mobil per Long-Press auf den Sync-FAB** (Sheet mit
+  dem Hauptschalter, gleiches Muster wie das Pick-Intervall-Sheet in
+  `BoardMobileBar`), am Desktop im Setup unter „Automatisch aktualisieren".
+- Ein Knopf, den die Bottom-Bar schon traegt, wird per
+  `body.mobile-nav-active` ausgeblendet — **nicht** an einem geratenen
+  Breakpoint. Die Bar erscheint unter 900 px (`useIsWideViewport`); eine
+  `max-width: 560px`-Regel liess den Knopf dazwischen doppelt stehen.
 - Der Punkt am Sync-FAB hat drei Zustaende (`useSyncDot`): gruen = Auto-Sync
   laeuft und Stand frisch, **rot = Stand veraltet** (auch bei ausgeschaltetem
   Auto-Sync — gerade dann soll man es sehen), kein Punkt = nichts zu melden.

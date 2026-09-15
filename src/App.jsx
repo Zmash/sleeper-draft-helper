@@ -535,6 +535,7 @@ export default function App() {
           autoRefreshActive={!!autoSeconds}
           lastSyncAt={pageLastSyncAt}
           staleSeconds={staleSeconds}
+          autoSeconds={autoSeconds}
         />
       )}
       {useNextShell ? (
