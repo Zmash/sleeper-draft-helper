@@ -9,7 +9,7 @@ const TABS = [
   { path: '/analyse', label: 'Analyse', icon: 'chart' },
   { path: '/lineup', label: 'Lineup', icon: 'roster' },
   { path: '/weekly', label: 'Woche', icon: 'clipboard-check' },
-  { path: '/nfl', label: 'NFL', icon: 'calendar' },
+  { path: '/scores', label: 'Scores', icon: 'scoreboard' },
   { path: '/trade', label: 'Trade', icon: 'swap' },
 ]
 

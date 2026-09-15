@@ -4,7 +4,7 @@ import {
   ArrowLeftRight, Search, Eye, EyeOff, ChartColumn, MessageCircle, Radio, Plus, ClipboardCheck,
   Home, Users, LayoutList, Zap, Menu, SlidersHorizontal, ArrowDownToLine, Settings,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trash2, Maximize2, Minimize2, Anchor, Shuffle, ExternalLink, Pencil, Info, Bell,
-  CalendarDays,
+  CalendarDays, SquareActivity,
 } from 'lucide-react'
 
 const MAP = {
@@ -20,7 +20,7 @@ const MAP = {
   'chevron-left': ChevronLeft, 'chevron-right': ChevronRight, 'trash-2': Trash2,
   maximize: Maximize2, minimize: Minimize2, anchor: Anchor, shuffle: Shuffle,
   'external-link': ExternalLink, pencil: Pencil, info: Info, bell: Bell,
-  calendar: CalendarDays,
+  calendar: CalendarDays, scoreboard: SquareActivity,
 }
 
 export default function Icon({ name, size = 18, label, className, strokeWidth = 2 }) {

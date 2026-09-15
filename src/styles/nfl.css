@@ -82,13 +82,9 @@
 .nfl-logo { flex: none; width: 16px; height: 16px; object-fit: contain; }
 .nfl-logo--ph { border-radius: 50%; background: var(--border-soft); }
 .nfl-abbr { flex: none; font-weight: 700; letter-spacing: .01em; }
-/* Bilanz und Punkte stehen als Block rechts, damit die Zahlen beider Zeilen
-   uebereinander liegen -- auch wenn eine Bilanz fehlt. */
-.nfl-vals { flex: none; margin-left: auto; display: flex; align-items: baseline; gap: 6px; }
-/* Feste Spaltenbreiten: "12-5" und "7" duerfen die Spalte nicht anders
-   ausrichten als "1-1" und "31". */
-.nfl-rec { min-width: 26px; text-align: right; font-size: .64rem; color: var(--text-dim); }
-.nfl-score { min-width: 22px; text-align: right; font-weight: 700; font-size: .92rem; }
+/* Feste Breite: "7" darf die Spalte nicht anders ausrichten als "31". */
+.nfl-score { flex: none; margin-left: auto; min-width: 22px; text-align: right;
+  font-weight: 700; font-size: .92rem; }
 .nfl-team.is-lead .nfl-score { color: var(--text-primary); }
 
 /* Rechte Spalte: Status oben, Sender darunter — beides rechtsbuendig, damit
@@ -121,12 +117,33 @@
 .nfl-legend { margin: 6px 0 0; font-size: .72rem; color: var(--text-dim); line-height: 1.5; }
 .nfl-legend b { color: var(--text-muted); font-weight: 600; }
 
-/* Mobil gilt die randlose Haltung des restlichen Apps (style.css, 560px):
-   Zeilen laufen von Kante zu Kante, alles ausserhalb bekommt den gleichen
-   Seitenabstand wie .dashboard-header & Co. */
+/* Mobil zwei Kacheln nebeneinander. In eine halbe Bildschirmbreite passt die
+   Meta-Spalte nicht mehr neben die Teams, also stapelt die Kachel: Status
+   oben, Teams in der Mitte, Sender unten. `display: contents` loest dafuer
+   nur den Meta-Container auf — dieselbe DOM, anderes Raster.
+   Der Seitenabstand folgt dem .dashboard-grid (style.css): ein Raster aus
+   Karten mit Rahmen und Radius bekommt einen Rand, anders als die randlosen
+   Volllisten. */
 @media (max-width: 560px) {
-  .nfl-grid { grid-template-columns: minmax(0, 1fr); }
-  .nfl-game { border-left: 0; border-right: 0; border-radius: 0; }
+  .nfl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding-inline: 12px; }
+  .nfl-game {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'status' 'teams' 'outlets';
+    align-items: stretch;
+    gap: 1px;
+    padding: 5px 7px;
+  }
+  .nfl-meta { display: contents; }
+  .nfl-teams { grid-area: teams; }
+  /* In der halbbreiten Kachel wandert der Punktestand direkt hinter das
+     Kuerzel statt an den rechten Rand — sonst klafft die halbe Kachelbreite
+     zwischen beiden. Feste Kuerzelbreite haelt die Zahlen trotzdem in einer
+     Flucht. */
+  .nfl-team { gap: 4px; }
+  .nfl-abbr { min-width: 38px; }
+  .nfl-score { margin-left: 0; }
+  .nfl-meta-top { grid-area: status; justify-content: flex-start; }
+  .nfl-outlets { grid-area: outlets; text-align: left; }
   .nfl-head, .nfl-summary, .nfl-filters, .nfl-notice, .nfl-empty,
   .nfl-day-head, .nfl-conf, .nfl-legend { padding-inline: 12px; }
   .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky);

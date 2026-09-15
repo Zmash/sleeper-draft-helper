@@ -61,7 +61,7 @@ export default function NflPage() {
   return (
     <section className="nfl-page">
       <header className="nfl-head">
-        <span className="nfl-title">NFL</span>
+        <span className="nfl-title">Scores</span>
         {week && <span className="nfl-muted">Week {week}{season ? ` · ${season}` : ''}</span>}
         {summary.live > 0 && <span className="nfl-live">{summary.live} LIVE</span>}
         <Stamp at={nfl.lastUpdated} />

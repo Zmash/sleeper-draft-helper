@@ -461,7 +461,7 @@ export default function App() {
       <Route path="/analyse" element={<AnalysisPage {...pageProps} />} />
       <Route path="/lineup" element={<LineupPage {...pageProps} />} />
       <Route path="/redzone" element={<RedzonePage />} />
-      <Route path="/nfl" element={<NflPage />} />
+      <Route path="/scores" element={<NflPage />} />
       <Route path="/weekly" element={<WeeklyPage />} />
       {/* Alte Lesezeichen auf /waiver (fruehere Bezeichnung dieser Seite)
           laufen nicht ins Leere, sondern landen auf dem neuen Pfad. */}

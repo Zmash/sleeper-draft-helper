@@ -91,7 +91,7 @@ vereinheitlichen, ohne die Board-Renderpfade komplett zu verstehen.
 
 ### `App.jsx` is the orchestrator
 
-`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`, `/weekly`, `/nfl`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
+`App.jsx` is large by design: it reads from every store, computes all derived values (`teamsCount`, `effRoster`, `effScoringType`, `ownerLabels`, draft slot, per-team scores) with `useMemo`, runs the global effects (league→draft loading, dynasty roster loading, pick polling, draft-change reset), and passes a shared `pageProps` object down to the route pages. Pages (`src/pages/*Page.jsx`) are relatively thin. Routes: `/dashboard`, `/setup`, `/board`, `/analyse`, `/lineup`, `/trade`, `/profiles`, `/redzone`, `/weekly`, `/scores`; `/` redirects based on whether a Sleeper user id is set. `/waiver` and `/roster` are legacy bookmarks redirecting to `/lineup` and `/analyse`.
 
 ### Spieltags-Seiten: `/redzone` (live) und `/weekly` (Rückblick)
 
@@ -116,7 +116,7 @@ zeigt immer nur auf die *zuletzt* geladene Woche und ist beim Blättern nicht ve
 Der Liga-Filter (`LeagueChips` aus `components/redzone/RedzoneParts.jsx`) wird geteilt, die
 abgewählten IDs aber je Seite getrennt persistiert (`sdh-redzone-v1` / `sdh-weekly-v1`).
 
-### `/nfl` — Spielplan, Live-Stand, deutsche Sender
+### `/scores` — Spielplan, Live-Stand, deutsche Sender
 
 Die einzige Seite ohne Liga-Bezug: sie laeuft auch ohne Sleeper-Account. Quelle ist
 dasselbe ESPN-Scoreboard wie in Redzone/Weekly (`services/redzone/espnLive.js`,
@@ -149,11 +149,20 @@ Zwei Punkte, die man beim Anfassen kennen muss:
    nicht in `outlets`: er zeigt jedes Spiel und waere unter jeder Zeile
    dieselbe Angabe — einmal in der Legende der Seite genuegt.
 
-Die Spielzeile (`GameRow`) ist bewusst auf zwei Textzeilen und ~44 px
-begrenzt: links Kuerzel/Bilanz/Punkte, rechts Status und Sender. Was dort
-keinen Platz hat (voller Teamname, Spielort, Down & Distance), haengt am
-`title` der Zeile statt eine dritte Zeile aufzumachen. Der US-Sender wird
-nicht angezeigt — fuer die Frage "wo kann ich das sehen" ist er ohne Belang.
+Die Spielkachel (`GameRow`) hat zwei Layouts aus derselben DOM: ab 561 px
+eine zweizeilige Zeile (links Kuerzel/Punkte, rechts Status und Sender,
+Meta-Spalte fest 140 px), darunter zwei Kacheln nebeneinander mit
+gestapeltem Inhalt (Status / Teams / Sender) — dafuer loest
+`.nfl-meta { display: contents }` nur den Meta-Container auf. Was nirgends
+Platz hat (voller Teamname, Spielort, Down & Distance), haengt am `title`
+der Kachel statt eine weitere Zeile aufzumachen. Nicht angezeigt werden der
+US-Sender (fuer "wo kann ich das sehen" ohne Belang) und die Saisonbilanz
+(die gehoert in die Tabelle, nicht an jedes Spiel).
+
+Beim Anfassen der Spalten: Punktestand und Meta-Spalte haben feste Breiten,
+und der Punktestand wird auch vor dem Anpfiff gerendert (leer). Beides ist
+Absicht — jede Kachel ist ihr eigenes Grid, ohne feste Breiten hat jede Zeile
+eine andere Spaltenflucht. `NflPage.test.jsx` haelt das fest.
 
 ### Draft modes: redraft vs. rookie (dynasty)
 

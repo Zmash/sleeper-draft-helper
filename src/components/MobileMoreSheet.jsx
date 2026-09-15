@@ -12,7 +12,7 @@ const NAV = [
   { icon: 'chart', label: 'Analyse', path: '/analyse' },
   { icon: 'roster', label: 'Lineup', path: '/lineup' },
   { icon: 'clipboard-check', label: 'Wochenrückblick', path: '/weekly' },
-  { icon: 'calendar', label: 'NFL — Spielplan & Sender', path: '/nfl' },
+  { icon: 'scoreboard', label: 'Scores', path: '/scores' },
   { icon: 'swap', label: 'Trade', path: '/trade' },
 ]
 

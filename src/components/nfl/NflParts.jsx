@@ -123,13 +123,10 @@ function TeamLine({ side, game, lead }) {
           ohnehin nur "Buc..." uebrig, und das sagt weniger als "TB". Der
           volle Name haengt am Titel der Zeile. */}
       <span className="nfl-abbr">{side.abbr}</span>
-      {/* Bilanz und Punktestand werden IMMER gerendert, auch leer: sonst
-          verrutscht die Zahlenspalte, sobald ESPN fuer ein Team keine Bilanz
-          liefert oder ein Spiel noch nicht angepfiffen ist. */}
-      <span className="nfl-vals">
-        <span className="nfl-rec nfl-num">{side.record || ''}</span>
-        <span className="nfl-score nfl-num">{game.state === 'pre' ? '' : side.score}</span>
-      </span>
+      {/* Der Punktestand wird IMMER gerendert, auch leer: sonst verrutscht die
+          Zahlenspalte, sobald ein Spiel noch nicht angepfiffen ist. Die
+          Saisonbilanz steht bewusst nicht hier — die gehoert in die Tabelle. */}
+      <span className="nfl-score nfl-num">{game.state === 'pre' ? '' : side.score}</span>
     </span>
   )
 }
