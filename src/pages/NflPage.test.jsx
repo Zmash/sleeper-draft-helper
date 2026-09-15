@@ -89,6 +89,26 @@ describe('NflPage', () => {
     expect(nfl.load).toHaveBeenCalledWith({ season: '2026', force: true })
   })
 
+  // Die Zahlenspalten sind der Grund, warum Bilanz und Punktestand immer
+  // gerendert werden: fehlt eines der beiden Felder, verrutscht sonst die
+  // ganze Zeile gegen ihre Nachbarn.
+  it('reserviert Bilanz- und Punktespalte auch ohne Werte', () => {
+    nfl.gamesByWeek = { 3: [
+      game('ohne-record', { home: side('CIN', 0, { record: null }), away: side('TB', 0, { record: null }) }),
+      game('final', { state: 'post', period: 4, home: side('GB', 31), away: side('DET', 7) }),
+    ] }
+    const { container } = render(<NflPage />)
+    const lines = container.querySelectorAll('.nfl-team')
+    expect(lines).toHaveLength(4)
+    for (const line of lines) {
+      expect(line.querySelectorAll('.nfl-rec')).toHaveLength(1)
+      expect(line.querySelectorAll('.nfl-score')).toHaveLength(1)
+    }
+    // Vor dem Anpfiff bleibt der Platz leer, statt "–" zu wiederholen.
+    expect(within(lines[0]).getByText('', { selector: '.nfl-score' })).toBeInTheDocument()
+    expect(within(lines[3]).getByText('31', { selector: '.nfl-score' })).toBeInTheDocument()
+  })
+
   it('zeigt die Bye-Teams der Woche', () => {
     nfl.week = 5
     nfl.gamesByWeek = { 5: [game('a')] }

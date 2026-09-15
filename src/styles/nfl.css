@@ -54,12 +54,18 @@
 .nfl-day-n { order: 2; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--text-dim); text-transform: none; }
 .nfl-day-live { order: 3; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--live); text-transform: none; }
 
-.nfl-grid { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.nfl-grid { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 
 /* Spielzeile: zwei Zeilen, links die Teams, rechts Status und Sender. Bewusst
    flach und schmal — auf einen Blick viele Spiele statt grosser Kacheln.
    Teams links, Meta rechts; beide Spalten sind genau zwei Zeilen hoch. */
-.nfl-game { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 6px;
+/* Feste Breite der Meta-Spalte statt `auto`: jede Zeile ist ihr eigenes Grid,
+   eine inhaltsabhaengige Spalte waere also je Zeile anders breit — und damit
+   saemtliche Zahlen davor. 140px = im Browser gemessener laengster Inhalt
+   ("RTL · RTL+ · Sky Ausw." braucht 123px) + 8px Innenabstand + Reserve;
+   die Teams-Spalte kommt mit ~125px aus und hat daneben genug Luft. */
+.nfl-game { --nfl-meta-w: 140px;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--nfl-meta-w); align-items: center; gap: 4px 6px;
   background: var(--surface-card); border: 1px solid var(--border-soft); border-radius: var(--r-card);
   padding: 4px 8px; min-height: 44px; min-width: 0; }
 .nfl-game > * { min-width: 0; }
@@ -79,15 +85,18 @@
 /* Bilanz und Punkte stehen als Block rechts, damit die Zahlen beider Zeilen
    uebereinander liegen -- auch wenn eine Bilanz fehlt. */
 .nfl-vals { flex: none; margin-left: auto; display: flex; align-items: baseline; gap: 6px; }
-.nfl-rec { font-size: .64rem; color: var(--text-dim); }
-.nfl-score { min-width: 20px; text-align: right; font-weight: 700; font-size: .92rem; }
+/* Feste Spaltenbreiten: "12-5" und "7" duerfen die Spalte nicht anders
+   ausrichten als "1-1" und "31". */
+.nfl-rec { min-width: 26px; text-align: right; font-size: .64rem; color: var(--text-dim); }
+.nfl-score { min-width: 22px; text-align: right; font-weight: 700; font-size: .92rem; }
 .nfl-team.is-lead .nfl-score { color: var(--text-primary); }
 
 /* Rechte Spalte: Status oben, Sender darunter — beides rechtsbuendig, damit
    die Spalte in einem mehrspaltigen Raster eine ruhige Kante bildet. */
-.nfl-meta { display: grid; gap: 1px; justify-items: end; text-align: right; flex: none;
+.nfl-meta { display: grid; gap: 1px; justify-items: end; text-align: right; min-width: 0;
   /* Trennlinie zum Spielstand: ohne sie liest sich "21 RTL" als eine Angabe. */
   border-left: 1px solid var(--border-soft); padding-left: 8px; }
+.nfl-meta > * { max-width: 100%; }
 .nfl-meta-top { display: flex; align-items: center; gap: 4px; }
 .nfl-status { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700;
   font-size: .72rem; white-space: nowrap; }
@@ -97,7 +106,8 @@
 .nfl-rz { font-family: var(--font-display); font-weight: 700; font-size: .62rem; letter-spacing: .06em;
   padding: 0 3px; border-radius: var(--r-ctl); background: var(--live); color: var(--live-on); }
 
-.nfl-outlets { font-size: .68rem; white-space: nowrap; color: var(--text-dim); }
+.nfl-outlets { font-size: .68rem; white-space: nowrap; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; }
 .nfl-outlets.is-empty { color: var(--text-dim); }
 .nfl-outlet--free { color: var(--good); font-weight: 600; }
 .nfl-outlet--pay, .nfl-outlet--stream { color: var(--text-dim); }
@@ -111,7 +121,14 @@
 .nfl-legend { margin: 6px 0 0; font-size: .72rem; color: var(--text-dim); line-height: 1.5; }
 .nfl-legend b { color: var(--text-muted); font-weight: 600; }
 
-@media (max-width: 599px) {
+/* Mobil gilt die randlose Haltung des restlichen Apps (style.css, 560px):
+   Zeilen laufen von Kante zu Kante, alles ausserhalb bekommt den gleichen
+   Seitenabstand wie .dashboard-header & Co. */
+@media (max-width: 560px) {
   .nfl-grid { grid-template-columns: minmax(0, 1fr); }
-  .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface-page); padding: 4px 0; }
+  .nfl-game { border-left: 0; border-right: 0; border-radius: 0; }
+  .nfl-head, .nfl-summary, .nfl-filters, .nfl-notice, .nfl-empty,
+  .nfl-day-head, .nfl-conf, .nfl-legend { padding-inline: 12px; }
+  .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky);
+    background: var(--surface-page); padding: 4px 12px; }
 }
