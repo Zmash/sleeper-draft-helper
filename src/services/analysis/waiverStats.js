@@ -82,20 +82,39 @@ export function pickupRanking({
   return [...hasValue, ...noValue]
 }
 
-function sortByRank(agents, rankByKey, ptsByPlayerId) {
-  return agents
-    .map((a) => ({ ...a, rank: rankByKey.get(matchKey(a.pos, a)) ?? null, pts: ptsByPlayerId?.get(String(a.player_id)) ?? null }))
-    .filter((a) => a.rank != null)
-    .sort((x, y) => x.rank - y.rank)
+// Eigene Kaderspieler kommen aus dynastyRoster (Feld sleeper_id), Free Agents
+// aus freeAgents() (Feld player_id) -- hier auf eine Form gebracht, damit beide
+// in derselben Rangliste stehen koennen. own markiert die eigene Zeile.
+function asBoardEntry(p, own) {
+  return { ...p, player_id: String(p.player_id ?? p.sleeper_id ?? ''), own }
 }
 
-export function streamingBoard({ freeAgents: agents = [], weeklyRankByKey = new Map(), rosRankByKey = new Map(), ptsByPlayerId = new Map(), positions = [] } = {}) {
+// Ohne Rang gibt es nichts zu vergleichen -- fremde Spieler fliegen darum raus.
+// Der EIGENE Spieler bleibt trotzdem stehen (ans Ende sortiert, Rang '-'):
+// dass der eigene Streamer diese Woche gar nicht gerankt ist, ist genau die
+// Information, wegen der man auf die Waiver-Liste schaut.
+function sortByRank(entries, rankByKey, ptsByPlayerId) {
+  return entries
+    .map((a) => ({ ...a, rank: rankByKey.get(matchKey(a.pos, a)) ?? null, pts: ptsByPlayerId?.get(String(a.player_id)) ?? null }))
+    .filter((a) => a.rank != null || a.own)
+    .sort((x, y) => (x.rank ?? Infinity) - (y.rank ?? Infinity))
+}
+
+// myPlayers: der eigene Kader (dynastyRoster). Die eigenen Spieler der
+// Streaming-Position werden mit in die Rangliste einsortiert (own: true) --
+// ohne diese Referenzzeile laesst sich nicht abschaetzen, ob ein Waiver-Claim
+// ueberhaupt ein Upgrade waere. Rostered Spieler tauchen nie in freeAgents auf,
+// Doppelzeilen sind also ausgeschlossen.
+export function streamingBoard({ freeAgents: agents = [], myPlayers = [], weeklyRankByKey = new Map(), rosRankByKey = new Map(), ptsByPlayerId = new Map(), positions = [] } = {}) {
   const out = {}
   for (const pos of positions) {
-    const posAgents = agents.filter((a) => a.pos === pos)
+    const entries = [
+      ...agents.filter((a) => a.pos === pos).map((a) => asBoardEntry(a, false)),
+      ...myPlayers.filter((p) => p.pos === pos).map((p) => asBoardEntry(p, true)),
+    ]
     out[pos] = {
-      week: sortByRank(posAgents, weeklyRankByKey, ptsByPlayerId),
-      ros: sortByRank(posAgents, rosRankByKey),
+      week: sortByRank(entries, weeklyRankByKey, ptsByPlayerId),
+      ros: sortByRank(entries, rosRankByKey),
     }
   }
   return out

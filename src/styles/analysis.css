@@ -446,6 +446,22 @@
    Mobil-Ausblendlogik haengt. */
 .an-col-sub { display: block; font-size: .62rem; font-weight: 400; color: var(--muted, #888); }
 .an-num-dim { color: var(--muted, #888); }
+/* Eigener Kader im Streaming-Ranking: der eigene Spieler steht mit in der
+   Liste, damit sich ablesen laesst, ob ein Waiver-Claim ueberhaupt ein Upgrade
+   waere. Farbe ist der Leitmarker (Accent-Tint + Accent-Kante), das
+   "(eigen)"-Kuerzel im Namen der Fallback fuer alle, die die Faerbung nicht
+   sehen. box-shadow statt border-left, damit das Zeilen-Grid nicht verspringt. */
+.an-listrow.is-own {
+  background: color-mix(in srgb, var(--accent, #4ea1ff) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent, #4ea1ff);
+  border-radius: 2px;
+}
+.an-listrow.is-own .an-listname { color: var(--accent, #4ea1ff); font-weight: 600; }
+.an-own-tag { font-size: .68rem; font-weight: 400; color: var(--muted, #888); }
+/* Trenner, wenn der eigene Spieler ausserhalb der Top-10 angehaengt wird --
+   sonst sieht die Liste nach einer luecklosen Rangfolge aus. */
+.an-stream-gap { color: var(--muted, #888); font-size: .8rem; line-height: 1; padding: .12rem 0 .06rem; }
+
 /* Mit Pkt-Spalte (Redraft): Woche | Pkt | ROS. Pickups haben zusaetzlich die
    Team-Spur, Streaming nicht -- darum eigene Templates je Karte. */
 .an-card--stream--pts .an-listrow { grid-template-columns: 2.5rem minmax(4rem, 11rem) 1.7rem 2.2rem 2.4rem 2.2rem; }

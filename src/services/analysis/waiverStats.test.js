@@ -120,6 +120,34 @@ describe('streamingBoard', () => {
     expect(out.DEF.ros.map((p) => p.player_id)).toEqual(['1', '2'])
   })
 
+  it('mischt eigene Kaderspieler mit own-Flag in die Rangliste', () => {
+    const out = streamingBoard({
+      freeAgents: agents,
+      myPlayers: [{ sleeper_id: 99, name: 'Def Mine', nname: 'defmine', pos: 'DEF', team: 'KC' }],
+      weeklyRankByKey: new Map([['TEAM:SEA', 3], ['TEAM:NYJ', 1], ['TEAM:KC', 2]]),
+      rosRankByKey: new Map([['TEAM:SEA', 1], ['TEAM:NYJ', 5], ['TEAM:KC', 3]]),
+      ptsByPlayerId: new Map([['99', 9.25]]),
+      positions: ['DEF'],
+    })
+    expect(out.DEF.week.map((p) => p.player_id)).toEqual(['2', '99', '1'])
+    const mine = out.DEF.week.find((p) => p.player_id === '99')
+    expect(mine.own).toBe(true)
+    expect(mine.pts).toBe(9.25)
+    expect(out.DEF.week.find((p) => p.player_id === '1').own).toBe(false)
+    expect(out.DEF.ros.map((p) => p.player_id)).toEqual(['1', '99', '2'])
+  })
+
+  it('behaelt den eigenen Spieler ohne Rang (ans Ende), fremde ohne Rang fliegen raus', () => {
+    const out = streamingBoard({
+      freeAgents: agents,
+      myPlayers: [{ sleeper_id: 99, name: 'Def Mine', nname: 'defmine', pos: 'DEF', team: 'KC' }],
+      weeklyRankByKey: new Map([['TEAM:NYJ', 1]]),
+      positions: ['DEF'],
+    })
+    expect(out.DEF.week.map((p) => p.player_id)).toEqual(['2', '99'])
+    expect(out.DEF.week[1].rank).toBeNull()
+  })
+
   it('haengt projizierte Punkte an Week-Eintraege (optionale ptsByPlayerId-Map)', () => {
     const out = streamingBoard({
       freeAgents: agents,

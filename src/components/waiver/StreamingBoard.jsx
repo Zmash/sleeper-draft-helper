@@ -2,6 +2,25 @@
 import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatProjectedPts } from '../../utils/formatting'
 
 const ALL_POSITIONS = ['DEF', 'QB', 'TE']
+const TOP_N = 10
+
+function renderRow(p, rosByPlayer, ptsLoaded) {
+  return (
+    <div className={cx('an-listrow', p.own && 'is-own')} key={p.player_id} title={p.own ? 'Eigener Kader' : undefined}>
+      <span className="an-pos" style={{ background: posColor(p.pos) }}>{posBadgeLabel(p)}</span>
+      <a className="an-listname" href={fantasyProsPlayerUrl(p.name, p)} target="_blank" rel="noreferrer">
+        {p.name}
+        {p.own && <span className="an-own-tag"> (eigen)</span>}
+      </a>
+      <span className={cx('an-inj', p.injury_status && p.injury_status !== 'Questionable' && 'is-out')}>
+        {p.injury_status ? injuryLabel(p.injury_status) : ''}
+      </span>
+      <span className="an-num">{p.rank ?? '–'}</span>
+      {ptsLoaded && <span className="an-num">{formatProjectedPts(p.pts)}</span>}
+      <span className="an-num an-num-dim">{rosByPlayer.get(p.player_id) ?? '–'}</span>
+    </div>
+  )
+}
 
 export default function StreamingBoard({ board = {}, positions = [], availablePositions = null, onTogglePosition, ptsLoaded = false, sourceNote = null }) {
   // availablePositions kommt aus der Liga (LineupPage); ohne Prop fallen wir
@@ -27,6 +46,12 @@ export default function StreamingBoard({ board = {}, positions = [], availablePo
         if (!visible.includes(pos)) return null
         const week = board[pos]?.week || []
         const rosByPlayer = new Map((board[pos]?.ros || []).map((p) => [p.player_id, p.rank]))
+        // Top 10 wie bisher -- die eigenen Spieler dieser Position haengen wir
+        // aber IMMER an, auch wenn sie schlechter als Rang 10 stehen: genau
+        // dann ist die Frage "lohnt sich ein Waiver-Claim?" ja interessant.
+        const top = week.slice(0, TOP_N)
+        const shown = new Set(top.map((p) => p.player_id))
+        const ownBelow = week.filter((p) => p.own && !shown.has(p.player_id))
         return (
           <div key={pos} className="an-batch">
             <div className="an-listrow an-listrow-head">
@@ -37,18 +62,11 @@ export default function StreamingBoard({ board = {}, positions = [], availablePo
               {ptsLoaded && <span className="an-num" title="Sleeper-Wochenprojektion in Punkten – größer ist besser">Pkt</span>}
               <span className="an-num an-num-dim" title="FantasyPros-Rest-der-Saison-Rang – kleiner ist besser">Rang<span className="an-col-sub">ROS</span></span>
             </div>
-            {week.slice(0, 10).map((p) => (
-              <div className="an-listrow" key={p.player_id}>
-                <span className="an-pos" style={{ background: posColor(p.pos) }}>{posBadgeLabel(p)}</span>
-                <a className="an-listname" href={fantasyProsPlayerUrl(p.name, p)} target="_blank" rel="noreferrer">{p.name}</a>
-                <span className={cx('an-inj', p.injury_status && p.injury_status !== 'Questionable' && 'is-out')}>
-                  {p.injury_status ? injuryLabel(p.injury_status) : ''}
-                </span>
-                <span className="an-num">{p.rank ?? '–'}</span>
-                {ptsLoaded && <span className="an-num">{formatProjectedPts(p.pts)}</span>}
-                <span className="an-num an-num-dim">{rosByPlayer.get(p.player_id) ?? '–'}</span>
-              </div>
-            ))}
+            {top.map((p) => renderRow(p, rosByPlayer, ptsLoaded))}
+            {!!ownBelow.length && (
+              <div className="an-stream-gap" aria-hidden="true">…</div>
+            )}
+            {ownBelow.map((p) => renderRow(p, rosByPlayer, ptsLoaded))}
             {!week.length && <p className="an-card-empty">Keine Daten</p>}
           </div>
         )

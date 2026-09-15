@@ -316,6 +316,15 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
     [pickups]
   )
 
+  // Eigene Spieler der Streaming-Positionen: sie werden im Board mit
+  // einsortiert, damit der Vergleich "mein Streamer vs. Waiver-Wire" in einer
+  // Liste steht. Taxi/IR bleiben aussen vor -- diese Woche ohnehin nicht
+  // startbar und damit kein Massstab fuer einen Claim.
+  const myStreamPlayers = useMemo(
+    () => dynastyRoster.filter((p) => effectiveStreamPositions.includes(p.pos) && p.slot !== 'taxi' && p.slot !== 'ir'),
+    [dynastyRoster, effectiveStreamPositions]
+  )
+
   const board = useMemo(() => {
     const weeklyMerged = new Map()
     const rosMerged = new Map()
@@ -323,8 +332,8 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       for (const [k, v] of getRankMap({ pos, scope: 'week' })) weeklyMerged.set(k, v)
       for (const [k, v] of getRankMap({ pos, scope: 'ros' })) rosMerged.set(k, v)
     }
-    return streamingBoard({ freeAgents: agents, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, ptsByPlayerId: sleeperPtsByPlayerId, positions: effectiveStreamPositions })
-  }, [agents, effectiveStreamPositions, byKey, getRankMap, sleeperPtsByPlayerId])
+    return streamingBoard({ freeAgents: agents, myPlayers: myStreamPlayers, weeklyRankByKey: weeklyMerged, rosRankByKey: rosMerged, ptsByPlayerId: sleeperPtsByPlayerId, positions: effectiveStreamPositions })
+  }, [agents, myStreamPlayers, effectiveStreamPositions, byKey, getRankMap, sleeperPtsByPlayerId])
 
   const streamPtsLoaded = useMemo(
     () => Object.values(board).some((b) => (b.week || []).some((p) => p.pts != null)),
@@ -516,7 +525,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           availablePositions={availableStreamPositions}
           onTogglePosition={toggleStreamPosition}
           ptsLoaded={streamPtsLoaded}
-          sourceNote={`Woche/ROS: FantasyPros (${scoring.toUpperCase()})${streamPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}
+          sourceNote={`Woche/ROS: FantasyPros (${scoring.toUpperCase()})${streamPtsLoaded ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser${myStreamPlayers.length ? ' · farbig hervorgehoben: eigener Kader' : ''}`}
         />
       </div>
       )}
