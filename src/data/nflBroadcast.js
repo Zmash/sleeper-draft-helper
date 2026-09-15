@@ -17,12 +17,13 @@ import { berlinParts } from '../utils/berlinTime'
 // nennen wir nur den Game Pass statt einer geratenen Rechtelage.
 export const RIGHTS_SEASONS = [2026, 2027, 2028]
 
-const GAME_PASS = { name: 'NFL Game Pass', kind: 'stream', hint: 'Alle Spiele, US-Originalkommentar (ueber DAZN)' }
-
-const RTL = { name: 'RTL', kind: 'free' }
-const NITRO = { name: 'NITRO', kind: 'free' }
-const RTL_PLUS = { name: 'RTL+', kind: 'stream' }
-const SKY = { name: 'Sky Sport', kind: 'pay' }
+// Der NFL Game Pass zeigt jedes Spiel und steht deshalb bewusst NICHT je Spiel
+// dran -- er waere unter jedem Eintrag dieselbe Zeile. Einmal in der Legende
+// der Seite genuegt.
+const RTL = { name: 'RTL', short: 'RTL', kind: 'free' }
+const NITRO = { name: 'NITRO', short: 'NITRO', kind: 'free' }
+const RTL_PLUS = { name: 'RTL+', short: 'RTL+', kind: 'stream' }
+const SKY = { name: 'Sky Sport', short: 'Sky', kind: 'pay' }
 
 // Die deutschsprachige Konferenz laeuft sonntags ab 19:00 Uhr auf Sky Sport
 // Top Event; in den ersten drei Spielwochen zusaetzlich frei bei NITRO.
@@ -77,7 +78,7 @@ export function slotForKickoff(date) {
  * @param {{date?: string|Date}} game  Spiel aus normalizeScoreboard
  * @param {{week?: number, season?: number|string}} ctx
  * @returns {{slot:string|null, label:string, short:string, selection:boolean,
- *            outlets:Array<{name:string,kind:string,hint?:string}>,
+ *            outlets:Array<{name:string,short:string,kind:string}>,
  *            conference:string|null, note:string|null}}
  */
 export function broadcastFor(game, { week, season } = {}) {
@@ -99,7 +100,7 @@ export function broadcastFor(game, { week, season } = {}) {
     label: slot?.label || 'Spiel',
     short: slot?.short || '',
     selection: !!slot?.selection,
-    outlets: [...(slot?.outlets || []), GAME_PASS],
+    outlets: slot?.outlets || [],
     conference: slot?.conference ? conferenceFor(week) : null,
     note: notes.length ? notes.join(' ') : null,
   }

@@ -56,15 +56,15 @@ describe('NflPage', () => {
     expect(screen.getByText('1 LIVE')).toBeInTheDocument()
   })
 
-  it('nennt zu jedem Spiel die deutschen Sender', () => {
+  it('nennt zu jedem Spiel die deutschen Sender, aber nicht den Game Pass', () => {
     render(<NflPage />)
-    // Nachtspiel: feste Uebertragung bei RTL und Sky.
-    expect(screen.getAllByText('RTL').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Sky Sport').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('NFL Game Pass')).toHaveLength(3)
-    // Sonntagsfenster: nur eine Auswahl, das muss an der Karte stehen
-    // (der gleichlautende Hinweis in der Legende zaehlt hier nicht mit).
-    expect(screen.getAllByTitle(/Die Sender wählen pro Fenster/)).toHaveLength(2)
+    expect(screen.getAllByText('RTL').length).toBe(3)
+    expect(screen.getAllByText('Sky').length).toBe(3)
+    // Der Game Pass zeigt ohnehin jedes Spiel -- er steht nur in der Legende,
+    // nicht an jeder Zeile.
+    expect(screen.queryByTitle('NFL Game Pass')).not.toBeInTheDocument()
+    // Sonntagsfenster: nur eine Auswahl, das muss an der Zeile stehen.
+    expect(screen.getAllByTitle(/Die Sender zeigen je ein Spiel/)).toHaveLength(2)
   })
 
   it('filtert auf laufende Spiele', () => {

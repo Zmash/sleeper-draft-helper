@@ -88,68 +88,77 @@ export function FilterBar({ value, onChange, counts = {} }) {
 
 // ── Sender ──────────────────────────────────────────────────────────────────
 
-export function OutletChips({ broadcast }) {
-  if (!broadcast) return null
+// Bewusst Text statt Kacheln: pro Spiel stehen hier bis zu drei Sender, als
+// umrandete Chips waere das die Haelfte der Zeilenhoehe fuer eine Nebeninfo.
+// Free-TV ist farbig, alles andere gedimmt.
+export function Outlets({ broadcast }) {
+  if (!broadcast?.outlets.length) return <span className="nfl-outlets is-empty">—</span>
   return (
-    <div className="nfl-outlets">
-      {broadcast.outlets.map((o) => (
-        <span
-          key={o.name}
-          className={cx('nfl-outlet', `nfl-outlet--${o.kind}`)}
-          title={o.hint || (broadcast.selection ? `${o.name} zeigt ein Spiel aus diesem Fenster` : `${o.name} überträgt dieses Spiel`)}
-        >
-          {o.name}
+    <span className="nfl-outlets">
+      {broadcast.outlets.map((o, i) => (
+        <span key={o.name} className={cx('nfl-outlet', `nfl-outlet--${o.kind}`)} title={o.name}>
+          {i > 0 && <span className="nfl-outlet-sep"> · </span>}
+          {o.short}
         </span>
       ))}
-      {broadcast.selection && <span className="nfl-outlet-hint" title="Die Sender wählen pro Fenster ein Spiel aus.">Auswahl</span>}
-    </div>
+      {broadcast.selection && (
+        <span className="nfl-outlet-sel" title="Die Sender zeigen je ein Spiel aus diesem Fenster — welches, steht erst kurzfristig fest.">
+          {' '}Ausw.
+        </span>
+      )}
+    </span>
   )
 }
 
-// ── Spielkarte ──────────────────────────────────────────────────────────────
+// ── Spielzeile ──────────────────────────────────────────────────────────────
 
-function TeamRow({ side, game, lead }) {
-  const hasScore = game.state !== 'pre'
+function TeamLine({ side, game, lead }) {
   return (
-    <div className={cx('nfl-team', lead && 'is-lead')}>
-      <span
-        className={cx('nfl-poss', isLive(game) && game.possessionAbbr === side.abbr && 'is-on')}
-        title={isLive(game) && game.possessionAbbr === side.abbr ? 'Ballbesitz' : undefined}
-      />
+    <span className={cx('nfl-team', lead && 'is-lead')}>
+      <span className={cx('nfl-poss', isLive(game) && game.possessionAbbr === side.abbr && 'is-on')} />
       {side.logo
-        ? <img className="nfl-logo" src={side.logo} alt="" loading="lazy" width="20" height="20" />
+        ? <img className="nfl-logo" src={side.logo} alt="" loading="lazy" width="16" height="16" />
         : <span className="nfl-logo nfl-logo--ph" aria-hidden="true" />}
+      {/* Nur das Kuerzel, kein Teamname: in einer 44px-Zeile bliebe davon
+          ohnehin nur "Buc..." uebrig, und das sagt weniger als "TB". Der
+          volle Name haengt am Titel der Zeile. */}
       <span className="nfl-abbr">{side.abbr}</span>
-      <span className="nfl-tname">{side.name}</span>
-      {side.record && <span className="nfl-rec nfl-num">{side.record}</span>}
-      <span className="nfl-score nfl-num">{hasScore ? side.score : '–'}</span>
-    </div>
+      <span className="nfl-vals">
+        {side.record && <span className="nfl-rec nfl-num">{side.record}</span>}
+        {/* Vor dem Anpfiff bleibt die Spalte leer statt "–" zu wiederholen --
+            die Kickoff-Zeit rechts sagt bereits, dass noch nichts steht. */}
+        <span className="nfl-score nfl-num">{game.state === 'pre' ? '' : side.score}</span>
+      </span>
+    </span>
   )
 }
 
-export function GameCard({ game }) {
+export function GameRow({ game }) {
   const status = statusLabel(game)
   const lead = leaderAbbr(game)
   const bc = game.broadcast
   const redzone = isLive(game) && game.isRedZone
+  // Spielort und Down/Distance haben in zwei Zeilen keinen Platz — sie haengen
+  // am Titel, statt eine dritte Zeile aufzumachen.
+  const title = [
+    `${game.away.name || game.away.abbr} bei ${game.home.name || game.home.abbr}`,
+    bc?.label,
+    game.venue,
+    isLive(game) ? game.downDistance : null,
+  ].filter(Boolean).join(' · ')
   return (
-    <article className={cx('nfl-game', `is-${game.state}`, redzone && 'is-redzone')}>
-      <div className="nfl-game-head">
-        <span className={cx('nfl-status', `nfl-status--${status.tone}`)}>{status.text}</span>
-        {redzone && <span className="nfl-rz">RZ</span>}
-        <span className="nfl-game-meta">
-          {game.neutralSite && game.venue && <span className="nfl-venue" title={game.venue}>{game.venue}</span>}
-          {game.network && <span className="nfl-us" title="US-Sender">{game.network}</span>}
-          {bc?.short && <span className="nfl-slot" title={bc.label}>{bc.short}</span>}
+    <article className={cx('nfl-game', `is-${game.state}`, redzone && 'is-redzone')} title={title}>
+      <span className="nfl-teams">
+        <TeamLine side={game.away} game={game} lead={lead === game.away.abbr} />
+        <TeamLine side={game.home} game={game} lead={lead === game.home.abbr} />
+      </span>
+      <span className="nfl-meta">
+        <span className="nfl-meta-top">
+          {redzone && <span className="nfl-rz">RZ</span>}
+          <span className={cx('nfl-status', `nfl-status--${status.tone}`)}>{status.text}</span>
         </span>
-      </div>
-      <TeamRow side={game.away} game={game} lead={lead === game.away.abbr} />
-      <TeamRow side={game.home} game={game} lead={lead === game.home.abbr} />
-      {isLive(game) && game.downDistance && <div className="nfl-dd">{game.downDistance}</div>}
-      <div className="nfl-game-foot">
-        <OutletChips broadcast={bc} />
-      </div>
-      {bc?.note && <div className="nfl-note">{bc.note}</div>}
+        <Outlets broadcast={bc} />
+      </span>
     </article>
   )
 }
@@ -170,7 +179,7 @@ export function DaySection({ group }) {
       </h3>
       {conference && <div className="nfl-conf">{conference}</div>}
       <div className="nfl-grid">
-        {group.games.map((g) => <GameCard key={g.id} game={g} />)}
+        {group.games.map((g) => <GameRow key={g.id} game={g} />)}
       </div>
     </section>
   )

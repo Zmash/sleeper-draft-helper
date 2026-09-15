@@ -41,14 +41,14 @@ describe('broadcastFor', () => {
     const bc = broadcastFor({ date: '2026-09-21T00:20:00Z' }, ctx)
     expect(bc.label).toBe('Sunday Night Football')
     expect(bc.short).toBe('SNF')
-    expect(names(bc)).toEqual(['RTL', 'Sky Sport', 'NFL Game Pass'])
+    expect(names(bc)).toEqual(['RTL', 'Sky Sport'])
     expect(bc.selection).toBe(false)
   })
 
   it('markiert die Sonntagsfenster als Auswahl und nennt die Konferenz', () => {
     const bc = broadcastFor({ date: '2026-09-20T17:00:00Z' }, ctx)
     expect(bc.selection).toBe(true)
-    expect(names(bc)).toEqual(['RTL', 'RTL+', 'Sky Sport', 'NFL Game Pass'])
+    expect(names(bc)).toEqual(['RTL', 'RTL+', 'Sky Sport'])
     expect(bc.conference).toContain('Sky Sport Top Event')
     expect(bc.conference).toContain('NITRO') // Wochen 1-3
   })
@@ -63,7 +63,7 @@ describe('broadcastFor', () => {
     expect(bc.short).toBe('INTL')
     // Keine Auswahl und kein Zusatzhinweis: die RTL-Kachel steht fuer sich.
     expect(bc.selection).toBe(false)
-    expect(names(bc)).toEqual(['RTL', 'NFL Game Pass'])
+    expect(names(bc)).toEqual(['RTL'])
     expect(bc.note).toBeNull()
   })
 
@@ -72,9 +72,9 @@ describe('broadcastFor', () => {
     expect(bc.note).toContain('Christmas Game')
   })
 
-  it('nennt ausserhalb der hinterlegten Saisons nur den Game Pass', () => {
+  it('nennt ausserhalb der hinterlegten Saisons gar keinen Sender, sondern sagt warum', () => {
     const bc = broadcastFor({ date: '2030-09-22T17:00:00Z' }, { week: 3, season: 2030 })
-    expect(names(bc)).toEqual(['NFL Game Pass'])
+    expect(names(bc)).toEqual([])
     expect(bc.note).toContain('nicht hinterlegt')
     expect(RIGHTS_SEASONS).not.toContain(2030)
   })
@@ -82,6 +82,11 @@ describe('broadcastFor', () => {
   it('kommt ohne Termin klar', () => {
     const bc = broadcastFor({}, ctx)
     expect(bc.slot).toBeNull()
-    expect(names(bc)).toEqual(['NFL Game Pass'])
+    expect(names(bc)).toEqual([])
+  })
+
+  it('liefert Kurznamen fuer die enge Darstellung', () => {
+    const bc = broadcastFor({ date: '2026-09-20T17:00:00Z' }, ctx)
+    expect(bc.outlets.map((o) => o.short)).toEqual(['RTL', 'RTL+', 'Sky'])
   })
 })

@@ -144,8 +144,16 @@ Zwei Punkte, die man beim Anfassen kennen muss:
    bzw. Sky in einer Woche waehlen, gibt keine offene Quelle her. Diese Fenster
    sind `selection: true` und werden in der UI als "Auswahl" gekennzeichnet.
    `RIGHTS_SEASONS` begrenzt die Tabelle auf die Saisons des aktuellen
-   RTL/Sky-Vertrags — ausserhalb nennt die Seite nur den Game Pass statt einer
-   geratenen Rechtelage.
+   RTL/Sky-Vertrags — ausserhalb nennt die Seite gar keinen Sender und sagt
+   warum, statt eine Rechtelage zu raten. Der NFL Game Pass steht bewusst
+   nicht in `outlets`: er zeigt jedes Spiel und waere unter jeder Zeile
+   dieselbe Angabe — einmal in der Legende der Seite genuegt.
+
+Die Spielzeile (`GameRow`) ist bewusst auf zwei Textzeilen und ~44 px
+begrenzt: links Kuerzel/Bilanz/Punkte, rechts Status und Sender. Was dort
+keinen Platz hat (voller Teamname, Spielort, Down & Distance), haengt am
+`title` der Zeile statt eine dritte Zeile aufzumachen. Der US-Sender wird
+nicht angezeigt — fuer die Frage "wo kann ich das sehen" ist er ohne Belang.
 
 ### Draft modes: redraft vs. rookie (dynasty)
 
