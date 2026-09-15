@@ -35,8 +35,13 @@ beforeEach(() => {
     lastUpdated: Date.now(),
     loading: false,
     error: null,
+    standings: [],
+    standingsAt: null,
+    standingsLoading: false,
+    standingsError: null,
     setWeek: vi.fn(),
     load: vi.fn(() => Promise.resolve()),
+    loadStandings: vi.fn(() => Promise.resolve()),
   }
 })
 
@@ -120,6 +125,51 @@ describe('NflPage', () => {
     render(<NflPage />)
     expect(screen.getByText(nfl.error)).toBeInTheDocument()
     expect(screen.getByText('Q3 7:42')).toBeInTheDocument()
+  })
+
+  it('zeigt die Tabelle erst nach dem Umschalten und holt sie dann nach', () => {
+    render(<NflPage />)
+    expect(nfl.loadStandings).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
+    expect(nfl.loadStandings).toHaveBeenCalledWith({ season: '2026' })
+    // Ohne Daten steht da ein Satz, keine leeren Tabellen.
+    expect(screen.getByText(/noch keine Tabelle/)).toBeInTheDocument()
+    // Der Wochenwähler gehört zur Spieleansicht und verschwindet mit ihr.
+    expect(screen.queryByRole('button', { name: 'Woche zurück' })).not.toBeInTheDocument()
+  })
+
+  it('gruppiert die Tabelle nach Division und sortiert innerhalb', () => {
+    const t = (abbr, wins, losses, differential) => ({
+      abbr, name: abbr, logo: null, wins, losses, ties: 0, played: wins + losses,
+      winPercent: wins / (wins + losses), pointsFor: null, pointsAgainst: null,
+      differential, streak: null, divisionRecord: null, playoffSeed: null,
+    })
+    nfl.standings = [t('CLE', 0, 2, -21), t('BAL', 2, 0, 15), t('PIT', 1, 1, -5), t('CIN', 1, 1, 9)]
+    render(<NflPage />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
+
+    // Acht Divisionen, jede mit vier Zeilen — auch die ohne Daten.
+    expect(screen.getAllByRole('table')).toHaveLength(8)
+    const north = screen.getByRole('table', { name: 'Tabelle AFC North' })
+    const rows = within(north).getAllByRole('row').slice(1) // ohne Kopfzeile
+    expect(rows.map((r) => within(r).getByText(/^[A-Z]{2,3}$/).textContent)).toEqual(['BAL', 'CIN', 'PIT', 'CLE'])
+    expect(within(rows[0]).getByText('2-0')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('+15')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('-21')).toBeInTheDocument()
+    // Teams ohne Datensatz bleiben sichtbar, statt die Division zu verkuerzen.
+    const east = screen.getByRole('table', { name: 'Tabelle AFC East' })
+    expect(within(east).getAllByRole('row').slice(1)).toHaveLength(4)
+    expect(within(east).getAllByText('—')).toHaveLength(4)
+  })
+
+  it('aktualisiert in der Tabellenansicht die Tabelle, nicht den Spielplan', () => {
+    render(<NflPage />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
+    nfl.load.mockClear()
+    nfl.loadStandings.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /Aktualisieren/ }))
+    expect(nfl.loadStandings).toHaveBeenCalledWith({ season: '2026', force: true })
+    expect(nfl.load).not.toHaveBeenCalled()
   })
 
   it('sagt es, wenn eine Woche keine Spiele hat', () => {

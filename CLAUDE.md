@@ -159,6 +159,22 @@ der Kachel statt eine weitere Zeile aufzumachen. Nicht angezeigt werden der
 US-Sender (fuer "wo kann ich das sehen" ohne Belang) und die Saisonbilanz
 (die gehoert in die Tabelle, nicht an jedes Spiel).
 
+Die Seite hat zwei Ansichten (`ViewTabs`, lokaler State): **Spiele** und
+**Tabelle**. Die Tabelle wird erst beim Aufschlagen geholt und danach nur,
+wenn ihr Stand aelter als 10 Minuten ist (`loadStandings`, eigener Ladepfad
+und eigener Fehlerzustand im Store) — der 30-s-Takt der Spieleansicht waere
+dafuer Verschwendung.
+
+Zur Tabelle gibt es eine Besonderheit: **gruppiert wird ueber die eigene
+Tabelle `data/nflDivisions.js`, nicht ueber ESPNs Baum.** Dessen
+Verschachtelung wechselt je nach Parameter zwischen Conference- und
+Division-Ebene; `collectEntries` sammelt darum jeden Eintrag unabhaengig von
+der Tiefe ein, und die Zuordnung macht die statische Divisionsliste. Damit
+braucht die Seite aus der Antwort nur Kuerzel und Bilanz. Teams ohne
+Datensatz bleiben als leere Zeile stehen, statt die Division auf drei
+Zeilen zu verkuerzen. Sortiert wird nach Siegquote und Punktdifferenz — die
+echten NFL-Tiebreaker bildet das bewusst nicht nach, dafuer fehlen die Daten.
+
 Beim Anfassen der Spalten: Punktestand und Meta-Spalte haben feste Breiten,
 und der Punktestand wird auch vor dem Anpfiff gerendert (leer). Beides ist
 Absicht — jede Kachel ist ihr eigenes Grid, ohne feste Breiten hat jede Zeile

@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { fetchNflState } from '../services/api'
 import { fetchScoreboard } from '../services/redzone/espnLive'
+import { fetchStandings } from '../services/nfl/espnStandings'
+
+// Die Tabelle bewegt sich nur, wenn Spiele enden -- 10 Minuten sind auch an
+// einem Spieltag reichlich frisch.
+const STANDINGS_TTL_MS = 10 * 60 * 1000
 
 // Rohdaten der NFL-Seite: das ESPN-Scoreboard je Spielwoche. Aufbereitung
 // passiert in services/nfl/nflModel (rein). Bewusst NICHT persistiert -- ein
@@ -18,9 +23,40 @@ export const useNflStore = create((set, get) => ({
   loading: false,
   error: null,
 
+  // Tabelle: eigener Zustand, eigener Ladepfad. Sie aendert sich nur, wenn
+  // Spiele enden -- der Spielplan-Takt der Seite waere dafuer Verschwendung.
+  standings: [],
+  standingsAt: null,
+  standingsLoading: false,
+  standingsError: null,
+
   setWeek: (week) => {
     const w = Math.min(18, Math.max(1, Number(week) || 1))
     if (w !== get().week) set({ week: w })
+  },
+
+  /**
+   * Tabelle laden. Ohne `force` nur, wenn noch nichts da oder der Stand aelter
+   * als STANDINGS_TTL_MS ist.
+   * @param {object} args
+   * @param {number|string} [args.season]
+   * @param {boolean} [args.force]
+   */
+  loadStandings: async ({ season: fallbackSeason, force = false } = {}) => {
+    const s = get()
+    if (s.standingsLoading) return
+    if (!force && s.standings.length && Date.now() - (s.standingsAt ?? 0) < STANDINGS_TTL_MS) return
+    set({ standingsLoading: true })
+    try {
+      const season = Number(s.season) || Number(fallbackSeason) || undefined
+      const standings = await fetchStandings({ season })
+      set({ standings, standingsAt: Date.now(), standingsError: null, standingsLoading: false })
+    } catch (e) {
+      console.warn('[nfl] standings failed', e)
+      // Letzten bekannten Stand behalten -- eine leere Tabelle waere schlechter
+      // als eine, die ein paar Minuten alt ist.
+      set({ standingsLoading: false, standingsError: 'Tabelle gerade nicht verfügbar (ESPN).' })
+    }
   },
 
   /**

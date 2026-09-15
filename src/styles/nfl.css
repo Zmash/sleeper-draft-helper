@@ -149,3 +149,50 @@
   .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky);
     background: var(--surface-page); padding: 4px 12px; }
 }
+
+/* ── Ansicht-Umschalter (Spiele / Tabelle) ───────────────────────────────── */
+.nfl-views { display: flex; gap: 4px; }
+.nfl-view { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font: 600 .82rem var(--font-ui);
+  padding: 4px 12px; border-radius: var(--r-ctl); cursor: pointer; }
+.nfl-view.is-on { border-color: var(--accent-fill); color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
+.nfl-view.is-on svg { color: var(--accent-text); }
+.nfl-view:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+/* ── Tabelle nach Division ───────────────────────────────────────────────── */
+.nst-conf { display: grid; gap: 6px; }
+/* Vier Divisionen einer Conference nebeneinander, mobil zwei — dieselbe
+   Zwei-Spalten-Haltung wie bei den Spielkacheln. */
+.nst-grid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+
+.nst-div { background: var(--surface-card); border: 1px solid var(--border-soft);
+  border-radius: var(--r-card); padding: 5px 8px 6px; min-width: 0; }
+.nst-div-head { margin: 0 0 3px; font-family: var(--font-display); font-weight: 700;
+  font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+
+.nst-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* Feste Spaltenbreiten (table-layout: fixed): die Zahlen aller acht Tabellen
+   sollen in einer Flucht stehen, nicht je Division anders. Sie haengen an den
+   td-Regeln, damit die optisch versteckte Kopfzeile nichts daran aendert. */
+.nst-table th:nth-child(2), .nst-table td:nth-child(2) { width: 46px; }
+.nst-table th:nth-child(3), .nst-table td:nth-child(3) { width: 38px; }
+
+.nst-row td { padding: 1px 0; font-size: .8rem; line-height: 1.5; color: var(--text-muted); }
+.nst-row.is-first td { color: var(--text-primary); }
+.nst-row.is-missing td { color: var(--text-dim); }
+.nst-team { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.nst-logo { flex: none; width: 16px; height: 16px; object-fit: contain; }
+.nst-logo--ph { border-radius: 50%; background: var(--border-soft); }
+.nst-abbr { font-weight: 700; font-size: .78rem; }
+.nst-row.is-first .nst-abbr { color: var(--text-primary); }
+.nst-rec { text-align: right; font-weight: 600; }
+.nst-diff { text-align: right; font-size: .72rem; color: var(--text-dim); }
+.nst-diff.is-good { color: var(--good); }
+.nst-diff.is-bad { color: var(--bad); }
+
+@media (max-width: 560px) {
+  .nfl-views { padding-inline: 12px; }
+  .nst-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 12px; }
+  .nst-conf > .nfl-day-head { padding-inline: 12px; }
+}
