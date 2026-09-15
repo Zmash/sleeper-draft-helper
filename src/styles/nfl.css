@@ -54,6 +54,17 @@
 .nfl-day-n { order: 2; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--text-dim); text-transform: none; }
 .nfl-day-live { order: 3; font-family: var(--font-mono); font-size: .7rem; letter-spacing: 0; color: var(--live); text-transform: none; }
 
+/* Spieltag -> Sendefenster -> Kacheln. Die Sender haengen am Fenster, nicht
+   an der Kachel: die Rechtetabelle kennt nur das Fenster, und pro Fenster
+   zeigt jeder Sender nur eines der Spiele. */
+.nfl-win { display: grid; gap: 3px; margin-bottom: 6px; }
+.nfl-win-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: .72rem; color: var(--text-dim); min-width: 0; }
+.nfl-win-time { font-weight: 700; color: var(--text-muted); }
+.nfl-win-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nfl-win-outlets { margin-left: auto; display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.nfl-win-hint { font-style: italic; }
+
 .nfl-grid { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 
 /* Spielzeile: zwei Zeilen, links die Teams, rechts Status und Sender. Bewusst
@@ -133,9 +144,11 @@ body.mobile-nav-active .nfl-refresh { display: none; }
 
 @media (max-width: 560px) {
   .nfl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding-inline: 12px; }
+  /* Im schmalen Fensterkopf duerfen die Sender umbrechen statt zu ueberlaufen. */
+  .nfl-win-outlets { margin-left: 0; white-space: normal; }
   .nfl-game {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'status' 'teams' 'outlets';
+    grid-template-areas: 'status' 'teams';
     align-items: stretch;
     gap: 1px;
     padding: 5px 7px;
@@ -150,9 +163,8 @@ body.mobile-nav-active .nfl-refresh { display: none; }
   .nfl-abbr { min-width: 38px; }
   .nfl-score { margin-left: 0; }
   .nfl-meta-top { grid-area: status; justify-content: flex-start; }
-  .nfl-outlets { grid-area: outlets; text-align: left; }
   .nfl-head, .nfl-summary, .nfl-filters, .nfl-notice, .nfl-empty,
-  .nfl-day-head, .nfl-conf, .nfl-legend { padding-inline: 12px; }
+  .nfl-day-head, .nfl-conf, .nfl-legend, .nfl-win-head { padding-inline: 12px; }
   .nfl-weeks { position: sticky; top: 0; z-index: var(--z-sticky);
     background: var(--surface-page); padding: 4px 12px; }
 }

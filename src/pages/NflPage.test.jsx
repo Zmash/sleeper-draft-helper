@@ -70,15 +70,43 @@ describe('NflPage', () => {
     expect(screen.getByText('1 LIVE')).toBeInTheDocument()
   })
 
-  it('nennt zu jedem Spiel die deutschen Sender, aber nicht den Game Pass', () => {
-    render(<NflPage />)
-    expect(screen.getAllByText('RTL').length).toBe(3)
-    expect(screen.getAllByText('Sky').length).toBe(3)
-    // Der Game Pass zeigt ohnehin jedes Spiel -- er steht nur in der Legende,
-    // nicht an jeder Zeile.
+  it('nennt die Sender einmal je Sendefenster, nicht an jedem Spiel', () => {
+    // Drei Spiele im Sonntag-19:00-Fenster. RTL zeigt davon genau EINES —
+    // stuende "RTL" an jeder Kachel, behauptete die Seite das Gegenteil.
+    nfl().setWeek && setStore({ gamesByWeek: { 3: [
+      game('a'), game('b'), game('c'),
+      game('snf', { date: '2026-09-21T00:20:00Z' }),
+    ] } })
+    const { container } = render(<NflPage />)
+    expect(container.querySelectorAll('.nfl-game')).toHaveLength(4)
+    // Zwei Fenster (Sonntag früh, SNF) -> zwei Senderangaben, nicht vier.
+    expect(container.querySelectorAll('.nfl-outlets')).toHaveLength(2)
+    expect(screen.getAllByText('RTL')).toHaveLength(2)
+    // Der Game Pass zeigt ohnehin jedes Spiel -- er steht nur in der Legende.
     expect(screen.queryByTitle('NFL Game Pass')).not.toBeInTheDocument()
-    // Sonntagsfenster: nur eine Auswahl, das muss an der Zeile stehen.
-    expect(screen.getAllByTitle(/Die Sender zeigen je ein Spiel/)).toHaveLength(2)
+  })
+
+  it('zaehlt als Free-TV nur Spiele, deren Sender feststeht', () => {
+    setStore({ gamesByWeek: { 3: [
+      game('a'), game('b'), game('c'),                          // Sonntag 19:00 — Auswahl
+      game('snf', { date: '2026-09-21T00:20:00Z' }),            // Nachtspiel — sicher RTL
+    ] } })
+    render(<NflPage />)
+    // Frueher zaehlte hier 4: jedes Spiel lag in einem Fenster mit RTL.
+    expect(screen.getByRole('button', { name: /Free-TV/ }).textContent).toContain('1')
+    fireEvent.click(screen.getByRole('button', { name: /Free-TV/ }))
+    expect(screen.getByText('Sunday Night Football')).toBeInTheDocument()
+    expect(screen.queryByText('Sonntag früh')).not.toBeInTheDocument()
+  })
+
+  it('sagt beim Sammelfenster dazu, dass jeder Sender nur ein Spiel zeigt', () => {
+    setStore({ gamesByWeek: { 3: [game('a'), game('b'), game('snf', { date: '2026-09-21T00:20:00Z' })] } })
+    const { container } = render(<NflPage />)
+    const heads = [...container.querySelectorAll('.nfl-win-head')].map((h) => h.textContent)
+    expect(heads.find((h) => h.includes('19:00'))).toContain('je ein Spiel')
+    // Beim Nachtspiel liegt nur eine Partie im Fenster -- da ist die Zuordnung
+    // eindeutig und der Zusatz waere falsch.
+    expect(heads.find((h) => h.includes('Sunday Night Football'))).not.toContain('je ein Spiel')
   })
 
   it('filtert auf laufende Spiele', () => {

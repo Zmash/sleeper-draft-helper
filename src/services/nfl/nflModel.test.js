@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   sortGames, statusLabel, kickoffLabel, leaderAbbr, groupByGermanDay, withBroadcast, summarize, byeTeams,
+  windowsOf,
 } from './nflModel'
 
 const game = (over = {}) => ({
@@ -73,6 +74,42 @@ describe('groupByGermanDay', () => {
     ])
     expect(groups[0].games.map((g) => g.id)).toEqual(['frueh', 'spaet'])
     expect(groups.at(-1)).toMatchObject({ key: 'offen', label: 'Termin offen' })
+  })
+})
+
+describe('windowsOf', () => {
+  const g = (id, date) => ({ ...game({ id, date }), broadcast: undefined })
+  const withBc = (list) => withBroadcast(list, { week: 2, season: 2026 })
+
+  it('buendelt 22:05 und 22:25 zu einem Spaetfenster', () => {
+    const windows = windowsOf(withBc([
+      g('a', '2026-09-20T20:05:00Z'), g('b', '2026-09-20T20:25:00Z'), g('c', '2026-09-20T17:00:00Z'),
+    ]))
+    expect(windows.map((w) => w.key)).toEqual(['late', 'early'])
+    expect(windows[0].games.map((x) => x.id)).toEqual(['a', 'b'])
+    expect(windows[0].timeLabel).toBe('ab 22:05')
+    expect(windows[1].timeLabel).toBe('19:00')
+  })
+
+  it('nennt die Zuordnung unsicher, sobald mehrere Spiele im Fenster liegen', () => {
+    const many = windowsOf(withBc([g('a', '2026-09-20T17:00:00Z'), g('b', '2026-09-20T17:00:00Z')]))
+    expect(many[0].certain).toBe(false)
+    // Ein einzelnes Spiel im Fenster ist eindeutig -- dann zeigen die Sender
+    // zwangslaeufig genau dieses.
+    const one = windowsOf(withBc([g('a', '2026-09-20T17:00:00Z')]))
+    expect(one[0].certain).toBe(true)
+  })
+
+  it('Nachtspiele sind immer eindeutig', () => {
+    const [w] = windowsOf(withBc([g('snf', '2026-09-21T00:20:00Z')]))
+    expect(w.label).toBe('Sunday Night Football')
+    expect(w.certain).toBe(true)
+  })
+
+  it('kommt mit Spielen ohne Termin klar', () => {
+    const [w] = windowsOf(withBc([g('x', null)]))
+    expect(w.key).toBe('offen')
+    expect(w.timeLabel).toBe('')
   })
 })
 

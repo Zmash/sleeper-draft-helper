@@ -1,7 +1,7 @@
 import Icon from '../Icon'
 import { cx } from '../../utils/formatting'
 import { berlinTime } from '../../utils/berlinTime'
-import { statusLabel, leaderAbbr, isLive } from '../../services/nfl/nflModel'
+import { statusLabel, leaderAbbr, isLive, windowsOf } from '../../services/nfl/nflModel'
 
 const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1)
 
@@ -64,7 +64,12 @@ export function SummaryBar({ summary, byes = [] }) {
 export const FILTERS = [
   { id: 'all', label: 'Alle' },
   { id: 'live', label: 'Läuft' },
-  { id: 'free', label: 'Free-TV' },
+  {
+    id: 'free',
+    label: 'Free-TV',
+    title: 'Nur Spiele, die sicher frei im TV laufen. Aus den Sonntagsfenstern '
+      + 'zeigen RTL, RTL+ und Sky je ein Spiel — welches, steht erst kurzfristig fest.',
+  },
 ]
 
 export function FilterBar({ value, onChange, counts = {} }) {
@@ -76,6 +81,7 @@ export function FilterBar({ value, onChange, counts = {} }) {
           type="button"
           className={cx('nfl-filter', value === f.id && 'is-on')}
           aria-pressed={value === f.id}
+          title={f.title}
           onClick={() => onChange(f.id)}
         >
           {f.label}
@@ -88,11 +94,10 @@ export function FilterBar({ value, onChange, counts = {} }) {
 
 // ── Sender ──────────────────────────────────────────────────────────────────
 
-// Bewusst Text statt Kacheln: pro Spiel stehen hier bis zu drei Sender, als
-// umrandete Chips waere das die Haelfte der Zeilenhoehe fuer eine Nebeninfo.
-// Free-TV ist farbig, alles andere gedimmt.
+// Bewusst Text statt Kacheln: als umrandete Chips waere das die halbe
+// Zeilenhoehe fuer eine Nebeninfo. Free-TV ist farbig, alles andere gedimmt.
 export function Outlets({ broadcast }) {
-  if (!broadcast?.outlets.length) return <span className="nfl-outlets is-empty">—</span>
+  if (!broadcast?.outlets.length) return null
   return (
     <span className="nfl-outlets">
       {broadcast.outlets.map((o, i) => (
@@ -101,11 +106,6 @@ export function Outlets({ broadcast }) {
           {o.short}
         </span>
       ))}
-      {broadcast.selection && (
-        <span className="nfl-outlet-sel" title="Die Sender zeigen je ein Spiel aus diesem Fenster — welches, steht erst kurzfristig fest.">
-          {' '}Ausw.
-        </span>
-      )}
     </span>
   )
 }
@@ -155,7 +155,6 @@ export function GameRow({ game }) {
           {redzone && <span className="nfl-rz">RZ</span>}
           <span className={cx('nfl-status', `nfl-status--${status.tone}`)}>{status.text}</span>
         </span>
-        <Outlets broadcast={bc} />
       </span>
     </article>
   )
@@ -163,11 +162,31 @@ export function GameRow({ game }) {
 
 // ── Spieltag ────────────────────────────────────────────────────────────────
 
+function WindowHead({ win }) {
+  const bc = win.broadcast
+  return (
+    <div className="nfl-win-head">
+      <span className="nfl-win-time nfl-num">{win.timeLabel}</span>
+      {win.label && <span className="nfl-win-label">{win.label}</span>}
+      <span className="nfl-win-outlets">
+        <Outlets broadcast={bc} />
+        {/* Der entscheidende Zusatz: bei mehreren Spielen im Fenster zeigt
+            jeder Sender nur EINES davon. Ohne diesen Satz behauptet die Seite
+            bei 13 Sonntagsspielen dreizehnmal "RTL". */}
+        {!win.certain && bc?.outlets.length > 0 && (
+          <span className="nfl-win-hint">— je ein Spiel</span>
+        )}
+      </span>
+    </div>
+  )
+}
+
 export function DaySection({ group }) {
   const live = group.games.filter(isLive).length
   // Die Konferenz gilt fuer den ganzen Sonntag, nicht je Spiel -- unter jeder
   // Karte waere sie dieselbe Zeile acht Mal.
   const conference = group.games.find((g) => g.broadcast?.conference)?.broadcast.conference
+  const windows = windowsOf(group.games)
   return (
     <section className="nfl-day">
       <h3 className="nfl-day-head">
@@ -176,9 +195,14 @@ export function DaySection({ group }) {
         {live > 0 && <span className="nfl-day-live">{live} live</span>}
       </h3>
       {conference && <div className="nfl-conf">{conference}</div>}
-      <div className="nfl-grid">
-        {group.games.map((g) => <GameRow key={g.id} game={g} />)}
-      </div>
+      {windows.map((win) => (
+        <div key={win.key} className="nfl-win">
+          <WindowHead win={win} />
+          <div className="nfl-grid">
+            {win.games.map((g) => <GameRow key={g.id} game={g} />)}
+          </div>
+        </div>
+      ))}
     </section>
   )
 }

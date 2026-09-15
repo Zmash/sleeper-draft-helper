@@ -44,15 +44,22 @@ export default function NflPage() {
   const summary = useMemo(() => summarize(enriched), [enriched])
   const byes = useMemo(() => byeTeams(week, season || seasonYear), [week, season, seasonYear])
 
+  // "Free-TV" meint: laeuft dieses Spiel SICHER frei? Das gilt nur, wenn im
+  // Fenster keine Auswahl stattfindet (Nachtspiele, International Games). Ein
+  // Sonntagsspiel steht zwar in einem Fenster mit RTL, aber RTL zeigt davon
+  // nur eines — es hier mitzuzaehlen hiesse, 13 Spiele als Free-TV auszugeben.
+  const isSureFreeTv = (g) =>
+    !g.broadcast?.selection && !!g.broadcast?.outlets.some((o) => o.kind === 'free')
+
   const counts = useMemo(() => ({
     all: enriched.length,
     live: enriched.filter(isLive).length,
-    free: enriched.filter((g) => g.broadcast?.outlets.some((o) => o.kind === 'free')).length,
+    free: enriched.filter(isSureFreeTv).length,
   }), [enriched])
 
   const visible = useMemo(() => {
     if (filter === 'live') return enriched.filter(isLive)
-    if (filter === 'free') return enriched.filter((g) => g.broadcast?.outlets.some((o) => o.kind === 'free'))
+    if (filter === 'free') return enriched.filter(isSureFreeTv)
     return enriched
   }, [enriched, filter])
 
@@ -126,9 +133,10 @@ export default function NflPage() {
           )}
 
           <p className="nfl-legend">
-            Alle Zeiten in deutscher Ortszeit. Die Sonntagsfenster sind als
-            {' '}<b>Auswahl</b> gekennzeichnet: RTL, RTL+ und Sky zeigen daraus je ein Spiel,
-            welches steht erst kurzfristig fest. Der NFL Game Pass zeigt jedes Spiel.
+            Alle Zeiten in deutscher Ortszeit. Die Sender stehen am <b>Sendefenster</b>,
+            nicht am einzelnen Spiel: RTL zeigt pro Spieltag zwei Einzelspiele, RTL+ eines
+            und Sky zwei — welche Partie das jeweils ist, steht erst kurzfristig im
+            TV-Programm. Der NFL Game Pass zeigt jedes Spiel.
           </p>
         </>
       )}

@@ -142,7 +142,18 @@ Zwei Punkte, die man beim Anfassen kennen muss:
    Sie bildet nur das *Sendefenster* auf Sender ab (abgeleitet aus dem deutschen
    Kickoff-Zeitpunkt), nicht das konkrete Spiel: welches Sonntagsspiel RTL, RTL+
    bzw. Sky in einer Woche waehlen, gibt keine offene Quelle her. Diese Fenster
-   sind `selection: true` und werden in der UI als "Auswahl" gekennzeichnet.
+   sind `selection: true`.
+
+   **Deshalb haengen die Sender am Fenster, nicht am Spiel** (`windowsOf` im
+   nflModel, `WindowHead` in den Parts). RTL zeigt pro Spieltag zwei
+   Einzelspiele, RTL+ eines, Sky zwei — schreibt man die Sender an jede
+   Kachel, behauptet die Seite bei 13 Sonntagsspielen dreizehnmal "RTL".
+   Am Fenster steht dieselbe Angabe einmal und stimmt, mit dem Zusatz
+   "je ein Spiel". Enthaelt ein Fenster nur eine Partie (Nachtspiele,
+   International Games), ist die Zuordnung eindeutig und der Zusatz entfaellt
+   — das leitet `windowsOf` aus der Spielzahl ab, es ist nicht hartkodiert.
+   Aus demselben Grund zaehlt der **Free-TV-Filter** nur Spiele mit
+   `selection: false`.
    `RIGHTS_SEASONS` begrenzt die Tabelle auf die Saisons des aktuellen
    RTL/Sky-Vertrags — ausserhalb nennt die Seite gar keinen Sender und sagt
    warum, statt eine Rechtelage zu raten. Der NFL Game Pass steht bewusst
