@@ -30,7 +30,7 @@ const boardWithOwn = {
 }
 
 describe('StreamingBoard eigener Spieler', () => {
-  it('hebt die eigene Zeile farblich hervor und markiert sie im Namen', () => {
+  it('hebt die eigene Zeile farblich hervor', () => {
     const own = {
       DEF: {
         // Reihenfolge = fertig sortierte Liste aus streamingBoard()
@@ -49,7 +49,6 @@ describe('StreamingBoard eigener Spieler', () => {
     expect(rows[0].className).toContain('is-own')
     expect(rows[0].textContent).toContain('Meine Defense')
     expect(rows[1].className).not.toContain('is-own')
-    expect(screen.getByText('(eigen)')).toBeInTheDocument()
   })
 
   it('zeigt den eigenen Spieler auch ausserhalb der Top-10, mit Trenner', () => {

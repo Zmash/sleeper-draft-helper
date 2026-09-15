@@ -8,10 +8,7 @@ function renderRow(p, rosByPlayer, ptsLoaded) {
   return (
     <div className={cx('an-listrow', p.own && 'is-own')} key={p.player_id} title={p.own ? 'Eigener Kader' : undefined}>
       <span className="an-pos" style={{ background: posColor(p.pos) }}>{posBadgeLabel(p)}</span>
-      <a className="an-listname" href={fantasyProsPlayerUrl(p.name, p)} target="_blank" rel="noreferrer">
-        {p.name}
-        {p.own && <span className="an-own-tag"> (eigen)</span>}
-      </a>
+      <a className="an-listname" href={fantasyProsPlayerUrl(p.name, p)} target="_blank" rel="noreferrer">{p.name}</a>
       <span className={cx('an-inj', p.injury_status && p.injury_status !== 'Questionable' && 'is-out')}>
         {p.injury_status ? injuryLabel(p.injury_status) : ''}
       </span>
