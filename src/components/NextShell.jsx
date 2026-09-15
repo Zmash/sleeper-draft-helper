@@ -273,7 +273,9 @@ export default function NextShell({ children, pageProps = {} }) {
           )}
         </header>
 
-        <div className="ns-content">{children}</div>
+        {/* Das Board fuellt die Flaeche randlos, alle anderen Seiten bekommen
+            den Seitenabstand aus .ns-content (newshell.css). */}
+        <div className={cx('ns-content', pathname.startsWith('/board') && 'ns-content--flush')}>{children}</div>
       </div>
 
       {/* Statusleiste im Stil einer IDE: kurze Segmente, Details im Tooltip.

@@ -217,6 +217,25 @@ die Bottom-Bar uebernimmt. In einer Grid-Seite mit `gap` gehoert
 Ausnahme: `.ns-insp-tabs` in `NextBoard.jsx` ist ein kompakter Umschalter
 im Inspektor-Panel der neuen Shell, kein Seitenreiter — der bleibt eigen.
 
+### Seitenabstand: einmal an der Huelle, nicht je Seite
+
+Der Innenabstand zu den Raendern gehoert **der Huelle**, nicht der einzelnen
+Seite — sonst muss ihn jede neue Seite mitbringen und wird reihum vergessen.
+
+- **Desktop (`NextShell`)**: `.ns-content` in `newshell.css` traegt
+  `padding: 12px 16px 28px`. Jede neue Seite bekommt ihn automatisch, ohne
+  eine Zeile CSS. Am Container, nicht an den Kindern: Seiten wie `/setup`
+  geben ein Fragment zurueck, deren Karten waeren sonst einzeln gepolstert.
+  Ausnahme ist `/board` — `NextShell` setzt dort `ns-content--flush`, weil
+  `.ns-panes` die Flaeche randlos fuellt und mit `height: 100%` rechnet.
+  Als Modifier statt `:has()`, das in aelteren Android-WebViews fehlt.
+  `NextShell.test.jsx` haelt beides fest.
+- **Mobil (unter 560 px)**: umgekehrt randlos — Karten laufen von Kante zu
+  Kante (`.wrap:not(.row) { padding: 0 0 16px }` in `style.css`), und nur
+  Text ausserhalb der Karten bekommt `padding-inline: 12px`. Ein Raster aus
+  Karten mit Rahmen und Radius (`.dashboard-grid`, `.nfl-grid`) bekommt den
+  Rand ebenfalls.
+
 ### Tokens: kanonische Namen und Alt-Kurznamen
 
 Kanonisch sind die langen Namen aus `tokens.css` (`--text-primary`,

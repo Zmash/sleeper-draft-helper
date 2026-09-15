@@ -187,7 +187,17 @@
 .ns-icon-btn:hover { background: var(--surface-raised); color: var(--text-primary); border-color: var(--border); }
 .ns-icon-btn.is-off { color: var(--accent-text); }
 
-.ns-content { min-width: 0; min-height: 0; overflow: auto; }
+/* Seiten-Innenabstand der Desktop-Huelle: EINMAL hier, nicht je Seite.
+   Vorher hatte .ns-content gar kein Padding und jede Seite musste ihn selbst
+   mitbringen — entsprechend fehlte er reihum. Jede neue Seite bekommt ihn
+   jetzt automatisch, ohne eine Zeile CSS.
+   Am Container, nicht an den Kindern: Seiten wie /setup geben ein Fragment
+   zurueck, deren Karten waeren sonst einzeln gepolstert. */
+.ns-content { min-width: 0; min-height: 0; overflow: auto; padding: 12px 16px 28px; }
+/* Ausnahme Board: die Panes fuellen die Flaeche bewusst randlos und rechnen
+   mit height:100%. Als Modifier statt :has() — das haette in aelteren
+   Android-WebViews (Capacitor) nicht gegriffen. */
+.ns-content--flush { padding: 0; }
 .ns-content > .ns-panes { height: 100%; }
 /* Bestehende Seiten (Dashboard/Setup/Trade) laufen unveraendert in der neuen
    Huelle — nur der aeussere Seitencontainer darf hier nicht mehr zentriert
