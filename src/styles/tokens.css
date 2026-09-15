@@ -9,6 +9,19 @@
   --dur: 180ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --z-sticky: 10; --z-dropdown: 20; --z-backdrop: 40; --z-modal: 50; --z-toast: 60; --z-tooltip: 70;
+
+  /* Kurznamen aus aelteren Stylesheets (analysis.css, Teile von style.css).
+     Sie standen dort durchweg als `var(--muted, #888)` mit hartkodiertem
+     Ersatzwert — und weil es die Tokens nie gab, hat jede dieser Stellen den
+     Ersatzwert gezeigt statt der Theme-Farbe: die Analyse-Reiter etwa in
+     Blau (#4ea1ff) statt im gelben App-Akzent.
+     Als Verweise definiert, damit sie jedem Theme folgen.
+     Neuer Code nimmt die kanonischen Namen rechts. */
+  --fg: var(--text-primary);
+  --muted: var(--text-muted);
+  --accent: var(--accent-fill);
+  --card-bg: var(--surface-card);
+  --hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 /* Broadcast Dark (default) */

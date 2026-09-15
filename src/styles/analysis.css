@@ -9,7 +9,7 @@
 }
 
 /* Waiver-Kopfzeile: Titel links, Kontext (Modus/Woche) rechts, Trennlinie wie
-   bei .an-tabs. Gibt der Seite einen Anker, ohne eine eigene Titelzeile der
+   bei den Reitern. Gibt der Seite einen Anker, ohne eine eigene Titelzeile der
    Shell zu verlangen -- funktioniert so in beiden Shells. */
 .an-head {
   display: flex;
@@ -33,27 +33,9 @@
   white-space: nowrap;
 }
 
-.an-tabs {
-  display: flex;
-  gap: .25rem;
-  border-bottom: 1px solid var(--border, #2a2a2a);
-  margin-bottom: 1rem;
-}
-
-.an-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: .6rem 1rem;
-  color: var(--muted, #888);
-  font: inherit;
-  cursor: pointer;
-}
-
-.an-tab.is-on {
-  color: var(--fg, #eee);
-  border-bottom-color: var(--accent, #4ea1ff);
-}
+/* Reiter kommen aus style.css (.tabs/.tab) — die frueher hier stehende Kopie
+   wich in Farbe und Hoehe ab und zeigte mangels Tokens einen blauen
+   Unterstrich statt des App-Akzents. */
 
 /* Festes Zwei-Spalten-Raster statt auto-fit: auto-fit ergibt je nach
    Fensterbreite 2, 3 oder 4 Spalten, wodurch dieselbe Kachel mal halb und mal
@@ -553,8 +535,8 @@
    Text-Zeilen; padding statt margin, damit die Trennlinie weiterhin von Kante
    zu Kante laeuft. */
 @media (max-width: 560px) {
-  .an-head,
-  .an-tabs { padding-inline: 12px; }
+  /* Die Reiter holen ihren Seitenabstand aus style.css (.tabs). */
+  .an-head { padding-inline: 12px; }
 }
 
 /* Alle-Teams-Übersicht: volle Breite, dasselbe kompakte Zeilen-Grid wie die

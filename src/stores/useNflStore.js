@@ -25,6 +25,12 @@ export const useNflStore = create((set, get) => ({
 
   // Tabelle: eigener Zustand, eigener Ladepfad. Sie aendert sich nur, wenn
   // Spiele enden -- der Spielplan-Takt der Seite waere dafuer Verschwendung.
+  // Welche Ansicht offen ist, steht im Store und nicht in der Seite: die
+  // mobile Bottom-Bar loest den Aktualisieren-Knopf in App.jsx aus und muss
+  // wissen, ob sie den Spielplan oder die Tabelle nachladen soll.
+  view: 'games',
+  setView: (view) => set({ view: view === 'standings' ? 'standings' : 'games' }),
+
   standings: [],
   standingsAt: null,
   standingsLoading: false,

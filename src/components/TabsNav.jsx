@@ -9,7 +9,7 @@ const TABS = [
   { path: '/analyse', label: 'Analyse', icon: 'chart' },
   { path: '/lineup', label: 'Lineup', icon: 'roster' },
   { path: '/weekly', label: 'Woche', icon: 'clipboard-check' },
-  { path: '/scores', label: 'Scores', icon: 'scoreboard' },
+  { path: '/scores', label: 'NFL', icon: 'scoreboard' },
   { path: '/trade', label: 'Trade', icon: 'swap' },
 ]
 
@@ -22,7 +22,7 @@ export default function TabsNav() {
     : TABS
 
   return (
-    <nav className="tabs">
+    <nav className="tabs tabs--route">
       {tabs.map(({ path, label, icon, live }) => {
         const active = pathname === path
         return (

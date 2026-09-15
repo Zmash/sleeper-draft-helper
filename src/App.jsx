@@ -11,6 +11,7 @@ import { useDashboardStore } from './stores/useDashboardStore'
 import { useUIStore } from './stores/useUIStore'
 import { useGamesLiveStore } from './stores/useGamesLiveStore'
 import { useRedzoneStore } from './stores/useRedzoneStore'
+import { useNflStore } from './stores/useNflStore'
 import { useWeeklyStore } from './stores/useWeeklyStore'
 
 import { getTeamsCount, teamKeyFromPick } from './services/derive'
@@ -420,6 +421,11 @@ export default function App() {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
     } else if (nsPathname.startsWith('/redzone')) {
       useRedzoneStore.getState().poll({ leagues: availableLeagues, season: seasonYear, myUserId: sleeperUserId })
+    } else if (nsPathname.startsWith('/scores')) {
+      // Der Knopf bedient die Ansicht, die gerade offen ist.
+      const nfl = useNflStore.getState()
+      if (nfl.view === 'standings') nfl.loadStandings({ season: seasonYear, force: true })
+      else nfl.load({ season: seasonYear, force: true })
     } else if (nsPathname.startsWith('/weekly')) {
       useWeeklyStore.getState().load({ leagues: availableLeagues, season: seasonYear, myUserId: sleeperUserId, force: true })
     } else if (nsPathname.startsWith('/trade')) {
@@ -441,6 +447,8 @@ export default function App() {
         ? 'Picks aktualisieren'
         : nsPathname.startsWith('/redzone')
           ? 'Live-Daten aktualisieren'
+          : nsPathname.startsWith('/scores')
+            ? 'Spielstände aktualisieren'
           : nsPathname.startsWith('/weekly')
             ? 'Woche aktualisieren'
           : nsPathname.startsWith('/trade')

@@ -153,6 +153,13 @@ body {
 }
 
 /* Broadcast underline nav */
+/* --- Reiter: EIN Muster fuer die ganze App ---------------------------------
+   Unterstrich-Reiter, `.tab.active` markiert den offenen. Gilt fuer
+   Routen-Reiter (TabsNav) genauso wie fuer Reiter innerhalb einer Seite
+   (Analyse, Scores). Wer neue Reiter baut, nimmt diese Klassen — keine
+   eigenen Knopfleisten, sonst driften Farbe und Hoehe auseinander.
+   Der Zusatz `tabs--route` markiert die Routen-Navigation: nur sie
+   verschwindet mobil hinter der Bottom-Bar (siehe mobile-nav-active). */
 .tabs {
   display: flex;
   gap: 2px;
@@ -2832,7 +2839,7 @@ th.col-pick, td.col-pick { width: 64px; }
      flex-wrap) und schluckte darueber faelschlich das Padding des Seiten-
      Containers `.wrap` -> als leere, aber 116px hohe Zeile. Ganze Zeile
      ausblenden statt nur der Kinder. */
-  body.board-mobile-active .tabs,
+  body.board-mobile-active .tabs--route,
   body.board-mobile-active .tips-dock-toggle,
   body.board-mobile-active .tips-dock-panel,
   body.board-mobile-active .board-actions-row,
@@ -3054,6 +3061,7 @@ th.col-pick, td.col-pick { width: 64px; }
   .dashboard-header,
   .dashboard-refresh-hint,
   .dashboard-grid,
+  .tabs,
   .trade-page-header { padding-inline: 12px; }
   .card {
     padding: 10px 11px;
@@ -3106,7 +3114,7 @@ th.col-pick, td.col-pick { width: 64px; }
   .chip.chip--small { padding: 0.2rem 0.45rem; font-size: 10.5px; }
   input, select, textarea { padding: 0.45rem 0.6rem; font-size: 13px; }
 
-  body.mobile-nav-active .tabs,
+  body.mobile-nav-active .tabs--route,
   body.mobile-nav-active .tips-dock-toggle,
   body.mobile-nav-active .tips-dock-panel,
   body.mobile-nav-active footer { display: none; }

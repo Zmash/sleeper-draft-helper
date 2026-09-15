@@ -68,14 +68,14 @@ export const VIEWS = [
 
 export function ViewTabs({ value, onChange }) {
   return (
-    <div className="nfl-views" role="tablist" aria-label="Ansicht">
+    <div className="tabs" role="tablist" aria-label="Ansicht">
       {VIEWS.map((v) => (
         <button
           key={v.id}
           type="button"
           role="tab"
           aria-selected={value === v.id}
-          className={cx('nfl-view', value === v.id && 'is-on')}
+          className={cx('tab', value === v.id && 'active')}
           onClick={() => onChange(v.id)}
         >
           <Icon name={v.icon} size={14} />

@@ -18,7 +18,7 @@ export default function NflPage() {
   const seasonYear = useSessionStore((s) => s.seasonYear)
   const nfl = useNflStore()
   const [filter, setFilter] = useState('all')
-  const [view, setView] = useState('games')
+  const view = nfl.view
 
   const { week, currentWeek, season, gamesByWeek } = nfl
   const games = useMemo(() => gamesByWeek[week] || [], [gamesByWeek, week])
@@ -74,15 +74,17 @@ export default function NflPage() {
   return (
     <section className="nfl-page">
       <header className="nfl-head">
-        <span className="nfl-title">Scores</span>
+        <span className="nfl-title">NFL</span>
         {view === 'standings'
           ? season && <span className="nfl-muted">Saison {season}</span>
           : week && <span className="nfl-muted">Week {week}{season ? ` · ${season}` : ''}</span>}
         {view === 'games' && summary.live > 0 && <span className="nfl-live">{summary.live} LIVE</span>}
         <Stamp at={view === 'standings' ? nfl.standingsAt : nfl.lastUpdated} />
+        {/* Mobil sitzt derselbe Knopf als FAB in der Bottom-Bar (MobileNav,
+            verdrahtet in App.jsx) -- zweimal waere er nur Platzverschwendung. */}
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm nfl-refresh"
           onClick={() => (view === 'standings' ? nfl.loadStandings({ season: seasonYear, force: true }) : load(true))}
           disabled={view === 'standings' ? nfl.standingsLoading : nfl.loading}
         >
@@ -90,7 +92,7 @@ export default function NflPage() {
         </button>
       </header>
 
-      <ViewTabs value={view} onChange={setView} />
+      <ViewTabs value={view} onChange={nfl.setView} />
 
       {view === 'standings' ? (
         <>

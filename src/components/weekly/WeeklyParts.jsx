@@ -254,14 +254,14 @@ export function DetailTabs({ active, onActive, injuryCount = 0 }) {
     { key: 'team', label: `Team-Check${injuryCount > 0 ? ` ${injuryCount}` : ''}` },
   ]
   return (
-    <div className="wk-tabs" role="tablist" aria-label="Details">
+    <div className="tabs" role="tablist" aria-label="Details">
       {tabs.map((t) => (
         <button
           key={t.key}
           type="button"
           role="tab"
           aria-selected={active === t.key}
-          className={cx('wk-tab', active === t.key && 'is-active')}
+          className={cx('tab', active === t.key && 'active')}
           onClick={() => onActive(t.key)}
         >
           {t.label}

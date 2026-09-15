@@ -23,17 +23,8 @@
     grid-template-areas: 'head head' 'notice notice' 'chips chips' 'record record' 'results results'
       'details details'; }
 }
-/* Detail-Tabs: Underline-Reiter wie .an-tab in Analyse/Lineup -- keine Pillen.
-   Eine Tabzeile statt vier gestapelter Sections. */
-.wk-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border);
-  margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
-.wk-tabs::-webkit-scrollbar { display: none; }
-.wk-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
-  padding: .55rem .8rem; color: var(--text-muted); font: 600 .8rem var(--font-ui);
-  cursor: pointer; white-space: nowrap; }
-.wk-tab:hover { color: var(--text-primary); }
-.wk-tab.is-active { color: var(--text-primary); border-bottom-color: var(--accent-fill); }
-.wk-tab:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+/* Detail-Reiter kommen aus style.css (.tabs/.tab) — eine eigene Kopie hier
+   waere die vierte leicht abweichende Variante desselben Musters gewesen. */
 .wk-team { display: grid; gap: 8px; }
 .wk-team-h { font: 600 .74rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-dim); padding: 8px 2px 0; }

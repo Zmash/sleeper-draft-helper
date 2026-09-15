@@ -457,11 +457,11 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
         <span className="an-head-meta">{isDynasty ? 'Dynasty' : 'Redraft'}{week ? ` · Woche ${week}` : ''}</span>
         <PushOptIn />
       </header>
-      <div className="an-tabs" role="tablist" aria-label="Lineup-Ansicht">
-        <button type="button" role="tab" aria-selected={!allTab} className={`an-tab${!allTab ? ' is-on' : ''}`} onClick={() => setAllTab(false)}>
+      <div className="tabs" role="tablist" aria-label="Lineup-Ansicht">
+        <button type="button" role="tab" aria-selected={!allTab} className={`tab${!allTab ? ' active' : ''}`} onClick={() => setAllTab(false)}>
           Einzelnes Team
         </button>
-        <button type="button" role="tab" aria-selected={allTab} className={`an-tab${allTab ? ' is-on' : ''}`} onClick={() => setAllTab(true)}>
+        <button type="button" role="tab" aria-selected={allTab} className={`tab${allTab ? ' active' : ''}`} onClick={() => setAllTab(true)}>
           Alle Teams
         </button>
       </div>

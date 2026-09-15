@@ -125,6 +125,8 @@
    Karten mit Rahmen und Radius bekommt einen Rand, anders als die randlosen
    Volllisten. */
 @media (max-width: 560px) {
+  /* Aktualisieren steckt mobil im FAB der Bottom-Bar. */
+  .nfl-refresh { display: none; }
   .nfl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding-inline: 12px; }
   .nfl-game {
     grid-template-columns: minmax(0, 1fr);
@@ -150,15 +152,10 @@
     background: var(--surface-page); padding: 4px 12px; }
 }
 
-/* ── Ansicht-Umschalter (Spiele / Tabelle) ───────────────────────────────── */
-.nfl-views { display: flex; gap: 4px; }
-.nfl-view { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-muted); font: 600 .82rem var(--font-ui);
-  padding: 4px 12px; border-radius: var(--r-ctl); cursor: pointer; }
-.nfl-view.is-on { border-color: var(--accent-fill); color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
-.nfl-view.is-on svg { color: var(--accent-text); }
-.nfl-view:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+/* Der Umschalter Spiele/Tabelle nutzt die Reiter aus style.css (.tabs/.tab).
+   Deren margin-bottom entfaellt hier: .nfl-page ist ein Grid und bringt den
+   Abstand schon als gap mit, sonst stuende er doppelt. */
+.nfl-page > .tabs { margin-bottom: 0; }
 
 /* ── Tabelle nach Division ───────────────────────────────────────────────── */
 .nst-conf { display: grid; gap: 6px; }
@@ -192,7 +189,6 @@
 .nst-diff.is-bad { color: var(--bad); }
 
 @media (max-width: 560px) {
-  .nfl-views { padding-inline: 12px; }
   .nst-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 12px; }
   .nst-conf > .nfl-day-head { padding-inline: 12px; }
 }

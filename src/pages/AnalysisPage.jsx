@@ -130,7 +130,7 @@ export default function AnalysisPage({
 
   return (
     <section className="an-page">
-      <nav className="an-tabs" role="tablist" aria-label="Analyse-Bereiche">
+      <nav className="tabs" role="tablist" aria-label="Analyse-Bereiche">
         {TABS.map(([id, label]) => (
           <button
             key={id}
@@ -138,7 +138,7 @@ export default function AnalysisPage({
             role="tab"
             aria-selected={tab === id}
             aria-controls={`an-panel-${id}`}
-            className={cx('an-tab', tab === id && 'is-on')}
+            className={cx('tab', tab === id && 'active')}
             onClick={() => setTab(id)}
           >
             {label}

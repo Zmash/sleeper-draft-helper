@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import { create } from 'zustand'
 
 const side = (abbr, score, over = {}) => ({ abbr, score, name: abbr, logo: null, record: '1-0', ...over })
 const game = (id, over = {}) => ({
@@ -8,19 +9,22 @@ const game = (id, over = {}) => ({
   downDistance: null, network: 'FOX', venue: null, neutralSite: false, ...over,
 })
 
-let nfl
+// Echter Zustand-Store statt eines Objekt-Mocks: die Ansicht (Spiele/Tabelle)
+// lebt im Store, ein totes Objekt wuerde beim Umschalten kein Rendern ausloesen.
+let store
+const nfl = () => store.getState()
 vi.mock('../stores/useSessionStore', () => {
   const state = { seasonYear: '2026' }
   const hook = (sel) => (sel ? sel(state) : state)
   hook.getState = () => state
   return { useSessionStore: hook }
 })
-vi.mock('../stores/useNflStore', () => ({ useNflStore: () => nfl }))
+vi.mock('../stores/useNflStore', () => ({ useNflStore: (...args) => store(...args) }))
 
 import NflPage from './NflPage'
 
 beforeEach(() => {
-  nfl = {
+  store = create((set) => ({
     week: 3,
     currentWeek: 3,
     season: 2026,
@@ -39,11 +43,16 @@ beforeEach(() => {
     standingsAt: null,
     standingsLoading: false,
     standingsError: null,
+    view: 'games',
+    setView: (view) => set({ view }),
     setWeek: vi.fn(),
     load: vi.fn(() => Promise.resolve()),
     loadStandings: vi.fn(() => Promise.resolve()),
-  }
+  }))
 })
+
+/** Zustand im Store aendern, wie es die echten Aktionen taeten. */
+const setStore = (patch) => store.setState(patch)
 
 describe('NflPage', () => {
   it('gruppiert nach deutschem Kalendertag — das Nachtspiel steht unter Montag', () => {
@@ -82,25 +91,25 @@ describe('NflPage', () => {
   it('blaettert die Spielwoche ueber den Store', () => {
     render(<NflPage />)
     fireEvent.click(screen.getByRole('button', { name: 'Woche zurück' }))
-    expect(nfl.setWeek).toHaveBeenCalledWith(2)
+    expect(nfl().setWeek).toHaveBeenCalledWith(2)
     fireEvent.click(screen.getByRole('button', { name: '5' }))
-    expect(nfl.setWeek).toHaveBeenCalledWith(5)
+    expect(nfl().setWeek).toHaveBeenCalledWith(5)
   })
 
   it('laedt beim Mounten und auf Knopfdruck neu', () => {
     render(<NflPage />)
-    expect(nfl.load).toHaveBeenCalledWith({ season: '2026', force: false })
+    expect(nfl().load).toHaveBeenCalledWith({ season: '2026', force: false })
     fireEvent.click(screen.getByRole('button', { name: /Aktualisieren/ }))
-    expect(nfl.load).toHaveBeenCalledWith({ season: '2026', force: true })
+    expect(nfl().load).toHaveBeenCalledWith({ season: '2026', force: true })
   })
 
   // Der Grund, warum der Punktestand immer gerendert wird: fehlt das Element,
   // verrutscht die Zahlenspalte gegen die Nachbarzeilen.
   it('reserviert die Punktespalte auch vor dem Anpfiff und zeigt keine Bilanz', () => {
-    nfl.gamesByWeek = { 3: [
+    setStore({ gamesByWeek: { 3: [
       game('vorspiel'),
       game('final', { state: 'post', period: 4, home: side('GB', 31), away: side('DET', 7) }),
-    ] }
+    ] } })
     const { container } = render(<NflPage />)
     const lines = container.querySelectorAll('.nfl-team')
     expect(lines).toHaveLength(4)
@@ -114,24 +123,24 @@ describe('NflPage', () => {
   })
 
   it('zeigt die Bye-Teams der Woche', () => {
-    nfl.week = 5
-    nfl.gamesByWeek = { 5: [game('a')] }
+    setStore({ week: 5, gamesByWeek: { 5: [game('a')] } })
     render(<NflPage />)
     expect(screen.getByText(/CAR · KC/)).toBeInTheDocument()
   })
 
   it('meldet einen ESPN-Ausfall, ohne den letzten Stand zu verwerfen', () => {
-    nfl.error = 'Spieldaten gerade nicht verfügbar (ESPN).'
+    const error = 'Spieldaten gerade nicht verfügbar (ESPN).'
+    setStore({ error })
     render(<NflPage />)
-    expect(screen.getByText(nfl.error)).toBeInTheDocument()
+    expect(screen.getByText(error)).toBeInTheDocument()
     expect(screen.getByText('Q3 7:42')).toBeInTheDocument()
   })
 
   it('zeigt die Tabelle erst nach dem Umschalten und holt sie dann nach', () => {
     render(<NflPage />)
-    expect(nfl.loadStandings).not.toHaveBeenCalled()
+    expect(nfl().loadStandings).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
-    expect(nfl.loadStandings).toHaveBeenCalledWith({ season: '2026' })
+    expect(nfl().loadStandings).toHaveBeenCalledWith({ season: '2026' })
     // Ohne Daten steht da ein Satz, keine leeren Tabellen.
     expect(screen.getByText(/noch keine Tabelle/)).toBeInTheDocument()
     // Der Wochenwähler gehört zur Spieleansicht und verschwindet mit ihr.
@@ -144,7 +153,7 @@ describe('NflPage', () => {
       winPercent: wins / (wins + losses), pointsFor: null, pointsAgainst: null,
       differential, streak: null, divisionRecord: null, playoffSeed: null,
     })
-    nfl.standings = [t('CLE', 0, 2, -21), t('BAL', 2, 0, 15), t('PIT', 1, 1, -5), t('CIN', 1, 1, 9)]
+    setStore({ standings: [t('CLE', 0, 2, -21), t('BAL', 2, 0, 15), t('PIT', 1, 1, -5), t('CIN', 1, 1, 9)] })
     render(<NflPage />)
     fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
 
@@ -165,15 +174,15 @@ describe('NflPage', () => {
   it('aktualisiert in der Tabellenansicht die Tabelle, nicht den Spielplan', () => {
     render(<NflPage />)
     fireEvent.click(screen.getByRole('tab', { name: 'Tabelle' }))
-    nfl.load.mockClear()
-    nfl.loadStandings.mockClear()
+    nfl().load.mockClear()
+    nfl().loadStandings.mockClear()
     fireEvent.click(screen.getByRole('button', { name: /Aktualisieren/ }))
-    expect(nfl.loadStandings).toHaveBeenCalledWith({ season: '2026', force: true })
-    expect(nfl.load).not.toHaveBeenCalled()
+    expect(nfl().loadStandings).toHaveBeenCalledWith({ season: '2026', force: true })
+    expect(nfl().load).not.toHaveBeenCalled()
   })
 
   it('sagt es, wenn eine Woche keine Spiele hat', () => {
-    nfl.gamesByWeek = {}
+    setStore({ gamesByWeek: {} })
     render(<NflPage />)
     expect(screen.getByText(/keine Spiele vor/)).toBeInTheDocument()
   })

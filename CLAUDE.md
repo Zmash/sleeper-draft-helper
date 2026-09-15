@@ -187,6 +187,40 @@ eine andere Spaltenflucht. `NflPage.test.jsx` haelt das fest.
 ## Conventions
 
 - UI text, comments, and user-facing strings are in **German**. Match that when editing.
+  Das gilt auch fuer Menuepunkte und Seitentitel — englische Begriffe nur dort,
+  wo sie im Football ohnehin englisch sind (Week, Redzone, Lineup). Pfade
+  duerfen englisch sein (`/scores`), der sichtbare Name ist deutsch (`NFL`).
+
+### Reiter: ein Muster, `.tabs` / `.tab`
+
+Alle Reiter — Routen-Navigation wie Reiter innerhalb einer Seite — nutzen
+`.tabs` und `.tab` aus `style.css`, aktiver Reiter `.tab.active`.
+Unterstrich-Reiter, Farben aus den Tokens. **Keine eigenen Knopfleisten
+bauen**: es gab zeitweise vier leicht abweichende Kopien (`.an-tabs`,
+`.wk-tabs`, `.nfl-views`, `.tabs`), die sich in Hoehe, Schriftgrad und
+Akzentfarbe unterschieden. Der Zusatz `tabs--route` markiert die
+Routen-Navigation (`TabsNav`); nur sie wird mobil ausgeblendet, weil dort
+die Bottom-Bar uebernimmt. In einer Grid-Seite mit `gap` gehoert
+`margin-bottom: 0` auf die Leiste, sonst steht der Abstand doppelt.
+
+Ausnahme: `.ns-insp-tabs` in `NextBoard.jsx` ist ein kompakter Umschalter
+im Inspektor-Panel der neuen Shell, kein Seitenreiter — der bleibt eigen.
+
+### Tokens: kanonische Namen und Alt-Kurznamen
+
+Kanonisch sind die langen Namen aus `tokens.css` (`--text-primary`,
+`--text-muted`, `--accent-fill`, `--surface-card`). Aeltere Stylesheets
+schreiben `var(--muted, #888)`, `var(--fg, #eee)`, `var(--accent, #4ea1ff)`,
+`var(--card-bg, …)`, `var(--hover, …)`. Diese Kurznamen gab es lange **gar
+nicht** — jede dieser ~53 Stellen zeigte still ihren hartkodierten
+Ersatzwert statt der Theme-Farbe (die Analyse-Reiter etwa blau). Sie sind
+jetzt in `tokens.css` als Verweise auf die kanonischen Tokens definiert und
+folgen damit jedem Theme. **Neuer Code nimmt die kanonischen Namen.**
+
+- Der mobile Aktualisieren-Knopf sitzt im FAB der Bottom-Bar (`MobileNav`,
+  verdrahtet ueber `handleMobileSync` in `App.jsx` — neue Seiten dort
+  eintragen). Ein zusaetzlicher Knopf in der Seitenkopfzeile wird mobil
+  ausgeblendet, statt zweimal dazustehen.
 - Mobile builds ship via **Capacitor** (Android); `webDir` is `dist`, appId `eu.zmash.sleeperdrafthelper`. The `android/` directory is a generated Capacitor project — do not hand-edit its `build/` artifacts.
 - This is an **unofficial** tool; it only consumes public Sleeper/FantasyPros/FantasyCalc/KTC data.
 
