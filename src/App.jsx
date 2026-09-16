@@ -88,7 +88,7 @@ export default function App() {
 
   const { boardPlayers, draftMode, setDraftMode } = useBoardStore()
 
-  const { livePicks, autoRefreshEnabled, refreshIntervalSeconds, loadPicks } = useLiveStore()
+  const { livePicks, lastSyncAt, autoRefreshEnabled, refreshIntervalSeconds, loadPicks } = useLiveStore()
 
   const {
     dynastyRoster, mySleeperRosterId, rosterToUserMap, tradedPicks,
