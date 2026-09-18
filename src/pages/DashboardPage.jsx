@@ -122,7 +122,7 @@ function SleeperConnectWidget({ compact = false }) {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs } = useSessionStore()
+  const { sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs, refreshLeagues } = useSessionStore()
   const { draftMode } = useBoardStore()
   const { nflState, cards, loading, lastRefreshed, loadDashboard } = useDashboardStore()
   const liveCount = useGamesLiveStore((s) => s.liveCount)
@@ -131,12 +131,17 @@ export default function DashboardPage() {
     loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs })
   }, [availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs]) // eslint-disable-line
 
-  useEffect(() => { load() }, [availableLeagues?.length, sleeperUserId]) // eslint-disable-line
+  useEffect(() => { load() }, [availableLeagues, sleeperUserId]) // eslint-disable-line
+
+  // Liga-Metadaten (u.a. Avatar) sind seit loadLeagues() im localStorage
+  // eingefroren -- einmal beim Oeffnen und danach im selben 5-Minuten-Takt wie
+  // load() neu holen, damit ein in Sleeper geaendertes Liga-Bild ankommt.
+  useEffect(() => { if (sleeperUserId) refreshLeagues() }, [sleeperUserId]) // eslint-disable-line
 
   useEffect(() => {
-    const id = setInterval(() => { if (!document.hidden) load() }, 5 * 60 * 1000)
+    const id = setInterval(() => { if (!document.hidden) { refreshLeagues(); load() } }, 5 * 60 * 1000)
     return () => clearInterval(id)
-  }, [load])
+  }, [load, refreshLeagues])
 
   function goToAdd() { navigate('/setup', { state: { mode: 'add' } }) }
 

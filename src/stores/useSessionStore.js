@@ -136,6 +136,23 @@ export const useSessionStore = create(
         }
       },
 
+      // Aktualisiert nur die Liga-Metadaten (u.a. Avatar, Name, Status) aus
+      // Sleeper -- ohne Auswahl/Drafts anzufassen. loadLeagues() macht das
+      // einmalig beim Verbinden; ohne diesen Refresh blieb z.B. ein in
+      // Sleeper geaendertes Liga-Bild dauerhaft im localStorage haengen.
+      refreshLeagues: async () => {
+        const { sleeperUserId, seasonYear } = get()
+        if (!sleeperUserId) return
+        try {
+          const leagues = await fetchJson(
+            `${SLEEPER_API_BASE}/user/${sleeperUserId}/leagues/nfl/${seasonYear}`
+          )
+          set({ availableLeagues: leagues })
+        } catch (e) {
+          console.warn('[refreshLeagues] failed', e)
+        }
+      },
+
       attachDraftByIdOrUrl: async (input, parseDraftId) => {
         const id = parseDraftId(input)
         if (!id) return null

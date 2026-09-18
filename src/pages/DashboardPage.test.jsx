@@ -16,6 +16,7 @@ const sessionState = {
   attachDraftByIdOrUrl: vi.fn(),
   setSelectedDraftId: vi.fn(),
   setSelectedLeagueId: vi.fn(),
+  refreshLeagues: vi.fn(),
 }
 const dashboardState = {
   nflState: null,

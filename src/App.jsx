@@ -81,7 +81,7 @@ export default function App() {
   const {
     sleeperUserId, selectedLeagueId, selectedDraftId, seasonYear,
     availableLeagues, leagueUsers, availableDrafts, draftViewAs,
-    loadDraftOptions, loadLeagueUsers,
+    loadDraftOptions, loadLeagueUsers, refreshLeagues,
     attachDraftByIdOrUrl, setSelectedDraftId, setSelectedLeagueId,
   } = useSessionStore()
   const navigate = useNavigate()
@@ -416,6 +416,7 @@ export default function App() {
 
   const handleMobileSync = useCallback(() => {
     if (nsPathname.startsWith('/dashboard')) {
+      refreshLeagues()
       loadDashboard({ leagues: availableLeagues, availableDrafts, sleeperUserId, seasonYear, draftViewAs }).catch(() => {})
     } else if (nsPathname.startsWith('/analyse') || nsPathname.startsWith('/lineup')) {
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
@@ -437,7 +438,7 @@ export default function App() {
       // Fallback: generischer Pick-Refresh
       if (selectedDraftId) loadPicks(selectedDraftId).catch(() => {})
     }
-  }, [nsPathname, selectedDraftId, selectedLeagueId, sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs, loadDashboard, loadPicks, loadDynastyRoster])
+  }, [nsPathname, selectedDraftId, selectedLeagueId, sleeperUserId, seasonYear, availableLeagues, availableDrafts, draftViewAs, loadDashboard, loadPicks, loadDynastyRoster, refreshLeagues])
 
   // ── Auto-Sync: eine Schleife fuer alle Seiten ──────────────────────────────
   // Takte und Veralt-Schwellen stehen in services/pageSync.js; was tatsaechlich
