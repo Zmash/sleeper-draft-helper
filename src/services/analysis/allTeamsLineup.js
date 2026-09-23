@@ -9,7 +9,7 @@ const posRank = (pos) => {
   return i === -1 ? 99 : i
 }
 
-function severityFor({ player, isStarter, week, recommendedSet, lockedSet, irToMoveSet, irReturningSet, dropCandidateSet, irOverflow }) {
+function severityFor({ player, isStarter, week, recommendedSet, lockedSet, irToMoveSet, irReturningSet, dropCandidateSet, irOverflow, autoSubStarterSet, autoSubBenchSet }) {
   const reasons = []
   const id = String(player?.sleeper_id ?? player?.player_id ?? '')
   const isRecommended = recommendedSet.has(id)
@@ -31,6 +31,10 @@ function severityFor({ player, isStarter, week, recommendedSet, lockedSet, irToM
   if (irToMoveSet?.has(id)) reasons.push('ir-open')
   if (irReturningSet?.has(id)) reasons.push('ir-return')
   if (dropCandidateSet?.has(id)) reasons.push('drop-candidate')
+  // AutoSub-Liga: fraglicher Starter mit passendem Bankspieler -> Sub setzen.
+  // Nur Hinweis (gelb), die Aufstellung selbst ist in Ordnung.
+  if (autoSubStarterSet?.has(id)) reasons.push('autosub')
+  if (autoSubBenchSet?.has(id)) reasons.push('autosub-sub')
   let severity = 'green'
   if (reasons.includes('bye') || reasons.includes('out')) severity = 'red'
   // Ruecckehr ohne freien Platz ist der einzige IR-Fall mit echtem
@@ -54,6 +58,8 @@ export function buildAllTeamsRows({ teams = [] } = {}) {
     const irToMove = new Set((t.irToMoveIds || []).map(String))
     const irReturning = new Set((t.irReturningIds || []).map(String))
     const dropCandidates = new Set((t.dropCandidateIds || []).map(String))
+    const autoSubStarters = new Set((t.autoSubStarterIds || []).map(String))
+    const autoSubBench = new Set((t.autoSubBenchIds || []).map(String))
     for (const p of t.roster || []) {
       const id = String(p.sleeper_id ?? p.player_id ?? '')
       const isStarter = actual.has(id)
@@ -61,6 +67,7 @@ export function buildAllTeamsRows({ teams = [] } = {}) {
         player: p, isStarter, week: t.week, recommendedSet: recommended, lockedSet: locked,
         irToMoveSet: irToMove, irReturningSet: irReturning, dropCandidateSet: dropCandidates,
         irOverflow: !!t.irOverflow,
+        autoSubStarterSet: autoSubStarters, autoSubBenchSet: autoSubBench,
       })
       rows.push({
         leagueId: t.leagueId,

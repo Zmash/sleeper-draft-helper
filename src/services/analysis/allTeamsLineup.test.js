@@ -115,3 +115,23 @@ describe('allTeamsLineup', () => {
     expect(counts.total).toBe(5)
   })
 })
+
+describe('allTeamsLineup: AutoSubs', () => {
+  it('meldet fraglichen Starter und passenden Sub als Hinweis', () => {
+    const rows = buildAllTeamsRows({ teams: [{
+      leagueId: 'l3', leagueName: 'Subs', week: '5',
+      roster: [
+        { sleeper_id: '1', name: 'Fraglich', pos: 'WR', team: 'LAR', bye: '9', injury_status: 'Questionable' },
+        { sleeper_id: '2', name: 'Ersatz', pos: 'WR', team: 'MIA', bye: '9', injury_status: null },
+      ],
+      actualStarterIds: ['1'],
+      recommendedStarterIds: ['1'],
+      autoSubStarterIds: ['1'],
+      autoSubBenchIds: ['2'],
+    }] })
+    const byId = Object.fromEntries(rows.map((r) => [r.player.sleeper_id, r]))
+    expect(byId['1'].severity).toBe('yellow')
+    expect(byId['1'].reasons).toContain('autosub')
+    expect(byId['2'].reasons).toContain('autosub-sub')
+  })
+})

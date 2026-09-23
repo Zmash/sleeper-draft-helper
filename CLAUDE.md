@@ -116,6 +116,26 @@ zeigt immer nur auf die *zuletzt* geladene Woche und ist beim Blättern nicht ve
 Der Liga-Filter (`LeagueChips` aus `components/redzone/RedzoneParts.jsx`) wird geteilt, die
 abgewählten IDs aber je Seite getrennt persistiert (`sdh-redzone-v1` / `sdh-weekly-v1`).
 
+### AutoSubs: `services/analysis/autoSub.js`
+
+Sleeper-Ligen koennen bis zu drei AutoSubs pro Team und Woche erlauben
+(`league.settings.max_subs`; `sub_start_time_eligibility` = Sub darf nicht
+frueher spielen als der Starter). **Die Zuordnung Starter -> Sub je Team ist in
+der oeffentlichen API nicht dokumentiert.** `readAutoSubs` liest darum tolerant
+(jeder Schluessel mit "sub" in Roster, Roster-Metadata und Matchup) und nimmt
+nur Paare, die sich am Kader bestaetigen lassen — findet es nichts, ist die
+Map leer und alles rechnet wie ohne AutoSubs.
+
+- **Siegchance** (Dashboard-Karte, Redzone): `applyAutoSubs` ersetzt einen
+  ausgefallenen Starter (`isRuledOut`) schon vor seinem Kickoff durch den
+  hinterlegten Sub. Ohne lesbare Zuordnung zeigt die Dashboard-Karte
+  "AutoSub moeglich" (`pendingAutoSubCount`) — die Chance ist dann eher zu
+  niedrig. Nach dem Tausch steht der Sub ohnehin in `starters`; `/weekly`
+  braucht deshalb nichts Eigenes.
+- **Lineup**: `recommendAutoSubs` schlaegt Subs **nur fuer Starter mit
+  Questionable/Doubtful** vor, nicht bis zum Liga-Limit. Das Limit ist ein
+  Deckel, kein Soll. Kickoffs kommen aus dem ESPN-Scoreboard.
+
 ### `/scores` — Spielplan, Live-Stand, deutsche Sender
 
 Die einzige Seite ohne Liga-Bezug: sie laeuft auch ohne Sleeper-Account. Quelle ist

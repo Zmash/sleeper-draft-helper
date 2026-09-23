@@ -112,6 +112,37 @@ describe('buildMatchupTiles', () => {
   })
 })
 
+describe('AutoSubs in der Redzone', () => {
+  // P3 (Starter) ist Out, P4 als Sub hinterlegt -- vor P3s Kickoff zaehlt
+  // bereits der Sub, in Chance wie in der Spielerliste.
+  const meta = { ...META, P3: { ...META.P3, team: 'HOU', injury_status: 'Out' } }
+  const byTeam = gamesByTeam([game('g1', 'CIN', 'TB'), game('g2', 'HOU', 'BUF', { state: 'pre' })])
+  const league = (maxSubs) => ({
+    league: { league_id: 'L9', name: 'Subs', settings: { max_subs: maxSubs } },
+    rosters: [
+      { roster_id: 1, owner_id: 'me', starters: ['P1', 'P3'], players: ['P1', 'P3', 'P4'], metadata: { autosubs: { P3: 'P4' } } },
+      { roster_id: 2, owner_id: 'u2', starters: ['P2'], players: ['P2'] },
+    ],
+    users: [],
+    matchups: [
+      { roster_id: 1, matchup_id: 1, points: 10, starters: ['P1', 'P3'], players: ['P1', 'P3', 'P4'], players_points: { P1: 10 } },
+      { roster_id: 2, matchup_id: 1, points: 10, starters: ['P2'], players_points: { P2: 10 } },
+    ],
+  })
+  const args = (maxSubs) => ({ myUserId: 'me', byTeam, playersMeta: meta, projectPlayer: () => 15, leagueData: [league(maxSubs)] })
+
+  it('rechnet den Sub statt des ausgefallenen Starters', () => {
+    const [withSub] = buildMatchupTiles(args(1))
+    const [without] = buildMatchupTiles(args(0))
+    expect(withSub.myWinPct).toBeGreaterThan(without.myWinPct)
+    expect(withSub.myOpen).toBe(2)
+  })
+  it('fuehrt den Sub in der Spielerliste', () => {
+    const { mine } = buildPlayers(args(1))
+    expect(mine.map((p) => p.playerId).sort()).toEqual(['P1', 'P4'])
+  })
+})
+
 describe('buildPlayers', () => {
   const { mine, opponents } = buildPlayers({ ...base, leagueData: [L1, L2] })
   it('buendelt eigene Spieler ueber Ligen und nimmt die hoechsten Punkte', () => {

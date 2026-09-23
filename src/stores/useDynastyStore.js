@@ -14,6 +14,9 @@ export const useDynastyStore = create((set) => ({
   // Alle Kader der Liga (roh, ungefiltert) - zusaetzlich zu dynastyRoster (nur der eigene,
   // aufbereitete Kader), fuer den Liga-Feld-Vergleich auf der Analyse-Seite.
   leagueRosters: [],
+  // Rohes Sleeper-Roster-Objekt des eigenen Teams (inkl. metadata) -- fuer
+  // Felder, die leagueRosters beim Anreichern verwirft (z.B. AutoSubs).
+  mySleeperRoster: null,
   mySleeperRosterId: null,
   rosterToUserMap: {},
   tradedPicks: [],
@@ -31,12 +34,12 @@ export const useDynastyStore = create((set) => ({
     // rosterToUserMap gehoert mit dazu: roster_id faengt in JEDER Liga bei 1 an.
     // Eine stehengebliebene Zuordnung der vorigen Liga liefert damit keine leeren,
     // sondern falsche Besitzer-Labels (App.jsx:233, BoardPage.jsx:120).
-    set({ dynastyRoster: [], leagueRosters: [], mySleeperRosterId: null, rosterToUserMap: {} })
+    set({ dynastyRoster: [], leagueRosters: [], mySleeperRosterId: null, mySleeperRoster: null, rosterToUserMap: {} })
   },
 
   loadDynastyRoster: async ({ selectedLeagueId, sleeperUserId, seasonYear }) => {
     // Frueher Ruecksprung vor dem ersten await: kein Wettlauf moeglich, schreibt sofort.
-    if (!selectedLeagueId || !sleeperUserId) { set({ dynastyRoster: [], leagueRosters: [] }); return }
+    if (!selectedLeagueId || !sleeperUserId) { set({ dynastyRoster: [], leagueRosters: [], mySleeperRoster: null }); return }
     // Eigenen Lauf markieren: nur der jeweils zuletzt gestartete Aufruf darf nach
     // dem await noch schreiben.
     const eigenerLauf = ++ladeLauf
@@ -85,8 +88,8 @@ export const useDynastyStore = create((set) => ({
       }))
       set({ rosterToUserMap: rMap, leagueRosters: enrichedRosters })
       const myRoster = (rosters || []).find((r) => String(r.owner_id) === String(sleeperUserId))
-      if (!myRoster) { set({ dynastyRoster: [], mySleeperRosterId: null }); return }
-      set({ mySleeperRosterId: myRoster.roster_id ?? null })
+      if (!myRoster) { set({ dynastyRoster: [], mySleeperRosterId: null, mySleeperRoster: null }); return }
+      set({ mySleeperRosterId: myRoster.roster_id ?? null, mySleeperRoster: myRoster })
       const starterSet = new Set(myRoster.starters || [])
       const taxiSet = new Set(myRoster.taxi || [])
       const reserveSet = new Set(myRoster.reserve || [])

@@ -1,4 +1,5 @@
 import Icon from '../Icon'
+import AutoSubSection from './AutoSubSection'
 import { posColor, fantasyProsPlayerUrl, formatProjectedPts } from '../../utils/formatting'
 
 // Reihenfolge wie in Sleeper: QB vorne, K/DEF hinten. Unbekannte Slots landen
@@ -16,8 +17,12 @@ const altText = (v, kind) =>
 
 export default function RecommendedLineupCard({
   lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, ptsLoaded = false, sourceNote = null,
+  autoSub = null,
 }) {
   if (!lineup) return null
+  // Wer ist empfohlener Sub fuer wen -- fuer die AS-Marke an Starter und Bank.
+  const subFor = new Map((autoSub?.picks || []).map((p) => [String(p.sub.sleeper_id), p.starter]))
+  const subbedStarter = new Map((autoSub?.picks || []).map((p) => [String(p.starter.sleeper_id), p.sub]))
   const changes = comparison && !comparison.isOptimal ? comparison.diffs.length : 0
   const orderOf = (slot) => { const i = SLOT_ORDER.indexOf(slot); return i === -1 ? 99 : i }
   const slots = lineup.slots.slice().sort((a, b) => orderOf(a.slot) - orderOf(b.slot) || a.slotIndex - b.slotIndex)
@@ -60,6 +65,9 @@ export default function RecommendedLineupCard({
                 target="_blank"
                 rel="noreferrer"
               >
+                {subbedStarter.has(String(s.player.sleeper_id)) && (
+                  <span className="an-as-tag" title={`AutoSub: ${subbedStarter.get(String(s.player.sleeper_id)).name}`}>AS</span>
+                )}
                 {s.player.name}
               </a>
             ) : (
@@ -86,6 +94,9 @@ export default function RecommendedLineupCard({
                     target="_blank"
                     rel="noreferrer"
                   >
+                    {subFor.has(String(p.sleeper_id)) && (
+                      <span className="an-as-tag an-as-tag--sub" title={`AutoSub für ${subFor.get(String(p.sleeper_id)).name}`}>Sub</span>
+                    )}
                     {p.name}
                   </a>
                 ) : (
@@ -100,6 +111,7 @@ export default function RecommendedLineupCard({
           </div>
         </>
       )}
+      <AutoSubSection autoSub={autoSub} rosterNameById={rosterNameById} />
       {comparison && !comparison.isOptimal && (
         <ul className="an-lineup-diff">
           {comparison.diffs.map((d) =>

@@ -13,6 +13,7 @@ import { loadPlayersMetaCached } from '../services/playersMeta'
 import { useWeeklyRankingsStore } from './useWeeklyRankingsStore'
 import { pointsFieldFor } from '../services/analysis/seasonSim'
 import { blendedPlayerProjection, isRuledOut, liveStarterTotals } from '../services/analysis/matchupProjection'
+import { autoSubRules, readAutoSubs, applyAutoSubs, pendingAutoSubCount } from '../services/analysis/autoSub'
 import { standingsRankFor } from '../services/analysis/standings'
 import { detectScoringType, loadWeekProjections, fpPtsMapFor } from '../services/weekProjections'
 import { fetchScoreboard, lastKickoffAt } from '../services/redzone/espnLive'
@@ -78,14 +79,29 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
         // Projizierter Endstand = erzielte Punkte + Rest der Wochenprojektion.
         // Der Rest schrumpft mit dem Spielverlauf, damit ein durchgespieltes
         // Team nicht weiter mit seiner Vorab-Projektion gefuehrt wird.
-        const totalsFor = (m) =>
-          liveStarterTotals({
-            starterIds: m.starters,
+        // AutoSubs: hinterlegte Subs ersetzen einen ausgefallenen Starter schon
+        // vor dessen Kickoff in der Rechnung (Sleeper tauscht erst dann). Ohne
+        // lesbare Zuordnung bleibt nur der Hinweis autoSubPending.
+        const subRules = autoSubRules(league)
+        const effectiveStarters = (m) => {
+          const roster = (rosters || []).find((r) => r.roster_id === m.roster_id) || null
+          const subs = readAutoSubs({ roster, matchup: m })
+          return { ...applyAutoSubs({ starterIds: m.starters || [], subs, rules: subRules, outFor, pointsFor: (id) => m.players_points?.[id] }), known: subs.size > 0 }
+        }
+        const totalsFor = (m) => {
+          const eff = effectiveStarters(m)
+          const totals = liveStarterTotals({
+            starterIds: eff.starterIds,
             projectionFor,
             pointsFor: (id) => m.players_points?.[id],
             gameFor,
             outFor,
           })
+          const pending = eff.known ? 0 : pendingAutoSubCount({
+            starterIds: eff.starterIds, rules: subRules, outFor, gameFor, pointsFor: (id) => m.players_points?.[id],
+          })
+          return totals ? { ...totals, subsApplied: eff.applied.length, subsPending: pending } : null
+        }
         const myTotals = totalsFor(mine)
         const oppTotals = opp ? totalsFor(opp) : null
         const myPoints = mine.points || 0
@@ -108,6 +124,13 @@ async function buildLeagueCard(league, sleeperUserId, currentWeek, isInSeason, p
           opponentRemaining: oppTotals?.hasGameStates ? oppTotals.rest : null,
           myOpen: myTotals?.hasGameStates ? myTotals.open : null,
           opponentOpen: oppTotals?.hasGameStates ? oppTotals.open : null,
+          autoSubs: subRules ? {
+            max: subRules.maxSubs,
+            myApplied: myTotals?.subsApplied || 0,
+            oppApplied: oppTotals?.subsApplied || 0,
+            myPending: myTotals?.subsPending || 0,
+            oppPending: oppTotals?.subsPending || 0,
+          } : null,
         }
       }
     }

@@ -500,6 +500,48 @@
   letter-spacing: .04em;
 }
 
+/* AutoSub-Empfehlung in der Lineup-Karte. AS-Marke am Starter, Sub-Marke am
+   Bankspieler -- beide in Akzentfarbe, damit das Paar in beiden Listen
+   auffindbar ist. */
+.an-as-tag {
+  display: inline-block;
+  margin-right: .3rem;
+  padding: 0 .25rem;
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--accent-fill) 22%, transparent);
+  color: var(--accent-text);
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1.35;
+  vertical-align: 1px;
+}
+.an-autosub-rule {
+  margin-left: .5rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-dim);
+}
+.an-autosub-empty, .an-autosub-note { margin: .25rem 0; font-size: .78rem; color: var(--text-muted); }
+.an-autosub-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .35rem;
+  padding: .15rem 0;
+  font-size: .8rem;
+}
+.an-autosub-pair { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; min-width: 0; }
+.an-autosub-starter, .an-autosub-sub { display: inline-flex; align-items: baseline; gap: .3rem; min-width: 0; }
+.an-autosub-starter { color: var(--text-muted); }
+.an-autosub-status { font-size: .66rem; font-weight: 700; color: var(--bad); }
+.an-autosub-kick { font-size: .68rem; color: var(--text-dim); white-space: nowrap; }
+.an-autosub-arrow { color: var(--accent-text); }
+.an-autosub-meta { display: inline-flex; align-items: baseline; gap: .4rem; white-space: nowrap; }
+.an-autosub-state { font-size: .68rem; }
+.an-autosub-state--ok { color: var(--good); }
+.an-autosub-state--change { color: var(--accent-text); }
+
 /* CTA-Button fuer "Lineup in Sleeper setzen" -- prominent, mit externem Link-Icon.
    Der Button erscheint nur wenn leagueId vorhanden ist (also ein echter Nutzer). */
 .an-cta {

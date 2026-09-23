@@ -1616,6 +1616,16 @@ th.col-pick, td.col-pick { width: 64px; }
   font-variant-numeric: tabular-nums;
 }
 
+/* AutoSub-Hinweis unter der Projektion: gruen = Sub eingerechnet,
+   Akzent = Sub moeglich, aber noch nicht in der Rechnung. */
+.lc-autosub {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--good);
+  white-space: nowrap;
+}
+.lc-autosub--open { color: var(--accent-text); }
+
 /* Injuries */
 .lc-injuries {
   display: flex;

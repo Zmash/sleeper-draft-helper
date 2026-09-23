@@ -106,6 +106,28 @@ function openHint(open) {
   return open > 0 ? ` · ${open} offen` : ' · fertig'
 }
 
+// AutoSub-Hinweis an der Projektion. "eingerechnet": hinterlegter Sub steht
+// schon fuer den ausgefallenen Starter in der Rechnung. "moeglich": ein Starter
+// faellt aus, die Zuordnung ist aber nicht lesbar -- die Projektion zaehlt ihn
+// mit 0, die Chance ist dann eher zu niedrig.
+function AutoSubHint({ applied, pending }) {
+  if (applied > 0) {
+    return (
+      <span className="lc-autosub" title="Hinterlegter AutoSub springt für einen ausgefallenen Starter ein und ist in der Projektion eingerechnet.">
+        {applied === 1 ? 'AutoSub' : `${applied} AutoSubs`} eingerechnet
+      </span>
+    )
+  }
+  if (pending > 0) {
+    return (
+      <span className="lc-autosub lc-autosub--open" title="Ein ausgefallener Starter kann per AutoSub ersetzt werden. Die Projektion rechnet ihn bis zum Tausch mit 0 – die Chance ist eher zu niedrig.">
+        AutoSub möglich
+      </span>
+    )
+  }
+  return null
+}
+
 function MatchupBlock({ matchup }) {
   if (!matchup) return null
   const prob = computeMatchupProbability(matchup)
@@ -153,6 +175,7 @@ function MatchupBlock({ matchup }) {
               Proj {formatPoints(prob.myFinal)}{openHint(matchup.myOpen)}
             </span>
           )}
+          {matchup.autoSubs && <AutoSubHint applied={matchup.autoSubs.myApplied} pending={matchup.autoSubs.myPending} />}
         </span>
         <span className="lc-team-cell lc-team-cell--opp">
           <span className="lc-team">{matchup.opponentName}</span>
@@ -161,6 +184,7 @@ function MatchupBlock({ matchup }) {
               Proj {formatPoints(prob.oppFinal)}{openHint(matchup.opponentOpen)}
             </span>
           )}
+          {matchup.autoSubs && <AutoSubHint applied={matchup.autoSubs.oppApplied} pending={matchup.autoSubs.oppPending} />}
         </span>
       </div>
     </div>

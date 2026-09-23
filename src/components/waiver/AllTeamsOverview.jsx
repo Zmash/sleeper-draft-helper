@@ -11,10 +11,12 @@ const REASON_LABEL = {
   'ir-return': 'Von IR zurück',
   'ir-open': 'Auf IR?',
   'drop-candidate': 'Droppen?',
+  autosub: 'AutoSub setzen',
+  'autosub-sub': 'Als AutoSub',
 }
 
 // Mehrere Gründe -> der wichtigste zuerst (Bye/Out schlägt alles).
-const REASON_PRIORITY = ['bye', 'out', 'ir-return', 'questionable', 'suboptimal', 'better-on-bench', 'ir-open', 'drop-candidate']
+const REASON_PRIORITY = ['bye', 'out', 'ir-return', 'autosub', 'questionable', 'suboptimal', 'better-on-bench', 'autosub-sub', 'ir-open', 'drop-candidate']
 function primaryReason(reasons = []) {
   for (const key of REASON_PRIORITY) {
     if (reasons.includes(key)) return REASON_LABEL[key]

@@ -11,6 +11,8 @@ import { fetchNflState, fetchMatchups, fetchLeagueRosters } from '../services/ap
 import { effScoringTypeToFpParam } from '../services/draftFormat'
 import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup'
+import { autoSubRules, readAutoSubs, recommendAutoSubs } from '../services/analysis/autoSub'
+import { fetchScoreboard } from '../services/redzone/espnLive'
 import { normalizePlayerName } from '../utils/formatting'
 import PickupSuggestions from '../components/waiver/PickupSuggestions'
 import StreamingBoard from '../components/waiver/StreamingBoard'
@@ -38,7 +40,7 @@ export function availableStreamPositionsFor(rosterPositions = []) {
 
 export default function LineupPage({ selectedLeague, effRoster, draftMode, effScoringType, seasonYear }) {
   const { sleeperUserId, availableLeagues } = useSessionStore()
-  const { leagueRosters, mySleeperRosterId, dynastyRoster } = useDynastyStore()
+  const { leagueRosters, mySleeperRosterId, mySleeperRoster, dynastyRoster } = useDynastyStore()
   const [allTab, setAllTab] = useState(false)
   const [allTeams, setAllTeams] = useState([])
   const [allLoading, setAllLoading] = useState(false)
@@ -51,6 +53,8 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
   const [playersMeta, setPlayersMeta] = useState({})
   const [week, setWeek] = useState(null)
   const [actualStarterIds, setActualStarterIds] = useState([])
+  const [myMatchup, setMyMatchup] = useState(null)
+  const [kickoffByTeam, setKickoffByTeam] = useState({})
   const [gameStatusByTeam, setGameStatusByTeam] = useState({})
   const isDynasty = draftMode === 'rookie'
   const scoring = effScoringTypeToFpParam(effScoringType)
@@ -163,9 +167,47 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       .then((matchups) => {
         const mine = (matchups || []).find((m) => m.roster_id === mySleeperRosterId)
         setActualStarterIds(mine?.starters || [])
+        setMyMatchup(mine || null)
       })
-      .catch(() => setActualStarterIds([]))
+      .catch(() => { setActualStarterIds([]); setMyMatchup(null) })
   }, [selectedLeague?.league_id, week, mySleeperRosterId])
+
+  // AutoSubs: Liga-Regel aus den Settings. Kickoffs nur holen, wenn die Liga
+  // AutoSubs hat oder "Alle Teams" offen ist -- sie zeigen, wann Starter und
+  // Sub spielen, und pruefen die Regel "Sub spielt nicht frueher als der
+  // Starter".
+  const subRules = useMemo(() => autoSubRules(selectedLeague), [selectedLeague])
+  useEffect(() => {
+    if ((!subRules && !allTab) || !week || !seasonYear) return
+    let cancelled = false
+    fetchScoreboard({ season: seasonYear, week })
+      .then((games) => {
+        if (cancelled) return
+        const out = {}
+        for (const g of games) {
+          const t = g.date ? Date.parse(g.date) : NaN
+          if (!Number.isFinite(t)) continue
+          out[g.home.abbr] = t
+          out[g.away.abbr] = t
+        }
+        setKickoffByTeam(out)
+      })
+      .catch(() => { if (!cancelled) setKickoffByTeam({}) })
+    return () => { cancelled = true }
+  }, [subRules, allTab, week, seasonYear])
+
+  // Projizierte Wochenpunkte je Sleeper-ID im Liga-Scoringformat (Pkt-Spalten
+  // in Aufstellung, Pickup-Liste und Streaming-Board). Quelle ist die
+  // Sleeper-Wochenprojektion -- native IDs, kein Name-Matching.
+  const sleeperPtsByPlayerId = useMemo(() => {
+    const field = effScoringType === 'half_ppr' ? 'pts_half_ppr' : effScoringType === 'standard' ? 'pts_std' : 'pts_ppr'
+    const map = new Map()
+    for (const [id, e] of sleeperWeekById) {
+      const v = e?.[field]
+      if (v != null) map.set(String(id), v)
+    }
+    return map
+  }, [sleeperWeekById, effScoringType])
 
   // "Alle Teams": Kader aller Ligen laden (einmal pro Tab-Wechsel), daraus je
   // Liga Starter + Empfehlung bestimmen. Starters kommen aus dem
@@ -231,8 +273,9 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           gameStatusByTeam,
         })
         let recommended = []
+        let res = null
         try {
-          const res = bestLineup({
+          res = bestLineup({
             myRosterPlayers: roster,
             rosterPositions: positions.length ? positions : effRoster,
             weeklyRankByKey: wk, flexRankByKey: fx, superflexRankByKey: sfx,
@@ -241,6 +284,21 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           })
           recommended = (res.slots || []).filter((s) => s.player).map((s) => String(s.player.sleeper_id))
         } catch { recommended = [] }
+        // AutoSubs je Liga: gleiche Empfehlung wie in der Einzelansicht, nur
+        // mit Wochenrang statt Punkten, wenn keine Projektion da ist.
+        const lgRules = autoSubRules(lg)
+        let autoSubPicks = []
+        if (lgRules && res?.slots) {
+          autoSubPicks = recommendAutoSubs({
+            slots: res.slots,
+            bench: res.bench || [],
+            rules: lgRules,
+            kickoffFor: (p) => kickoffByTeam[String(p?.team || '').toUpperCase()] ?? null,
+            ptsFor: (p) => sleeperPtsByPlayerId.get(String(p.sleeper_id)) ?? null,
+            rankFor: (p) => wk.get(`ID:${p.sleeper_id}`) ?? null,
+            currentWeekBye: week != null ? String(week) : null,
+          }).picks
+        }
         // IR-Verwaltung: freie IR-Slots mit Out/IR-Spielern befuellen, gesunde
         // Ruecckehrer melden, bei Platzmangel einen Drop vorschlagen. wk (Wochenrang)
         // als Kaderwert-Naeherung -- kein Zusatz-Request fuer ROS/Dynasty-Wert.
@@ -261,6 +319,8 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
           irReturningIds: ir.offIR.map((p) => p.sleeper_id),
           dropCandidateIds: ir.dropCandidates.map((p) => p.sleeper_id),
           irOverflow: ir.overflow > 0,
+          autoSubStarterIds: autoSubPicks.map((p) => String(p.starter.sleeper_id)),
+          autoSubBenchIds: autoSubPicks.map((p) => String(p.sub.sleeper_id)),
         }
       } catch { return null }
     })).then((teams) => {
@@ -270,7 +330,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
       }
     })
     return () => { cancelled = true }
-  }, [allTab, sleeperUserId, availableLeagues, playersMeta, week, effRoster, byKey, getRankMap, gameStatusByTeam])
+  }, [allTab, sleeperUserId, availableLeagues, playersMeta, week, effRoster, byKey, getRankMap, gameStatusByTeam, kickoffByTeam, sleeperPtsByPlayerId])
 
   const allRows = useMemo(() => buildAllTeamsRows({ teams: allTeams }), [allTeams])
 
@@ -288,19 +348,6 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
   }, [byKey, getRankMap])
 
   const trendingAddIds = useMemo(() => new Set(adds.map((a) => a.player_id)), [adds])
-
-  // Projizierte Wochenpunkte je Sleeper-ID im Liga-Scoringformat (Pkt-Spalten
-  // in Aufstellung, Pickup-Liste und Streaming-Board). Quelle ist die
-  // Sleeper-Wochenprojektion -- native IDs, kein Name-Matching.
-  const sleeperPtsByPlayerId = useMemo(() => {
-    const field = effScoringType === 'half_ppr' ? 'pts_half_ppr' : effScoringType === 'standard' ? 'pts_std' : 'pts_ppr'
-    const map = new Map()
-    for (const [id, e] of sleeperWeekById) {
-      const v = e?.[field]
-      if (v != null) map.set(String(id), v)
-    }
-    return map
-  }, [sleeperWeekById, effScoringType])
 
   const pickups = useMemo(
     () => pickupRanking({
@@ -421,6 +468,25 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
     }
   }, [dynastyRoster, effRoster, lineupRosterPositions, weeklyRankByIdKey, flexRankByIdKey, superflexRankByIdKey, sleeperPtsByPlayerId, week, isDynasty, rosRankByKey, ktcValueByNname, myLockedStarterSlots])
 
+  // Hinterlegte Subs (falls Sleeper sie mitliefert) und Empfehlung fuer die
+  // empfohlene Aufstellung. assigned = null heisst "nicht erkennbar", nicht
+  // "keine gesetzt".
+  const autoSub = useMemo(() => {
+    if (!subRules || !lineup) return null
+    const assigned = readAutoSubs({ roster: mySleeperRoster, matchup: myMatchup })
+    const kickoffFor = (p) => kickoffByTeam[String(p?.team || (p?.pos === 'DEF' ? p?.sleeper_id : '')).toUpperCase()] ?? null
+    const { picks, uncovered } = recommendAutoSubs({
+      slots: lineup.slots,
+      bench: lineup.bench,
+      rules: subRules,
+      kickoffFor,
+      ptsFor: (p) => sleeperPtsByPlayerId.get(String(p.sleeper_id)) ?? null,
+      rankFor: (p) => weeklyRankByIdKey.get(`ID:${p.sleeper_id}`) ?? null,
+      currentWeekBye: week != null ? String(week) : null,
+    })
+    return { rules: subRules, picks, uncovered, assigned: assigned.size ? assigned : null, kickoffFor }
+  }, [subRules, lineup, mySleeperRoster, myMatchup, kickoffByTeam, sleeperPtsByPlayerId, weeklyRankByIdKey, week])
+
   const comparison = useMemo(() => {
     if (!lineup || !actualStarterIds.length) return null
     return compareToActualStarters({ recommendedSlots: lineup.slots, actualStarterIds })
@@ -506,6 +572,7 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
             altKind={isDynasty ? 'value' : 'rank'}
             altLoaded={hasAltValues}
             ptsLoaded={hasPtsValues}
+            autoSub={autoSub}
             sourceNote={isDynasty
               ? `Woche: FantasyPros-Wochenranking (Rang: kleiner = besser)${hasAltValues ? ' · KTC: KeepTradeCut-Dynastiewert, Anlagewert (größer = besser)' : ''}${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
               : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}

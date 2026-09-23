@@ -95,3 +95,48 @@ describe('RecommendedLineupCard', () => {
   })
 })
 
+
+describe('RecommendedLineupCard: AutoSubs', () => {
+  const starter = { sleeper_id: '1', name: 'Puka Nacua', team: 'LAR', pos: 'WR', injury_status: 'Questionable' }
+  const sub = { sleeper_id: '2', name: 'Jaylen Waddle', team: 'MIA', pos: 'WR' }
+  const withSub = {
+    slots: [{ slot: 'WR', slotIndex: 0, player: starter, rank: 8 }],
+    bench: [{ ...sub, rank: 30 }],
+  }
+  const autoSub = (over = {}) => ({
+    rules: { maxSubs: 3, requireLaterKickoff: true },
+    picks: [{ slot: 'WR', slotIndex: 0, starter, sub, risk: 0.25, expected: 3.1 }],
+    uncovered: [],
+    assigned: null,
+    kickoffFor: () => null,
+    ...over,
+  })
+
+  it('zeigt ohne AutoSub-Liga keinen Abschnitt', () => {
+    render(<RecommendedLineupCard lineup={withSub} comparison={null} />)
+    expect(screen.queryByTestId('autosub-section')).toBeNull()
+  })
+
+  it('zeigt Paar, Limit, Regel und markiert Starter und Sub', () => {
+    const { container } = render(<RecommendedLineupCard lineup={withSub} comparison={null} autoSub={autoSub()} />)
+    const section = screen.getByTestId('autosub-section')
+    expect(section.textContent).toContain('1 von max. 3')
+    expect(section.textContent).toContain('gleich spät oder später')
+    expect(section.textContent).toContain('Jaylen Waddle')
+    expect(section.textContent).toContain('+3.1')
+    expect(container.querySelector('.an-as-tag').textContent).toBe('AS')
+    expect(container.querySelector('.an-as-tag--sub').textContent).toBe('Sub')
+    // Ohne lesbare Zuordnung kein "gesetzt"/"nicht gesetzt".
+    expect(section.textContent).not.toContain('gesetzt')
+  })
+
+  it('gleicht mit hinterlegten Subs ab', () => {
+    render(<RecommendedLineupCard lineup={withSub} comparison={null} autoSub={autoSub({ assigned: new Map([['1', '2']]) })} />)
+    expect(screen.getByText('gesetzt')).toBeInTheDocument()
+  })
+
+  it('sagt es, wenn kein Sub noetig ist', () => {
+    render(<RecommendedLineupCard lineup={withSub} comparison={null} autoSub={autoSub({ picks: [] })} />)
+    expect(screen.getByText(/braucht es keinen AutoSub/)).toBeInTheDocument()
+  })
+})

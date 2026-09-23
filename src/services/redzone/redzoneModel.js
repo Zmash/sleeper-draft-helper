@@ -2,6 +2,7 @@
 // Users, playersMeta) die Bausteine der Seite bauen. Kein Fetch, kein Store.
 import { computeMatchupProbability } from '../analysis/matchupProbability'
 import { isRuledOut, liveStarterTotals } from '../analysis/matchupProjection'
+import { autoSubRules, readAutoSubs, applyAutoSubs } from '../analysis/autoSub'
 
 // ── Liga-Filter ─────────────────────────────────────────────────────────────
 // Gespeichert werden ABGEWAEHLTE IDs, damit neue Ligen automatisch aktiv sind.
@@ -61,6 +62,23 @@ export function playerGameState(meta, byTeam) {
 const STATE_ORDER = { in: 0, pre: 1, post: 2, none: 3 }
 const starterIds = (m) => (m?.starters || []).filter((id) => id && id !== '0')
 
+// Aufstellung, wie Sleeper sie beim Kickoff haben wird: ein ausgefallener
+// Starter mit hinterlegtem AutoSub zaehlt schon als sein Sub -- fuer Chance,
+// Spielerliste und Redzone-Alarm. Ohne lesbare Zuordnung = starterIds.
+function effectiveStarterIds(d, m, playersMeta) {
+  const ids = starterIds(m)
+  const rules = autoSubRules(d.league)
+  if (!rules || !m) return ids
+  const roster = (d.rosters || []).find((r) => r.roster_id === m.roster_id) || null
+  return applyAutoSubs({
+    starterIds: ids,
+    subs: readAutoSubs({ roster, matchup: m }),
+    rules,
+    outFor: (id) => isRuledOut(playersMeta[id]),
+    pointsFor: (id) => m.players_points?.[id],
+  }).starterIds
+}
+
 // Mein Matchup-Eintrag + Gegner einer Liga; null, wenn ich dort kein Team habe.
 function leagueView({ matchups = [], rosters = [], users = [] }, myUserId) {
   const myRoster = rosters.find((r) => String(r.owner_id) === String(myUserId))
@@ -85,11 +103,11 @@ export function buildMatchupTiles({ leagueData = [], myUserId, byTeam, playersMe
     }
     const v = leagueView(d, myUserId)
     if (!v) continue
-    const open = (m) => starterIds(m).filter((id) => ['pre', 'in'].includes(playerGameState(playersMeta[id], byTeam))).length
+    const open = (m) => effectiveStarterIds(d, m, playersMeta).filter((id) => ['pre', 'in'].includes(playerGameState(playersMeta[id], byTeam))).length
     // Nur der NOCH OFFENE Teil der Wochenprojektion zaehlt auf den Stand drauf --
     // abgepfiffene Spiele duerfen keine Restchance mehr erzeugen.
     const totals = (m) => liveStarterTotals({
-      starterIds: starterIds(m),
+      starterIds: effectiveStarterIds(d, m, playersMeta),
       projectionFor: (id) => projectPlayer(d.league, id),
       pointsFor: (id) => m.players_points?.[id],
       gameFor: (id) => byTeam[playerTeam(playersMeta[id], id)] || null,
@@ -158,8 +176,8 @@ export function buildPlayers({ leagueData = [], myUserId, byTeam, playersMeta, p
     if (d.error) continue
     const v = leagueView(d, myUserId)
     if (!v) continue
-    for (const id of starterIds(v.mine)) add(mine, id, d, v.mine)
-    if (v.opp) for (const id of starterIds(v.opp)) add(opponents, id, d, v.opp)
+    for (const id of effectiveStarterIds(d, v.mine, playersMeta)) add(mine, id, d, v.mine)
+    if (v.opp) for (const id of effectiveStarterIds(d, v.opp, playersMeta)) add(opponents, id, d, v.opp)
   }
   const sort = (list) => list.sort((a, b) =>
     STATE_ORDER[a.state] - STATE_ORDER[b.state] || (b.points ?? 0) - (a.points ?? 0))
@@ -172,7 +190,7 @@ export function relevantTeams({ leagueData = [], myUserId, playersMeta }) {
     if (d.error) continue
     const v = leagueView(d, myUserId)
     if (!v) continue
-    for (const id of [...starterIds(v.mine), ...starterIds(v.opp)]) {
+    for (const id of [...effectiveStarterIds(d, v.mine, playersMeta), ...effectiveStarterIds(d, v.opp, playersMeta)]) {
       const team = playerTeam(playersMeta[id], id)
       if (team) teams.add(team)
     }
