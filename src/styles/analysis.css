@@ -505,12 +505,12 @@
    auffindbar ist. */
 .an-as-tag {
   display: inline-block;
-  margin-right: .3rem;
-  padding: 0 .25rem;
+  margin-right: .25rem;
+  padding: 0 .2rem;
   border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--accent-fill) 22%, transparent);
   color: var(--accent-text);
-  font-size: .62rem;
+  font-size: .58rem;
   font-weight: 700;
   line-height: 1.35;
   vertical-align: 1px;
@@ -523,6 +523,7 @@
   color: var(--text-dim);
 }
 .an-autosub-empty, .an-autosub-note { margin: .25rem 0; font-size: .78rem; color: var(--text-muted); }
+.an-autosub-hint { margin: .3rem 0 0; font-size: .7rem; color: var(--text-dim); }
 .an-autosub-row {
   display: grid;
   grid-template-columns: 2.5rem minmax(0, 1fr) auto;
@@ -532,12 +533,21 @@
   font-size: .8rem;
 }
 .an-autosub-pair { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; min-width: 0; }
-.an-autosub-starter, .an-autosub-sub { display: inline-flex; align-items: baseline; gap: .3rem; min-width: 0; }
+.an-autosub-starter, .an-autosub-sub { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3rem; min-width: 0; }
 .an-autosub-starter { color: var(--text-muted); }
 .an-autosub-status { font-size: .66rem; font-weight: 700; color: var(--bad); }
 .an-autosub-kick { font-size: .68rem; color: var(--text-dim); white-space: nowrap; }
 .an-autosub-arrow { color: var(--accent-text); }
-.an-autosub-meta { display: inline-flex; align-items: baseline; gap: .4rem; white-space: nowrap; }
+/* Punkte und Status uebereinander: nebeneinander frisst "noch nicht gesetzt"
+   mobil so viel Breite, dass der Sub-Name umbricht. */
+.an-autosub-meta { display: inline-flex; flex-direction: column; align-items: flex-end; white-space: nowrap; line-height: 1.2; }
+.an-autosub-sub strong { white-space: nowrap; }
+/* Breit: Zeile so kompakt wie die Aufstellungs-Tabelle darueber, statt die
+   Punkte an den rechten Kartenrand zu schieben. */
+@media (min-width: 561px) {
+  .an-autosub-row { grid-template-columns: 2.5rem minmax(0, max-content) auto; justify-content: start; column-gap: .75rem; }
+  .an-autosub-meta { flex-direction: row; align-items: baseline; gap: .4rem; }
+}
 .an-autosub-state { font-size: .68rem; }
 .an-autosub-state--ok { color: var(--good); }
 .an-autosub-state--change { color: var(--accent-text); }

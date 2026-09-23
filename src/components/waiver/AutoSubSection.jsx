@@ -39,7 +39,7 @@ export default function AutoSubSection({ autoSub, rosterNameById }) {
       <div className="an-lineup-subhead">
         AutoSubs
         <span className="an-autosub-rule">
-          {picks.length} von max. {rules.maxSubs}
+          {picks.length ? `${picks.length} von max. ${rules.maxSubs}` : `max. ${rules.maxSubs}`}
           {rules.requireLaterKickoff ? ' · Sub spielt gleich spät oder später' : ''}
         </span>
       </div>
@@ -59,8 +59,10 @@ export default function AutoSubSection({ autoSub, rosterNameById }) {
                 <span className="an-autosub-status" title={p.starter.injury_status}>{STATUS_SHORT[p.starter.injury_status] || p.starter.injury_status}</span>
                 {kStarter && <span className="an-autosub-kick">{kStarter}</span>}
               </span>
-              <span className="an-autosub-arrow" aria-hidden="true">→</span>
+              {/* Pfeil gehoert zum Sub: bricht die Zeile mobil um, steht er vorne
+                  in der zweiten Zeile statt allein am Ende der ersten. */}
               <span className="an-autosub-sub">
+                <span className="an-autosub-arrow" aria-hidden="true">→</span>
                 <strong>{p.sub.name}</strong>
                 <span className="an-autosub-kick">{p.sub.pos}{kSub ? ` · ${kSub}` : ''}</span>
               </span>
@@ -91,10 +93,12 @@ export default function AutoSubSection({ autoSub, rosterNameById }) {
           In Sleeper hinterlegt, Starter ohne Ausfallrisiko: {rosterNameById?.[starter] || starter} → {rosterNameById?.[sub] || sub} – der Platz wäre woanders nützlicher, falls noch jemand fraglich wird.
         </p>
       ))}
-      <p className="an-card-basis">
-        Nur Starter mit Status Questionable/Doubtful bekommen einen Vorschlag – ein AutoSub-Platz, der auf einem sicheren Starter liegt, fehlt beim nächsten Wackelkandidaten.
-        {!assigned && ' Welche Subs in Sleeper schon hinterlegt sind, ist über die Schnittstelle nicht erkennbar – bitte in der App abgleichen.'}
-      </p>
+      {/* Kurz statt Absatz: die Karte hat unten schon ihre Quellen-Fussnote. */}
+      {(picks.length > 0 || uncovered.length > 0) && (
+        <p className="an-autosub-hint" title="Ein AutoSub-Platz auf einem sicheren Starter fehlt beim nächsten Wackelkandidaten.">
+          Nur für fragliche Starter (Q/D).{!assigned && ' Bereits hinterlegte Subs zeigt die Sleeper-API nicht – in der App abgleichen.'}
+        </p>
+      )}
     </div>
   )
 }
