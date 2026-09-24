@@ -756,6 +756,27 @@ th, td {
 .ai-badge-primary { border-color: var(--text-dim); color: var(--text-primary); }
 .ai-badge-alt     { color: var(--text-dim); }
 
+/* Jev-News-Markierung hinter dem Spielernamen (mobiles Board + NextBoard).
+   Bauart wie der Verletzungsmarker .ns-inj: kleiner Rahmen in currentColor,
+   das Zeichen (↑ ↓ +) traegt die Bedeutung, die Farbe verstaerkt sie nur. */
+.news-mark {
+  display: inline-block;
+  flex: none;
+  margin-left: 6px;
+  min-width: 13px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  vertical-align: middle;
+  border: 1px solid currentColor;
+  border-radius: var(--r-ctl);
+  cursor: default;
+}
+.news-mark--up     { color: var(--good); }
+.news-mark--down   { color: var(--bad); }
+.news-mark--injury { color: var(--live); }
+
 /* Drag-and-Drop */
 th.col-drag, td.col-drag { width: 24px; text-align: center; padding: 0 4px; }
 /* Desktop: halbtransparent, Zeilen bleiben im Layout */

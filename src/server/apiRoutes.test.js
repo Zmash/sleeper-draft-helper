@@ -918,3 +918,164 @@ describe('Field-Goal-Highscores', () => {
     expect(checkScoreRateLimit(store, '5.6.7.8')).toBe(false)
   })
 })
+
+describe('POST /api/news/signals — Jev-News-Markierungen', () => {
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const FP_HTML = '<div class="subsection feature-stretch"><div class="body-row"><div class="content">'
+    + '<a href="/nfl/news/123/puka-nacua-ankle.php">Puka Nacua (ankle) ruled out for Week 4</a>'
+    + '<p>Nacua suffered a high-ankle sprain and will miss several weeks of action.</p>'
+    + `</div></div><div class="foot-row"><a>Author</a><span class="timestamp">${today}</span></div></div>`
+  const JEV_JSON = {
+    answers: {
+      role_up: { type: 'noul', noul: 0.02 },
+      role_down: { type: 'noul', noul: 0.3 },
+      injury: { type: 'score', score: 2.1, confidence: 0.9, probabilities: { 0: 0, 1: 0.05, 2: 0.8, 3: 0.15 } },
+    },
+    usage: { input_tokens: 420, output_tokens: 60, cost: 0.0000176 },
+  }
+
+  function capture(opts = {}) {
+    const posts = {}
+    const gets = {}
+    const jevFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sdh-jev-route-')), 'jev.json')
+    registerApiRoutes(
+      { get: (p, h) => { gets[p] = h }, post: (p, h) => { posts[p] = h } },
+      { model: DEFAULT_MODEL, jevFile, openrouterKey: 'test-key', ...opts },
+    )
+    return { signals: posts['/api/news/signals'], news: gets['/api/news/player'], jevFile }
+  }
+
+  function makeRes() {
+    const res = { headers: {} }
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    res.set = (k, v) => { res.headers[k] = v; return res }
+    return res
+  }
+
+  function mockFetch() {
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes('openrouter.ai')) return { ok: true, status: 200, json: async () => JEV_JSON }
+      return { ok: true, status: 200, text: async () => FP_HTML }
+    })
+  }
+  const jevCalls = () => global.fetch.mock.calls.filter(([u]) => String(u).includes('openrouter.ai')).length
+
+  const req = (players, ip = '1.1.1.1') => ({ body: { players }, ip })
+
+  afterEach(() => { delete global.fetch })
+
+  it('ist registriert', () => {
+    expect(typeof capture().signals).toBe('function')
+  })
+
+  it('lehnt mehr als 50 Spieler mit 400 ab', async () => {
+    mockFetch()
+    const { signals } = capture()
+    const res = makeRes()
+    await signals(req(Array.from({ length: 51 }, (_, i) => ({ name: `P${i}` }))), res)
+    expect(res.statusCode).toBe(400)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('ohne Key: enabled:false, kein Aufruf bei OpenRouter und kein Scrape', async () => {
+    mockFetch()
+    const { signals } = capture({ openrouterKey: null })
+    const res = makeRes()
+    await signals(req([{ name: 'Puka Nacua', pos: 'WR', team: 'LAR' }]), res)
+    expect(res.body).toMatchObject({ ok: true, enabled: false })
+    expect(res.body.signals['Puka Nacua']).toBeNull()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('bewertet die Meldung einmal und liefert danach aus dem Cache', async () => {
+    mockFetch()
+    const { signals, jevFile } = capture()
+    const r1 = makeRes()
+    await signals(req([{ name: 'Puka Nacua', pos: 'WR', team: 'LAR' }]), r1)
+    expect(r1.body).toMatchObject({ ok: true, enabled: true, budgetExhausted: false })
+    expect(r1.body.signals['Puka Nacua']).toMatchObject({ signal: 'injury', headline: 'Puka Nacua (ankle) ruled out for Week 4' })
+    expect(jevCalls()).toBe(1)
+    expect(JSON.parse(fs.readFileSync(jevFile, 'utf8')).tokens).toBe(420)
+
+    const r2 = makeRes()
+    await signals(req([{ name: 'Puka Nacua' }]), r2)
+    expect(r2.body.signals['Puka Nacua'].signal).toBe('injury')
+    expect(jevCalls()).toBe(1)
+  })
+
+  it('drosselt nach 60 Anfragen pro IP mit 429', async () => {
+    mockFetch()
+    const { signals } = capture({ openrouterKey: null })
+    for (let i = 0; i < 60; i++) {
+      const res = makeRes()
+      await signals(req([{ name: 'Puka Nacua' }], '9.9.9.9'), res)
+      expect(res.statusCode).toBeUndefined()
+    }
+    const blocked = makeRes()
+    await signals(req([{ name: 'Puka Nacua' }], '9.9.9.9'), blocked)
+    expect(blocked.statusCode).toBe(429)
+    const other = makeRes()
+    await signals(req([{ name: 'Puka Nacua' }], '8.8.8.8'), other)
+    expect(other.statusCode).toBeUndefined()
+  })
+
+  it('/api/news/player nutzt denselben Cache wie die Signale', async () => {
+    mockFetch()
+    const { signals, news } = capture()
+    await signals(req([{ name: 'Puka Nacua' }]), makeRes())
+    const res = makeRes()
+    await news({ query: { name: 'Puka Nacua' } }, res)
+    expect(res.body).toMatchObject({ ok: true, cached: true })
+    expect(res.body.items[0].headline).toBe('Puka Nacua (ankle) ruled out for Week 4')
+    expect(global.fetch.mock.calls.filter(([u]) => String(u).includes('fantasypros')).length).toBe(1)
+  })
+})
+
+describe('GET /api/news/player — Rueckfall auf "-jr"', () => {
+  // Sleeper schreibt "Brian Robinson", FantasyPros fuehrt ihn nur als
+  // brian-robinson-jr (live 2026-09-24: ohne Suffix Umleitung auf die
+  // allgemeine News-Seite, also keine Meldung).
+  const itemHtml = (slugPart) => '<div class="subsection feature-stretch"><div class="body-row"><div class="content">'
+    + `<a href="/nfl/news/1/${slugPart}-ankle.php">Brian Robinson Jr. (ankle) questionable</a>`
+    + '<p>Robinson is questionable for Sunday after missing practice time this week.</p>'
+    + '</div></div><div class="foot-row"><span class="timestamp">Sep 24, 2026</span></div></div>'
+
+  function capture() {
+    const gets = {}
+    registerApiRoutes({ get: (p, h) => { gets[p] = h }, post: () => {} }, { model: DEFAULT_MODEL, openrouterKey: null })
+    return gets['/api/news/player']
+  }
+  function makeRes() {
+    const res = {}
+    res.status = (code) => { res.statusCode = code; return res }
+    res.json = (body) => { res.body = body; return res }
+    return res
+  }
+  afterEach(() => { delete global.fetch })
+
+  it('versucht bei leerer Seite einmal die -jr-Variante', async () => {
+    global.fetch = vi.fn(async (url) => ({
+      ok: true,
+      text: async () => (String(url).endsWith('/brian-robinson-jr.php') ? itemHtml('brian-robinson-jr') : '<html>Allgemeine News</html>'),
+    }))
+    const res = makeRes()
+    await capture()({ query: { name: 'Brian Robinson' } }, res)
+    expect(res.body.items[0].headline).toBe('Brian Robinson Jr. (ankle) questionable')
+    expect(global.fetch.mock.calls.map(([u]) => u)).toEqual([
+      'https://www.fantasypros.com/nfl/news/brian-robinson.php',
+      'https://www.fantasypros.com/nfl/news/brian-robinson-jr.php',
+    ])
+  })
+
+  it('kein Rueckfall, wenn der Name schon ein Suffix hat oder die erste Seite Meldungen liefert', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, text: async () => '<html>leer</html>' }))
+    const handler = capture()
+    await handler({ query: { name: 'Brian Thomas Jr.' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+
+    global.fetch = vi.fn(async () => ({ ok: true, text: async () => itemHtml('brian-robinson') }))
+    await capture()({ query: { name: 'Brian Robinson' } }, makeRes())
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+})

@@ -42,12 +42,17 @@ export const toFiniteOrNull = (v) => {
  * ohne beide traf "(ii|iii|iv|v)" jedes einzelne "v" im Namen, nicht nur
  * einen eigenstaendigen Suffix -- "Devaughn Vele" wurde zu "deaughn-ele",
  * "Las Vegas Raiders" zu "las-egas-raiders" (live im Trend-Tab aufgefallen).
+ *
+ * Punkte fallen vorher weg: Initialen fuehrt FantasyPros zusammengezogen
+ * ("C.J. Stroud" → cj-stroud); aus "c-j-stroud" wurde eine Umleitung auf die
+ * allgemeine News-Seite. "St. Brown"/"Jr." aendern sich dadurch nicht.
  */
 export const fantasyProsSlug = (name) =>
   String(name || '')
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[''']/g, '')
+    .replace(/\./g, '')
     .toLowerCase()
     .replace(/\b(ii|iii|iv|v)\.?(?=\s|$)/g, '')
     .replace(/[^a-z0-9]+/g, '-')

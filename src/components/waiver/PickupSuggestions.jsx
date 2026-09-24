@@ -1,4 +1,6 @@
 import Icon from '../Icon'
+import NewsSignalMark from '../NewsSignalMark'
+import { usePlayerNewsSignals } from '../../hooks/useNewsSignals'
 import { cx, posColor, posBadgeLabel, fantasyProsPlayerUrl, injuryLabel, formatProjectedPts } from '../../utils/formatting'
 
 // Feste Positions-Reihenfolge der Batches (gleiche Reihenfolge wie das
@@ -15,6 +17,9 @@ export default function PickupSuggestions({ players = [], mode = 'redraft', ptsL
   const batches = POS_ORDER
     .map((pos) => ({ pos, players: players.filter((p) => p.pos === pos).slice(0, 6) }))
     .filter((b) => b.players.length)
+  // Jev-News nur fuer die angezeigten Kandidaten: "↑ mehr Rolle" ist hier der
+  // Hinweis, einen Spieler vor den anderen zu holen.
+  const newsSignals = usePlayerNewsSignals(batches.flatMap((b) => b.players))
 
   return (
     <div className={`an-card an-card--pickups${ptsLoaded ? ' an-card--pickups--pts' : ''}`}>
@@ -40,13 +45,15 @@ export default function PickupSuggestions({ players = [], mode = 'redraft', ptsL
             <div className="an-listrow" key={p.player_id}>
               <span className="an-pos" style={{ background: posColor(p.pos) }}>{posBadgeLabel(p)}</span>
               <a
-                className="an-listname"
+                className="an-listname an-listname--sig"
                 href={fantasyProsPlayerUrl(p.name, p)}
                 target="_blank"
                 rel="noreferrer"
                 title={p.trending ? 'Wird liga-uebergreifend gerade oft geholt' : undefined}
               >
-                {p.name}{p.trending && <Icon name="zap" size={13} />}
+                <span className="an-name-text">{p.name}</span>
+                {p.trending && <Icon name="zap" size={13} />}
+                <NewsSignalMark info={newsSignals[p.name]} />
               </a>
               <span className={cx('an-inj', p.injury_status && p.injury_status !== 'Questionable' && 'is-out')}>
                 {p.injury_status ? injuryLabel(p.injury_status) : ''}

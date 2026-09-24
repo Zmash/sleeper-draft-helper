@@ -414,6 +414,10 @@
   font-size: .8rem;
 }
 .an-listname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: inherit; }
+/* Name + Jev-News-Markierung: nur der Text kuerzt sich, das Symbol
+   (.news-mark, flex: none) bleibt auch bei langen Namen sichtbar. */
+.an-listname--sig { display: flex; align-items: center; }
+.an-listname--sig .an-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .an-listrow .an-num { text-align: right; }
 .an-badge-ok { font-weight: 600; color: var(--good, #4ec97b); }
 .an-muted { opacity: 0.65; font-size: 0.85em; }

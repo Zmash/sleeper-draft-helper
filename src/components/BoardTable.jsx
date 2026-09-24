@@ -4,6 +4,8 @@ import PlayerDetailSheet from './PlayerDetailSheet'
 import { cx, posBadgeLabel } from '../utils/formatting'
 import { PlayerPreference, playerKey, getPreference } from '../services/preferences'
 import Icon from './Icon'
+import NewsSignalMark from './NewsSignalMark'
+import { useNewsSignals } from '../hooks/useNewsSignals'
 
 // Konvention: adp - rk, positiv = Value (faellt dir zu).
 // Nicht umdrehen — csv.js:56 und useDraftTips.js:89 haengen daran.
@@ -43,6 +45,8 @@ export default function BoardTable({
     [highlightedNnames]
   )
   const primaryKey = useMemo(() => toKey(primaryNname), [primaryNname])
+  // Jev-News-Markierungen fuer die ersten 50 freien Zeilen (ein Abruf pro Board).
+  const newsSignals = useNewsSignals(filteredPlayers)
 
   // Popup-State
   const [menuOpenFor, setMenuOpenFor] = useState(null)   // playerKey, steuert das Menue
@@ -307,6 +311,7 @@ export default function BoardTable({
                             )}
                             <span className="player-name-text">{p.name}</span>
                           </button>
+                          <NewsSignalMark info={newsSignals[p.name]} />
 
                           {/* AI/ALT Badges */}
                           <span className="ai-badge-wrap">

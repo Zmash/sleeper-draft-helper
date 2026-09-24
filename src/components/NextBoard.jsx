@@ -6,6 +6,8 @@ import { useBoardStore } from '../stores/useBoardStore'
 import { loadPreferences, getPreference, setPreference, PlayerPreference } from '../services/preferences'
 import { rosterRows } from '../services/rosterSlots'
 import { usePlayerNews } from '../hooks/usePlayerNews'
+import { useNewsSignals } from '../hooks/useNewsSignals'
+import NewsSignalMark from './NewsSignalMark'
 import AdviceDialog from './AdviceDialog'
 import ApiKeyDialog from './ApiKeyDialog'
 import { CostHint } from './CostHint'
@@ -250,6 +252,8 @@ export default function NextBoard({
   const hasAdp = useMemo(() => rows.some((p) => p.adp != null), [rows])
   const hasBye = useMemo(() => rows.some((p) => p.bye), [rows])
   const hasValue = useMemo(() => rows.some((p) => p.value != null), [rows])
+  // Jev-News-Markierungen fuer die ersten 50 freien Zeilen (ein Abruf pro Board).
+  const newsSignals = useNewsSignals(rows)
 
   const teamOptions = useMemo(() => {
     const out = []
@@ -394,6 +398,7 @@ export default function NextBoard({
                       <td className="ns-name">
                         {pref === PlayerPreference.FAVORITE && <Icon name="star" size={10} className="ns-favmark" />}
                         {p.name}
+                        <NewsSignalMark info={newsSignals[p.name]} />
                         {p.injury_status && (
                           <span className={cx('ns-inj', p.injury_status !== 'Questionable' && 'is-out')}>
                             {p.injury_status === 'Questionable' ? 'Q' : p.injury_status}

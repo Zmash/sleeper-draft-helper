@@ -1,5 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import { posColor } from '../../utils/formatting'
+import NewsSignalMark from '../NewsSignalMark'
+import { usePlayerNewsSignals } from '../../hooks/useNewsSignals'
 import { sortAllTeamsRows, countBySeverity } from '../../services/analysis/allTeamsLineup'
 
 const REASON_LABEL = {
@@ -38,6 +40,11 @@ export default function AllTeamsOverview({ rows = [], loading = false, onSelectP
     for (const r of sorted) (map[r.severity] || map.green).push(r)
     return map
   }, [sorted])
+  // Jev-News ueber alle Ligen, in Anzeige-Reihenfolge (Probleme zuerst) —
+  // bei mehr als 50 Spielern fallen so nur die unkritischen hinten raus.
+  const newsSignals = usePlayerNewsSignals(
+    useMemo(() => [...bySeverity.red, ...bySeverity.yellow, ...bySeverity.green].map((r) => r.player), [bySeverity]),
+  )
 
   if (loading) return <div className="an-card an-card--allteams"><p className="muted">Lade alle Teams …</p></div>
   if (!rows.length) return <div className="an-card an-card--allteams"><p className="muted">Keine Kader für die Übersicht gefunden.</p></div>
@@ -79,7 +86,10 @@ export default function AllTeamsOverview({ rows = [], loading = false, onSelectP
                     title={`${r.player.name} · ${r.leagueName} · ${r.isStarter ? 'aufgestellt' : 'Bank'}`}
                   >
                     <span className="an-pos" style={{ background: posColor(r.player.pos) }}>{r.player.pos}</span>
-                    <span className="an-listname">{r.player.name}</span>
+                    <span className="an-listname an-listname--sig">
+                      <span className="an-name-text">{r.player.name}</span>
+                      <NewsSignalMark info={newsSignals[r.player.name]} />
+                    </span>
                     <span className="an-trendteam">{r.player.team || '—'}</span>
                     <span className="an-allteams-league" title={r.leagueName}>{r.leagueName}</span>
                     <span className={`an-allteams-status ${r.isStarter ? 'an-st-ok' : 'an-muted'}`}>

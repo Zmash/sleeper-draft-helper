@@ -110,6 +110,20 @@ describe('fantasyProsSlug', () => {
   it('behaelt Jr./Sr. im Slug -- anders als Sohn/Vater waeren sonst nicht unterscheidbar', () => {
     expect(fantasyProsSlug('Marvin Harrison Jr.')).toBe('marvin-harrison-jr')
   })
+
+  // Live 2026-09-24: "c-j-stroud" leitete auf die allgemeine News-Seite um,
+  // FantasyPros fuehrt Initialen zusammengezogen (cj-stroud, 200).
+  it('zieht Initialen zusammen statt sie zu trennen', () => {
+    expect(fantasyProsSlug('C.J. Stroud')).toBe('cj-stroud')
+    expect(fantasyProsSlug('T.J. Hockenson')).toBe('tj-hockenson')
+    expect(fantasyProsSlug('A.J. Brown')).toBe('aj-brown')
+    expect(fantasyProsSlug('AJ Barner')).toBe('aj-barner')
+  })
+
+  it('Punkte in anderen Namensteilen aendern nichts am bisherigen Slug', () => {
+    expect(fantasyProsSlug('Amon-Ra St. Brown')).toBe('amon-ra-st-brown')
+    expect(fantasyProsSlug('Brian Thomas Jr.')).toBe('brian-thomas-jr')
+  })
 })
 
 describe('formatProjectedPts', () => {

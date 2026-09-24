@@ -14,6 +14,10 @@ const PORT = Number(process.env.PORT) || 8080
 const MODEL = process.env.SDH_MODEL || DEFAULT_MODEL
 
 app.disable('x-powered-by')
+// Hinter dem Nginx Proxy Manager (ein Hop): ohne das ist req.ip fuer jeden
+// Besucher die Proxy-Adresse, und alle IP-Rate-Limits (Scores, Push,
+// News-Signale) zaehlen saemtliche Nutzer als einen.
+app.set('trust proxy', 1)
 app.use(express.json({ limit: '3mb' }))
 
 registerApiRoutes(app, { model: MODEL })

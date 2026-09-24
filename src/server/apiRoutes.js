@@ -5,6 +5,10 @@ import { load as cheerioLoad } from 'cheerio'
 import { Profanity } from '@2toad/profanity'
 import { fantasyProsSlug } from '../utils/formatting.js'
 import { addSub as addPushSub, removeSub as removePushSub, getVapidConfig } from './push.js'
+import {
+  JEV_FILE, DEFAULT_DAILY_TOKENS, readJevStore, writeJevStore,
+  validateSignalPlayers, cleanSignalPlayers, evaluatePlayers,
+} from './jevNews.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -421,13 +425,13 @@ export function addScore({ name, score, goals }, file = SCORES_FILE) {
   return { ok: true, rank, entry }
 }
 
-// Simples In-Memory-Rate-Limit pro IP (just for fun reicht das).
-// Gibt true zurueck, wenn der Request gedrosselt wird (und erfasst ihn
-// sonst als verbraucht). Exportiert fuers Testen.
-export function checkScoreRateLimit(store, ip, now = Date.now()) {
+// Simples In-Memory-Rate-Limit pro IP. Gibt true zurueck, wenn der Request
+// gedrosselt wird (und erfasst ihn sonst als verbraucht). Pro Besucher wirkt
+// es in Prod nur mit `trust proxy` (prod.js) — sonst ist req.ip die des Proxys.
+export function checkRateLimit(store, ip, limit, windowMs, now = Date.now()) {
   const key = String(ip || 'unknown')
-  const hits = (store.get(key) || []).filter((t) => now - t < SCORE_RATE_WINDOW_MS)
-  if (hits.length >= SCORE_RATE_LIMIT) {
+  const hits = (store.get(key) || []).filter((t) => now - t < windowMs)
+  if (hits.length >= limit) {
     store.set(key, hits)
     return true
   }
@@ -436,7 +440,20 @@ export function checkScoreRateLimit(store, ip, now = Date.now()) {
   return false
 }
 
-export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
+export function checkScoreRateLimit(store, ip, now = Date.now()) {
+  return checkRateLimit(store, ip, SCORE_RATE_LIMIT, SCORE_RATE_WINDOW_MS, now)
+}
+
+export const SIGNALS_RATE_LIMIT = 60
+export const SIGNALS_RATE_WINDOW_MS = 10 * 60 * 1000
+
+export function registerApiRoutes(app, {
+  model = DEFAULT_MODEL,
+  // Jev-Optionen (Tests uebergeben sie explizit; sonst aus der Umgebung).
+  jevFile = JEV_FILE,
+  openrouterKey = process.env.SDH_OPENROUTER_KEY || null,
+  jevDailyTokens = Number(process.env.SDH_JEV_DAILY_TOKENS) || DEFAULT_DAILY_TOKENS,
+} = {}) {
   const MODEL = model
 
   // ---------- Rankings: Fantasy Football Calculator (ADP) ----------
@@ -698,29 +715,76 @@ export function registerApiRoutes(app, { model = DEFAULT_MODEL } = {}) {
     return items.slice(0, limit)
   }
 
+  // Gemeinsamer Abruf fuer /api/news/player und /api/news/signals — beide
+  // teilen sich newsCache, damit die Signale keinen zweiten Scrape ausloesen.
+  // Wirft nur bei Netzfehlern; unbekannte Spieler liefern eine leere Liste.
+  async function fetchNewsPage(slug) {
+    const upstream = await fetch(`https://www.fantasypros.com/nfl/news/${slug}.php`, { headers: FP_HEADERS })
+    // Unbekannter Spieler ist kein Serverfehler — leere Liste statt 502.
+    if (!upstream.ok) return []
+    return parsePlayerNews(await upstream.text(), slug, 10)
+  }
+
+  async function getPlayerNews(name) {
+    const slug = fantasyProsSlug(name)
+    if (!slug) return { items: [], cached: false }
+    const hit = newsCache.get(slug)
+    if (hit && Date.now() - hit.at < NEWS_TTL_MS) return { items: hit.items, cached: true }
+    let items = await fetchNewsPage(slug)
+    // Sleeper laesst "Jr." weg ("Brian Robinson"), FantasyPros fuehrt nur
+    // brian-robinson-jr — ohne Suffix leitet es auf die allgemeine News-Seite
+    // um bzw. zeigt den Vater (marvin-harrison). Deshalb einmal nachfassen.
+    if (!items.length && !/-(jr|sr)$/.test(slug)) items = await fetchNewsPage(`${slug}-jr`)
+    newsCache.set(slug, { at: Date.now(), items })
+    return { items, cached: false }
+  }
+
   app.get('/api/news/player', async (req, res) => {
     const name = String(req.query.name || '').trim()
     if (!name) return res.status(400).json({ ok: false, error: 'name fehlt' })
     const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 3))
-    const slug = fantasyProsSlug(name)
-    if (!slug) return res.json({ ok: true, items: [] })
-
-    const hit = newsCache.get(slug)
-    if (hit && Date.now() - hit.at < NEWS_TTL_MS) return res.json({ ok: true, cached: true, items: hit.items.slice(0, limit) })
-
     try {
-      const upstream = await fetch(`https://www.fantasypros.com/nfl/news/${slug}.php`, { headers: FP_HEADERS })
-      if (!upstream.ok) {
-        // Unbekannter Spieler ist kein Serverfehler — leere Liste statt 502.
-        newsCache.set(slug, { at: Date.now(), items: [] })
-        return res.json({ ok: true, items: [] })
-      }
-      const items = parsePlayerNews(await upstream.text(), slug, 10)
-      newsCache.set(slug, { at: Date.now(), items })
-      res.json({ ok: true, items: items.slice(0, limit) })
+      const { items, cached } = await getPlayerNews(name)
+      res.json(cached
+        ? { ok: true, cached: true, items: items.slice(0, limit) }
+        : { ok: true, items: items.slice(0, limit) })
     } catch (err) {
       res.status(502).json({ ok: false, error: err.message || 'FantasyPros nicht erreichbar' })
     }
+  })
+
+  // ---------- News-Signale (Jev via OpenRouter) ----------
+  // Nimmt NUR Spielernamen an — News, Zustand und Fragen baut der Server
+  // selbst (siehe jevNews.js). Kein Hintergrund-Job: bewertet wird nur, wenn
+  // ein Board offen ist und nachfragt.
+  const signalsRateStore = new Map()
+  let jevStore = null // lazy aus der Datei, danach im Speicher
+  app.post('/api/news/signals', async (req, res) => {
+    if (checkRateLimit(signalsRateStore, req.ip, SIGNALS_RATE_LIMIT, SIGNALS_RATE_WINDOW_MS)) {
+      return res.status(429).json({ ok: false, error: 'Zu viele Anfragen, bitte kurz warten.' })
+    }
+    const players = req.body?.players
+    const invalid = validateSignalPlayers(players)
+    if (invalid) return res.status(400).json({ ok: false, error: invalid })
+
+    if (!jevStore) jevStore = readJevStore(jevFile)
+    const result = await evaluatePlayers({
+      players: cleanSignalPlayers(players),
+      getNews: async (name) => (await getPlayerNews(name)).items,
+      store: jevStore,
+      apiKey: openrouterKey,
+      dailyTokens: jevDailyTokens,
+    })
+    if (result.changed) {
+      try { writeJevStore(jevStore, jevFile) } catch (e) { console.warn('[jev] Store nicht schreibbar:', e?.message) }
+    }
+    res.set('Cache-Control', 'no-store')
+    res.json({
+      ok: true,
+      enabled: !!openrouterKey,
+      budgetExhausted: result.budgetExhausted,
+      signals: result.signals,
+    })
   })
 
   // ---------- Rankings: KTC Rookies ----------

@@ -43,6 +43,52 @@ noch in `apiRoutes.js`.** AI-Modell-Default: `claude-sonnet-5` (`SDH_MODEL` übe
 - `POST /api/validate-key` — validates the Anthropic key (uses `claude-haiku-4-5-20251001`).
 - `POST /api/ai-advice`, `POST /api/ai-draft-review`, `POST /api/ai-trade` — all return **SSE streams** with `event: text | result | error`.
 - `GET /api/scores`, `POST /api/score` — Field-Goal-Highscores (Easter Egg, no key needed; JSON file via `SDH_SCORES_FILE`, profanity filter `@2toad/profanity` + DE supplement, IP rate limit).
+- `POST /api/news/signals` — Jev-News-Markierungen (Server-Key, siehe unten).
+
+`prod.js` setzt `trust proxy` (ein Hop, Nginx Proxy Manager). Ohne das ist `req.ip`
+die Proxy-Adresse und jedes IP-Rate-Limit zählt alle Besucher als einen.
+
+### Jev (Entscheidungsmodell) — News-Markierungen im Board
+
+Ergänzt Claude, ersetzt es nicht: Jev (TypeSafe, über **OpenRouter**
+`POST /api/alpha/decisions`, Modell `typesafe/jev-1.13`) liefert statt Text
+typisierte Antworten mit Wahrscheinlichkeiten. Die neueste
+FantasyPros-Meldung je Spieler wird als ↑ mehr Rolle / ↓ weniger Rolle /
+\+ Ausfall (diese Woche wohl raus oder länger) hinter dem Namen markiert
+(`NewsSignalMark`). Eingebaut in:
+
+- **Draft-Board** (`NextBoard`, `BoardTable`) — `useNewsSignals(rows)`, erste 50
+  *nicht gedraftete* Zeilen (`status` heißt dort „gedraftet“).
+- **Lineup/Waiver** (`RecommendedLineupCard` Starter + Bank, `AllTeamsOverview`
+  Probleme zuerst, `PickupSuggestions`, `StreamingBoard`) — `usePlayerNewsSignals(players)`
+  ohne `status`-Filter. Name steckt dort in `.an-listname--sig` > `.an-name-text`,
+  damit nur der Text gekürzt wird und das Symbol stehen bleibt.
+
+Defenses und Kicker (`DEF`/`DST`/`K`) werden in Client **und** Server ausgelassen:
+keine Spieler-News, und der FantasyPros-Namensabgleich könnte fremde Meldungen
+erwischen.
+
+Anders als die Claude-Routen läuft Jev auf **Darios Server-Key**
+(`SDH_OPENROUTER_KEY`), deshalb gilt ein striktes Kostenmuster — beim Ausbau
+(Start/Sit, Trade) beibehalten:
+
+1. **Geschlossener Input.** Der Client schickt nur Spielernamen (max. 50).
+   News, Zustand und Fragen baut der Server (`src/server/jevNews.js`). Nie eine
+   Route bauen, die freien Text oder Fragen vom Client an Jev weiterreicht.
+2. **Cache pro Meldung** (Hash aus Spieler + Text + `QUESTION_VERSION`), 14 Tage,
+   Datei `SDH_JEV_FILE` (Default tmpdir). Fragen geändert → `QUESTION_VERSION`
+   hochzählen.
+3. **Tagesbudget** `SDH_JEV_DAILY_TOKENS` (Default 5M ≈ 0,21 $, Berliner Tag),
+   danach nur Cache. **Circuit-Breaker**: 401/402/403 → 1 h keine Aufrufe.
+4. **Rate-Limit** 60 / 10 min pro IP.
+5. **Nur wenn jemand hinschaut:** `useNewsSignals` fragt bei geänderter
+   Zeilenliste und beim Zurückkehren in den Tab (älter als 10 min), nie bei
+   `document.hidden`, kein `setInterval`, kein Scheduler-Job.
+
+Schwellen stehen allein in `deriveSignal`. Ohne Key antwortet die Route mit
+`enabled: false` und ruft nichts auf. Vor Schwellen-Änderungen
+`node scripts/jev-news-eval.mjs` (braucht `npm run dev:api` und den Key) laufen
+lassen und die Tabelle prüfen.
 
 The user's key travels in the `X-Anthropic-Key` header and is stored only in browser localStorage under `sdh_api_key` (`src/services/key.js`). Payloads are Anthropic-native (top-level `system`, tools as `{name, description, input_schema}`, forced `tool_choice`).
 

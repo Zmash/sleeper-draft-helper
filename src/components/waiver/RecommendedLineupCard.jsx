@@ -1,5 +1,7 @@
 import Icon from '../Icon'
 import AutoSubSection from './AutoSubSection'
+import NewsSignalMark from '../NewsSignalMark'
+import { usePlayerNewsSignals } from '../../hooks/useNewsSignals'
 import { posColor, fantasyProsPlayerUrl, formatProjectedPts } from '../../utils/formatting'
 
 // Reihenfolge wie in Sleeper: QB vorne, K/DEF hinten. Unbekannte Slots landen
@@ -19,6 +21,11 @@ export default function RecommendedLineupCard({
   lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, ptsLoaded = false, sourceNote = null,
   autoSub = null,
 }) {
+  // Jev-News fuer den eigenen Kader: "+" an einem Starter heisst umstellen,
+  // oft bevor Sleeper den Status auf Out setzt. Hook vor dem fruehen return.
+  const newsSignals = usePlayerNewsSignals(
+    lineup ? [...lineup.slots.map((s) => s.player), ...(lineup.bench || [])] : [],
+  )
   if (!lineup) return null
   // Wer ist empfohlener Sub fuer wen -- fuer die AS-Marke an Starter und Bank.
   const subFor = new Map((autoSub?.picks || []).map((p) => [String(p.sub.sleeper_id), p.starter]))
@@ -60,7 +67,7 @@ export default function RecommendedLineupCard({
             </span>
             {s.player ? (
               <a
-                className="an-listname"
+                className="an-listname an-listname--sig"
                 href={fantasyProsPlayerUrl(s.player.name, s.player)}
                 target="_blank"
                 rel="noreferrer"
@@ -68,7 +75,8 @@ export default function RecommendedLineupCard({
                 {subbedStarter.has(String(s.player.sleeper_id)) && (
                   <span className="an-as-tag" title={`AutoSub: ${subbedStarter.get(String(s.player.sleeper_id)).name}`}>AS</span>
                 )}
-                {s.player.name}
+                <span className="an-name-text">{s.player.name}</span>
+                <NewsSignalMark info={newsSignals[s.player.name]} />
               </a>
             ) : (
               <span className="an-listname an-muted">–</span>
@@ -89,7 +97,7 @@ export default function RecommendedLineupCard({
                 <span className="an-pos" style={{ background: posColor(p.pos) }}>{p.pos}</span>
                 {p.name ? (
                   <a
-                    className="an-listname"
+                    className="an-listname an-listname--sig"
                     href={fantasyProsPlayerUrl(p.name, p)}
                     target="_blank"
                     rel="noreferrer"
@@ -97,7 +105,8 @@ export default function RecommendedLineupCard({
                     {subFor.has(String(p.sleeper_id)) && (
                       <span className="an-as-tag an-as-tag--sub" title={`AutoSub für ${subFor.get(String(p.sleeper_id)).name}`}>Sub</span>
                     )}
-                    {p.name}
+                    <span className="an-name-text">{p.name}</span>
+                    <NewsSignalMark info={newsSignals[p.name]} />
                   </a>
                 ) : (
                   <span className="an-listname an-muted">–</span>
