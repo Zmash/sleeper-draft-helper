@@ -27,6 +27,16 @@ describe('composeMessage', () => {
     expect(msg.body).toContain('Jordan Love')
   })
 
+  it('morning bevorzugt den Pickup aus der Liga der Warnung und nennt fremde Ligen', () => {
+    const pickups = [
+      { name: 'Pittsburgh Steelers', pos: 'DEF', team: 'PIT', leagueName: 'CFFC' },
+      { name: 'Jakobi Meyers', pos: 'WR', team: 'JAX', leagueName: 'Dynasty' },
+    ]
+    expect(composeMessage({ warnings: [warn()], pickups, type: 'morning' }).body).toContain('Waiver: Jakobi Meyers')
+    const other = composeMessage({ warnings: [warn()], pickups: pickups.slice(0, 1), type: 'morning' })
+    expect(other.body).toContain('Waiver in CFFC: Pittsburgh Steelers')
+  })
+
   it('pregame ignoriert Pickups', () => {
     const msg = composeMessage({
       warnings: [warn()],

@@ -82,6 +82,56 @@ export function pickupRanking({
   return [...hasValue, ...noValue]
 }
 
+// Nur Redraft-Raenge (value = ROS-Positionsrang, kleiner = besser). Ein
+// Waiver-TIPP (Push) muss den eigenen Kader verbessern: pickupRanking allein
+// sortiert Positionsraenge quer ueber alle Positionen, dort schlaegt DEF8 jeden
+// RB30 -- auch wenn die eigene Defense ROS-Rang 6 hat (Nutzer-Befund: "Waiver:
+// Pittsburgh Steelers" bei eigenen Vikings). Ein Free Agent ist ein Upgrade,
+// wenn er
+//  - auf seiner Position den schwaechsten eigenen Stammspieler der festen
+//    Slots schlaegt (Positionsrang), oder
+//  - im FLEX den schwaechsten eigenen Flex-Kandidaten schlaegt. Das geht nur
+//    ueber den positionsuebergreifenden FLEX-ROS-Rang (flexRosRankByKey) --
+//    TE18 gegen RB40 per Positionsrang zu vergleichen waere derselbe Fehler.
+//    Fehlt die FLEX-Quelle, gibt es keine Flex-Upgrades (lieber kein Tipp als
+//    ein falscher).
+// Eigene Spieler ohne Rang zaehlen als schlechter als jeder gerankte Free
+// Agent; Taxi/IR zaehlen nicht mit.
+export function upgradePickups({ pickups = [], myRosterPlayers = [], rosterPositions = [], rosRankByKey = new Map(), flexRosRankByKey = new Map() } = {}) {
+  if (!rosRankByKey.size || !rosterPositions.length) return pickups
+  const active = myRosterPlayers.filter((p) => p.slot !== 'taxi' && p.slot !== 'ir')
+  const posRank = (p) => rosRankByKey.get(matchKey(p.pos, p)) ?? Infinity
+  const flexRank = (p) => flexRosRankByKey.get(matchKey(p.pos, p)) ?? Infinity
+
+  const fixedBar = {}
+  const fixedStarterIds = new Set()
+  for (const pos of WAIVER_POSITIONS) {
+    const k = rosterPositions.filter((s) => s === pos).length
+    const own = active.filter((p) => p.pos === pos).sort((a, b) => posRank(a) - posRank(b))
+    own.slice(0, k).forEach((p) => fixedStarterIds.add(String(p.sleeper_id)))
+    // k = 0: kein fester Slot -> ueber den Positionsrang nie ein Upgrade.
+    fixedBar[pos] = k === 0 ? -Infinity : own.length >= k ? posRank(own[k - 1]) : Infinity
+  }
+
+  // SUPER_FLEX bleibt aussen vor: der FLEX-ROS-Rang kennt keine QBs.
+  const flexSlots = rosterPositions.filter((s) => FLEX_ELIGIBLE[s] && s !== 'SUPER_FLEX')
+  const flexPos = new Set(flexSlots.flatMap((s) => FLEX_ELIGIBLE[s]))
+  let flexBar = -Infinity
+  if (flexSlots.length && flexRosRankByKey.size) {
+    const pool = active
+      .filter((p) => flexPos.has(p.pos) && !fixedStarterIds.has(String(p.sleeper_id)))
+      .map(flexRank)
+      .sort((a, b) => a - b)
+    flexBar = pool.length >= flexSlots.length ? pool[flexSlots.length - 1] : Infinity
+  }
+
+  return pickups.filter((p) => {
+    if (p.value == null) return false
+    if (p.value < (fixedBar[p.pos] ?? -Infinity)) return true
+    return flexPos.has(p.pos) && flexRank(p) < flexBar
+  })
+}
+
 // Eigene Kaderspieler kommen aus dynastyRoster (Feld sleeper_id), Free Agents
 // aus freeAgents() (Feld player_id) -- hier auf eine Form gebracht, damit beide
 // in derselben Rangliste stehen koennen. own markiert die eigene Zeile.

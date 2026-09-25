@@ -573,9 +573,11 @@ export default function LineupPage({ selectedLeague, effRoster, draftMode, effSc
             altLoaded={hasAltValues}
             ptsLoaded={hasPtsValues}
             autoSub={autoSub}
+            flexRankById={flexRankByIdKey}
+            superflexRankById={superflexRankByIdKey}
             sourceNote={isDynasty
               ? `Woche: FantasyPros-Wochenranking (Rang: kleiner = besser)${hasAltValues ? ' · KTC: KeepTradeCut-Dynastiewert, Anlagewert (größer = besser)' : ''}${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''}`
-              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser`}
+              : `Woche/ROS: FantasyPros (${scoring.toUpperCase()})${hasPtsValues ? ' · Pkt: Sleeper-Wochenprojektion' : ''} · Ränge: kleiner = besser${hasPtsValues ? ' · Aufgestellt wird nach FantasyPros (FLEX nach FLEX-Rang), nicht nach Pkt' : ''}`}
           />
         )}
         <PickupSuggestions

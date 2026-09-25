@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from './waiverStats'
+import { freeAgents, pickupRanking, upgradePickups, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from './waiverStats'
 
 describe('matchKey', () => {
   it('returns NAME: for non-DEF positions', () => {
@@ -427,5 +427,52 @@ describe('compareToActualStarters', () => {
     expect(out.diffs).toContainEqual({ slot: 'RB', in: '2', name: 'RB Best' })
     // '3' ist aktueller Starter, taucht aber in keinem empfohlenen Slot auf -> "raus".
     expect(out.diffs).toContainEqual({ slot: null, out: '3' })
+  })
+})
+
+describe('upgradePickups', () => {
+  const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'BN', 'BN']
+  const ros = new Map([
+    ['TEAM:MIN', 6], ['TEAM:PIT', 8], ['TEAM:DEN', 3],
+    ['NAME:rb one', 5], ['NAME:rb two', 20], ['NAME:rb three', 40], ['NAME:fa rb', 30],
+  ])
+  const mine = [
+    { sleeper_id: 'MIN', pos: 'DEF', team: 'MIN', slot: 'starter' },
+    { sleeper_id: '1', pos: 'RB', nname: 'rb one', slot: 'starter' },
+    { sleeper_id: '2', pos: 'RB', nname: 'rb two', slot: 'starter' },
+    { sleeper_id: '3', pos: 'RB', nname: 'rb three', slot: 'bench' },
+  ]
+
+  it('empfiehlt keine Defense, die schlechter ist als die eigene (Steelers bei eigenen Vikings)', () => {
+    const pickups = [
+      { player_id: 'PIT', pos: 'DEF', team: 'PIT', value: 8 },
+      { player_id: 'DEN', pos: 'DEF', team: 'DEN', value: 3 },
+    ]
+    const out = upgradePickups({ pickups, myRosterPlayers: mine, rosterPositions: positions, rosRankByKey: ros })
+    expect(out.map((p) => p.player_id)).toEqual(['DEN'])
+  })
+
+  it('vergleicht im FLEX nur ueber den FLEX-ROS-Rang, nie ueber Positionsraenge', () => {
+    // Feste Slots: RB one/two. Flex-Kandidat: RB three (FLEX-ROS 90).
+    const flexRos = new Map([['NAME:rb three', 90], ['NAME:fa te', 60], ['NAME:fa rb', 120]])
+    const te = { player_id: 't', pos: 'TE', nname: 'fa te', value: 18 }
+    const rb = { player_id: '9', pos: 'RB', nname: 'fa rb', value: 30 }
+    const args = { myRosterPlayers: mine, rosterPositions: positions, rosRankByKey: ros }
+    // Kein eigener TE -> der TE fuellt schon den festen TE-Slot; RB30 schlaegt
+    // RB40 zwar per Positionsrang, aber nicht die festen RB-Slots (Rang 20),
+    // und im FLEX ist er mit 120 schlechter als RB three (90).
+    const out = upgradePickups({ ...args, pickups: [te, rb], flexRosRankByKey: flexRos })
+    expect(out.map((p) => p.player_id)).toEqual(['t'])
+    // Ohne FLEX-Quelle keine Flex-Upgrades -- lieber kein Tipp als ein falscher.
+    const mineWithTe = [...mine, { sleeper_id: '4', pos: 'TE', nname: 'my te', slot: 'starter' }]
+    const rosTe = new Map([...ros, ['NAME:my te', 5]])
+    expect(upgradePickups({ pickups: [te], myRosterPlayers: mineWithTe, rosterPositions: positions, rosRankByKey: rosTe })).toHaveLength(0)
+    expect(upgradePickups({ pickups: [te], myRosterPlayers: mineWithTe, rosterPositions: positions, rosRankByKey: rosTe, flexRosRankByKey: flexRos })).toHaveLength(1)
+  })
+
+  it('fuellt leere Positionen und laesst ohne Ranking-Quelle alles durch', () => {
+    const pickups = [{ player_id: 'q', pos: 'QB', nname: 'fa qb', value: 25 }]
+    expect(upgradePickups({ pickups, myRosterPlayers: mine, rosterPositions: positions, rosRankByKey: ros })).toHaveLength(1)
+    expect(upgradePickups({ pickups, myRosterPlayers: mine, rosterPositions: positions, rosRankByKey: new Map() })).toBe(pickups)
   })
 })

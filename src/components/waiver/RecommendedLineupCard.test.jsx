@@ -140,3 +140,21 @@ describe('RecommendedLineupCard: AutoSubs', () => {
     expect(screen.getByText(/braucht es keinen AutoSub/)).toBeInTheDocument()
   })
 })
+
+describe('RecommendedLineupCard – Flex-Begruendung', () => {
+  it('nennt bei einem Flex-Tausch den FLEX-Rang beider Spieler und markiert Verletzte', () => {
+    const flexLineup = {
+      slots: [{ slot: 'FLEX', slotIndex: 0, player: { sleeper_id: '5001', name: 'Dalton Schultz', team: 'HOU', pos: 'TE' }, rank: 8 }],
+      bench: [{ sleeper_id: '7021', name: 'Rico Dowdle', team: 'PIT', pos: 'RB', rank: 73, injury_status: 'Questionable' }],
+    }
+    const comparison = { isOptimal: false, diffs: [{ slot: 'FLEX', in: '5001', name: 'Dalton Schultz' }, { slot: null, out: '7021' }] }
+    const flexRankById = new Map([['ID:5001', 53], ['ID:7021', 209]])
+    const { container } = render(
+      <RecommendedLineupCard lineup={flexLineup} comparison={comparison} rosterNameById={{ 7021: 'Rico Dowdle' }} flexRankById={flexRankById} />
+    )
+    const diff = container.querySelector('.an-lineup-diff').textContent
+    expect(diff).toContain('FLEX-Rang 53')
+    expect(diff).toContain('FLEX-Rang 209')
+    expect(container.querySelector('.an-inj--inline').textContent).toBe('Q')
+  })
+})

@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup.js'
-import { bestLineup, matchKey, freeAgents, pickupRanking, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats.js'
+import { bestLineup, matchKey, freeAgents, pickupRanking, upgradePickups, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats.js'
 import { normalizePlayerName } from '../utils/formatting.js'
 import { fantasyProsPositionUrl, extractEcrData, normalizeFantasyProsPlayer, espnScoreboardUrl, extractGameStatusByTeam } from './rankings.js'
 
@@ -26,8 +26,12 @@ export function composeMessage({ warnings = [], pickups = [], type = 'morning' }
     body = `${top.playerName} (${top.pos}) – ${REASON_TEXT[top.reason] || top.reason}`
   }
   if (type === 'morning' && pickups.length) {
-    const p = pickups[0]
-    const waiver = `Waiver: ${p.name} (${p.pos}${p.team ? `, ${p.team}` : ''})`
+    // Titel nennt die Liga der Warnung -- ein Pickup aus einer anderen Liga
+    // wuerde dann wie ein Tipp fuer diese Liga wirken. Darum dieselbe Liga
+    // bevorzugen und eine fremde Liga ausdruecklich dazuschreiben.
+    const p = (top && pickups.find((pk) => pk.leagueName === top.leagueName)) || pickups[0]
+    const otherLeague = top && p.leagueName && p.leagueName !== top.leagueName ? ` in ${p.leagueName}` : ''
+    const waiver = `Waiver${otherLeague}: ${p.name} (${p.pos}${p.team ? `, ${p.team}` : ''})`
     body = body ? `${body} · ${waiver}` : waiver
     if (!top) title = `Waiver · ${p.leagueName || ''}`.trim()
   }
@@ -170,7 +174,7 @@ function defaultDeps() {
       }
       return { weeklyById, flexById, sflexById }
     },
-    rosPicks: async ({ league = {}, rosters = [], meta = {} } = {}) => {
+    rosPicks: async ({ league = {}, rosters = [], meta = {}, roster = [] } = {}) => {
       // freeAgents erwartet angereicherte Rosters ({sleeper_id}); Sleeper
       // liefert String-IDs (Muster aus useDynastyStore.js:69).
       const enriched = (rosters || []).map((r) => ({
@@ -182,8 +186,14 @@ function defaultDeps() {
       const rosByKey = new Map()
       const maps = await Promise.all(WEEK_POSITIONS.map((p) => rankMapCached(p, 'ros')))
       for (const m of maps) for (const [k, v] of m) if (!rosByKey.has(k)) rosByKey.set(k, v)
+      // FLEX-ROS nur, wenn die Liga Flex-Slots hat -- sonst kein Zusatz-Request.
+      const hasFlex = (league.roster_positions || []).some((s) => ['FLEX', 'REC_FLEX', 'WRRB_FLEX'].includes(s))
+      const flexRosByKey = hasFlex ? await rankMapCached('FLEX', 'ros') : new Map()
       const leagueName = league.name || league.league_id || ''
-      return pickupRanking({ freeAgents: agents, mode: 'redraft', rosRankByKey: rosByKey })
+      // Nur echte Upgrades gegenueber dem eigenen Kader (upgradePickups) --
+      // sonst empfiehlt der Push eine schwaechere Defense als die eigene.
+      const ranked = pickupRanking({ freeAgents: agents, mode: 'redraft', rosRankByKey: rosByKey })
+      return upgradePickups({ pickups: ranked, myRosterPlayers: roster, rosterPositions: league.roster_positions || [], rosRankByKey: rosByKey, flexRosRankByKey: flexRosByKey })
         .slice(0, 3)
         .map((p) => ({ ...p, leagueName }))
     },
@@ -293,7 +303,7 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
       irOverflow: ir.overflow > 0,
     })
     try {
-      const picks = (await d.rosPicks({ league, rosters, meta, week })) || []
+      const picks = (await d.rosPicks({ league, rosters, meta, week, roster })) || []
       for (const p of picks.slice(0, 3)) pickups.push(p)
     } catch { /* Degradation: Liga ohne Pickups */ }
   }

@@ -2,7 +2,7 @@ import Icon from '../Icon'
 import AutoSubSection from './AutoSubSection'
 import NewsSignalMark from '../NewsSignalMark'
 import { usePlayerNewsSignals } from '../../hooks/useNewsSignals'
-import { posColor, fantasyProsPlayerUrl, formatProjectedPts } from '../../utils/formatting'
+import { posColor, fantasyProsPlayerUrl, formatProjectedPts, injuryLabel } from '../../utils/formatting'
 
 // Reihenfolge wie in Sleeper: QB vorne, K/DEF hinten. Unbekannte Slots landen
 // ans Ende; innerhalb desselben Slots bleibt die Index-Reihenfolge erhalten.
@@ -12,14 +12,31 @@ const SLOT_ORDER = ['QB', 'SUPER_FLEX', 'RB', 'WR', 'TE', 'FLEX', 'REC_FLEX', 'W
 // keine 2.5rem-Spalte. QB/RB/WR/TE/FLEX/DEF/K bleiben unveraendert.
 const SLOT_LABEL = { SUPER_FLEX: 'SF', REC_FLEX: 'W/T', WRRB_FLEX: 'W/R' }
 
+// Flex-Slots besetzt bestLineup nach dem positionsuebergreifenden FLEX-/
+// Superflex-Rang, nicht nach dem Positionsrang der Woche-Spalte (TE8 vs. RB73
+// ist kein Vergleich). Ohne diesen Rang in der Aenderungsliste wirkt ein
+// Flex-Tausch willkuerlich -- erst recht, wenn Sleepers Pkt anders aussehen.
+const FLEX_SLOTS = new Set(['FLEX', 'REC_FLEX', 'WRRB_FLEX'])
+
 // Zweitwert formatieren: Rang als ganze Zahl, Trade-Wert (KTC) ebenfalls.
 // Fehlt die Quelle, bleibt ein – stehen.
 const altText = (v, kind) =>
   v == null ? '–' : kind === 'value' ? String(Math.round(v)) : Number.isFinite(v) ? String(Math.round(v)) : '–'
 
+// Verletzungsstatus direkt am Namen: ein "Q" erklaert oft, warum ein Spieler
+// mit ordentlicher Sleeper-Projektion nicht empfohlen wird.
+function InjuryTag({ status }) {
+  if (!status) return null
+  return (
+    <span className={`an-inj an-inj--inline${status !== 'Questionable' ? ' is-out' : ''}`} title={status}>
+      {injuryLabel(status)}
+    </span>
+  )
+}
+
 export default function RecommendedLineupCard({
   lineup, comparison, leagueId, rosterNameById, altLabel = 'ROS', altKind = 'rank', altLoaded = true, ptsLoaded = false, sourceNote = null,
-  autoSub = null,
+  autoSub = null, flexRankById = null, superflexRankById = null,
 }) {
   // Jev-News fuer den eigenen Kader: "+" an einem Starter heisst umstellen,
   // oft bevor Sleeper den Status auf Out setzt. Hook vor dem fruehen return.
@@ -31,6 +48,17 @@ export default function RecommendedLineupCard({
   const subFor = new Map((autoSub?.picks || []).map((p) => [String(p.sub.sleeper_id), p.starter]))
   const subbedStarter = new Map((autoSub?.picks || []).map((p) => [String(p.starter.sleeper_id), p.sub]))
   const changes = comparison && !comparison.isOptimal ? comparison.diffs.length : 0
+  // Welcher Flex-Rang erklaert die Aenderungen? "raus"-Zeilen haben keinen
+  // Slot, sie bekommen den Rang der Flex-Art, in die jemand hineinrueckt.
+  const diffs = comparison?.diffs || []
+  const flexKind = diffs.some((d) => d.in && FLEX_SLOTS.has(d.slot)) ? 'FLEX'
+    : diffs.some((d) => d.in && d.slot === 'SUPER_FLEX') ? 'SF' : null
+  const flexRankText = (id, slot) => {
+    const kind = slot ? (FLEX_SLOTS.has(slot) ? 'FLEX' : slot === 'SUPER_FLEX' ? 'SF' : null) : flexKind
+    const map = kind === 'FLEX' ? flexRankById : kind === 'SF' ? superflexRankById : null
+    const v = map?.get(`ID:${id}`)
+    return Number.isFinite(v) ? ` · ${kind === 'SF' ? 'Superflex' : 'FLEX'}-Rang ${Math.round(v)}` : ''
+  }
   const orderOf = (slot) => { const i = SLOT_ORDER.indexOf(slot); return i === -1 ? 99 : i }
   const slots = lineup.slots.slice().sort((a, b) => orderOf(a.slot) - orderOf(b.slot) || a.slotIndex - b.slotIndex)
   // Bank nach Wochenrang vorsortiert (beste zuerst, ohne Rang ans Ende), damit
@@ -76,6 +104,7 @@ export default function RecommendedLineupCard({
                   <span className="an-as-tag" title={`AutoSub: ${subbedStarter.get(String(s.player.sleeper_id)).name}`}>AS</span>
                 )}
                 <span className="an-name-text">{s.player.name}</span>
+                <InjuryTag status={s.player.injury_status} />
                 <NewsSignalMark info={newsSignals[s.player.name]} />
               </a>
             ) : (
@@ -106,6 +135,7 @@ export default function RecommendedLineupCard({
                       <span className="an-as-tag an-as-tag--sub" title={`AutoSub für ${subFor.get(String(p.sleeper_id)).name}`}>Sub</span>
                     )}
                     <span className="an-name-text">{p.name}</span>
+                    <InjuryTag status={p.injury_status} />
                     <NewsSignalMark info={newsSignals[p.name]} />
                   </a>
                 ) : (
@@ -125,9 +155,9 @@ export default function RecommendedLineupCard({
         <ul className="an-lineup-diff">
           {comparison.diffs.map((d) =>
             d.in ? (
-              <li key={d.in}>{d.slot}: <strong>{d.name}</strong> rein</li>
+              <li key={d.in}>{d.slot}: <strong>{d.name}</strong> rein<span className="an-muted">{flexRankText(d.in, d.slot)}</span></li>
             ) : (
-              <li key={d.out}>raus: <span className="an-muted">{rosterNameById?.[String(d.out)] || d.out}</span></li>
+              <li key={d.out}>raus: <span className="an-muted">{rosterNameById?.[String(d.out)] || d.out}{flexRankText(d.out, null)}</span></li>
             )
           )}
         </ul>
