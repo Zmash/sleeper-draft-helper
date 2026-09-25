@@ -82,6 +82,39 @@ export function pickupRanking({
   return [...hasValue, ...noValue]
 }
 
+// Welche Free Agents waeren fuer DIESEN Kader ein Upgrade? pickupRanking
+// sortiert nur nach ROS-Rang ueber alle Positionen -- ohne Blick auf den
+// eigenen Kader landete so DEF8 (Steelers) als "Waiver"-Tipp im Push, obwohl
+// die eigene DEF auf ROS 6 steht (Nutzer-Befund FFL-Bochum, Week 3 2026).
+// Massstab je Position ist der schwaechste eigene Spieler (IR/Taxi zaehlen
+// nicht, die sind diese Woche kein Vergleich). Eigene Spieler ohne ROS-Rang
+// gelten als schwaechste -- wer nirgends gerankt ist, ist der Drop-Kandidat.
+// Ohne eigenen Spieler auf der Position zaehlt der Pickup nur, wenn die Liga
+// die Position ueberhaupt aufstellen kann (ohne roster_positions: immer).
+// Sortiert nach Abstand zum eigenen schwaechsten Spieler, bei Gleichstand
+// nach ROS-Rang.
+export function rosterUpgrades({ ranked = [], myPlayers = [], rosRankByKey = new Map(), rosterPositions = [] } = {}) {
+  const startable = new Set()
+  for (const s of rosterPositions || []) {
+    for (const p of FLEX_ELIGIBLE[s] || [s]) startable.add(p)
+  }
+  const worstByPos = new Map()
+  for (const p of myPlayers) {
+    if (p.slot === 'ir' || p.slot === 'taxi') continue
+    const r = rosRankByKey.get(matchKey(p.pos, p)) ?? Infinity
+    worstByPos.set(p.pos, Math.max(worstByPos.get(p.pos) ?? -Infinity, r))
+  }
+  return ranked
+    .filter((a) => a.value != null)
+    .map((a) => {
+      const worst = worstByPos.get(a.pos)
+      if (worst == null) return startable.size && !startable.has(a.pos) ? null : { ...a, gain: Infinity }
+      return a.value < worst ? { ...a, gain: worst - a.value } : null
+    })
+    .filter(Boolean)
+    .sort((x, y) => (y.gain - x.gain) || (x.value - y.value))
+}
+
 // Eigene Kaderspieler kommen aus dynastyRoster (Feld sleeper_id), Free Agents
 // aus freeAgents() (Feld player_id) -- hier auf eine Form gebracht, damit beide
 // in derselben Rangliste stehen koennen. own markiert die eigene Zeile.

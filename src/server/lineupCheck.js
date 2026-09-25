@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { buildAllTeamsRows } from '../services/analysis/allTeamsLineup.js'
-import { bestLineup, matchKey, freeAgents, pickupRanking, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats.js'
+import { bestLineup, matchKey, freeAgents, pickupRanking, rosterUpgrades, lockedStarterSlots, irRecommendations } from '../services/analysis/waiverStats.js'
 import { normalizePlayerName } from '../utils/formatting.js'
 import { fantasyProsPositionUrl, extractEcrData, normalizeFantasyProsPlayer, espnScoreboardUrl, extractGameStatusByTeam } from './rankings.js'
 
@@ -170,7 +170,7 @@ function defaultDeps() {
       }
       return { weeklyById, flexById, sflexById }
     },
-    rosPicks: async ({ league = {}, rosters = [], meta = {} } = {}) => {
+    rosPicks: async ({ league = {}, rosters = [], meta = {}, myRoster = [] } = {}) => {
       // freeAgents erwartet angereicherte Rosters ({sleeper_id}); Sleeper
       // liefert String-IDs (Muster aus useDynastyStore.js:69).
       const enriched = (rosters || []).map((r) => ({
@@ -183,7 +183,11 @@ function defaultDeps() {
       const maps = await Promise.all(WEEK_POSITIONS.map((p) => rankMapCached(p, 'ros')))
       for (const m of maps) for (const [k, v] of m) if (!rosByKey.has(k)) rosByKey.set(k, v)
       const leagueName = league.name || league.league_id || ''
-      return pickupRanking({ freeAgents: agents, mode: 'redraft', rosRankByKey: rosByKey })
+      // Nur echte Upgrades gegenueber dem eigenen Kader (siehe rosterUpgrades):
+      // der beste Free Agent insgesamt ist oft eine Position, auf der man
+      // laengst besser besetzt ist.
+      const ranked = pickupRanking({ freeAgents: agents, mode: 'redraft', rosRankByKey: rosByKey })
+      return rosterUpgrades({ ranked, myPlayers: myRoster, rosRankByKey: rosByKey, rosterPositions: league.roster_positions || [] })
         .slice(0, 3)
         .map((p) => ({ ...p, leagueName }))
     },
@@ -293,7 +297,7 @@ export async function checkUserLeagues({ username, season, deps } = {}) {
       irOverflow: ir.overflow > 0,
     })
     try {
-      const picks = (await d.rosPicks({ league, rosters, meta, week })) || []
+      const picks = (await d.rosPicks({ league, rosters, meta, week, myRoster: roster })) || []
       for (const p of picks.slice(0, 3)) pickups.push(p)
     } catch { /* Degradation: Liga ohne Pickups */ }
   }

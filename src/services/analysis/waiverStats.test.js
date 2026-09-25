@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, lockedStarterSlots, irRecommendations } from './waiverStats'
+import { freeAgents, pickupRanking, streamingBoard, bestLineup, compareToActualStarters, matchKey, rosterUpgrades, lockedStarterSlots, irRecommendations } from './waiverStats'
 
 describe('matchKey', () => {
   it('returns NAME: for non-DEF positions', () => {
@@ -427,5 +427,57 @@ describe('compareToActualStarters', () => {
     expect(out.diffs).toContainEqual({ slot: 'RB', in: '2', name: 'RB Best' })
     // '3' ist aktueller Starter, taucht aber in keinem empfohlenen Slot auf -> "raus".
     expect(out.diffs).toContainEqual({ slot: null, out: '3' })
+  })
+})
+
+describe('rosterUpgrades', () => {
+  const ros = new Map([
+    ['TEAM:MIN', 6], ['TEAM:PIT', 8],
+    ['NAME:devin singletary', 78], ['NAME:tyjae spears', 52],
+  ])
+  const myPlayers = [
+    { sleeper_id: 'MIN', name: 'Minnesota Vikings', pos: 'DEF', team: 'MIN' },
+    { sleeper_id: '1', name: 'Devin Singletary', nname: 'devin singletary', pos: 'RB', team: 'NYG' },
+    { sleeper_id: '2', name: 'Tyjae Spears', nname: 'tyjae spears', pos: 'RB', team: 'TEN' },
+  ]
+  const positions = ['QB', 'RB', 'RB', 'WR', 'TE', 'FLEX', 'DEF', 'BN']
+
+  it('schlaegt keine DEF vor, die schlechter ist als die eigene (Steelers ROS 8 vs. Vikings ROS 6)', () => {
+    const ranked = [{ player_id: 'PIT', name: 'Pittsburgh Steelers', pos: 'DEF', team: 'PIT', value: 8 }]
+    expect(rosterUpgrades({ ranked, myPlayers, rosRankByKey: ros, rosterPositions: positions })).toEqual([])
+  })
+
+  it('misst am schwaechsten eigenen Spieler der Position und sortiert nach Abstand', () => {
+    const ranked = [
+      { player_id: 'PIT', name: 'Pittsburgh Steelers', pos: 'DEF', team: 'PIT', value: 8 },
+      { player_id: '9', name: 'RB Klein', pos: 'RB', value: 60 },
+      { player_id: '8', name: 'RB Gross', pos: 'RB', value: 30 },
+      { player_id: '7', name: 'RB Zu Schwach', pos: 'RB', value: 80 },
+    ]
+    const out = rosterUpgrades({ ranked, myPlayers, rosRankByKey: ros, rosterPositions: positions })
+    expect(out.map((p) => p.name)).toEqual(['RB Gross', 'RB Klein'])
+    expect(out[0].gain).toBe(48)
+  })
+
+  it('leere Position zaehlt nur, wenn die Liga sie aufstellen kann', () => {
+    const ranked = [
+      { player_id: '5', name: 'Ein TE', pos: 'TE', value: 12 },
+      { player_id: '6', name: 'Ein QB', pos: 'QB', value: 3 },
+    ]
+    expect(rosterUpgrades({ ranked, myPlayers, rosRankByKey: ros, rosterPositions: ['RB', 'FLEX', 'DEF'] }).map((p) => p.name)).toEqual(['Ein TE'])
+  })
+
+  it('IR/Taxi-Spieler sind kein Massstab, ungerankte eigene Spieler gelten als schwaechste', () => {
+    const mine = [
+      { sleeper_id: 'MIN', name: 'Minnesota Vikings', pos: 'DEF', team: 'MIN' },
+      { sleeper_id: '3', name: 'Ohne Rang', nname: 'ohne rang', pos: 'WR' },
+      { sleeper_id: '4', name: 'Verletzt', nname: 'verletzt', pos: 'TE', slot: 'ir' },
+    ]
+    const ranked = [
+      { player_id: '10', name: 'Irgendein WR', pos: 'WR', value: 90 },
+      { player_id: '11', name: 'Irgendein TE', pos: 'TE', value: 20 },
+    ]
+    expect(rosterUpgrades({ ranked, myPlayers: mine, rosRankByKey: ros, rosterPositions: positions }).map((p) => p.name))
+      .toEqual(['Irgendein TE', 'Irgendein WR'])
   })
 })
