@@ -10,7 +10,7 @@ import {
   selectedLeagueIds, gamesByTeam, buildMatchupTiles, buildPlayers, buildRedzoneAlerts, buildTicker, countsByGame,
 } from '../services/redzone/redzoneModel'
 import {
-  LeagueChips, GameStrip, MatchupRow, MyPlayers, OpponentsLive, RedzoneAlerts, ScoringTicker, Stamp,
+  LeagueChips, GameStrip, MatchupRow, PlayerTabs, OpponentsLive, RedzoneAlerts, ScoringTicker, Stamp,
 } from '../components/redzone/RedzoneParts'
 import Icon from '../components/Icon'
 import '../styles/redzone.css'
@@ -68,6 +68,7 @@ export default function RedzonePage() {
     return {
       tiles: buildMatchupTiles(args),
       mine,
+      opponents,
       opponentsLive: opponents.filter((p) => p.state === 'in'),
       alerts: buildRedzoneAlerts({ games: rz.games, mine, opponents }),
       ticker: buildTicker({ scoringPlaysByEvent: rz.scoringPlaysByEvent, mine, opponents, newPlayIds: rz.newPlayIds }),
@@ -99,7 +100,7 @@ export default function RedzonePage() {
         {rz.week && <span className="rz-muted">Week {rz.week}</span>}
         {(liveGames || liveCount) > 0 && <span className="rz-live">{liveGames || liveCount} LIVE</span>}
         <Stamp at={rz.lastUpdated} />
-        <button type="button" className="btn btn-secondary btn-sm" onClick={pollNow} disabled={rz.loading}>
+        <button type="button" className="btn btn-secondary btn-sm rz-refresh" onClick={pollNow} disabled={rz.loading}>
           <Icon name="refresh" size={14} /> Aktualisieren
         </button>
       </header>
@@ -113,10 +114,13 @@ export default function RedzonePage() {
         onToggle={(id) => rz.toggleLeague(allIds, id)}
         onSolo={(id) => rz.soloLeague(allIds, id)}
       />
-      <MatchupRow tiles={view.tiles} />
+      <div className="rz-section rz-mts"><div className="rz-h">Ligen</div><MatchupRow tiles={view.tiles} /></div>
 
-      <div className="rz-section rz-players"><div className="rz-h">Meine Spieler</div><MyPlayers players={view.mine} /></div>
-      <div className="rz-section rz-alerts"><div className="rz-h">Redzone</div><RedzoneAlerts alerts={view.alerts} /></div>
+      <div className="rz-section rz-players"><div className="rz-h">Meine Spieler</div><PlayerTabs mine={view.mine} opponents={view.opponents} /></div>
+      <div className="rz-section rz-alerts">
+        <div className="rz-h">Redzone{!view.alerts.length && <span className="rz-h-note"> · gerade ruhig</span>}</div>
+        <RedzoneAlerts alerts={view.alerts} />
+      </div>
       <div className="rz-section rz-opps"><div className="rz-h">Gegner live</div><OpponentsLive players={view.opponentsLive} /></div>
       <div className="rz-section rz-ticker"><div className="rz-h">Scoring</div><ScoringTicker items={view.ticker} /></div>
     </section>

@@ -159,6 +159,15 @@ dazugemischt, wenn die gezeigte Woche die laufende ist. `useWeeklyRankingsStore`
 Sleeper-Projektionen pro Woche (`sleeperWeekByKey` / `getSleeperWeekMap`) — `sleeperWeekById`
 zeigt immer nur auf die *zuletzt* geladene Woche und ist beim Blättern nicht verlässlich.
 
+Redzone mobil ist auf "alles Wichtige auf einen Bildschirm" gebaut: Reihenfolge Redzone-Alarm
+(eine kompakte Zeile je Spiel, Beteiligte mit Punkten) → Ligen (eine Zeile je Liga, kein
+seitliches Scrollen) → Scoring (letzte 5, Rest aufklappbar) → Spieler als Reiter
+(`PlayerTabs`: Live / Noch nicht / Fertig / Gegner) → Spielleiste. Die Reiter sind reines CSS
+(Desktop blendet die Leiste aus und zeigt "Gegner live" rechts) — kein `matchMedia`.
+Die Punkte je Scoring-Play schaetzt `services/redzone/playPoints.js` aus dem ESPN-Text und
+`league.scoring_settings` (TD + Yards des Plays + Reception, keine Bonus-Regeln; mehrere Ligen
+→ hoechster Wert). Unbekanntes Textformat → keine Zahl statt einer geratenen.
+
 Der Liga-Filter (`LeagueChips` aus `components/redzone/RedzoneParts.jsx`) wird geteilt, die
 abgewählten IDs aber je Seite getrennt persistiert (`sdh-redzone-v1` / `sdh-weekly-v1`).
 

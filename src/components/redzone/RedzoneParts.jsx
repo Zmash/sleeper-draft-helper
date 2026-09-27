@@ -99,32 +99,36 @@ export function GameStrip({ games, counts = {} }) {
 }
 
 // ── Matchups ────────────────────────────────────────────────────────────────
+// Eine Zeile je Liga statt Kachel: alle Ligen auf einen Blick, ohne seitlich zu
+// scrollen. Gegnername und offene Starter haengen am title.
 
 export function MatchupRow({ tiles }) {
   if (!tiles.length) return null
   return (
-    <div className="rz-matchups">
+    <div className="rz-card rz-matchups">
       {tiles.map((t) => (
-        <div key={t.leagueId} className="rz-mt">
-          <div className="rz-mt-top">
-            <SleeperAvatar avatar={t.leagueAvatar} name={t.leagueName} size={16} />
-            <span className="rz-mt-name">{t.leagueName}</span>
-            {!t.error && <span className="rz-mt-open"><span className="rz-num">{t.myOpen} · {t.oppOpen}</span> offen</span>}
-          </div>
+        <div
+          key={t.leagueId}
+          className="rz-mt"
+          title={t.error ? undefined : [t.opponentName && `gegen ${t.opponentName}`, `offen: ${t.myOpen} ich · ${t.oppOpen} Gegner`].filter(Boolean).join(' · ')}
+        >
+          <SleeperAvatar avatar={t.leagueAvatar} name={t.leagueName} size={16} />
+          <span className="rz-mt-name">{t.leagueName}</span>
           {t.error ? (
-            <div className="rz-mt-error">Matchup nicht geladen ({t.error})</div>
+            <span className="rz-mt-error">nicht geladen</span>
           ) : (
             <>
-              <div className="rz-mt-score" title={t.opponentName ? `gegen ${t.opponentName}` : undefined}>
-                <span className="rz-num rz-mt-me">{pts(t.myPoints)}</span>
-                <span className="rz-mt-vs">:</span>
-                <span className="rz-num rz-mt-opp">{pts(t.opponentPoints)}</span>
-                <span className={cx('rz-num rz-mt-pct', t.myWinPct >= 50 ? 'is-good' : 'is-bad')}>{t.myWinPct}%</span>
-              </div>
-              <div className="rz-bar" aria-hidden="true">
-                <span><i className="rz-bar-me" style={{ width: `${t.myWinPct}%` }} /></span>
-                <span><i className="rz-bar-opp" style={{ width: `${100 - t.myWinPct}%` }} /></span>
-              </div>
+              <span className="rz-num rz-mt-open" aria-label={`offen: ${t.myOpen} ich, ${t.oppOpen} Gegner`}>{t.myOpen}·{t.oppOpen}</span>
+              <span className="rz-num rz-mt-score">
+                <b className={cx(t.myPoints >= t.opponentPoints && 'is-lead')}>{pts(t.myPoints)}</b>
+                <span className="rz-mt-vs">–</span>
+                <span>{pts(t.opponentPoints)}</span>
+              </span>
+              <span className={cx('rz-num rz-mt-pct', t.myWinPct >= 50 ? 'is-good' : 'is-bad')}>{t.myWinPct}%</span>
+              <span className="rz-bar" aria-hidden="true">
+                <i className="rz-bar-me" style={{ width: `${t.myWinPct}%` }} />
+                <i className="rz-bar-opp" style={{ width: `${100 - t.myWinPct}%` }} />
+              </span>
             </>
           )}
         </div>
@@ -172,22 +176,22 @@ const GROUPS = [
   { key: 'none', label: 'Kein Spiel' },
 ]
 
+function GroupedList({ players, groups = GROUPS, variant }) {
+  return groups.map(({ key, label }) => {
+    const list = players.filter((p) => p.state === key)
+    if (!list.length) return null
+    return (
+      <div key={key}>
+        <div className={cx('rz-group', key === 'in' && 'is-live')}>{label}</div>
+        {list.map((p) => <PlayerRow key={p.playerId} player={p} variant={variant} />)}
+      </div>
+    )
+  })
+}
+
 export function MyPlayers({ players }) {
   if (!players.length) return <div className="rz-empty">Keine Starter in den gewählten Ligen.</div>
-  return (
-    <div className="rz-card rz-list">
-      {GROUPS.map(({ key, label }) => {
-        const list = players.filter((p) => p.state === key)
-        if (!list.length) return null
-        return (
-          <div key={key}>
-            <div className={cx('rz-group', key === 'in' && 'is-live')}>{label}</div>
-            {list.map((p) => <PlayerRow key={p.playerId} player={p} />)}
-          </div>
-        )
-      })}
-    </div>
-  )
+  return <div className="rz-card rz-list"><GroupedList players={players} /></div>
 }
 
 export function OpponentsLive({ players }) {
@@ -199,46 +203,135 @@ export function OpponentsLive({ players }) {
   )
 }
 
-// ── Redzone-Alarm & Ticker ──────────────────────────────────────────────────
+// Mobil: Reiter statt einer langen Liste. "Fertig" nimmt auch Spieler ohne
+// Spiel mit, "Gegner" zeigt alle gegnerischen Starter nach Status. Am Desktop
+// blendet redzone.css die Leiste aus und zeigt die eigenen Gruppen untereinander
+// (Gegner live stehen dort in der rechten Spalte) -- reines CSS, kein matchMedia.
+const TABS = [
+  { key: 'in', label: 'Live', of: (mine) => mine.filter((p) => p.state === 'in') },
+  { key: 'pre', label: 'Noch nicht', of: (mine) => mine.filter((p) => p.state === 'pre') },
+  { key: 'post', label: 'Fertig', of: (mine) => mine.filter((p) => p.state === 'post' || p.state === 'none') },
+  { key: 'opp', label: 'Gegner', of: (_, opps) => opps },
+]
 
-const names = (list) => list.map((p) => p.name).join(' · ')
-
-export function RedzoneAlerts({ alerts }) {
-  if (!alerts.length) return <div className="rz-empty">Gerade keine Redzone mit deinen oder gegnerischen Startern.</div>
-  return alerts.map(({ game, mine, opponents }) => {
-    const other = game.possessionAbbr === game.home.abbr ? game.away : game.home
-    const own = game.possessionAbbr === game.home.abbr ? game.home : game.away
-    return (
-      <div key={game.id} className="rz-card rz-alert" role="status">
-        <div className="rz-alert-top">
-          <span className="rz-tag rz-tag--lg">REDZONE</span>
-          <span className="rz-alert-team">{own.abbr}</span>
-          <span className="rz-num rz-muted">{own.score}–{other.score} {other.abbr}</span>
-          <span className="rz-num rz-alert-clock">{gameClock(game)}</span>
-        </div>
-        {game.downDistance && <div className="rz-num rz-alert-dd">{game.downDistance}</div>}
-        {game.lastPlay && <div className="rz-alert-last">{game.lastPlay}</div>}
-        {mine.length > 0 && <div className="rz-alert-inv"><span className="rz-side rz-side--me">MEINE</span><span>{names(mine)}</span></div>}
-        {opponents.length > 0 && <div className="rz-alert-inv"><span className="rz-side rz-side--opp">GEGNER</span><span>{names(opponents)}</span></div>}
+export function PlayerTabs({ mine, opponents }) {
+  const [picked, setPicked] = useState(null)
+  const lists = Object.fromEntries(TABS.map((t) => [t.key, t.of(mine, opponents)]))
+  const active = picked || TABS.find((t) => t.key !== 'opp' && lists[t.key].length)?.key || 'in'
+  return (
+    <div className="rz-ptabs-wrap">
+      <div className="tabs rz-ptabs" role="tablist" aria-label="Spieler">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={active === t.key}
+            className={cx('tab', active === t.key && 'active', t.key === 'in' && lists.in.length > 0 && 'tab--live')}
+            onClick={() => setPicked(t.key)}
+          >
+            {t.label} <span className="rz-num rz-tab-n">{lists[t.key].length}</span>
+          </button>
+        ))}
       </div>
-    )
-  })
+      {!mine.length ? (
+        <div className="rz-empty">Keine Starter in den gewählten Ligen.</div>
+      ) : (
+        <div className="rz-card rz-list">
+          {TABS.filter((t) => t.key !== 'opp').map((t) => (
+            <div key={t.key} className={cx('rz-pane', active === t.key && 'is-active')} role="tabpanel">
+              {t.key === 'post'
+                ? <GroupedList players={lists.post} groups={GROUPS.slice(2)} />
+                : <GroupedList players={lists[t.key]} groups={GROUPS.filter((g) => g.key === t.key)} />}
+              {!lists[t.key].length && <div className="rz-empty rz-pane-empty">Niemand.</div>}
+            </div>
+          ))}
+          <div className={cx('rz-pane rz-pane--opp', active === 'opp' && 'is-active')} role="tabpanel">
+            {opponents.length
+              ? <GroupedList players={opponents} variant="opp" />
+              : <div className="rz-empty rz-pane-empty">Keine gegnerischen Starter.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
-export function ScoringTicker({ items }) {
+// ── Redzone-Alarm & Ticker ──────────────────────────────────────────────────
+
+// "Ja'Marr Chase" -> "J. Chase": Namen in Chips muessen auf eine Handy-Zeile passen.
+export function shortName(name) {
+  const parts = String(name || '').trim().split(/\s+/)
+  if (parts.length < 2) return parts[0] || ''
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
+const signed = (n) => (n == null ? null : `+${Number(n).toFixed(1)}`)
+
+function Who({ player, side, value }) {
+  return (
+    <span className={cx('rz-who', side === 'opp' ? 'rz-who--opp' : 'rz-who--me')} title={player.name}>
+      {player.pos === 'DEF' ? player.team : shortName(player.name)}
+      {value != null && <b className="rz-num">{value}</b>}
+    </span>
+  )
+}
+
+// Eine kompakte Karte je Redzone-Spiel: wer ist dran, wie steht es, und wie
+// viele Punkte haben meine / gegnerische Beteiligte schon.
+export function RedzoneAlerts({ alerts }) {
+  if (!alerts.length) return null
+  return (
+    <div className="rz-card rz-alert-list">
+      {alerts.map(({ game, mine, opponents }) => {
+        const other = game.possessionAbbr === game.home.abbr ? game.away : game.home
+        const own = game.possessionAbbr === game.home.abbr ? game.home : game.away
+        return (
+          <div key={game.id} className="rz-alert" role="status" title={game.lastPlay || undefined}>
+            <div className="rz-alert-top">
+              <span className="rz-tag">RZ</span>
+              <span className="rz-alert-team">{own.abbr}</span>
+              <span className="rz-num rz-muted">{own.score}–{other.score} {other.abbr}</span>
+              {game.downDistance && <span className="rz-num rz-alert-dd">{game.downDistance}</span>}
+              <span className="rz-num rz-alert-clock">{gameClock(game)}</span>
+            </div>
+            <div className="rz-alert-inv">
+              {mine.map((p) => <Who key={p.playerId} player={p} side="me" value={pts(p.points)} />)}
+              {opponents.map((p) => <Who key={p.playerId} player={p} side="opp" value={pts(p.points)} />)}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const TICKER_LIMIT = 5
+
+export function ScoringTicker({ items, limit = TICKER_LIMIT }) {
+  const [all, setAll] = useState(false)
   if (!items.length) return <div className="rz-empty">Noch keine Scores deiner oder gegnerischer Starter.</div>
+  const shown = all ? items : items.slice(0, limit)
   return (
     <div className="rz-card rz-list">
-      {items.map(({ play, mine, opponents, isNew }) => (
+      {shown.map(({ play, mine, opponents, pts: gained = {}, isNew }) => (
         <div key={play.id} className={cx('rz-tick', isNew && 'is-new')}>
           <div className="rz-num rz-tick-when">Q{play.period}<br />{play.clock}</div>
-          <div className="rz-tick-what">{play.text}<span>{play.teamAbbr} · {play.type}</span></div>
-          <div className="rz-tick-imp">
-            {mine.length > 0 && <span className="rz-cnt rz-cnt--me">{names(mine)}</span>}
-            {opponents.length > 0 && <span className="rz-cnt rz-cnt--opp">{names(opponents)}</span>}
+          <div className="rz-tick-main">
+            <div className="rz-tick-who">
+              {play.type && <span className="rz-tick-type">{play.type}</span>}
+              {mine.map((p) => <Who key={p.playerId} player={p} side="me" value={signed(gained[p.playerId])} />)}
+              {opponents.map((p) => <Who key={p.playerId} player={p} side="opp" value={signed(gained[p.playerId])} />)}
+            </div>
+            <div className="rz-tick-what" title={play.text}>{play.teamAbbr} · {play.text}</div>
           </div>
         </div>
       ))}
+      {items.length > limit && (
+        <button type="button" className="rz-more" onClick={() => setAll((v) => !v)}>
+          {all ? 'Weniger' : `Alle ${items.length} anzeigen`}
+        </button>
+      )}
     </div>
   )
 }

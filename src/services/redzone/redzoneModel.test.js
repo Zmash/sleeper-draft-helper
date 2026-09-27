@@ -226,5 +226,6 @@ describe('buildTicker', () => {
     expect(items.map((i) => i.play.id)).toEqual(['b', 'c'])
     expect(items[0].isNew).toBe(true)
     expect(items[1].mine.map((p) => p.playerId)).toEqual(['G'])
+    expect(items[1].pts).toEqual({ G: 6.1 })
   })
 })

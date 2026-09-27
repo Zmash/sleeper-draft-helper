@@ -3,6 +3,7 @@
 import { computeMatchupProbability } from '../analysis/matchupProbability'
 import { isRuledOut, liveStarterTotals } from '../analysis/matchupProjection'
 import { autoSubRules, readAutoSubs, applyAutoSubs } from '../analysis/autoSub'
+import { playPoints } from './playPoints'
 
 // ── Liga-Filter ─────────────────────────────────────────────────────────────
 // Gespeichert werden ABGEWAEHLTE IDs, damit neue Ligen automatisch aktiv sind.
@@ -169,7 +170,7 @@ export function buildPlayers({ leagueData = [], myUserId, byTeam, playersMeta, p
     if (pts != null) e.points = Math.max(e.points ?? -Infinity, pts)
     const proj = projectPlayer(d.league, id)
     if (proj != null) e.projected = Math.max(e.projected ?? -Infinity, proj)
-    e.leagues.push({ leagueId: d.league.league_id, leagueName: d.league.name })
+    e.leagues.push({ leagueId: d.league.league_id, leagueName: d.league.name, scoring: d.league.scoring_settings || null })
     map.set(id, e)
   }
   for (const d of leagueData) {
@@ -241,7 +242,10 @@ export function buildTicker({ scoringPlaysByEvent = {}, mine = [], opponents = [
     for (const play of plays) {
       const m = matchScoringPlay(play, mine)
       const o = matchScoringPlay(play, opponents)
-      if (m.length || o.length) items.push({ play, mine: m, opponents: o, isNew: fresh.has(play.id) })
+      if (!m.length && !o.length) continue
+      // Geschaetzte Punkte je Beteiligtem (playPoints.js); null = nicht zuordenbar.
+      const pts = Object.fromEntries([...m, ...o].map((p) => [p.playerId, playPoints(play, p)]))
+      items.push({ play, mine: m, opponents: o, pts, isNew: fresh.has(play.id) })
     }
   }
   // ponytail: Reihenfolge ueber Viertel + Restzeit, nicht Echtzeit -- parallel
