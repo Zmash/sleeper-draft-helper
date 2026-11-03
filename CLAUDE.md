@@ -44,6 +44,10 @@ noch in `apiRoutes.js`.** AI-Modell-Default: `claude-sonnet-5` (`SDH_MODEL` übe
 - `POST /api/ai-advice`, `POST /api/ai-draft-review`, `POST /api/ai-trade` — all return **SSE streams** with `event: text | result | error`.
 - `GET /api/scores`, `POST /api/score` — Field-Goal-Highscores (Easter Egg, no key needed; JSON file via `SDH_SCORES_FILE`, profanity filter `@2toad/profanity` + DE supplement, IP rate limit).
 - `POST /api/news/signals` — Jev-News-Markierungen (Server-Key, siehe unten).
+- `GET /api/assistant/summary` — Ligen-Überblick für Aurora (Darios Sprachassistent), `src/server/assistantSummary.js`:
+  `checkUserLeagues` plus Platz, Bilanz und Gegner der Woche. Nur mit `Authorization: Bearer <SDH_ASSISTANT_TOKEN>`
+  (zeitkonstanter Vergleich), Benutzer fest aus `SDH_ASSISTANT_USERNAME`, 30/h pro IP, 10 min Cache.
+  Fehlt eine der beiden Variablen, antwortet die Route mit 404. Kein Freitext, kein Jev/Claude.
 
 `prod.js` setzt `trust proxy` (ein Hop, Nginx Proxy Manager). Ohne das ist `req.ip`
 die Proxy-Adresse und jedes IP-Rate-Limit zählt alle Besucher als einen.

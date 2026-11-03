@@ -9,6 +9,7 @@ import {
   JEV_FILE, DEFAULT_DAILY_TOKENS, readJevStore, writeJevStore,
   validateSignalPlayers, cleanSignalPlayers, evaluatePlayers,
 } from './jevNews.js'
+import { buildAssistantSummary, tokenMatches } from './assistantSummary.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -446,6 +447,9 @@ export function checkScoreRateLimit(store, ip, now = Date.now()) {
 
 export const SIGNALS_RATE_LIMIT = 60
 export const SIGNALS_RATE_WINDOW_MS = 10 * 60 * 1000
+export const ASSISTANT_RATE_LIMIT = 30
+export const ASSISTANT_RATE_WINDOW_MS = 60 * 60 * 1000
+export const ASSISTANT_CACHE_MS = 10 * 60 * 1000
 
 export function registerApiRoutes(app, {
   model = DEFAULT_MODEL,
@@ -453,6 +457,10 @@ export function registerApiRoutes(app, {
   jevFile = JEV_FILE,
   openrouterKey = process.env.SDH_OPENROUTER_KEY || null,
   jevDailyTokens = Number(process.env.SDH_JEV_DAILY_TOKENS) || DEFAULT_DAILY_TOKENS,
+  // Aurora-Assistent: ohne Token oder Benutzername ist die Route aus (404).
+  assistantToken = process.env.SDH_ASSISTANT_TOKEN || null,
+  assistantUsername = process.env.SDH_ASSISTANT_USERNAME || null,
+  assistantSummary = buildAssistantSummary,
 } = {}) {
   const MODEL = model
 
@@ -785,6 +793,34 @@ export function registerApiRoutes(app, {
       budgetExhausted: result.budgetExhausted,
       signals: result.signals,
     })
+  })
+
+  // ---------- Aurora-Assistent: Ligen-Ueberblick ----------
+  // Nur fuer Dario: Bearer-Token aus SDH_ASSISTANT_TOKEN, Benutzername fest
+  // aus SDH_ASSISTANT_USERNAME (kein Parameter, also kein Abruf fremder
+  // Konten). Kein Freitext, kein Jev/Claude. Ergebnis 10 min im Speicher.
+  const assistantRateStore = new Map()
+  let assistantCache = null // { at, data }
+  app.get('/api/assistant/summary', async (req, res) => {
+    if (!assistantToken || !assistantUsername) return res.status(404).end()
+    if (checkRateLimit(assistantRateStore, req.ip, ASSISTANT_RATE_LIMIT, ASSISTANT_RATE_WINDOW_MS)) {
+      return res.status(429).json({ ok: false, error: 'Zu viele Anfragen.' })
+    }
+    if (!tokenMatches(req.get?.('authorization') ?? req.headers?.authorization, assistantToken)) {
+      return res.status(401).json({ ok: false, error: 'Nicht berechtigt.' })
+    }
+    res.set('Cache-Control', 'no-store')
+    if (assistantCache && Date.now() - assistantCache.at < ASSISTANT_CACHE_MS) {
+      return res.json(assistantCache.data)
+    }
+    try {
+      const data = await assistantSummary({ username: assistantUsername })
+      assistantCache = { at: Date.now(), data }
+      res.json(data)
+    } catch (err) {
+      console.warn('[assistant] Zusammenfassung fehlgeschlagen:', err?.message)
+      res.status(502).json({ ok: false, error: 'Daten gerade nicht verfügbar.' })
+    }
   })
 
   // ---------- Rankings: KTC Rookies ----------
