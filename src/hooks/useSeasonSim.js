@@ -28,18 +28,20 @@ function rosterLabel(rosterId, { ownerLabels, rosterToUserMap }) {
 
 // R3: Sync-Fallback fuer WebViews ohne Worker — gleiche Sims, gechunkt mit
 // Yield pro Chunk, damit die UI nicht einfriert.
-async function runInline({ strengthsPayload, schedule, playoffTeams, dynastyTotals, playoffStrengths, sims, seed, onProgress, isAlive }) {
+async function runInline({ strengthsPayload, schedule, playoffTeams, dynastyTotals, playoffStrengths, baseWins, pointsFor, sims, seed, onProgress, isAlive }) {
   const { simulateSeason, aggregateOdds, SIM_CHUNK } = await import('../services/analysis/seasonSim')
   const strengthsByWeek = new Map(strengthsPayload.map(([w, rows]) => [Number(w), new Map(rows)]))
   const dynMap = dynastyTotals ? new Map(dynastyTotals) : null
   const playoffMap = playoffStrengths ? new Map(playoffStrengths) : null
+  const baseMap = baseWins ? new Map(baseWins) : null
+  const pfMap = pointsFor ? new Map(pointsFor) : null
   const rosterIds = [...new Set(schedule.flatMap((g) => [g.a, g.b]))]
   const results = []
   for (let done = 0; done < sims; done += SIM_CHUNK) {
     if (!isAlive()) return null
     const n = Math.min(SIM_CHUNK, sims - done)
     for (let i = 0; i < n; i++) {
-      results.push(simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed: seed + done + i, dynastyTotals: dynMap, playoffStrengths: playoffMap }))
+      results.push(simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed: seed + done + i, dynastyTotals: dynMap, playoffStrengths: playoffMap, baseWins: baseMap, pointsFor: pfMap }))
     }
     onProgress({ done: Math.min(done + n, sims), total: sims })
     await new Promise((r) => setTimeout(r, 0))
@@ -196,12 +198,17 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
       const rankMapsByTeam = new Map(
         teams.map((t) => [t.rosterId, buildIdRankMaps({ rosterPlayers: t.rosterPlayers, getRankMap: fresh.getRankMap })])
       )
-      // Echte Tabellenstände für die projizierte Endbilanz (V1: Seeding bleibt
-      // vereinfacht auf Sim-Siegen, siehe Spec — V1.1-Kandidat).
-      // Ties ignoriert (kein Standard-Format).
-      const winsBase = new Map(
-        (rawRosters || []).map((r) => [String(r.roster_id), Number(r.settings?.wins) || 0])
-      )
+      // Echte Tabellenstände: Startwert der Sim-Siege (Seeding!) und Tiebreak.
+      // Ties zaehlen als gespielt, aber nicht als Sieg.
+      const winsBase = (rawRosters || []).map((r) => [String(r.roster_id), Number(r.settings?.wins) || 0])
+      const pointsForBase = (rawRosters || []).map((r) => [
+        String(r.roster_id),
+        (Number(r.settings?.fpts) || 0) + (Number(r.settings?.fpts_decimal) || 0) / 100,
+      ])
+      const playedById = new Map((rawRosters || []).map((r) => [
+        String(r.roster_id),
+        (Number(r.settings?.wins) || 0) + (Number(r.settings?.losses) || 0) + (Number(r.settings?.ties) || 0),
+      ]))
       // Rest-Spielplan: Matchups currentWeek..playoffWeekStart-1, Fehler pro
       // Woche werden geschluckt (Woche fehlt dann im Schedule = dokumentierte
       // „reduzierte Genauigkeit", kein harter Fehler).
@@ -267,9 +274,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         })
         return [t.rosterId, s.points]
       })
-      // Spiele je Team (fuer Record-Format) + mittleres Rating (fuer
+      // Spiele je Team (bisher + Rest, fuer Record-Format) + mittleres Rating (fuer
       // Rating-Spalte) aus Schedule bzw. Wochen-Staerken.
-      const gamesByTeam = new Map()
+      const gamesByTeam = new Map(playedById)
       for (const g of schedule) {
         gamesByTeam.set(g.a, (gamesByTeam.get(g.a) || 0) + 1)
         gamesByTeam.set(g.b, (gamesByTeam.get(g.b) || 0) + 1)
@@ -330,9 +337,9 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
           rosterId: String(r.rosterId),
           name: rosterLabel(r.rosterId, { ownerLabels, rosterToUserMap: map }),
           isMine: String(mine ?? '') === String(r.rosterId),
-            winsAvg: r.winsAvg + (winsBase.get(String(r.rosterId)) || 0),
-            games: gamesByTeam.get(String(r.rosterId)) || 0,
-            rating: ratingOf(r.rosterId),
+          winsAvg: r.winsAvg,
+          games: gamesByTeam.get(String(r.rosterId)) || 0,
+          rating: ratingOf(r.rosterId),
           playoffPct: r.playoffPct,
           byePct: r.byePct,
           titlePct: r.titlePct,
@@ -353,6 +360,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         const inline = await runInline({
           strengthsPayload: effStrengthsPayload, schedule, playoffTeams, dynastyTotals: dynastyTotalsPayload,
           playoffStrengths: effPlayoff,
+          baseWins: winsBase, pointsFor: pointsForBase,
           sims: DEFAULT_SIMS, seed: Date.now() % 100000,
           onProgress: (p) => { if (alive()) setProgress(p) },
           isAlive: alive,
@@ -385,7 +393,7 @@ export function useSeasonSim({ league, seasonYear, scoringType, rosterPositions,
         type: 'run',
         // Worker-Protokoll: strengthsByWeek (Array-Paare) — der Worker liest
         // p.strengthsByWeek; falscher Key = leere Map = alle W-L bei 7.
-        payload: { strengthsByWeek: effStrengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload, playoffStrengths: effPlayoff },
+        payload: { strengthsByWeek: effStrengthsPayload, schedule, playoffTeams, sims: DEFAULT_SIMS, seed: Date.now() % 100000, dynastyTotals: dynastyTotalsPayload, playoffStrengths: effPlayoff, baseWins: winsBase, pointsFor: pointsForBase },
       })
     } catch (e) {
       console.warn('[useSeasonSim] failed', e)

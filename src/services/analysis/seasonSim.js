@@ -63,10 +63,16 @@ export function pointsFieldFor(scoringType) {
 // mit der Last-Week-Staerke simuliert wird (keine wochen-spezifischen
 // Projektionen im Baum -- V1-Vereinfachung, im Spec dokumentiert).
 // Freilose nach byeCountFor (6 Teams -> Top-2-Seeds).
-export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null, playoffStrengths = null }) {
+// baseWins: bereits gespielte Siege (Sleeper roster.settings.wins) — ohne sie
+// startet ein 2-7-Team gleichauf mit einem 8-1-Team. pointsFor: bisherige
+// Punkte als Tiebreak (Sleeper-Standard), vor der Kader-Staerke.
+export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, dynastyTotals = null, playoffStrengths = null, baseWins = null, pointsFor = null }) {
   const rng = mulberry32(seed)
   const teams = Math.max(2, Number(playoffTeams) || 2)
   const wins = new Map()
+  if ((schedule || []).length) {
+    for (const [id, w] of baseWins || []) wins.set(String(id), Number(w) || 0)
+  }
   const strengthOf = (week, id) => {
     const w = strengthsByWeek?.get(week)
     const v = w?.get(String(id))
@@ -98,6 +104,8 @@ export function simulateSeason({ strengthsByWeek, schedule, playoffTeams, seed, 
   const ranked = [...ids].sort((x, y) => {
     const dw = wins.get(y) - wins.get(x)
     if (dw !== 0) return dw
+    const dp = (Number(pointsFor?.get(y)) || 0) - (Number(pointsFor?.get(x)) || 0)
+    if (dp !== 0) return dp
     return bracketStrengthOf(y) - bracketStrengthOf(x)
   })
   const cut = ranked.slice(0, Math.min(teams, ranked.length))

@@ -101,6 +101,27 @@ describe('simulateSeason', () => {
     expect(['1', '2']).toContain(r.champion)
     expect(r.topSeeds[0]).toBe('1')
   })
+  it('baseWins zaehlen fuers Seeding: 8-1 bleibt vor 2-7 trotz schwaecherem Kader', () => {
+    const base = new Map([['1', 2], ['2', 8]])
+    for (let s = 0; s < 20; s++) {
+      const r = simulateSeason({ strengthsByWeek, schedule, playoffTeams: 2, seed: s, baseWins: base })
+      expect(r.topSeeds[0]).toBe('2')
+      expect(r.wins.get('2')).toBeGreaterThanOrEqual(8)
+    }
+  })
+  it('pointsFor bricht Siegesgleichstand vor der Kader-Staerke', () => {
+    // 5 vs 6 Siege, ein Restspiel: gewinnt 1 -> 6:6 (PF entscheidet fuer 2),
+    // sonst 5:7. Ohne PF-Tiebreak gewaenne bei 6:6 der staerkere Kader 1.
+    const base = new Map([['1', 5], ['2', 6]])
+    const pf = new Map([['1', 900], ['2', 1200]])
+    let ties = 0
+    for (let s = 0; s < 20; s++) {
+      const r = simulateSeason({ strengthsByWeek, schedule: [{ week: 1, a: '1', b: '2' }], playoffTeams: 2, seed: s, baseWins: base, pointsFor: pf })
+      if (r.wins.get('1') === r.wins.get('2')) ties++
+      expect(r.topSeeds[0]).toBe('2')
+    }
+    expect(ties).toBeGreaterThan(0)
+  })
   it('leerer Schedule ergibt 0 Siege und keinen Champion', () => {
     const r = simulateSeason({ strengthsByWeek, schedule: [], playoffTeams: 2, seed: 1 })
     expect(r.wins.size).toBe(0)
